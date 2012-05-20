@@ -61,11 +61,6 @@ void initBaseLib(CrocThread* t)
 	registerGlobals(t, _weakrefFuncs);
 	registerGlobals(t, _reflFuncs);
 
-		newTable(t);
-		dup(t);
-		dup(t);
-	registerGlobals(t, _attrFuncs);
-
 	registerGlobals(t, _convFuncs);
 	registerGlobals(t, _consoleFuncs);
 
@@ -77,9 +72,9 @@ version(CrocBuiltinDocs) void docBaseLib(CrocThread* t)
 {
 	scope doc = new CrocDoc(t, __FILE__);
 	doc.push(Docs("module", "Base Library",
-	"The base library is a set of functions dealing with some language aspects which aren't covered
+	`The base library is a set of functions dealing with some language aspects which aren't covered
 	by the syntax of the language, as well as miscellaneous functions that don't really fit anywhere
-	else. The base library is always loaded when you create an instance of the Croc VM."));
+	else. The base library is always loaded when you create an instance of the Croc VM.`));
 
 	getTypeMT(t, CrocValue.Type.Function);
 		docFields(t, doc, _funcMetatableDocs);
@@ -512,62 +507,6 @@ uword _Finalizable(CrocThread* t)
 }
 
 // ===================================================================================================================================
-// Attributes
-
-const RegisterFunc[] _attrFuncs =
-[
-	{"attrs",         &_attrs,         maxParams: 2, numUpvals: 1},
-	{"hasAttributes", &_hasAttributes, maxParams: 1, numUpvals: 1},
-	{"attributesOf",  &_attributesOf,  maxParams: 1, numUpvals: 1}
-];
-
-uword _attrs(CrocThread* t)
-{
-	checkAnyParam(t, 2);
-
-	// ORDER CROCVALUE TYPE
-	if(type(t, 1) <= CrocValue.Type.String)
-		paramTypeError(t, 1, "non-string reference type");
-
-	if(!isNull(t, 2) && !isTable(t, 2))
-		paramTypeError(t, 2, "null|table");
-
-	// TODO: make this use a weak key table
-	getUpval(t, 0);
-	pushWeakRef(t, 1);
-	dup(t, 2);
-	idxa(t, -3);
-	pop(t);
-
-	setStackSize(t, 2);
-	return 1;
-}
-
-uword _hasAttributes(CrocThread* t)
-{
-	checkAnyParam(t, 1);
-
-	getUpval(t, 0);
-	pushWeakRef(t, 1);
-	pushBool(t, opin(t, -1, -2));
-	return 1;
-}
-
-uword _attributesOf(CrocThread* t)
-{
-	checkAnyParam(t, 1);
-
-	// ORDER CROCVALUE TYPE
-	if(type(t, 1) <= CrocValue.Type.String)
-		paramTypeError(t, 1, "non-string reference type");
-
-	getUpval(t, 0);
-	pushWeakRef(t, 1);
-	idx(t, -2);
-	return 1;
-}
-
-// ===================================================================================================================================
 // Conversions
 
 const RegisterFunc[] _convFuncs =
@@ -979,89 +918,91 @@ uword _dumpVal(CrocThread* t)
 version(CrocBuiltinDocs) const Docs[] _funcMetatableDocs =
 [
 	{kind: "function", name: "isNative", docs:
-	"Returns a bool telling if the function is implemented in native code or in Croc.",
+	`\returns a bool telling if the function is implemented in native code or in Croc.`,
 	extra: [Extra("section", "Function metamethods")]},
 
 	{kind: "function", name: "numParams", docs:
-	"Returns an integer telling how many ''non-variadic'' parameters the function takes.",
+	`\returns an integer telling how many \em{non-variadic} parameters the function takes.`,
 	extra: [Extra("section", "Function metamethods")]},
 
 	{kind: "function", name: "maxParams", docs:
-	"Returns an integer of how many parameters this function this may be passed without throwing an error.
+	`\returns an integer of how many parameters this function this may be passed without throwing an error.
 	Passing more parameters than this will guarantee that an error is thrown. Variadic functions will
-	simply return a very large number from this method.",
+	simply return a very large number from this method.`,
 	extra: [Extra("section", "Function metamethods")]},
 
 	{kind: "function", name: "isVararg", docs:
-	"Returns a bool telling whether or not the function takes variadic parameters.",
+	`\returns a bool telling whether or not the function takes variadic parameters.`,
 	extra: [Extra("section", "Function metamethods")]},
 
 	{kind: "function", name: "isCacheable", docs:
-	"Returns a bool telling whether or not a function is cacheable. Cacheable functions are script functions
+	`\returns a bool telling whether or not a function is cacheable. Cacheable functions are script functions
 	which have no upvalues, generally speaking. A cacheable function only has a single function closure object
 	allocated for it during its lifetime. Only script functions can be cacheable; native functions always
-	return false.",
+	return false.`,
 	extra: [Extra("section", "Function metamethods")]}
 ];
 
 version(CrocBuiltinDocs) const Docs[] _docTables =
 [
 	{kind: "function", name: "weakref", docs:
-	"This function is used to create weak reference objects. If the given object is a value type (null, bool, int,
+	`This function is used to create weak reference objects. If the given object is a value type (null, bool, int,
 	float, or char), it simply returns them as-is. Otherwise returns a weak reference object that refers to the
 	object. For each object, there will be exactly one weak reference object that refers to it. This means that if
-	two objects are identical, their weak references will be identical and vice versa. ",
+	two objects are identical, their weak references will be identical and vice versa.`,
 	params: [Param("obj")],
 	extra: [Extra("section", "Weak References"), Extra("protection", "global")]},
 
 	{kind: "function", name: "deref", docs:
-	"The parameter types for this might look a bit odd, but it's because this function acts as the inverse of
-	'''`weakref()`'''. If you pass a value type into the function, it will return it as-is. Otherwise, it will
+	`The parameter types for this might look a bit odd, but it's because this function acts as the inverse of
+	\link{weakref}. If you pass a value type into the function, it will return it as-is. Otherwise, it will
 	dereference the weak reference and return that object. If the object that the weak reference referred to has
-	been collected, it will return `null`.",
+	been collected, it will return \tt{null}.`,
 	params: [Param("obj", "null|bool|int|float|char|weakref")],
 	extra: [Extra("section", "Weak References"), Extra("protection", "global")]},
 
 	{kind: "function", name: "findGlobal", docs:
-	"Looks for a global in the current environment with the given name. If found, returns ''the namespace that
-	contains it;'' otherwise, returns `null`.",
+	`Looks for a global in the current environment with the given name. If found, returns ''the namespace that
+	contains it;'' otherwise, returns \tt{null}.`,
 	params: [Param("name", "string")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "isSet", docs:
-	"Similar to '''`findGlobal`''', except returns a boolean value: `true` if the global exists, `false` otherwise.",
+	`Similar to \link{findGlobal}, except returns a boolean value.
+
+	\returns \tt{true} if the global exists, \tt{false} otherwise.`,
 	params: [Param("name", "string")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "typeof", docs:
-	"This will get the type of the passed-in value and return it as a string. Possible return values are \"null\",
-	\"bool\", \"int\", \"float\", \"char\", \"string\", \"table\", \"array\", \"function\", \"class\", \"instance\",
-	\"namespace\", \"thread\", \"nativeobj\", \"weakref\", and \"funcdef\".",
+	`This will get the type of the passed-in value and return it as a string. Possible return values are "null",
+	"bool", "int", "float", "char", "string", "table", "array", "function", "class", "instance", "namespace", "thread",
+	"nativeobj", "weakref", and "funcdef".`,
 	params: [Param("value")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "nameOf", docs:
-	"Returns the name of the given value as a string. This is the name that the class, function, namespace, or funcdef was
-	declared with, or an autogenerated one if it wasn't declared with a name (such as anonymous function literals).",
+	`Returns the name of the given value as a string. This is the name that the class, function, namespace, or funcdef was
+	declared with, or an autogenerated one if it wasn't declared with a name (such as anonymous function literals).`,
 	params: [Param("value", "class|function|namespace|funcdef")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "fieldsOf", docs:
-	"Returns a namespace that holds the fields of the given class or instance. Each class or instance has its own
+	`Returns a namespace that holds the fields of the given class or instance. Each class or instance has its own
 	unique field namespace. Note, however, that since the fields are lazily created (i.e. a class or instance will
-	not have a field unless it has been assigned into it), you won't necessarily get ''all'' the fields that can be
+	not have a field unless it has been assigned into it), you won't necessarily get \em{all} the fields that can be
 	accessed from the class or instance, only those which have been set in it. If you want to get all the fields,
-	use the '''`allFieldsOf`''' iterator function.",
+	use the \link{allFieldsOf} iterator function.`,
 	params: [Param("value", "class|instance")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "allFieldsOf", docs:
-	"Returns an iterator function that will iterate through all fields accessible from the given class, instance,
+	`Returns an iterator function that will iterate through all fields accessible from the given class, instance,
 	or namespace, traversing the base class/parent namespace links up to the root. This iterator actually gives up
 	to three indices: the first is the name of the field, the second its value, and the third the class, instance,
 	or namespace that owns it. Example use:
-{{{
-#!croc
+
+\code
 class A
 {
 	x = 5
@@ -1073,54 +1014,54 @@ class B : A
 	x = 10
 }
 
-// prints \"x: 5\" and \"foo: script function foo\"
+// prints "x: 5" and "foo: script function foo"
 foreach(k, v; allFieldsOf(A))
-	writefln(\"{}: {}\", k, v)
+	writefln("{}: {}", k, v)
 
 writeln()
 
 // this time prints 10 for x, and the owner is B; foo's owner is A
 foreach(k, v, o; allFieldsOf(B))
-	writefln(\"{}: {} (owned by {})\", k, v, o)
-}}}
+	writefln("{}: {} (owned by {})", k, v, o)
+\endcode
 
 	Note in the second example that both B and its base class A have a field 'x', but only the 'x' accessible from
-	B with value 10 is printed.",
+	B with value 10 is printed.`,
 	params: [Param("value", "class|instance|namespace")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "hasField", docs:
-	"Sees if `value` contains the field `name`. Works for tables, namespaces, classes, and instances. For any
-	other type, always returns `false`. Does not take opField metamethods into account.",
+	`Sees if \tt{value} contains the field \tt{name}. Works for tables, namespaces, classes, and instances. For any
+	other type, always returns \tt{false}. Does not take opField metamethods into account.`,
 	params: [Param("value"), Param("name", "string")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "hasMethod", docs:
-	"Sees if the method named `name` can be called on `value`. Looks in metatables as well, for i.e. strings
-	and arrays. Works for all types. Does not take opMethod metamethods into account.",
+	`Sees if the method named \tt{name} can be called on \tt{value}. Looks in metatables as well, for i.e. strings
+	and arrays. Works for all types. Does not take opMethod metamethods into account.`,
 	params: [Param("value"), Param("name", "string")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "findField", docs:
-	"Searches the given class, instance, or namespace's inheritance/parent chain for the class/instance/namespace
+	`Searches the given class, instance, or namespace's inheritance/parent chain for the class/instance/namespace
 	that holds the field with the given name. Returns the class/instance/namespace that holds the field, or
-	`null` if the given field name was not found. Does not take opField metamethods into account.",
+	\tt{null} if the given field name was not found. Does not take opField metamethods into account.`,
 	params: [Param("value", "class|instance|namespace"), Param("name", "string")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "rawSetField", docs:
-	"Sets a field into an instance bypassing any '''`opFieldAssign`''' metamethods.",
+	`Sets a field into an instance bypassing any \b{\tt{opFieldAssign}} metamethods.`,
 	params: [Param("o", "instance"), Param("name", "string"), Param("value")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "rawGetField", docs:
-	"Gets a field from an instance bypassing any '''`opField`''' metamethods.",
+	`Gets a field from an instance bypassing any \b{\tt{opField}} metamethods.`,
 	params: [Param("o", "instance"), Param("name", "string")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "isNull", docs:
-	"All these functions return `true` if the passed-in value is of the given type, and `false`
-	otherwise. The fastest way to test if something is `null`, however, is to use "`x is null`".",
+	`All these functions return \tt{true} if the passed-in value is of the given type, and \tt{false}
+	otherwise. The fastest way to test if something is \tt{null}, however, is to use "\tt{x is null}".`,
 	params: [Param("o")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
@@ -1141,186 +1082,155 @@ foreach(k, v, o; allFieldsOf(B))
 	{kind: "function", name: "isWeakRef",   docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 	{kind: "function", name: "isFuncDef",   docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
-	{kind: "function", name: "attrs", docs:
-	"This is a function which can be used to set (or remove) a user-defined attribute table on
-	any '''non-string''' reference object. It's meant to be used as a decorator on declarations
-	but it can be simply called as a normal function as well.
-{{{
-#!croc
-// Using it as a decorator
-@attrs({
-	x = 5
-	blah = \"Blah blah blah.\"
-})
-function foo() = 12
-
-// Using it as a normal function
-local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
-}}}
-
-	You can check if an object has attributes and retrieve them using the following functions.",
-	params: [Param("o", "..."), Param("t", "table|null")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
-
-	{kind: "function", name: "hasAttributes", docs:
-	"Returns whether or not the given value has an attributes table. Works for all types, but always returns
-	false for value types and strings.",
-	params: [Param("value")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
-
-	{kind: "function", name: "attributesOf", docs:
-	"Returns the attributes table of `value`, or `null` if it has none. Only works for non-string reference
-	types; errors otherwise.",
-	params: [Param("value", "...")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
-
 	{kind: "function", name: "Finalizable", docs:
 	`Used as a class decorator. You can use this decorator to make script classes have finalizers. The class should
-	have a method called \"finalizer\". This method will be set as the class finalizer, and will be called on instances
+	have a method called "finalizer". This method will be set as the class finalizer, and will be called on instances
 	of this class when they are about to be collected.`,
 	params: [Param("cls", "class")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "toString", docs:
-	"This is like '''`rawToString`''', but it will call any '''`toString`''' metamethods defined for the value.
-	Arrays have a '''`toString`''' metamethod defined for them if the array stdlib is loaded, and any
-	'''`toString`''' methods defined for class instances will be used.
+	`This is like \link{rawToString}, but it will call any \b{\tt{toString}} metamethods defined for the value.
+	Arrays have a \b{\tt{toString}} metamethod defined for them by default, and any \b{\tt{toString}} methods defined
+	for class instances will be used.
 
-	The optional `style` parameter only has meaning if the `value` is an integer. It can be one of the following:
- * 'd': Default: signed base 10.
- * 'b': Binary.
- * 'o': Octal.
- * 'x': Lowercase hexadecimal.
- * 'X': Uppercase hexadecimal.
- * 'u': Unsigned base 10.",
+	The optional \tt{style} parameter only has meaning if the \tt{value} is an integer. It can be one of the following:
+	\blist
+		\li 'd': Default: signed base 10.
+		\li 'b': Binary.
+		\li 'o': Octal.
+		\li 'x': Lowercase hexadecimal.
+		\li 'X': Uppercase hexadecimal.
+		\li 'u': Unsigned base 10.
+	\endlist`,
 	params: [Param("value"), Param("style", "char", "'d'")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "rawToString", docs:
-	"This returns a string representation of the given value depending on its type, as follows:
- * '''`null`''': the string `\"null\"`.
- * '''`bool`''': `\"true\"` or `\"false\"`.
- * '''`int`''': The decimal representation of the number.
- * '''`float`''': The decimal representation of the number, to about 7 digits of precision.
- * '''`char`''': A string with just one character, the character that was passed in.
- * '''`string`''': The string itself.
- * '''`table`''': A string in the format `\"table 0x00000000\"` where 0x00000000 is the address of
-   the table.
- * '''`array`''': A string in the format `\"array 0x00000000\"` where 0x00000000 is the address of
-   the array.
- * '''`memblock`''': A string in the format `\"memblock 0x00000000\"` where 0x00000000 is the address of
-   the memblock.
- * '''`function`''': If the function is native code, a string formatted as `\"native function <name>\"`;
-   if script code, a string formatted as `\"script function <name>(<location>)\"`.
- * '''`class`''': A string formatted as `\"class <name> (0x00000000)\"`, where 0x00000000 is the address
-   of the class.
- * '''`instance`''': A string formatted as `\"instance of class <name> (0x00000000)\"`, where 0x00000000
-   is the address of the instance.
- * '''`namespace`''': A string formatted as `\"namespace <names>\"`, where <name> is the hierarchical
-   name of the namespace.
- * '''`thread`''': A string formatted as `\"thread 0x00000000\"`, where 0x00000000 is the address of the
-   thread.
- * '''`nativeobj`''': A string formatted as `\"nativeobj 0x00000000\"`, where 0x00000000 is the address
-   of the native object that it references.
- * '''`weakref`''': A string formatted as `\"weakref 0x00000000\"`, where 0x00000000 is the address of
-   the weak reference object.
- * '''`funcdef`''': A string formatted as `\"funcdef <name>(<location>)\"`.",
+	`This returns a string representation of the given value depending on its type, as follows:
+	\blist
+		\li \b{\tt{null}}: the string \tt{"null"}.
+		\li \b{\tt{bool}}: \tt{"true"} or \tt{"false"}.
+		\li \b{\tt{int}}: The decimal representation of the number.
+		\li \b{\tt{float}}: The decimal representation of the number, to about 7 digits of precision.
+		\li \b{\tt{char}}: A string with just one character, the character that was passed in.
+		\li \b{\tt{string}}: The string itself.
+		\li \b{\tt{table}}: A string in the format \tt{"table 0x00000000"} where 0x00000000 is the address of the table.
+		\li \b{\tt{array}}: A string in the format \tt{"array 0x00000000"} where 0x00000000 is the address of the array.
+		\li \b{\tt{memblock}}: A string in the format \tt{"memblock 0x00000000"} where 0x00000000 is the address of the memblock.
+		\li \b{\tt{function}}: If the function is native code, a string formatted as \tt{"native function <name>"};
+			if script code, a string formatted as \tt{"script function <name>(<location>)"}.
+		\li \b{\tt{class}}: A string formatted as \tt{"class <name> (0x00000000)"}, where 0x00000000 is the address of the class.
+		\li \b{\tt{instance}}: A string formatted as \tt{"instance of class <name> (0x00000000)"}, where 0x00000000 is the
+			address of the instance.
+		\li \b{\tt{namespace}}: A string formatted as \tt{"namespace <name>"}, where <name> is the hierarchical name of the
+			namespace.
+		\li \b{\tt{thread}}: A string formatted as \tt{"thread 0x00000000"}, where 0x00000000 is the address of the thread.
+		\li \b{\tt{nativeobj}}: A string formatted as \tt{"nativeobj 0x00000000"}, where 0x00000000 is the address of the native
+			object that it references.
+		\li \b{\tt{weakref}}: A string formatted as \tt{"weakref 0x00000000"}, where 0x00000000 is the address of the weak
+			reference object.
+		\li \b{\tt{funcdef}}: A string formatted as \tt{"funcdef <name>(<location>)"}.
+	\endlist`,
 	params: [Param("value")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "toBool", docs:
-	"This returns the truth value of the given value. `null`, `false`, integer 0, and float 0.0 will all
-	return `false`; all other values and types will return `true`.",
+	`This returns the truth value of the given value. \tt{null}, \tt{false}, integer 0, and float 0.0 will all
+	return \tt{false}; all other values and types will return \tt{true}.`,
 	params: [Param("value")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "toInt", docs:
-	"This will convert a value into an integer. Only the following types can be converted:
- * '''`bool`''': Converts `true` to 1 and `false` to 0.
- * '''`int`''': Just returns the value.
- * '''`float`''': Truncates the fraction and returns the integer portion.
- * '''`char`''': Returns the UTF-32 character code of the character.
- * '''`string`''': Attempts to convert the string to an integer, and assumes it's in base 10. Throws an
-   error if it fails. If you want to convert a string to an integer with a base other than 10, use the
-   string object's `toInt` method.",
+	`This will convert a value into an integer. Only the following types can be converted:
+	\blist
+		\li \b{\tt{bool}}: Converts \tt{true} to 1 and \tt{false} to 0.
+		\li \b{\tt{int}}: Just returns the value.
+		\li \b{\tt{float}}: Truncates the fraction and returns the integer portion.
+		\li \b{\tt{char}}: Returns the UTF-32 character code of the character.
+		\li \b{\tt{string}}: Attempts to convert the string to an integer, and assumes it's in base 10. Throws an
+			error if it fails. If you want to convert a string to an integer with a base other than 10, use the
+			string object's \b{\tt{toInt}} method.
+	\endlist`,
 	params: [Param("value", "bool|int|float|char|string")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "toFloat", docs:
-	"This will convert a value into a float. Only the following types can be converted:
- * '''`bool`''': Converts `true` to 1.0 and `false` to 0.0.
- * '''`int`''': Returns the value cast to a float.
- * '''`float`''': Just returns the value.
- * '''`char`''': Returns a float holding the UTF-32 character code of the character.
- * '''`string`''': Attempts to convert the string to a float. Throws an error if it fails.
+	`This will convert a value into a float. Only the following types can be converted:
+	\blist
+		\li \b{\tt{bool}}: Converts \tt{true} to 1.0 and \tt{false} to 0.0.
+		\li \b{\tt{int}}: Returns the value cast to a float.
+		\li \b{\tt{float}}: Just returns the value.
+		\li \b{\tt{char}}: Returns a float holding the UTF-32 character code of the character.
+		\li \b{\tt{string}}: Attempts to convert the string to a float. Throws an error if it fails.
+	\endlist
 
- Other types will throw an error.",
+	Other types will throw an error.`,
 	params: [Param("value", "bool|int|float|char|string")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "toChar", docs:
-	"This will convert an integer value to a single character. Only integer parameters are allowed.",
+	`This will convert an integer value to a single character. Only integer parameters are allowed.`,
 	params: [Param("value", "int")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "format", docs:
-	"Functions much like Tango's tango.text.convert.Layout class. `fmt` is a formatting string, in
-	which may be embedded formatting specifiers, which use the same '`{}`' syntax as found in Tango,
+	`Functions much like Tango's tango.text.convert.Layout class. \tt{fmt} is a formatting string, in
+	which may be embedded formatting specifiers, which use the same '\tt{{\}}' syntax as found in Tango,
 	.Net, and ICU.
 
-	By default, when you format an item, it will call any '''`toString`''' metamethod defined for it.
-	If you want to use the \"raw\" formatting for a parameter instead, write a lowercase 'r' immediately
-	after the opening brace of a format specifier. So something like \"`format(\"{r}\", [1, 2, 3])`\"
-	will call '''`rawToString`''' on the array parameter, resulting in something like \"`array 0x00000000`\"
+	By default, when you format an item, it will call any \b{\tt{toString}} metamethod defined for it.
+	If you want to use the "raw" formatting for a parameter instead, write a lowercase 'r' immediately
+	after the opening brace of a format specifier. So something like "\tt{format("{r\}", [1, 2, 3])}"
+	will call \link{rawToString} on the array parameter, resulting in something like "\tt{array 0x00000000}"
 	instead of a string representation of the contents of the array.
 
 	Just about everything else works exactly as it does in Tango. You can use any field width and formatting
 	characters that Tango allows.
 
-	Croc's '''`writef`''' and '''`writefln`''' functions (as well as their analogues in the IO library) use
+	Croc's \link{writef} and \link{writefln} functions (as well as their analogues in the IO library) use
 	the same internal formatting as this function, so any rules that apply here apply for those functions as
-	well.",
+	well.`,
 	params: [Param("fmt", "string"), Param("vararg", "vararg")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "write", docs:
-	"Prints out all its arguments to the console without any formatting (i.e. strings will not be searched
-	for formatting specifiers). It's as if each argument has `toString` called on it, and the resulting strings
-	are output to the console.",
+	`Prints out all its arguments to the console without any formatting. It's as if each argument has \b{\tt{toString}}
+	called on it, and the resulting strings are output to the console.`,
 	params: [Param("vararg", "vararg")],
 	extra: [Extra("section", "Console IO"), Extra("protection", "global")]},
 
 	{kind: "function", name: "writeln", docs:
-	"Same as `write`, but prints a newline after the text has been output.",
+	`Same as \link{write}, but prints a newline after the text has been output.`,
 	params: [Param("vararg", "vararg")],
 	extra: [Extra("section", "Console IO"), Extra("protection", "global")]},
 
 	{kind: "function", name: "writef", docs:
-	"Formats the arguments using the same formatting rules as `format`, outputting the results to the console.
-	No newline is printed.",
+	`Formats the arguments using the same formatting rules as \link{format}, outputting the results to the console.
+	No newline is printed.`,
 	params: [Param("fmt", "string"), Param("vararg", "vararg")],
 	extra: [Extra("section", "Console IO"), Extra("protection", "global")]},
 
 	{kind: "function", name: "writefln", docs:
-	"Just like `writef`, but prints a newline after the text has been output.",
+	`Just like \link{writef}, but prints a newline after the text has been output.`,
 	params: [Param("fmt", "string"), Param("vararg", "vararg")],
 	extra: [Extra("section", "Console IO"), Extra("protection", "global")]},
 
 	{kind: "function", name: "readln", docs:
-	"Reads one line of input (up to a linefeed) from the console and returns it as a string, without
-	any trailing linefeed characters.",
+	`Reads one line of input (up to a linefeed) from the console and returns it as a string, without
+	any trailing linefeed characters.`,
 	params: [],
 	extra: [Extra("section", "Console IO"), Extra("protection", "global")]},
 
 	{kind: "function", name: "dumpVal", docs:
-	"Dumps an exhaustive string representation of the given value to the console. This will recurse
+	`Dumps an exhaustive string representation of the given value to the console. This will recurse
 	(safely, you don't need to worry about infinite recursion) into arrays and tables, as well as escape
 	non-printing characters in strings and character values. It will also print out the names of the
 	fields in namespaces, though it won't recurse into them. All other values will basically have
-	'''`toString`''' called on them.
+	\link{toString} called on them.
 
-	If the `printNewline` parameter is passed `false`, no newline will be printed after the dumped
-	representation. Defaults to `true`.",
+	If the \tt{printNewline} parameter is passed \tt{false}, no newline will be printed after the dumped
+	representation. Defaults to \tt{true}.`,
 	params: [Param("value"), Param("printNewline", "bool", "true")],
 	extra: [Extra("section", "Console IO"), Extra("protection", "global")]}
 ];

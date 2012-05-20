@@ -90,8 +90,8 @@ template RegisterField(uword numParams, char[] funcName, uword numUpvals = 0, ch
 template CommonRegister(char[] funcName, uword numUpvals = 0, char[] crocName, char[] numParams)
 {
 	const char[] CommonRegister =
-	"newFunction(t, " ~ (numParams.length == 0 ? "" : numParams ~ ", ") ~ "&" ~ funcName ~ ", \"" ~ crocName ~ "\", " ~ ctfe_i2a(numUpvals) ~ ");\n"
-	"version(CrocBuiltinDocs) doc(-1, " ~ funcName ~ "_docs);\n";
+	"newFunction(t, " ~ (numParams.length == 0 ? "" : numParams ~ ", ") ~ "&" ~ funcName ~ ", \"" ~ crocName ~ "\", " ~ ctfe_i2a(numUpvals) ~ ");\n";
+// 	"version(CrocBuiltinDocs) doc(-1, " ~ funcName ~ "_docs);\n";
 }
 
 struct RegisterFunc

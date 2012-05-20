@@ -84,11 +84,11 @@ version(CrocBuiltinDocs) void docModulesLib(CrocThread* t)
 
 	scope doc = new CrocDoc(t, __FILE__);
 	doc.push(Docs("module", "Modules Library",
-	"This library forms the core of the Croc module system. When you use an import statement in Croc, it's simply
-	syntactic sugar for a call to `modules.load.` All of the semantics of imports and such are handled by the
+	`This library forms the core of the Croc module system. When you use an import statement in Croc, it's simply
+	syntactic sugar for a call to \tt{modules.load}. All of the semantics of imports and such are handled by the
 	functions and data structures in here. At a high level, the module system is just a mechanism that maps from
 	strings (module names) to namespaces. The default behavior of this library is just that -- a default. You
-	can customize the behavior of module importing to your specific needs."));
+	can customize the behavior of module importing to your specific needs.`));
 
 	docFields(t, doc, _docTables);
 	doc.pop(-1);
@@ -440,90 +440,111 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 
 	{kind: "variable", name: "modules.loaded", docs:
 	"This is a table that holds all currently-loaded modules. The keys are the module names as strings, and the values
-	are the corresponding modules' namespaces. This is the table that `modules.load` will check in first before trying
+	are the corresponding modules' namespaces. This is the table that \tt{modules.load} will check in first before trying
 	to look for a loader.",
 	extra: [Extra("protection", "global")]},
 
 	{kind: "variable", name: "modules.customLoaders", docs:
-	"This is a table which you are free to use. It maps from module names (strings) to functions or namespaces. This
-	table is used by the `customLoad` step in `modules.loaders`; see it for more information.",
+	`This is a table which you are free to use. It maps from module names (strings) to functions or namespaces. This
+	table is used by the \tt{customLoad} step in \link{modules.loaders}; see it for more information.`,
 	extra: [Extra("protection", "global")]},
 
 	{kind: "variable", name: "modules.loaders", docs:
-	"This is an important variable. This holds the array of ''module loaders'', which are functions which take the name
+	`This is an important variable. This holds the array of \em{module loaders}, which are functions which take the name
 	of a module that's being loaded, and return one of four things: nothing or null, to indicate that the next loader
 	should be tried; a namespace, which is assumed to be the module's namespace; a native function, which is assumed to
-	be a native module's ''loader''; or a funcdef, which is assumed to be the function definition of the top-level
+	be a native module's \em{loader}; or a funcdef, which is assumed to be the function definition of the top-level
 	function of a Croc module.
 
 	By default, two loaders are in this array, in the following order:
- * '''`customLoad`''': This looks in the `modules.customLoaders` table for a loader function or namespace. If one exists, it just
-   returns that; otherwise, returns null. You can use this behavior to set up custom loaders for your own modules: just put the
-   loader in the `modules.customLoaders` table, and when it's imported, it'll have the loader function or namespace used for it.
-   This is exactly how the standard library loaders work.
- * '''`loadFiles`''': This looks for files to load and loads them. As explained in `modules.path`, the paths in that variable will
-   be tried one by one until a file is found or they are all exhausted. This looks for both script files (`.croc`) and compiled
-   modules (`.croco`). If it finds just a script file, it will compile it and return the resulting top-level funcdef. If it finds
-   just a compiled module, it will load it and return the top-level funcdef. If it finds both in the same path, it will load whichever
-   is newer. If it gets through all the paths and finds no files, it returns nothing.",
+	\blist
+		\li \b{\tt{customLoad}}: This looks in the \link{modules.customLoaders} table for a loader function or namespace. If one exists, it
+			just returns that; otherwise, returns null. You can use this behavior to set up custom loaders for your own modules: just put the
+			loader in the \link{modules.customLoaders} table, and when it's imported, it'll have the loader function or namespace used for it.
+			This is exactly how the standard library loaders work.
+
+		\li \b{\tt{loadFiles}}: This looks for files to load and loads them. As explained in \link{modules.path}, the paths in that variable will
+			be tried one by one until a file is found or they are all exhausted. This looks for both script files (\tt{.croc}) and compiled
+			modules (\tt{.croco}). If it finds just a script file, it will compile it and return the resulting top-level funcdef. If it finds
+			just a compiled module, it will load it and return the top-level funcdef. If it finds both in the same path, it will load whichever
+			is newer. If it gets through all the paths and finds no files, it returns nothing.
+	\endlist`,
 	extra: [Extra("protection", "global")]},
 
 	{kind: "function", name: "modules.load", docs:
-	"Loads a module of the given name and, if successful, returns that module's namespace. If the module is
-	already loaded (i.e. it has an entry in the `modules.loaded` table), just returns the preexisting namespace.
+	`Loads a module of the given name and, if successful, returns that module's namespace. If the module is
+	already loaded (i.e. it has an entry in the \link{modules.loaded} table), just returns the preexisting namespace.
 
-	This is the function that the built-in import statement calls. So in fact, \"`import foo.bar`\" and
-	\"`modules.load(\"foo.bar\")`\" do exactly the same thing, at least from the module-loading point of view.
+	This is the function that the built-in import statement calls. So in fact, "\tt{import foo.bar}" and
+	"\tt{modules.load("foo.bar")}" do exactly the same thing, at least from the module-loading point of view.
 	Import statements also give you some syntactic advantages with selective and renamed imports.
 
 	The process of loading a module goes something like this:
 
- 1. It looks in `modules.loaded` to see if the module of the given name has already been imported. If it has
-    (i.e. there is a namespace in that table), it returns whatever namespace is stored there.
- 2. It makes sure we are not circularly importing this module. If we are, it throws an error.
- 3. It makes sure there are no module name conflicts. No module name may be the prefix of any other module's
-    name; for example, if you have a module \"foo.bar\", you may not have a module \"foo\" as it's a prefix of
-    \"foo.bar\". If there are any conflicts, it throws an error.
- 4. It iterates through the `modules.loaders` array, calling each successive loader with the module's name.
-    If a loader returns a namespace, it puts it in the `modules.loaded` table and returns that namespace. If
-    a loader returns a function or funcdef, it calls `modules.initModule` with the function/funcdef as the first
-    parameter and the name of the module as the second parameter, and returns the result of that function. If
-    a loader returns null, it continues on to the next loader.
- 5. If it gets through the entire array without getting a function or namespace from any loaders, an error is
-    thrown saying that the module could not be loaded.",
+	\nlist
+		\li It looks in \link{modules.loaded} to see if the module of the given name has already been imported. If it has
+			(i.e. there is a namespace in that table), it returns whatever namespace is stored there.
+		\li It makes sure we are not circularly importing this module. If we are, it throws an error.
+		\li It makes sure there are no module name conflicts. No module name may be the prefix of any other module's
+			name; for example, if you have a module "foo.bar", you may not have a module "foo" as it's a prefix of
+			"foo.bar". If there are any conflicts, it throws an error.
+		\li It iterates through the \link{modules.loaders} array, calling each successive loader with the module's name.
+			If a loader returns a namespace, it puts it in the \link{modules.loaded} table and returns that namespace. If
+			a loader returns a function or funcdef, it calls \link{modules.initModule} with the function/funcdef as the first
+			parameter and the name of the module as the second parameter, and returns the result of that function. If
+			a loader returns null, it continues on to the next loader.
+		\li If it gets through the entire array without getting a function or namespace from any loaders, an error is
+			thrown saying that the module could not be loaded.
+	\endlist
+
+	\param[name] The name of the module to load, in dotted form (such as "foo.bar").
+	\returns The namespace of the module after it has been imported.
+	\throws[exceptions.ImportException] if no means of loading the module could be found, or if a module loader was found
+	but failed when run. In the latter case, the exception that was thrown during module loading will be set as the cause
+	of the exception.`,
 	params: [Param("name", "string")],
 	extra: [Extra("protection", "global")]},
 
 	{kind: "function", name: "modules.reload", docs:
-	"Very similar to `modules.load`, but reloads an already-loaded module. This function replaces step 1 of
-	`modules.load`'s process with a check to see if the module has already been loaded; if it has, it continues
-	on with the process. If it hasn't been loaded, throws an error.",
+	`Very similar to \link{modules.load}, but reloads an already-loaded module. This function replaces step 1 of
+	\link{modules.load}'s process with a check to see if the module has already been loaded; if it has, it continues
+	on with the process. If it hasn't been loaded, throws an error.`,
 	params: [Param("name", "string")],
 	extra: [Extra("protection", "global")]},
 
 	{kind: "function", name: "modules.initModule", docs:
-	"Initialize a module with a top-level function/funcdef, and a name. The name is used to create the namespace for
-	the module in the global namespace hierarchy if it doesn't already exist. If the module namespace does already exist
-	(such as in the case when a module is being reloaded), it is cleared before the top-level is called. Once the namespace
-	has been created, the top-level function (or if the first parameter is a funcdef, the result of creating a new closure
-	of that funcdef with the new namespace as the environment) is called with the module namespace as the 'this' parameter.
+	`Initialize a module with a top-level function/funcdef and a name.
+
+	The name is used to create the namespace for the module in the global namespace hierarchy if it doesn't already exist.
+	If the module namespace does already exist (such as in the case when a module is being reloaded), it is cleared before
+	the top-level is called. Once the namespace has been created, the top-level function (or if the first parameter is a
+	funcdef, the result of creating a new closure of that funcdef with the new namespace as the environment) is called with
+	the module namespace as the 'this' parameter.
 
 	If the top-level function completes successfully, the module's namespace will be inserted into the global namespace
-	hierarchy and also be added to the `modules.loaded` table.
+	hierarchy and also be added to the \link{modules.loaded} table.
 
 	If the top-level function fails, no change will be made to the global namespace hierarchy (unless the module's namespace
 	was cleared).
 
-	Note that if you pass a function as the `topLevel` parameter, it can only be a native function. Script functions'
+	Note that if you pass a function as the \tt{topLevel} parameter, it can only be a native function. Script functions'
 	environments are fixed and cannot be set to the new module namespace. For that matter, if you pass a funcdef, that funcdef
-	must not have had any closures created from it yet, as that would associate a namespace with that funcdef as well.",
+	must not have had any closures created from it yet, as that would associate a namespace with that funcdef as well.
+
+	\param[topLevel] Either a native function or a script function definition, used as the top-level statements of the module.
+	\param[name]     The name of the module, in dotted form (such as "foo.bar").`,
 	params: [Param("topLevel", "function|funcdef"), Param("name", "string")],
 	extra: [Extra("protection", "global")]},
 
 	{kind: "function", name: "modules.runMain", docs:
-	"This will look in the given namespace for a field named main. If one exists, and that field is a function,
-	that function will be called with the namespace as 'this' and any variadic arguments to `runMain` as the
-	arguments. Otherwise, this function does nothing.",
-	params: [Param("mod", "namespace"), Param("vararg", "vararg")],
+	`Runs a function named "main" (if any) in the given namespace with the given arguments.
+
+	This will look in the given namespace for a field named \tt{main}. If one exists, and that field is a function,
+	that function will be called with the namespace as 'this' and any variadic arguments to \tt{runMain} as the
+	arguments. Otherwise, this function does nothing.
+
+	\param[ns] The namespace in which to look.
+	\param[vararg] The arguments that will be passed to the "main" function.`,
+	params: [Param("ns", "namespace"), Param("vararg", "vararg")],
 	extra: [Extra("protection", "global")]}
 ];

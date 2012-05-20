@@ -970,7 +970,7 @@ private:
 
 		l.next();
 
-		if(l.type != Token.Newline && l.type != Token.EOC)
+		if(l.type != Token.Newline && l.type != Token.NewParagraph && l.type != Token.EOC)
 			error("\\endcode must be followed by a newline or end-of-comment, not '{}'", l.tok.typeString());
 
 		l.next();
@@ -991,7 +991,7 @@ private:
 
 		l.next();
 
-		if(l.type != Token.Newline && l.type != Token.EOC)
+		if(l.type != Token.Newline && l.type != Token.NewParagraph && l.type != Token.EOC)
 			error("\\endverbatim must be followed by a newline or end-of-comment, not '{}'", l.tok.typeString());
 
 		l.next();
@@ -1546,10 +1546,13 @@ private:
 	{
 		assert(mIsFunction);
 
-		field(t, docTable, "params");
+		auto params = field(t, docTable, "params");
+		auto paramsLength = len(t, -1);
 
-		foreach(word param; foreachLoop(t, 1))
+		for(uword i = 0; i < paramsLength; i++)
 		{
+			auto param = idxi(t, params, i);
+
 			if(!hasField(t, param, "docs"))
 			{
 				newArray(t, 1);
@@ -1559,7 +1562,11 @@ private:
 				idxai(t, -2, 0);
 				fielda(t, param, "docs");
 			}
+
+			pop(t);
 		}
+		
+		pop(t);
 	}
 
 	// ================================================================================================================================================

@@ -1,25 +1,5 @@
 module samples.simple
 
-/**
-This is a function!
-
-\table
-	\row
-		\cell a
-		\cell b
-	\row
-		\cell c
-		\cell d
-\endtable
-
-\param[x] is the parameter.
-\returns a value.
-*/
-function C(x)
-{
-
-}
-
 function main()
 {
 // 	dumpItem(docsOf(Object))
@@ -31,8 +11,8 @@ function main()
 
 // 	StdlibDumper.dump(string)
 
-// 	writeln$ json.toJSON(processComment(comment, docTable), true)
-	writeln$ json.toJSON(docsOf(C), true)
+	foreach(member; docsOf(_G).children)
+		writeln$ json.toJSON(member, true)
 }
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
@@ -374,8 +354,4 @@ I guess it's baselib (but could be moved?)
 		toInt(value: bool|int|float|char|string)
 		toFloat(value: bool|int|float|char|string)
 		toChar(value: int)
-	attributes
-		attrs(o: function|class|namespace, t: table)
-		hasAttributes(value)
-		attributesOf(value)
 */

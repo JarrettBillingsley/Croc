@@ -140,7 +140,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 		docGCLib(t);
 		docBaseLib(t);
 		// docMemblockLib(t);
-		docStringLib(t);
+// 		docStringLib(t);
 		// docHashLib(t);
 	}
 

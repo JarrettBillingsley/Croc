@@ -37,6 +37,7 @@ import croc.api_debug;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.compiler;
+import croc.ex_doccomments;
 import croc.serialization;
 import croc.types;
 import croc.utils;
@@ -253,7 +254,6 @@ public:
 		pushInt(t, docs.line);    fielda(t, -2, "line");
 		pushString(t, docs.kind); fielda(t, -2, "kind");
 		pushString(t, docs.name); fielda(t, -2, "name");
-		pushString(t, docs.docs); fielda(t, -2, "docs");
 
 		if(docs.kind == "function")
 		{
@@ -299,7 +299,12 @@ public:
 			.pop(t);
 		}
 		else
+		{
+			if(docs.kind != "parameter")
+				processComment(t, docs.docs);
+
 			.pop(t, 2);
+		}
 	}
 
 	void pop(word idx, char[] parentField = "children")
