@@ -148,8 +148,8 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	StreamLib.init(t);
 	JSONLib.init(t); // depends on stream
 	SerializationLib.init(t); // depends on stream
-	ArrayLib.init(t);
-	CharLib.init(t);
+	initArrayLib(t);
+	initCharLib(t);
 	CompilerLib.init(t);
 	MathLib.init(t);
 	RegexpLib.init(t);

@@ -11,9 +11,9 @@ function main()
 
 // 	StdlibDumper.dump(string)
 
-	writeln$ json.toJSON(docsOf(Object), true)
-// 	foreach(member; docsOf(string).children)
-// 		writeln$ json.toJSON(member, true)
+// 	writeln$ json.toJSON(docsOf(Object), true)
+	foreach(member; docsOf(array).children)
+		writeln$ json.toJSON(member, true)
 }
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
