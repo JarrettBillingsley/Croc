@@ -745,10 +745,11 @@ uword _insert(CrocThread* t)
 		throwStdException(t, "BoundsException", "Invalid array index: {}", index);
 		
 	array.resize(t.vm.alloc, getArray(t, 0), data.length + 1);
+	data = a.toArray();
 
 	for(uword i = data.length - 1; i > index; i--)
 		data[i] = data[i - 1];
-		
+
 	dup(t, 2);
 	idxai(t, 0, index);
 	dup(t, 0);
