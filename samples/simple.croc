@@ -2,18 +2,245 @@ module samples.simple
 
 function main()
 {
-// 	dumpItem(docsOf(Object))
-//
-// 	dumpItem(docsOf(_doc_))
-// 	dumpItem(docsOf(docsOf))
-//
 // 	BaselibDumper().dump()
 
 // 	StdlibDumper.dump(string)
 
 // 	writeln$ json.toJSON(docsOf(Object), true)
-	foreach(member; docsOf(array).children)
-		writeln$ json.toJSON(member, true)
+// 	foreach(member; docsOf(array).children)
+// 		writeln$ json.toJSON(member, true)
+
+	local b = BaseDocOutput()
+	b.insertSectionBefore("docs", "deprecated")
+	writeln$ b.getSectionOrder()
+	b.insertSectionAfter("docs", "license")
+	writeln$ b.getSectionOrder()
+}
+
+import exceptions:
+	TypeException,
+	ValueException,
+	NotImplementedException
+
+local stdSections =
+[
+	"deprecated"
+
+	"docs"
+	"examples"
+	"param"
+	"returns"
+	"throws"
+
+	"bugs"
+	"notes"
+	"todo"
+	"warnings"
+
+	"see"
+
+	"authors"
+	"date"
+	"history"
+	"since"
+	"version"
+
+	"copyright"
+	"license"
+]
+
+local function validSectionName(name: string) =
+	!(#name == 0 || (#name == 1 && name[0] == '_') || (name[0] != '_' && name !in stdSections))
+
+class BaseDocOutput
+{
+	_sectionOrder = stdSections.dup()
+	_sectionHandlers = 
+	{
+    	docs = "handleDocsSection",
+    	param = "handleParamSection",
+    	throws = "handleThrowsSection"
+	}
+
+	this()
+	{
+		:_sectionOrder = :_sectionOrder.dup()
+		:_sectionHandlers = hash.dup(:_sectionHandlers)
+	}
+
+	// Section/text span handlers
+	// Link indexing/lookup
+	// High-level output funcs
+
+	// =================================================================================================
+	// Section ordering
+
+	function insertSectionBefore(sec: string, before: string)
+		:_insertSectionImpl(sec, before, false)
+
+	function insertSectionAfter(sec: string, after: string)
+		:_insertSectionImpl(sec, after, true)
+
+	function _insertSectionImpl(sec: string, target: string, after: bool)
+	{
+		if(!validSectionName(sec))
+			throw ValueException(format("Invalid section name '{}'", sec))
+		else if(!validSectionName(target))
+			throw ValueException(format("Invalid section name '{}'", target))
+		else if(sec == target)
+			throw ValueException("Section names must be different")
+
+		local ord = :_sectionOrder
+
+		// Check if this section is already in the order. It's possible for it not to be,
+		// if it's a custom section.
+		local idx = ord.find(sec)
+
+		if(idx < #ord)
+			ord.pop(idx)
+
+		// Find where to insert and put it there.
+		local targetIdx = ord.find(target)
+
+		if(targetIdx == #ord)
+			throw ValueException(format("Section '{}' does not exist in the section order", target))
+
+		ord.insert(after ? targetIdx + 1 : targetIdx, sec)
+	}
+
+	function getSectionOrder() =
+		:_sectionOrder.dup()
+
+	function setSectionOrder(order: array)
+	{
+		// Make sure it's an array of valid section names
+		foreach(name; order)
+		{
+			if(!isString(name))
+				throw ValueException("Order must be an array of nothing but strings")
+			else if(!validSectionName(name))
+				throw ValueException(format("Invalid section name '{}' in given order", name))
+		}
+
+		// Make sure all standard sections are accounted for
+		foreach(sec; stdSections)
+			if(sec !in order)
+				throw ValueException(format("Standard section '{}' does not exist in the given order", sec))
+
+		:_sectionOrder = order.dup()
+	}
+	
+	// =================================================================================================
+	// Section handlers
+	
+	function getSectionHandler(name: string)
+	{
+		if(local handler = :_sectionHandlers[name])
+			return handler
+		else
+			return "defaultSectionHandler"
+	}
+	
+	function setSectionHandler(name: string, handlerName: string)
+	{
+		if(name !in :_sectionOrder)
+			throw ValueException(format("Section '{}' does not appear in the section order", name))
+		
+		if(!hasMethod(this, handlerName))
+			throw ValueException(format("No method named '{}' exists in this class", handlerName))
+
+		:_sectionHandlers[name] = handlerName
+	}
+
+	function defaultSectionHandler(name: string, contents: array)
+	{
+		:beginParagraph()
+		:beginBold()
+		:outputText(name, ": ")
+		:endBold()
+		:outputParagraphContents(contents[0])
+		:endParagraph()
+
+		:outputParagraphs(contents[1 ..])
+	}
+
+	function handleDocsSection(name: string, contents: array)
+	{
+		if(#contents == 1 && #contents[0] == 1 && contents[0][0] is "")
+			return
+
+		:outputParagraphs(contents)
+	}
+
+	function handleParamSection(name: string, contents: array)
+	{
+		if(#contents == 0)
+			return
+			
+		:beginParagraph()
+		:beginBold()
+		:outputText("Params:")
+		:endBold()
+		:endParagraph()
+		
+		:beginDefList()
+		
+		foreach(param; contents)
+		{
+			:beginDefTerm()
+			:beginBold()
+			
+			:outputText(param.name)
+			
+			if(param.type != "any" && param.type != "vararg")
+				:outputText(": ", param.type)
+
+			if(param.value)
+				:outputText(" = ", param.value)
+
+			:endBold()
+			:endDefTerm()
+			
+			:beginDefDef()
+			:outputParagraphs(param.docs)
+			:endDefDef()
+		}
+
+		:endDefList()
+	}
+	
+	function handleThrowsSection(name: string, contents: array)
+	{
+		assert(#contents > 0)
+		
+		:beginParagraph()
+		:beginBold()
+		:outputText("Throws:")
+		:endBold()
+		:endParagraph()
+		
+		:beginDefList()
+		
+		foreach(ex; contents)
+		{
+			:beginDefTerm()
+			:beginBold()
+			:outputText(ex[0])
+			:endBold()
+			:endDefTerm()
+
+			:beginDefDef()
+			:outputParagraphs(ex[1..])
+			:endDefDef()
+		}
+
+		:endDefList()
+	}
+}
+
+class TracWikiDocOutput : BaseDocOutput
+{
+
 }
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
