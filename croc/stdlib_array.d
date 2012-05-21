@@ -201,6 +201,7 @@ const RegisterFunc[] _methodFuncs =
 	{"findIf",   &_findIf,   maxParams: 1},
 	{"bsearch",  &_bsearch,  maxParams: 1},
 	{"pop",      &_pop,      maxParams: 1},
+	{"insert",   &_insert,   maxParams: 2},
 	{"set",      &_set},
 	{"min",      &_min,      maxParams: 0},
 	{"max",      &_max,      maxParams: 0},
@@ -726,6 +727,31 @@ uword _pop(CrocThread* t)
 		data[i] = data[i + 1];
 
 	array.resize(t.vm.alloc, getArray(t, 0), data.length - 1);
+	return 1;
+}
+
+uword _insert(CrocThread* t)
+{
+	checkParam(t, 0, CrocValue.Type.Array);
+	auto a = getArray(t, 0);
+	auto data = a.toArray();
+	crocint index = checkIntParam(t, 1);
+	checkAnyParam(t, 2);
+
+	if(index < 0)
+		index += data.length;
+
+	if(index < 0 || index > data.length)
+		throwStdException(t, "BoundsException", "Invalid array index: {}", index);
+		
+	array.resize(t.vm.alloc, getArray(t, 0), data.length + 1);
+
+	for(uword i = data.length - 1; i > index; i--)
+		data[i] = data[i - 1];
+		
+	dup(t, 2);
+	idxai(t, 0, index);
+	dup(t, 0);
 	return 1;
 }
 
@@ -1258,6 +1284,13 @@ foreach(i, v; a, "reverse")
 		the end of the array), it will remove that element and shift all the other elements after it down a
 		slot. In either case, if the array's length is 0, an error will be thrown.`,
 		params: [Param("index", "int", "-1")],
+		extra: [Extra("section", "Methods")]},
+		
+		{kind: "function", name: "insert", docs:
+		`More or less the inverse of \tt{pop}, this function lets you insert a value into an array, shifting
+		down all the values after it. The \tt{index} can be negative to mean from the end of the array. \tt{index}
+		can also be the length of the array, in which case the value is appended to the end of the array.`,
+		params: [Param("index", "int"), Param("value")],
 		extra: [Extra("section", "Methods")]},
 
 		{kind: "function", name: "set", docs:
