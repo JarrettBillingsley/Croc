@@ -10,11 +10,8 @@ function main()
 // 	foreach(member; docsOf(array).children)
 // 		writeln$ json.toJSON(member, true)
 
-	local b = BaseDocOutput()
-	b.insertSectionBefore("docs", "deprecated")
-	writeln$ b.getSectionOrder()
-	b.insertSectionAfter("docs", "license")
-	writeln$ b.getSectionOrder()
+	local t = TracWikiDocOutput()
+	t.outputParagraphs(docsOf(array.range).docs)
 }
 
 import exceptions:
@@ -28,7 +25,7 @@ local stdSections =
 
 	"docs"
 	"examples"
-	"param"
+	"params"
 	"returns"
 	"throws"
 
@@ -49,28 +46,68 @@ local stdSections =
 	"license"
 ]
 
+local stdSpans =
+[
+	"b"
+	"em"
+	"link"
+	"sub"
+	"sup"
+	"tt"
+	"u"
+]
+
+local stdStructures =
+[
+	"code"
+	"verbatim"
+	"blist"
+	"nlist"
+	"dlist"
+	"table"
+]
+
 local function validSectionName(name: string) =
 	!(#name == 0 || (#name == 1 && name[0] == '_') || (name[0] != '_' && name !in stdSections))
+
+local function validSpanName(name: string) =
+	!(#name == 0 || (#name == 1 && name[0] == '_') || (name[0] != '_' && name !in stdSpans))
+
+local dottedNameRE = regexp.Regexp(@`^\w+(\.\w+)*$`)
+
+local function isDottedName(name: string) =
+	dottedNameRE.test(name)
 
 class BaseDocOutput
 {
 	_sectionOrder = stdSections.dup()
-	_sectionHandlers = 
+	_sectionHandlers =
 	{
-    	docs = "handleDocsSection",
-    	param = "handleParamSection",
-    	throws = "handleThrowsSection"
+    	docs = "handleSection_docs",
+    	params = "handleSection_params",
+    	throws = "handleSection_throws"
 	}
+
+	_spanHandlers =
+	{
+    	b = "handleSpan_b",
+    	em = "handleSpan_em",
+    	link = "handleSpan_link",
+    	sub = "handleSpan_sub",
+    	sup = "handleSpan_sup",
+    	tt = "handleSpan_tt",
+    	u = "handleSpan_u"
+	}
+
+	// =================================================================================================
+	// Constructor
 
 	this()
 	{
 		:_sectionOrder = :_sectionOrder.dup()
 		:_sectionHandlers = hash.dup(:_sectionHandlers)
+		:_spanHandlers = hash.dup(:_spanHandlers)
 	}
-
-	// Section/text span handlers
-	// Link indexing/lookup
-	// High-level output funcs
 
 	// =================================================================================================
 	// Section ordering
@@ -129,10 +166,10 @@ class BaseDocOutput
 
 		:_sectionOrder = order.dup()
 	}
-	
+
 	// =================================================================================================
 	// Section handlers
-	
+
 	function getSectionHandler(name: string)
 	{
 		if(local handler = :_sectionHandlers[name])
@@ -140,12 +177,12 @@ class BaseDocOutput
 		else
 			return "defaultSectionHandler"
 	}
-	
+
 	function setSectionHandler(name: string, handlerName: string)
 	{
 		if(name !in :_sectionOrder)
 			throw ValueException(format("Section '{}' does not appear in the section order", name))
-		
+
 		if(!hasMethod(this, handlerName))
 			throw ValueException(format("No method named '{}' exists in this class", handlerName))
 
@@ -164,7 +201,7 @@ class BaseDocOutput
 		:outputParagraphs(contents[1 ..])
 	}
 
-	function handleDocsSection(name: string, contents: array)
+	function handleSection_docs(name: string, contents: array)
 	{
 		if(#contents == 1 && #contents[0] == 1 && contents[0][0] is "")
 			return
@@ -172,26 +209,26 @@ class BaseDocOutput
 		:outputParagraphs(contents)
 	}
 
-	function handleParamSection(name: string, contents: array)
+	function handleSection_params(name: string, contents: array)
 	{
 		if(#contents == 0)
 			return
-			
+
 		:beginParagraph()
 		:beginBold()
 		:outputText("Params:")
 		:endBold()
 		:endParagraph()
-		
+
 		:beginDefList()
-		
+
 		foreach(param; contents)
 		{
 			:beginDefTerm()
 			:beginBold()
-			
+
 			:outputText(param.name)
-			
+
 			if(param.type != "any" && param.type != "vararg")
 				:outputText(": ", param.type)
 
@@ -200,7 +237,7 @@ class BaseDocOutput
 
 			:endBold()
 			:endDefTerm()
-			
+
 			:beginDefDef()
 			:outputParagraphs(param.docs)
 			:endDefDef()
@@ -208,19 +245,19 @@ class BaseDocOutput
 
 		:endDefList()
 	}
-	
-	function handleThrowsSection(name: string, contents: array)
+
+	function handleSection_throws(name: string, contents: array)
 	{
 		assert(#contents > 0)
-		
+
 		:beginParagraph()
 		:beginBold()
 		:outputText("Throws:")
 		:endBold()
 		:endParagraph()
-		
+
 		:beginDefList()
-		
+
 		foreach(ex; contents)
 		{
 			:beginDefTerm()
@@ -236,11 +273,449 @@ class BaseDocOutput
 
 		:endDefList()
 	}
+
+	function _outputSection(name: string, doctable: table)
+	{
+		local contents = null
+
+		if(name[0] == '_')
+		{
+			if(hasField(docTable, "extra"))
+				contents = docTable.extra[name[1 ..]]
+		}
+		else
+			contents = docTable[name]
+
+		if(contents !is null)
+			:(:getSectionHandler(name))(name, contents)
+	}
+
+	// =================================================================================================
+	// Span handlers
+
+	function getSpanHandler(name: string)
+	{
+		if(local handler = :_spanHandlers[name])
+			return handler
+		else
+			return "defaultSpanHandler"
+	}
+
+	function setSpanHandler(name: string, handlerName: string)
+	{
+		if(!validSpanName(name))
+			throw ValueException(format("Invalid span name '{}'", name))
+
+		if(!hasMethod(this, handlerName))
+			throw ValueException(format("No method named '{}' exists in this class", handlerName))
+
+		:_spanHandlers[name] = handlerName
+	}
+
+	function defaultSpanHandler(contents: array)
+	{
+		:outputParagraphContents(contents[1..])
+	}
+
+	function handleSpan_b(contents: array)
+	{
+		:beginBold()
+		:outputParagraphContents(contents[1..])
+		:endBold()
+	}
+
+	function handleSpan_em(contents: array)
+	{
+		:beginEmphasis()
+		:outputParagraphContents(contents[1..])
+		:endEmphasis()
+	}
+
+	function handleSpan_link(contents: array)
+	{
+		:beginLink(:resolveLink(contents[1]))
+		:outputParagraphContents(contents[2..])
+		:endLink()
+	}
+
+	function handleSpan_sub(contents: array)
+	{
+		:beginSubscript()
+		:outputParagraphContents(contents[1..])
+		:endSubscript()
+	}
+
+	function handleSpan_sup(contents: array)
+	{
+		:beginSuperscript()
+		:outputParagraphContents(contents[1..])
+		:endSuperscript()
+	}
+
+	function handleSpan_tt(contents: array)
+	{
+		:beginMonospace()
+		:outputParagraphContents(contents[1..])
+		:endMonospace()
+	}
+
+	function handleSpan_u(contents: array)
+	{
+		:beginUnderline()
+		:outputParagraphContents(contents[1..])
+		:endUnderline()
+	}
+
+	function _outputSpan(contents: array)
+		:(:getSpanHandler(contents[0]))(contents)
+
+	// =================================================================================================
+	// Text structure handlers
+
+	function outputCode(contents: array)
+	{
+		:beginCode(contents[1])
+		:outputTest(contents[2])
+		:endCode()
+	}
+	
+	function outputVerbatim(contents: array)
+	{
+		:beginVerbatim()
+		:outputTest(contents[1])
+		:endVerbatim()
+	}
+	
+	function outputBlist(contents: array)
+	{
+		:beginBulletList()
+		
+		for(i: 1 .. #contents)
+		{
+			:beginListItem()
+			:outputParagraphs(contents[i])
+			:endListItem()
+		}
+
+		:endBulletList()
+	}
+	
+	function outputNlist(contents: array)
+	{
+		:beginNumList(contents[1])
+
+		for(i: 2 .. #contents)
+		{
+			:beginListItem()
+			:outputParagraphs(contents[i])
+			:endListItem()
+		}
+
+		:endNumList()
+	}
+
+	function outputDlist(contents: array)
+	{
+		:beginDefList()
+
+		for(i: 1 .. #contents)
+		{
+			:beginDefTerm()
+			:outputParagraphContents(contents[i][0])
+			:endDefTerm()
+
+			:beginDefDef()
+			:outputParagraphs(contents[i][1..])
+			:endDefDef()
+		}
+
+		:endDefList()
+	}
+	
+	function outputTable(contents: array)
+	{
+		:beginTable()
+
+		for(row: 1 .. #contents)
+		{
+			:beginRow()
+
+			foreach(cell; contents[row])
+			{
+				:beginCell()
+				:outputParagraphs(cell)
+				:endCell()
+			}
+
+			:endRow()
+		}
+
+		:endTable()
+	}
+
+	// =================================================================================================
+	// Link handling
+
+	function resolveLink(link: string) throw NotImplementedException()
+
+	// =================================================================================================
+	// Element-level output functions
+
+	function beginBold() throw NotImplementedException()
+	function endBold() throw NotImplementedException()
+	function beginEmphasis() throw NotImplementedException()
+	function endEmphasis() throw NotImplementedException()
+	function beginLink(link: string) throw NotImplementedException()
+	function endLink() throw NotImplementedException()
+	function beginMonospace() throw NotImplementedException()
+	function endMonospace() throw NotImplementedException()
+	function beginSubscript() throw NotImplementedException()
+	function endSubscript() throw NotImplementedException()
+	function beginSuperscript() throw NotImplementedException()
+	function endSuperscript() throw NotImplementedException()
+	function beginUnderline() throw NotImplementedException()
+	function endUnderline() throw NotImplementedException()
+
+	function beginCode(language: string) throw NotImplementedException()
+	function endCode() throw NotImplementedException()
+	function beginVerbatim() throw NotImplementedException()
+	function endVerbatim() throw NotImplementedException()
+	function beginBulletList() throw NotImplementedException()
+	function endBulletList() throw NotImplementedException()
+	function beginNumList(type: string) throw NotImplementedException()
+	function endNumList() throw NotImplementedException()
+	function beginListItem() throw NotImplementedException()
+	function endListItem() throw NotImplementedException()
+	function beginDefList() throw NotImplementedException()
+	function endDefList() throw NotImplementedException()
+	function beginDefTerm() throw NotImplementedException()
+	function endDefTerm() throw NotImplementedException()
+	function beginDefDef() throw NotImplementedException()
+	function endDefDef() throw NotImplementedException()
+	function beginTable() throw NotImplementedException()
+	function endTable() throw NotImplementedException()
+	function beginRow() throw NotImplementedException()
+	function endRow() throw NotImplementedException()
+	function beginCell() throw NotImplementedException()
+	function endCell() throw NotImplementedException()
+
+	function beginParagraph() throw NotImplementedException()
+	function endParagraph() throw NotImplementedException()
+
+	function outputText(vararg) throw NotImplementedException()
+
+	function outputParagraphContents(par: array)
+	{
+		foreach(elem; par)
+		{
+			if(isString(elem))
+				:outputText(elem)
+			else if(isArray(elem))
+			{
+				local tag = elem[0]
+
+				if(tag in stdStructures)
+				{
+					switch(tag)
+					{
+						case "code":     :outputCode(elem);     break
+						case "verbatim": :outputVerbatim(elem); break
+						case "blist":    :outputBlist(elem);    break
+						case "nlist":    :outputNlist(elem);    break
+						case "dlist":    :outputDlist(elem);    break
+						case "table":    :outputTable(elem);    break
+						default: assert(false)
+					}
+				}
+				else
+					:_outputSpan(elem)
+			}
+			else
+				assert(false)
+		}
+	}
+
+	function outputParagraph(par: array)
+	{
+		:beginParagraph()
+		:outputParagraphContents(par)
+		:endParagraph()
+	}
+
+	function outputParagraphs(plist: array)
+	{
+		foreach(par; plist)
+			:outputParagraph(par)
+	}
+
+	// =================================================================================================
+	// Item-level output functions
+
+	// =================================================================================================
+	// Top-level output functions
 }
 
 class TracWikiDocOutput : BaseDocOutput
 {
+	_listType = []
+	_inTable = false
 
+	function resolveLink(link: string) = link
+
+	function beginBold() :outputText("'''")
+	function endBold()  :outputText("'''")
+	function beginEmphasis() :outputText("''")
+	function endEmphasis() :outputText("''")
+	function beginLink(link: string) {}
+	function endLink() {}
+	function beginMonospace() :outputText("`")
+	function endMonospace() :outputText("`")
+	function beginSubscript() :outputText(",,")
+	function endSubscript() :outputText(",,")
+	function beginSuperscript() :outputText("^")
+	function endSuperscript() :outputText("^")
+	function beginUnderline() :outputText("__")
+	function endUnderline() :outputText("__")
+
+	function beginCode(language: string)
+	{
+		:checkNotInTable()
+		:outputText("\n{{{\n#!\n", language)
+	}
+
+	function endCode()
+		:outputText("\n}}}\n")
+	
+	function beginVerbatim()
+	{
+		:checkNotInTable()
+		:outputText("\n{{{\n")
+	}
+	
+	function endVerbatim()
+		:outputText("\n}}}\n")
+
+	function beginBulletList()
+	{
+		:checkNotInTable()
+		:_listType.append("*")
+	}
+
+	function endBulletList()
+	{
+		:_listType.pop()
+		:outputText("\n")
+	}
+
+	function beginNumList(type: string)
+	{
+		:checkNotInTable()
+		:_listType.append(type ~ ".")
+	}
+
+	function endNumList()
+	{
+		:_listType.pop()
+		:outputText("\n")
+	}
+
+	function beginListItem()
+	{
+		assert(#:_listType > 0)
+		:outputIndent()
+		:outputText(:_listType[-1], " ")
+	}
+
+	function endListItem()
+		:outputText("\n")
+
+	function beginDefList()
+	{
+		:checkNotInTable()
+		:_listType.append(null)
+	}
+
+	function endDefList()
+	{
+		:_listType.pop()
+		:outputText("\n")
+	}
+
+	function beginDefTerm()
+	{
+		assert(#:_listType > 0)
+		:outputIndent()
+	}
+
+	function endDefTerm()
+		:outputText("::\n")
+
+	function beginDefDef()
+		:outputIndent()
+
+	function endDefDef()
+		:outputText("\n")
+
+	function beginTable()
+	{
+		if(#:_listType > 0)
+			throw ValueException("Sorry, tables inside lists are unsupported in Trac wiki markup")
+
+		:_inTable = true
+		:outputText("\n")
+	}
+
+	function endTable()
+	{
+		:_inTable = false
+		:outputText("\n")
+	}
+
+	function beginRow()
+		:outputText("||")
+
+	function endRow()
+		:outputText("\n")
+
+	function beginCell() {}
+
+	function endCell()
+		:outputText("||")
+
+	function beginParagraph()
+	{
+		if(!:_inTable)
+		{
+			:outputText("\n")
+			:outputIndent()
+		}
+	}
+
+	function endParagraph()
+	{
+		if(:_inTable)
+			:outputText(" ")
+		else
+			:outputText("\n")
+	}
+
+	function outputText(vararg)
+	{
+		for(i: 0 .. #vararg)
+			write(vararg[i])
+	}
+
+	function checkNotInTable()
+	{
+		if(:_inTable)
+			throw ValueException("Sorry, text structures inside tables are unsupported in Trac wiki markup")
+	}
+
+	function outputIndent()
+	{
+		if(#:_listType > 0)
+			:outputText(" ".repeat(#:_listType * 2 - 1))
+	}
 }
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
@@ -249,7 +724,7 @@ class TracWikiDocOutput : BaseDocOutput
 // {
 //
 // }
-// 
+//
 /* import exceptions: TypeException, ValueException
 
 function help(x, child: string = null)

@@ -1297,7 +1297,9 @@ private:
 				for(uword j = cast(uword)rowLen; j < maxRowLength; j++)
 				{
 					newArray(t, 1);
+					newArray(t, 1);
 					pushString(t, "");
+					idxai(t, -2, 0);
 					idxai(t, -2, 0);
 					idxai(t, row, j);
 				}
