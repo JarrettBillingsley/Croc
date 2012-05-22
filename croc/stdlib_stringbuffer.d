@@ -962,7 +962,7 @@ uword _opDeserialize(CrocThread* t)
 version(CrocBuiltinDocs)
 {
 	const Docs _classDocs =
-	{kind: "class", name: "string.StringBuffer", docs:
+	{kind: "class", name: "StringBuffer", docs:
 	`Croc's strings are immutable. While this makes dealing with strings much easier in most cases, it also
 	introduces inefficiency for some operations, such as building up strings piecewise or performing text modification
 	on large string data. \tt{StringBuffer} is a mutable string class that makes these sorts of things possible.

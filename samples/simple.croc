@@ -11,7 +11,7 @@ function main()
 // 		writeln$ json.toJSON(member, true)
 
 	local t = TracWikiDocOutput()
-	t.outputParagraphs(docsOf(array.range).docs)
+	t.outputItem(docsOf(exceptions), "")
 }
 
 import exceptions:
@@ -193,7 +193,7 @@ class BaseDocOutput
 	{
 		:beginParagraph()
 		:beginBold()
-		:outputText(name, ": ")
+		:outputText(name[0].toUpper(), name[1..], ": ")
 		:endBold()
 		:outputParagraphContents(contents[0])
 		:endParagraph()
@@ -220,30 +220,39 @@ class BaseDocOutput
 		:endBold()
 		:endParagraph()
 
-		:beginDefList()
+// 		:beginDefList()
+		:beginTable()
 
 		foreach(param; contents)
 		{
-			:beginDefTerm()
+			:beginRow()
+// 			:beginDefTerm()
+			:beginCell()
 			:beginBold()
 
 			:outputText(param.name)
 
-			if(param.type != "any" && param.type != "vararg")
-				:outputText(": ", param.type)
-
-			if(param.value)
-				:outputText(" = ", param.value)
+// 			if(param.type != "any" && param.type != "vararg")
+// 				:outputText(": ", param.type)
+//
+// 			if(param.value)
+// 				:outputText(" = ", param.value)
 
 			:endBold()
-			:endDefTerm()
+// 			:endDefTerm()
+			:endCell()
 
-			:beginDefDef()
+// 			:beginDefDef()
+			:beginCell()
 			:outputParagraphs(param.docs)
-			:endDefDef()
+// 			:endDefDef()
+			:endCell()
+			
+			:endRow()
 		}
 
-		:endDefList()
+// 		:endDefList()
+		:endTable()
 	}
 
 	function handleSection_throws(name: string, contents: array)
@@ -274,7 +283,7 @@ class BaseDocOutput
 		:endDefList()
 	}
 
-	function _outputSection(name: string, doctable: table)
+	function outputSection(name: string, doctable: table)
 	{
 		local contents = null
 
@@ -284,10 +293,16 @@ class BaseDocOutput
 				contents = docTable.extra[name[1 ..]]
 		}
 		else
-			contents = docTable[name]
+			contents = doctable[name]
 
 		if(contents !is null)
 			:(:getSectionHandler(name))(name, contents)
+	}
+
+	function outputDocSections(doctable: table)
+	{
+		foreach(section; :_sectionOrder)
+			:outputSection(section, doctable)
 	}
 
 	// =================================================================================================
@@ -366,7 +381,7 @@ class BaseDocOutput
 		:endUnderline()
 	}
 
-	function _outputSpan(contents: array)
+	function outputSpan(contents: array)
 		:(:getSpanHandler(contents[0]))(contents)
 
 	// =================================================================================================
@@ -375,21 +390,21 @@ class BaseDocOutput
 	function outputCode(contents: array)
 	{
 		:beginCode(contents[1])
-		:outputTest(contents[2])
+		:outputText(contents[2])
 		:endCode()
 	}
-	
+
 	function outputVerbatim(contents: array)
 	{
 		:beginVerbatim()
-		:outputTest(contents[1])
+		:outputText(contents[1])
 		:endVerbatim()
 	}
-	
+
 	function outputBlist(contents: array)
 	{
 		:beginBulletList()
-		
+
 		for(i: 1 .. #contents)
 		{
 			:beginListItem()
@@ -399,7 +414,7 @@ class BaseDocOutput
 
 		:endBulletList()
 	}
-	
+
 	function outputNlist(contents: array)
 	{
 		:beginNumList(contents[1])
@@ -431,7 +446,7 @@ class BaseDocOutput
 
 		:endDefList()
 	}
-	
+
 	function outputTable(contents: array)
 	{
 		:beginTable()
@@ -528,10 +543,10 @@ class BaseDocOutput
 					}
 				}
 				else
-					:_outputSpan(elem)
+					:outputSpan(elem)
 			}
 			else
-				assert(false)
+				throw ValueException("Malformed documentation")
 		}
 	}
 
@@ -551,6 +566,162 @@ class BaseDocOutput
 	// =================================================================================================
 	// Item-level output functions
 
+	function beginItem(doctable: table, parentFQN: string) throw NotImplementedException()
+	function endItem() throw NotImplementedException()
+
+	function outputHeader(doctable: table, parentFQN: string, full: bool = true)
+	{
+		switch(doctable.kind)
+		{
+			case "module":
+				:outputText("module ", doctable.name)
+				return
+
+			case "function":
+				if(parentFQN !is "")
+					:outputText(parentFQN, ".")
+
+				:outputText(doctable.name == "constructor" ? "this" : doctable.name)
+
+				if(!full)
+					return
+
+				:outputText("(")
+
+				foreach(i, p; doctable.params)
+				{
+					if(i > 0)
+						:outputText(", ")
+
+					:outputText(p.name)
+
+					if(p.type != "any" && p.type != "vararg")
+						:outputText(": ", p.type)
+
+					if(p.value)
+						:outputText(" = ", p.value)
+				}
+
+				:outputText(")")
+				break
+
+			case "class", "namespace":
+				:outputText(doctable.kind, " ")
+
+				if(parentFQN !is "")
+					:outputText(parentFQN, ".")
+
+				:outputText(doctable.name)
+
+				if(!full)
+					return
+
+				if(doctable.base)
+					write(" : ", doctable.base)
+				break
+
+			case "field":
+				if(parentFQN !is "")
+					:outputText(parentFQN, ".")
+
+				write(doctable.name)
+
+				if(!full)
+					return
+
+				if(doctable.value)
+					write(" = ", doctable.value)
+				break
+
+			case "variable":
+				write(doctable.protection, " ")
+
+				if(parentFQN !is "")
+					:outputText(parentFQN, ".")
+
+				:outputText(doctable.name)
+
+				if(!full)
+					return
+
+				if(doctable.value)
+					write(" = ", d.value)
+				break
+
+			case "parameter":
+				throw ValueException("Cannot call outputHeader on a parameter doctable")
+
+			default:
+				throw ValueException("Malformed documentation")
+		}
+	}
+
+	function outputChildren(doctable: table, parentFQN: string)
+	{
+		foreach(child; doctable.children)
+			:outputItem(child, parentFQN)
+	}
+
+	function outputModule(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "module")
+		:outputChildren(doctable, doctable.name)
+	}
+
+	function outputFunction(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "function")
+		// nothing different, all the func-specific sections are already handled
+	}
+
+	function outputClass(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "class")
+		:outputChildren(doctable, "")
+	}
+
+	function outputNamespace(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "namespace")
+		:outputChildren(doctable, "")
+	}
+
+	function outputField(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "field")
+		// nothing different
+	}
+
+	function outputVariable(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "variable")
+		// nothing different
+	}
+
+	function outputItem(doctable: table, parentFQN: string)
+	{
+		:beginItem(doctable, parentFQN)
+		:outputDocSections(doctable)
+
+		switch(doctable.kind)
+		{
+			case "module":    :outputModule(doctable, parentFQN);    break
+			case "function":  :outputFunction(doctable, parentFQN);  break
+			case "class":     :outputClass(doctable, parentFQN);     break
+			case "namespace": :outputNamespace(doctable, parentFQN); break
+			case "field":     :outputField(doctable, parentFQN);     break
+			case "variable":  :outputVariable(doctable, parentFQN);  break
+
+			case "parameter":
+				throw ValueException("Can't call outputItem on a parameter doctable")
+
+			default:
+				throw ValueException("Malformed documentation")
+		}
+
+		:endItem()
+	}
+
 	// =================================================================================================
 	// Top-level output functions
 }
@@ -559,6 +730,7 @@ class TracWikiDocOutput : BaseDocOutput
 {
 	_listType = []
 	_inTable = false
+	_itemDepth = 0
 
 	function resolveLink(link: string) = link
 
@@ -585,13 +757,13 @@ class TracWikiDocOutput : BaseDocOutput
 
 	function endCode()
 		:outputText("\n}}}\n")
-	
+
 	function beginVerbatim()
 	{
 		:checkNotInTable()
 		:outputText("\n{{{\n")
 	}
-	
+
 	function endVerbatim()
 		:outputText("\n}}}\n")
 
@@ -599,6 +771,7 @@ class TracWikiDocOutput : BaseDocOutput
 	{
 		:checkNotInTable()
 		:_listType.append("*")
+		:outputText("\n")
 	}
 
 	function endBulletList()
@@ -611,6 +784,7 @@ class TracWikiDocOutput : BaseDocOutput
 	{
 		:checkNotInTable()
 		:_listType.append(type ~ ".")
+		:outputText("\n")
 	}
 
 	function endNumList()
@@ -633,6 +807,7 @@ class TracWikiDocOutput : BaseDocOutput
 	{
 		:checkNotInTable()
 		:_listType.append(null)
+		:outputText("\n")
 	}
 
 	function endDefList()
@@ -703,6 +878,43 @@ class TracWikiDocOutput : BaseDocOutput
 	{
 		for(i: 0 .. #vararg)
 			write(vararg[i])
+	}
+
+	function beginItem(doctable: table, parentFQN: string)
+	{
+		if(doctable.kind is "module")
+		{
+			:outputText("[[PageOutline]]\n")
+			:outputWikiHeader(doctable, parentFQN, false)
+		}
+		else
+			:outputWikiHeader(doctable, parentFQN)
+
+		:_itemDepth++
+	}
+
+	function endItem()
+	{
+		:outputText("\n")
+		:_itemDepth--
+	}
+
+	function outputWikiHeader(doctable: table, parentFQN: string, full: bool = false)
+	{
+		local h = "=".repeat(:_itemDepth + 1)
+		:outputText(h, " ")
+		:beginMonospace()
+		:outputHeader(doctable, parentFQN, false)
+		:endMonospace()
+		:outputText(" ", h, "\n")
+
+		:beginParagraph()
+		:beginBold()
+		:beginMonospace()
+		:outputHeader(doctable, parentFQN, true)
+		:endMonospace()
+		:endBold()
+		:endParagraph()
 	}
 
 	function checkNotInTable()

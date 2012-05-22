@@ -75,7 +75,7 @@ version(CrocBuiltinDocs) void docStringLib(CrocThread* t)
 	pushGlobal(t, "string");
 
 	scope doc = new CrocDoc(t, __FILE__);
-	doc.push(Docs("module", "String Library",
+	doc.push(Docs("module", "string",
 	`The string library provides functionality for manipulating strings. Most of these functions are accessed as methods of
 	string objects. These are indicated as \tt{s.methodName} in the following docs.
 
@@ -960,7 +960,7 @@ version(CrocBuiltinDocs)
 {
 	const Docs[] _globalFuncDocs =
 	[
-		{kind: "function", name: "string.fromRawUnicode", docs:
+		{kind: "function", name: "fromRawUnicode", docs:
 		`Converts data stored in a memblock into a string. The given memblock must be of type \tt{u8}, \tt{u16}, or \tt{u32}.
 		If it's \tt{u8}, it must contain UTF-8 data; if it's \tt{u16}, it must contain UTF-16 data; and if it's \tt{u32}, it
 		must contain UTF-32 data. You can specify only a slice of the memblock to convert into a string with the \tt{lo}
@@ -971,7 +971,7 @@ version(CrocBuiltinDocs)
 		\throws[exceptions.ValueException] if the given memblock is not one of the three valid types.`,
 		params: [Param("mb", "memblock"), Param("lo", "int", "0"), Param("hi", "int", "#mb")]},
 
-		{kind: "function", name: "string.fromRawAscii", docs:
+		{kind: "function", name: "fromRawAscii", docs:
 		`Similar to \link{fromRawUnicode}, except converts a memblock containing ASCII data into a string. The memblock
 		must be of type \tt{u8}. Any bytes above U+0007F are turned into the Unicode replacement character, U+0001A.
 		Returns the converted string.
