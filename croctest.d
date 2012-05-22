@@ -31,6 +31,167 @@ version(CrocAllAddons)
 	version = CrocDevilAddon;
 }
 
+/*
+<globals>
+	Object
+	Throwable
+	Exception, Error (mirrors of exceptions.*)
+	Finalizable
+	_doc_ (mirror of docs._doc_)
+	dumpVal
+
+	weakref
+	deref
+
+	allFieldsOf
+	fieldsOf
+	findField
+	hasField
+	hasMethod
+	rawGetField
+	rawSetField
+
+	isSet
+	findGlobal
+
+	typeof
+	isArray
+	isBool
+	isChar
+	isClass
+	isFloat
+	isFuncDef
+	isFunction
+	isInstance
+	isInt
+	isMemblock
+	isNamespace
+	isNativeObj
+	isNull
+	isString
+	isTable
+	isThread
+	isWeakRef
+
+	nameOf
+
+	format
+	rawToString
+	toBool
+	toChar
+	toFloat
+	toInt
+	toString
+
+	(all mirrors of console.*)
+	write
+	writef
+	writefln
+	writeln
+	readln
+
+array metamethods
+	<several> (add function variants to array?)
+
+char metamethods
+	<several> (add function variants to char?)
+
+function metamethods
+	<several> (not enough/complicated enough to really need function variants..)
+
+memblock metamethods
+	<fucking crazy> (add function variants to memblock?)
+
+namespace metamethods
+	opApply
+
+string metamethods
+	<several> (add function variants to string?)
+
+table metamethods
+	opApply
+
+thread metamethods
+	<boop boop>  (not enough/complicated enough to really need function variants..)
+
+
+
+array
+	new, range
+
+compiler
+	loadString, eval, compileModule
+
+console : stream
+	std{in, out, err}
+	write, writeln, writef, writefln
+	readln
+
+docs
+	_doc_, docsOf
+	<several doc outputters>
+
+env
+	getEnv, putEnv
+
+exceptions
+	Location, Exception, Error, <several exception types>
+	stdException
+
+gc
+	<several>
+
+hash : string
+	<several functions>
+	WeakKeyTable, WeakValTable, WeakKeyValTable
+
+json : stream
+	toJSON, fromJSON, writeJSON
+
+math
+	whatev
+
+memblock
+	new, range
+
+modules
+	<stuff>
+
+path
+	path manipulation
+
+serialization : stream
+	serialize/deserializeGraph
+
+stream
+	In/Out/InoutStream
+	MemIn/Out/InoutStream
+
+string : memblock
+	fromRawUnicode
+	fromRawAscii
+	StringBuffer
+
+thread
+	halt, current
+
+time
+	Timer
+	<several>
+
+
+
+debug
+	<several>
+
+file
+	functions to open file streams
+	FS manipulation
+
+os
+	system, Process
+*/
+
 void main()
 {
 	scope(exit) Stdout.flush;
@@ -48,7 +209,7 @@ void main()
 		version(CrocGlAddon) GlLib.init(t);
 		version(CrocNetAddon) NetLib.init(t);
 		version(CrocDevilAddon) DevilLib.init(t);
-		
+
 		newFunction(t, &processComment_wrap, "processComment");
 		newGlobal(t, "processComment");
 
