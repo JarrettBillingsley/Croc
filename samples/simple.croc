@@ -193,7 +193,11 @@ class BaseDocOutput
 	{
 		:beginParagraph()
 		:beginBold()
-		:outputText(name[0].toUpper(), name[1..], ": ")
+		
+		if(name.startsWith("_"))
+			:outputText(name[1].toUpper(), name[2..], ": ")
+		else
+			:outputText(name[0].toUpper(), name[1..], ": ")
 		:endBold()
 		:outputParagraphContents(contents[0])
 		:endParagraph()
@@ -289,8 +293,8 @@ class BaseDocOutput
 
 		if(name[0] == '_')
 		{
-			if(hasField(docTable, "extra"))
-				contents = docTable.extra[name[1 ..]]
+			if(hasField(doctable, "custom"))
+				contents = doctable.custom[name[1 ..]]
 		}
 		else
 			contents = doctable[name]
