@@ -2,14 +2,6 @@ module samples.simple
 
 function main()
 {
-// 	BaselibDumper().dump()
-
-// 	StdlibDumper.dump(string)
-
-// 	writeln$ json.toJSON(docsOf(Object), true)
-// 	foreach(member; docsOf(array).children)
-// 		writeln$ json.toJSON(member, true)
-
 	local t = TracWikiDocOutput()
 	t.outputItem(docsOf(exceptions), "")
 }
@@ -224,38 +216,24 @@ class BaseDocOutput
 		:endBold()
 		:endParagraph()
 
-// 		:beginDefList()
 		:beginTable()
 
 		foreach(param; contents)
 		{
 			:beginRow()
-// 			:beginDefTerm()
 			:beginCell()
 			:beginBold()
-
 			:outputText(param.name)
-
-// 			if(param.type != "any" && param.type != "vararg")
-// 				:outputText(": ", param.type)
-//
-// 			if(param.value)
-// 				:outputText(" = ", param.value)
-
 			:endBold()
-// 			:endDefTerm()
 			:endCell()
 
-// 			:beginDefDef()
 			:beginCell()
 			:outputParagraphs(param.docs)
-// 			:endDefDef()
 			:endCell()
-			
+
 			:endRow()
 		}
 
-// 		:endDefList()
 		:endTable()
 	}
 
@@ -570,6 +548,7 @@ class BaseDocOutput
 	// =================================================================================================
 	// Item-level output functions
 
+	// TODO: handle dittos
 	function beginItem(doctable: table, parentFQN: string) throw NotImplementedException()
 	function endItem() throw NotImplementedException()
 
@@ -1064,213 +1043,3 @@ function help(x, child: string = null)
 
 	writeln()
 } */
-
-local listRE = regexp.Regexp(@"^(\*|\d\.) .*$")
-
-class DocDumper
-{
-	indentChildren = false
-
-	function dumpDocs(docs: string, indent: bool)
-	{
-		local codeSec, list = false, false
-
-		foreach(line; docs.splitLines())
-		{
-			local s = line.strip()
-
-			if(s == "")
-			{
-				list = false
-				writeln()
-				continue
-			}
-			else if(s == "{{{")
-				codeSec = true
-			else if(listRE.test(s))
-				list = true
-
-			if(codeSec || list)
-				writeln(line)
-			else
-			{
-				if(indent)
-					write(" ")
-				writeln(s)
-			}
-
-			if(s == "}}}")
-				codeSec = false
-		}
-	}
-
-	function dumpHeader(d, isChild: bool = :indentChildren)
-	{
-		switch(d.kind)
-		{
-			case "function":
-				writef("{}(", d.name == "constructor" ? "this" : d.name)
-
-				foreach(i, p; d.params)
-				{
-					if(i > 0)
-						write(", ")
-
-					write(p.name)
-
-					if(p.type != "any" && p.type != "vararg")
-						write(": ", p.type)
-
-					if(p.value)
-						write(" = ", p.value)
-				}
-
-				write(")")
-				break
-
-			case "class", "namespace":
-				write(d.kind, " ", d.name)
-				if(d.base)
-					write(" : ", d.base)
-				break
-
-			case "field":
-				write(d.name)
-
-				if(d.value)
-					write(" = ", d.value)
-				break
-
-			case "variable":
-				write(d.protection, " ", d.name)
-
-				if(d.value)
-					write(" = ", d.value)
-				break
-
-			default:
-				writeln("<unhandled kind ", d.kind, " ", d.name, ">")
-		}
-	}
-
-	function dumpItem(d, isChild: bool = :indentChildren)
-	{
-		:dumpHeader(d, isChild)
-
-		if(d.dittos)
-			foreach(dit; d.dittos)
-				:dumpHeader(dit, true)
-
-		switch(d.kind)
-		{
-			case "function", "field", "variable":
-				:dumpDocs(d.docs, isChild)
-				writeln()
-				break
-
-			case "class", "namespace":
-				writeln()
-				:dumpDocs(d.docs, isChild)
-				writeln()
-
-				foreach(child; d.children)
-					:dumpItem(child, true)
-				break
-
-			default:
-				writeln("<unhandled kind ", d.kind, " ", d.name, ">")
-		}
-	}
-}
-
-class BaselibDumper : DocDumper
-{
-	this()
-		:indentChildren = true
-
-	function dumpHeader(d, isChild: bool)
-	{
-		write(" '''`")
-		super.dumpHeader(d)
-		writeln("`'''::")
-	}
-
-	function dump()
-	{
-		local d = docsOf(_G)
-
-		writefln("= {} =", d.name)
-		writeln()
-		:dumpDocs(d.docs, false)
-		writeln()
-		writeln("[[PageOutline(2-9, Table of Contents, inline)]]")
-		writeln()
-
-		local curSection = ""
-
-		foreach(child; d.children)
-		{
-			if(child.section != curSection)
-			{
-				curSection = child.section
-				writefln("== {} ==", curSection)
-				writeln()
-			}
-
-			:dumpItem(child)
-		}
-	}
-}
-
-class StdlibDumper : DocDumper
-{
-	function dumpHeader(d, isChild: bool)
-	{
-		if(isChild)
-			write(" '''`")
-		else
-			write("== '''`")
-
-		super.dumpHeader(d)
-
-		if(isChild)
-			writeln("`'''::")
-		else
-			writeln("`''' ==")
-	}
-
-	function dump(mod)
-	{
-		local d = docsOf(mod)
-
-		writefln("= {} =", d.name)
-		writeln()
-		:dumpDocs(d.docs, false)
-		writeln()
-		writeln("[[PageOutline(2-9, Members, inline)]]")
-		writeln()
-
-		foreach(child; d.children)
-			:dumpItem(child)
-	}
-}
-
-/*
-I guess it's baselib (but could be moved?)
-	stringification
-		toString(value, style: char = 'd')
-		rawToString(value)
-		format(fmt: string, vararg)
-	console IO
-		write(vararg)
-		writeln(vararg)
-		writef(vararg)
-		writefln(vararg)
-		readln()
-		dumpVal(value, printNewline: bool = true)
-	conversions
-		toBool(value)
-		toInt(value: bool|int|float|char|string)
-		toFloat(value: bool|int|float|char|string)
-		toChar(value: int)
-*/

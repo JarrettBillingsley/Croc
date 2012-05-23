@@ -32,6 +32,25 @@ version(CrocAllAddons)
 }
 
 /*
+stringification
+	toString(value, style: char = 'd')
+	rawToString(value)
+	format(fmt: string, vararg)
+console IO
+	write(vararg)
+	writeln(vararg)
+	writef(vararg)
+	writefln(vararg)
+	readln()
+	dumpVal(value, printNewline: bool = true)
+conversions
+	toBool(value)
+	toInt(value: bool|int|float|char|string)
+	toFloat(value: bool|int|float|char|string)
+	toChar(value: int)
+*/
+
+/*
 <globals>
 	Object
 	Throwable
@@ -91,105 +110,395 @@ version(CrocAllAddons)
 	readln
 
 array metamethods
-	<several> (add function variants to array?)
-
+	all
+	any
+	append
+	apply
+	bsearch
+	count
+	countIf
+	dup
+	each
+	expand
+	extreme
+	fill
+	filter
+	find
+	findIf
+	flatten
+	insert
+	map
+	max
+	min
+	opApply
+	opEquals
+	pop
+	reduce
+	reverse
+	rreduce
+	set
+	sort
+	toString
 char metamethods
-	<several> (add function variants to char?)
-
+	toLower
+	toUpper
+	isAlpha
+	isAlNum
+	isLower
+	isUpper
+	isDigit
+	isCtrl
+	isPunct
+	isSpace
+	isHexDigit
+	isAscii
+	isValid
 function metamethods
-	<several> (not enough/complicated enough to really need function variants..)
-
+	isNative
+	numParams
+	maxParams
+	isVararg
+	isCacheable
 memblock metamethods
-	<fucking crazy> (add function variants to memblock?)
-
+	append
+	apply
+	copyRange
+	dup
+	fill
+	fillRange
+	insert
+	itemSize
+	map
+	max
+	min
+	opAdd
+	opAdd_r
+	opAddAssign
+	opApply
+	opCat
+	opCat_r
+	opCatAssign
+	opCmp
+	opDiv
+	opDiv_r
+	opDivAssign
+	opEquals
+	opMod
+	opMod_r
+	opModAssign
+	opMul
+	opMul_r
+	opMulAssign
+	opSliceAssign
+	opSub
+	opSub_r
+	opSubAssign
+	pop
+	product
+	rawCopy
+	readByte
+	readDouble
+	readFloat
+	readInt
+	readLong
+	readShort
+	readUByte
+	readUInt
+	readULong
+	readUShort
+	remove
+	revDiv
+	reverse
+	revMod
+	revSub
+	sort
+	sum
+	toArray
+	toString
+	type
+	writeByte
+	writeDouble
+	writeFloat
+	writeInt
+	writeLong
+	writeShort
+	writeUByte
+	writeUInt
+	writeULong
+	writeUShort
 namespace metamethods
 	opApply
-
 string metamethods
-	<several> (add function variants to string?)
-
+	compare
+	endsWith
+	find
+	icompare
+	iendsWith
+	ifind
+	irfind
+	isAscii
+	istartsWith
+	join
+	lstrip
+	opApply
+	repeat
+	replace
+	reverse
+	rfind
+	rstrip
+	split
+	splitLines
+	startsWith
+	strip
+	toFloat
+	toInt
+	toLower
+	toRawAscii
+	toRawUnicode
+	toUpper
+	vjoin
+	vsplit
+	vsplitLines
 table metamethods
 	opApply
-
 thread metamethods
-	<boop boop>  (not enough/complicated enough to really need function variants..)
-
+	isDead
+	isInitial
+	isRunning
+	isSuspended
+	isWaiting
+	reset
+	state
 
 
 array
-	new, range
-
+	new
+	range
 compiler
-	loadString, eval, compileModule
-
+	compileModule
+	eval
+	loadString
 console : stream
-	std{in, out, err}
-	write, writeln, writef, writefln
 	readln
-
+	stderr
+	stdin
+	stdout
+	write
+	writef
+	writefln
+	writeln
 docs
-	_doc_, docsOf
-	<several doc outputters>
-
+	_doc_
+	docsOf
+	BaseDocOutput
+	TracWikiDocOutput
+	HtmlDocOutput
+	LatexDocOutput?
 env
-	getEnv, putEnv
-
+	getEnv
+	putEnv
 exceptions
-	Location, Exception, Error, <several exception types>
+	Location
+	ApiError
+	AssertError
+	BoundsException
+	CallException
+	CompileException
+	Error
+	Exception
+	FieldException
+	FinalizerError
+	ImportException
+	IOException
+	LexicalException
+	LookupException
+	MethodException
+	NameException
+	NotImplementedException
+	OSException
+	ParamException
+	RangeException
+	RuntimeException
+	SemanticException
+	SwitchError
+	SyntaxException
+	TypeException
+	UnicodeException
+	ValueException
+	VMError
 	stdException
-
 gc
-	<several>
-
+	allocated
+	collect
+	collectFull
+	limit
+	postCallback
+	removePostCallback
 hash : string
-	<several functions>
-	WeakKeyTable, WeakValTable, WeakKeyValTable
-
+	apply
+	clear
+	dup
+	each
+	filter
+	keys
+	map
+	pop
+	reduce
+	remove
+	take
+	values
+	WeakKeyTable
+	WeakValTable
+	WeakKeyValTable
 json : stream
-	toJSON, fromJSON, writeJSON
-
+	fromJSON
+	toJSON
+	writeJSON
 math
-	whatev
-
+	abs
+	acos
+	asin
+	atan
+	atan2
+	cbrt
+	ceil
+	cos
+	e
+	exp
+	floatMax
+	floatMin
+	floatSize
+	floor
+	frand
+	gamma
+	hypot
+	infinity
+	intMax
+	intMin
+	intSize
+	isInf
+	isNan
+	lgamma
+	ln
+	log10
+	log2
+	max
+	min
+	nan
+	pi
+	pow
+	rand
+	round
+	sign
+	sin
+	sqrt
+	tan
+	trunc
 memblock
-	new, range
-
+	new
+	range
 modules
-	<stuff>
-
+	customLoaders
+	initModule
+	load
+	loaded
+	loaders
+	path
+	reload
+	runMain
 path
-	path manipulation
-
+	dirName
+	extension
+	fileName
+	join
+	name
 serialization : stream
-	serialize/deserializeGraph
-
+	serializeGraph
+	deserializeGraph
 stream
-	In/Out/InoutStream
-	MemIn/Out/InoutStream
-
+	InoutStream
+	InStream
+	MemInoutStream
+	MemInStream
+	MemOutStream
+	OutStream
 string : memblock
 	fromRawUnicode
 	fromRawAscii
 	StringBuffer
-
 thread
-	halt, current
-
+	current
+	halt
 time
 	Timer
-	<several>
-
+	compare
+	culture
+	dateString
+	dateTime
+	microTime
+	sleep
+	timestamp
+	timex
 
 
 debug
-	<several>
-
+	callDepth
+	currentLine
+	getExtraBytes
+	getExtraField
+	getFunc
+	getFuncEnv
+	getHook
+	getLocal
+	getMetatable
+	getRegistry
+	getUpval
+	lineInfo
+	localName
+	numExtraFields
+	numLocals
+	numUpvals
+	setExtraBytes
+	setExtraField
+	setFuncEnv
+	setHook
+	setLocal
+	setMetatable
+	setUpval
+	sourceLine
+	sourceName
+	upvalName
 file
-	functions to open file streams
-	FS manipulation
-
+	accessed
+	changeDir
+	copy
+	created
+	currentDir
+	exists
+	inFile
+	inoutFile
+	isDir
+	isFile
+	isReadOnly
+	lines
+	listDirs
+	listFiles
+	makeDir
+	makeDirChain
+	modified
+	outFile
+	parentDir
+	readFile
+	readMemblock
+	remove
+	removeDir
+	rename
+	size
+	writeFile
+	writeMemblock
 os
-	system, Process
+	system
+	Process
 */
 
 void main()
