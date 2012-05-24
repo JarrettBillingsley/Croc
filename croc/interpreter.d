@@ -499,6 +499,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 			catch(CrocException e)
 			{
 				callEpilogue(t, false);
+				continueTraceback(t, CrocValue(t.vm.exception));
 				throw e;
 			}
 			// Don't have to handle halt exceptions; they can't propagate out of a thread
@@ -2250,6 +2251,15 @@ word pushTraceback(CrocThread* t)
 	}
 
 	return ret;
+}
+
+void continueTraceback(CrocThread* t, CrocValue ex)
+{
+	push(t, ex);
+	field(t, -1, "traceback");
+	pushTraceback(t);
+	cateq(t, -2, 1);
+	pop(t, 2);
 }
 
 void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
