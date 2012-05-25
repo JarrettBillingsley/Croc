@@ -52,7 +52,7 @@ class Stream
 	function readable() = false
 	function writable() = false
 	function seekable() = false
-	
+
 	function readExact(buf: memblock, offset: int = 0, size: int = intMax)
 	{
 		if(:read(buf, offset, size) < size)
@@ -69,7 +69,7 @@ class Stream
 	{
 		if(dist < 0)
 			throw RangeException(format("Invalid skip distance ({})", dist))
-			
+
 		if(:seekable())
 		{
 			:seek(dist, 'c')
@@ -217,7 +217,7 @@ class MemblockStream : Stream
 			case 'e': offset += #:mb; break
 			default: throw ValueException(format("Invalid seek type '{}'", where))
 		}
-		
+
 		:pos = clamp(offset, 0, #:mb)
 		return :pos
 	}
@@ -225,8 +225,41 @@ class MemblockStream : Stream
 	function readable() = true
 	function writable() = true
 	function seekable() = true
-	
+
 	function getBacking() = :mb
+}
+
+local function cropPartial(s: memblock, pos: int)
+{
+	local i = pos - 1
+
+	while(i > 0)
+	{
+		local b = s[i]
+
+		if(!(b & 0x80))
+			break
+
+		if((b & 0xC0) == 0xC0)
+		{
+			local d = pos - i
+
+			if(b & 0x20)
+				d--
+
+			if(b & 0x10)
+				d--
+
+			if(d == 2)
+				i = pos
+
+			return i
+		}
+		else
+			i--
+	}
+
+	return pos
 }
 
 class UTF8Stream
@@ -254,13 +287,14 @@ class UTF8Stream
 	{
 		if(:bound == 0)
 		{
-			:_readMore()
-			
+			:_readMore(:bufPos)
+
 			if(:bound == 0)
 				return null
 		}
 
 		#:chunks = 0
+		local readBuf = :readBuf
 
 		while main(:bound > 0)
 		{
@@ -268,19 +302,28 @@ class UTF8Stream
 
 			for(; :bufPos < :bound; :bufPos++)
 			{
-				if(:readBuf[:bufPos] == 10)
+				if(readBuf[:bufPos] == 10)
 				{
-					:chunks ~= string.fromRawUnicode(:readBuf, start, :bufPos)
+					:chunks ~= string.fromRawUnicode(readBuf, start, :bufPos)
 					:bufPos++
 					break main
 				}
 			}
 
-			:chunks ~= string.fromRawUnicode(:readBuf, start, :bufPos)
-			:_readMore()
+			local realEnd = cropPartial(readBuf, :bufPos)
+
+			:chunks ~= string.fromRawUnicode(readBuf, start, realEnd)
+
+			if(realEnd < :bufPos)
+			{
+				for(local i, j = 0, realEnd; j < :bufPos; i++, j++)
+					readBuf[i] = readBuf[j]
+			}
+
+			:_readMore(:bufPos - realEnd)
 		}
 
-		local ret = string.joinArray(:chunks)
+		local ret = "".join(:chunks)
 		#:chunks = 0
 
 		if(#ret && ret[-1] == '\r')
@@ -330,17 +373,17 @@ class UTF8Stream
 	function flushOnNL(f: bool)
 		:shouldFlush = f
 
-	function _readMore()
+	function _readMore(start: int)
 	{
 		:bufPos = 0
-		:bound = :stream.read(:readBuf)
+		:bound = :stream.read(:readBuf, start)
 	}
 }
 
 class StreamWrapper : Stream
 {
 	stream
-	
+
 	this(s: Stream)
 	{
 		:stream = s
@@ -408,10 +451,10 @@ class BinaryStream : StreamWrapper
 		{
 			if(!isInt(size))
 				throw TypeException(format("Expected int for 'size'"))
-			
+
 			if(size < 0)
 				throw RangeException(format("Invalid size: {}", size))
-			
+
 			t = memblock.new(t, size)
 		}
 		else if(size !is null && size != #t)
@@ -456,13 +499,13 @@ class BinaryStream : StreamWrapper
 	{
 		if(lo < 0)
 			lo += #m
-		
+
 		if(hi < 0)
 			hi += #m
-			
+
 		if(lo < 0 || lo > hi || hi > #m)
 			throw BoundsException(format("Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, #m))
-		
+
 		if(local size = hi - lo)
 			:stream.writeExact(m, lo, size)
 
@@ -481,7 +524,7 @@ class BufferedReader : StreamWrapper
 		super(s)
 		:buf = memblock.new("u8", clamp(bufSize, 128, intMax))
 	}
-	
+
 	function read(m: memblock, offset: int = 0, size: int = intMax)
 	{
 		m, offset, size = checkInput(m, offset, size)
@@ -518,7 +561,7 @@ class BufferedReader : StreamWrapper
 
 		if(where == 'c')
 			offset -= :bound - :bufPos
-			
+
 		:bufPos, :bound = 0, 0
 		return :stream.seek(offset, where)
 	}
@@ -574,7 +617,7 @@ class BufferedWriter : StreamWrapper
 
 		return :stream.seek(offset, where)
 	}
-	
+
 	function flush()
 	{
 		if(:bufPos > 0)
@@ -584,7 +627,7 @@ class BufferedWriter : StreamWrapper
 			:bufPos = 0
 		}
 	}
-	
+
 	function close()
 	{
 		:flush()
