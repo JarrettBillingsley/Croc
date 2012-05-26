@@ -49,15 +49,6 @@ static:
 		{
 			importModuleNoNS(t, "stream");
 
-			lookup(t, "stream.stdin");
-			newGlobal(t, "stdin");
-
-			lookup(t, "stream.stdout");
-			newGlobal(t, "stdout");
-
-			lookup(t, "stream.stderr");
-			newGlobal(t, "stderr");
-
 			newFunction(t, 1, &inFile,                "inFile");        newGlobal(t, "inFile");
 			newFunction(t, 2, &outFile,               "outFile");       newGlobal(t, "outFile");
 			newFunction(t, 2, &inoutFile,             "inoutFile");     newGlobal(t, "inoutFile");

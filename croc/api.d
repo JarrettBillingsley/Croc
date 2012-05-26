@@ -41,10 +41,12 @@ public
 	import croc.vm;
 }
 
+import croc.compiler;
 import croc.stdlib_array;
 import croc.stdlib_base;
 import croc.stdlib_char;
 import croc.stdlib_compiler;
+import croc.stdlib_console;
 import croc.stdlib_debug;
 import croc.stdlib_docs;
 import croc.stdlib_exceptions;
@@ -120,6 +122,9 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	openVMImpl(vm, memFunc, ctx);
 	auto t = mainThread(vm);
 
+	version(CrocBuiltinDocs)
+		Compiler.setDefaultFlags(t, Compiler.AllDocs);
+
 	// Core libs
 	initModulesLib(t);
 	initExceptionsLib(t);
@@ -151,10 +156,14 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	initArrayLib(t);
 	initCharLib(t);
 	CompilerLib.init(t);
+	initConsoleLib(t); // depends on stream
 	MathLib.init(t);
 	RegexpLib.init(t);
 	ThreadLib.init(t);
 	TimeLib.init(t);
+	
+	version(CrocBuiltinDocs)
+		Compiler.setDefaultFlags(t, Compiler.All);
 
 	// Done, turn the GC back on and clear out any garbage we made.
 	enableGC(vm);

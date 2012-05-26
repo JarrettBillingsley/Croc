@@ -62,7 +62,6 @@ void initBaseLib(CrocThread* t)
 	registerGlobals(t, _reflFuncs);
 
 	registerGlobals(t, _convFuncs);
-	registerGlobals(t, _consoleFuncs);
 
 		newTable(t);
 	register(t, 2, "dumpVal", &_dumpVal, 1);
@@ -620,81 +619,6 @@ uword _format(CrocThread* t)
 // ===================================================================================================================================
 // Console IO
 
-const RegisterFunc[] _consoleFuncs =
-[
-	{"write",    &_write},
-	{"writeln",  &_writeln},
-	{"writef",   &_writef},
-	{"writefln", &_writefln},
-	{"readln",   &_readln, maxParams: 0}
-];
-
-uword _write(CrocThread* t)
-{
-	auto numParams = stackSize(t) - 1;
-
-	for(uword i = 1; i <= numParams; i++)
-	{
-		pushToString(t, i);
-		Stdout(getString(t, -1));
-	}
-
-	Stdout.flush;
-	return 0;
-}
-
-uword _writeln(CrocThread* t)
-{
-	auto numParams = stackSize(t) - 1;
-
-	for(uword i = 1; i <= numParams; i++)
-	{
-		pushToString(t, i);
-		Stdout(getString(t, -1));
-	}
-
-	Stdout.newline;
-	return 0;
-}
-
-uword _writef(CrocThread* t)
-{
-	uint sink(char[] data)
-	{
-		Stdout(data);
-		return data.length;
-	}
-
-	auto numParams = stackSize(t) - 1;
-	checkStringParam(t, 1);
-	formatImpl(t, numParams, &sink);
-	Stdout.flush;
-	return 0;
-}
-
-uword _writefln(CrocThread* t)
-{
-	uint sink(char[] data)
-	{
-		Stdout(data);
-		return data.length;
-	}
-
-	auto numParams = stackSize(t) - 1;
-	checkStringParam(t, 1);
-	formatImpl(t, numParams, &sink);
-	Stdout.newline;
-	return 0;
-}
-
-uword _readln(CrocThread* t)
-{
-	char[] s;
-	Cin.readln(s);
-	pushString(t, s);
-	return 1;
-}
-
 uword _dumpVal(CrocThread* t)
 {
 	checkAnyParam(t, 1);
@@ -1193,34 +1117,6 @@ foreach(k, v, o; allFieldsOf(B))
 	well.`,
 	params: [Param("fmt", "string"), Param("vararg", "vararg")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
-
-	{kind: "function", name: "write", docs:
-	`Prints out all its arguments to the console without any formatting. It's as if each argument has \b{\tt{toString}}
-	called on it, and the resulting strings are output to the console.`,
-	params: [Param("vararg", "vararg")],
-	extra: [Extra("section", "Console IO"), Extra("protection", "global")]},
-
-	{kind: "function", name: "writeln", docs:
-	`Same as \link{write}, but prints a newline after the text has been output.`,
-	params: [Param("vararg", "vararg")],
-	extra: [Extra("section", "Console IO"), Extra("protection", "global")]},
-
-	{kind: "function", name: "writef", docs:
-	`Formats the arguments using the same formatting rules as \link{format}, outputting the results to the console.
-	No newline is printed.`,
-	params: [Param("fmt", "string"), Param("vararg", "vararg")],
-	extra: [Extra("section", "Console IO"), Extra("protection", "global")]},
-
-	{kind: "function", name: "writefln", docs:
-	`Just like \link{writef}, but prints a newline after the text has been output.`,
-	params: [Param("fmt", "string"), Param("vararg", "vararg")],
-	extra: [Extra("section", "Console IO"), Extra("protection", "global")]},
-
-	{kind: "function", name: "readln", docs:
-	`Reads one line of input (up to a linefeed) from the console and returns it as a string, without
-	any trailing linefeed characters.`,
-	params: [],
-	extra: [Extra("section", "Console IO"), Extra("protection", "global")]},
 
 	{kind: "function", name: "dumpVal", docs:
 	`Dumps an exhaustive string representation of the given value to the console. This will recurse

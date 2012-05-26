@@ -1,9 +1,11 @@
 module samples.simple
 
+import streams
+
 function main()
 {
 	local t = TracWikiDocOutput()
-	t.outputItem(docsOf(exceptions), "")
+	t.outputItem(docsOf(console), "")
 }
 
 import exceptions:

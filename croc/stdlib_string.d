@@ -998,7 +998,7 @@ version(CrocBuiltinDocs)
 
 		\throws[exceptions.ValueException] if \tt{bits} is not one of the valid values.
 		\throws[exceptions.UnicodeException] if, somehow, the Unicode transcoding fails (but this shouldn't happen unless something
-		else is broken..`,
+		else is broken..)`,
 		params: [Param("bits", "int", "8"), Param("mb", "memblock", "null")]},
 
 		{kind: "function", name: "s.toRawAscii", docs:
