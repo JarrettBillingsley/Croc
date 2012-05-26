@@ -553,12 +553,15 @@ private:
 				case CrocValue.Type.Table:
 					scope fields = new List!(TableCtorExp.Field)(c.alloc);
 
-					dup(t, slot);
+					auto tab = getTable(t, slot);
 
-					foreach(word k, word v; foreachLoop(t, 1))
+					foreach(ref k, ref v; tab.data)
 					{
-						auto key = derp(k);
-						auto val = derp(v);
+						auto kslot = push(t, k);
+						auto key = derp(kslot);
+						auto vslot = push(t, v);
+						auto val = derp(vslot);
+						pop(t, 2);
 						fields ~= TableCtorExp.Field(key, val);
 					}
 
@@ -567,10 +570,14 @@ private:
 				case CrocValue.Type.Array:
 					scope exps = new List!(Expression)(c.alloc);
 
-					dup(t, slot);
+					auto arr = getArray(t, slot);
 
-					foreach(word v; foreachLoop(t, 1))
-						exps ~= derp(v);
+					foreach(ref v; arr.toArray())
+					{
+						auto vslot = push(t, v.value);
+						exps ~= derp(vslot);
+						pop(t);
+					}
 
 					return new(c) ArrayCtorExp(c, loc, loc, exps.toArray());
 
