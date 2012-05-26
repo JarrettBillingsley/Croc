@@ -1492,6 +1492,16 @@ private:
 		}
 		else
 			trimFinalText(span);
+		
+		idxi(t, span, 0);
+		
+		if(getString(t, -1) == "link" && len(t, span) == 2)
+		{
+			idxi(t, span, -1);
+			append(span);
+		}
+
+		pop(t);
 	}
 
 	void trimFinalText(uword pgph)
