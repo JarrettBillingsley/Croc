@@ -108,7 +108,7 @@ console.stdin = file.inFile("somefile.txt")
 global stdin, stdout, stderr
 
 /**
-This is a shortcut for calling the \tt{write} method of \link{stdout} with the given arguments.
+This is a shortcut for calling \tt{stdout.write} with the given arguments.
 
 Also mirrored in the global namespace so you can access it unqualified.
 
@@ -118,7 +118,7 @@ function write(vararg)
 	stdout.write(vararg)
 
 /**
-This is a shortcut for calling the \tt{writeln} method of \link{stdout} with the given arguments.
+This is a shortcut for calling \tt{stdout.writeln} with the given arguments.
 
 Also mirrored in the global namespace so you can access it unqualified.
 
@@ -128,7 +128,7 @@ function writeln(vararg)
 	stdout.writeln(vararg)
 
 /**
-This is a shortcut for calling the \tt{writef} method of \link{stdout} with the given arguments.
+This is a shortcut for calling \tt{stdout.writef} with the given arguments.
 
 Also mirrored in the global namespace so you can access it unqualified.
 
@@ -138,7 +138,7 @@ function writef(fmt: string, vararg)
 	stdout.writef(fmt, vararg)
 
 /**
-This is a shortcut for calling the \tt{writefln} method of \link{stdout} with the given arguments.
+This is a shortcut for calling \tt{stdout.writefln} with the given arguments.
 
 Also mirrored in the global namespace so you can access it unqualified.
 
@@ -148,7 +148,7 @@ function writefln(fmt: string, vararg)
 	stdout.writefln(fmt, vararg)
 
 /**
-This is a shortcut for calling the \tt{readln} method of \link{stdin} with the given arguments.
+This is a shortcut for calling \tt{stdin.readln}.
 
 Also mirrored in the global namespace so you can access it unqualified.
 

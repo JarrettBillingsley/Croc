@@ -211,6 +211,8 @@ class BaseDocOutput
 	{
 		if(#contents == 0)
 			return
+		else if(!contents.any(\p -> #p.docs > 1 || #p.docs[0] > 1 || p.docs[0][0] != ""))
+			return
 
 		:beginParagraph()
 		:beginBold()
@@ -550,7 +552,6 @@ class BaseDocOutput
 	// =================================================================================================
 	// Item-level output functions
 
-	// TODO: handle dittos
 	function beginItem(doctable: table, parentFQN: string) throw NotImplementedException()
 	function endItem() throw NotImplementedException()
 
@@ -686,6 +687,16 @@ class BaseDocOutput
 	function outputItem(doctable: table, parentFQN: string)
 	{
 		:beginItem(doctable, parentFQN)
+		
+		if(doctable.dittos)
+		{
+			foreach(d; doctable.dittos)
+			{
+				:endItem()
+				:beginItem(d, parentFQN)
+			}
+		}
+
 		:outputDocSections(doctable)
 
 		switch(doctable.kind)
@@ -723,8 +734,8 @@ class TracWikiDocOutput : BaseDocOutput
 	function endBold()  :outputText("'''")
 	function beginEmphasis() :outputText("''")
 	function endEmphasis() :outputText("''")
-	function beginLink(link: string) {}
-	function endLink() {}
+	function beginLink(link: string) :beginMonospace()
+	function endLink() :endMonospace()
 	function beginMonospace() :outputText("`")
 	function endMonospace() :outputText("`")
 	function beginSubscript() :outputText(",,")
@@ -737,7 +748,7 @@ class TracWikiDocOutput : BaseDocOutput
 	function beginCode(language: string)
 	{
 		:checkNotInTable()
-		:outputText("\n{{{\n#!\n", language)
+		:outputText("\n{{{\n#!", language, "\n")
 	}
 
 	function endCode()
@@ -870,7 +881,7 @@ class TracWikiDocOutput : BaseDocOutput
 		if(doctable.kind is "module")
 		{
 			:outputText("[[PageOutline]]\n")
-			:outputWikiHeader(doctable, parentFQN, false)
+			:outputWikiHeader(doctable, parentFQN)
 		}
 		else
 			:outputWikiHeader(doctable, parentFQN)
@@ -884,14 +895,21 @@ class TracWikiDocOutput : BaseDocOutput
 		:_itemDepth--
 	}
 
-	function outputWikiHeader(doctable: table, parentFQN: string, full: bool = false)
+	function outputWikiHeader(doctable: table, parentFQN: string)
 	{
 		local h = "=".repeat(:_itemDepth + 1)
+
 		:outputText(h, " ")
 		:beginMonospace()
 		:outputHeader(doctable, parentFQN, false)
 		:endMonospace()
 		:outputText(" ", h, "\n")
+
+		if(doctable.kind is "module")
+			return
+
+		if((doctable.kind is "variable" || doctable.kind is "field") && doctable.value is null)
+			return
 
 		:beginParagraph()
 		:beginBold()
