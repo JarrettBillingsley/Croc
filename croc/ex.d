@@ -139,7 +139,7 @@ void importModuleNoNS(CrocThread* t, word name)
 
 /**
 */
-void importModuleFromString(CrocThread* t, char[] name, char[] src, char[] srcName = null)
+word importModuleFromString(CrocThread* t, char[] name, char[] src, char[] srcName = null)
 {
 	if(srcName is null)
 		srcName = name;
@@ -155,7 +155,7 @@ void importModuleFromString(CrocThread* t, char[] name, char[] src, char[] srcNa
 
 	pushString(t, name);
 	rawCall(t, f, 0);
-	importModule(t, name);
+	return importModule(t, name);
 }
 
 /**
