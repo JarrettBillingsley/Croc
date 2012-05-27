@@ -177,14 +177,14 @@ align(1) struct CrocValue
 
 		// Ref
 		Table,      // 8
-		Array,      // 9
-		Memblock,   // 10
-		Function,   // 11
-		Class,      // 12
-		Instance,   // 13
-		Namespace,  // 14
-		Thread,     // 15
-		FuncDef,    // 16
+		Namespace,  // 9
+		Array,      // 10
+		Memblock,   // 11
+		Function,   // 12
+		FuncDef,    // 13
+		Class,      // 14
+		Instance,   // 15
+		Thread,     // 16
 
 		// Internal
 		Upvalue,    // 17
@@ -193,7 +193,7 @@ align(1) struct CrocValue
 		FirstGCType = Type.NativeObj,
 		FirstRefType = Type.Table,
 		FirstUserType = Type.Null,
-		LastUserType = Type.FuncDef
+		LastUserType = Type.Thread
 	}
 
 package:
@@ -204,19 +204,20 @@ package:
 		Type.Int:       "int",
 		Type.Float:     "float",
 		Type.Char:      "char",
+
 		Type.NativeObj: "nativeobj",
 		Type.String:    "string",
 		Type.WeakRef:   "weakref",
 
 		Type.Table:     "table",
+		Type.Namespace: "namespace",
 		Type.Array:     "array",
 		Type.Memblock:  "memblock",
 		Type.Function:  "function",
+		Type.FuncDef:   "funcdef",
 		Type.Class:     "class",
 		Type.Instance:  "instance",
-		Type.Namespace: "namespace",
 		Type.Thread:    "thread",
-		Type.FuncDef:   "funcdef",
 
 		Type.Upvalue:   "upvalue"
 	];
