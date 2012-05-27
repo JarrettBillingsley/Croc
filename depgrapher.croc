@@ -230,7 +230,7 @@ class Engine
 	// Reads in a dependency file and builds up the dependency graph from it.
 	function readFile(filename: string)
 	{
-		foreach(line; io.lines(filename))
+		foreach(line; file.lines(filename))
 		{
 			local from, prot, to = line.split(" : ").expand()
 			from = from[.. from.find(' ')]
@@ -336,7 +336,7 @@ digraph d
 		local p = os.Process()
 		p.execute(["dot", "-Tpng", "-o" ~ output])
 		p.stdin().write(g).close()
-		io.stdout.copy(p.stdout())
+		console.stdout.copy(p.stdout())
 		local reason, status = p.wait()
 
 		if(reason != "exit")

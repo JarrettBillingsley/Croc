@@ -20,9 +20,9 @@ function main(vararg)
 		local l_cnt = 0
 		local inword = false
 	
-		local c_cnt = io.size(arg)
+		local c_cnt = file.size(arg)
 	
-		local f = io.readFile(arg)
+		local f = file.readFile(arg)
 		local wstart = 0
 	
 		foreach(j, c; f)

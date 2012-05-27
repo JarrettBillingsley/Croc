@@ -8,8 +8,8 @@ function main(vararg)
 		return
 	}
 	
-	local input = io.inFile(vararg[0])
-	local output = io.outFile(vararg[1])
+	local input = file.inFile(vararg[0])
+	local output = file.outFile(vararg[1])
 	local dict = {}
 	local w = ""
 	local code

@@ -50,14 +50,15 @@ import croc.stdlib_console;
 import croc.stdlib_debug;
 import croc.stdlib_docs;
 import croc.stdlib_exceptions;
+import croc.stdlib_file;
 import croc.stdlib_gc;
 import croc.stdlib_hash;
-import croc.stdlib_io;
 import croc.stdlib_json;
 import croc.stdlib_math;
 import croc.stdlib_memblock;
 import croc.stdlib_modules;
 import croc.stdlib_os;
+import croc.stdlib_path;
 import croc.stdlib_regexp;
 import croc.stdlib_serialization;
 import croc.stdlib_stream;
@@ -151,17 +152,18 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 
 	// Finish up the safe libs.
 	StreamLib.init(t);
-	JSONLib.init(t); // depends on stream
-	SerializationLib.init(t); // depends on stream
 	initArrayLib(t);
 	initCharLib(t);
 	CompilerLib.init(t);
 	initConsoleLib(t); // depends on stream
+	JSONLib.init(t); // depends on stream
 	MathLib.init(t);
+	initPathLib(t);
 	RegexpLib.init(t);
+	SerializationLib.init(t); // depends on stream
 	ThreadLib.init(t);
 	TimeLib.init(t);
-	
+
 	version(CrocBuiltinDocs)
 		Compiler.setDefaultFlags(t, Compiler.All);
 
@@ -195,12 +197,12 @@ libraries you want to load by bitwise-ORing together multiple flags.
 enum CrocUnsafeLib
 {
 	None =  0, /// No unsafe libraries.
-	IO =    1, /// File system manipulation and file access.
+	File =  1, /// File system manipulation and file access.
 	OS =    2, /// _OS-specific functionality.
 	Debug = 4, /// Debugging introspection and hooks.
 
 	/** _All available unsafe libraries except the debug library. */
-	All = IO | OS,
+	All = File | OS,
 
 	/** All available unsafe libraries including the debug library. */
 	ReallyAll = All | Debug
@@ -215,7 +217,7 @@ Params:
 */
 void loadUnsafeLibs(CrocThread* t, uint libs = CrocUnsafeLib.All)
 {
-	if(libs & CrocUnsafeLib.IO)    IOLib.init(t);
+	if(libs & CrocUnsafeLib.File)  FileLib.init(t);
 	if(libs & CrocUnsafeLib.OS)    OSLib.init(t);
 	if(libs & CrocUnsafeLib.Debug) DebugLib.init(t);
 }

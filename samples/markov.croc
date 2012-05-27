@@ -37,7 +37,7 @@ function main()
 	// build table
 	local words = array.new(N, NOWORD)
 	
-	foreach(word; allwords(io.stdin))
+	foreach(word; allwords(console.stdin))
 	{
 		insert(prefix(words), word)
 		

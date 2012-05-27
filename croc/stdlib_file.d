@@ -1,5 +1,5 @@
 /******************************************************************************
-This module contains the 'io' standard library.
+This module contains the 'file' standard library.
 
 License:
 Copyright (c) 2008 Jarrett Billingsley
@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module croc.stdlib_io;
+module croc.stdlib_file;
 
 import Path = tango.io.Path;
 import tango.io.device.File;
@@ -31,7 +31,6 @@ import tango.io.stream.Buffered;
 import tango.io.UnicodeFile;
 import tango.sys.Environment;
 import tango.time.WallClock;
-import tango.time.Time;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -40,12 +39,12 @@ import croc.stdlib_stream;
 import croc.stdlib_time;
 import croc.types;
 
-struct IOLib
+struct FileLib
 {
 static:
 	void init(CrocThread* t)
 	{
-		makeModule(t, "io", function uword(CrocThread* t)
+		makeModule(t, "file", function uword(CrocThread* t)
 		{
 			importModuleNoNS(t, "stream");
 
@@ -64,7 +63,6 @@ static:
 			newFunction(t, 2, &fileTime!("created"),  "created");       newGlobal(t, "created");
 			newFunction(t, 2, &fileTime!("accessed"), "accessed");      newGlobal(t, "accessed");
 			newFunction(t, 0, &currentDir,            "currentDir");    newGlobal(t, "currentDir");
-			newFunction(t, 1, &parentDir,             "parentDir");     newGlobal(t, "parentDir");
 			newFunction(t, 1, &changeDir,             "changeDir");     newGlobal(t, "changeDir");
 			newFunction(t, 1, &makeDir,               "makeDir");       newGlobal(t, "makeDir");
 			newFunction(t, 1, &makeDirChain,          "makeDirChain");  newGlobal(t, "makeDirChain");
@@ -75,11 +73,6 @@ static:
 			newFunction(t, 2, &writeFile,             "writeFile");     newGlobal(t, "writeFile");
 			newFunction(t, 1, &readMemblock,          "readMemblock");  newGlobal(t, "readMemblock");
 			newFunction(t, 2, &writeMemblock,         "writeMemblock"); newGlobal(t, "writeMemblock");
-			newFunction(t,    &join,                  "join");          newGlobal(t, "join");
-			newFunction(t, 1, &dirName,               "dirName");       newGlobal(t, "dirName");
-			newFunction(t, 1, &name,                  "name");          newGlobal(t, "name");
-			newFunction(t, 1, &extension,             "extension");     newGlobal(t, "extension");
-			newFunction(t, 1, &fileName,              "fileName");      newGlobal(t, "fileName");
 
 				newFunction(t, &linesIterator, "linesIterator");
 			newFunction(t, 1, &lines, "lines", 1);        newGlobal(t, "lines");
@@ -87,7 +80,7 @@ static:
 			return 0;
 		});
 
-		importModuleNoNS(t, "io");
+		importModuleNoNS(t, "file");
 	}
 
 	uword inFile(CrocThread* t)
@@ -227,23 +220,6 @@ static:
 	uword currentDir(CrocThread* t)
 	{
 		pushString(t, safeCode(t, "exceptions.IOException", Environment.cwd()));
-		return 1;
-	}
-
-	uword parentDir(CrocThread* t)
-	{
-		auto p = optStringParam(t, 1, ".");
-
-		if(p == ".")
-			p = Environment.cwd();
-
-		auto pp = safeCode(t, "exceptions.IOException", Path.parse(p));
-
-		if(pp.isAbsolute)
-			pushString(t, safeCode(t, "exceptions.IOException", Path.pop(p)));
-		else
-			pushString(t, safeCode(t, "exceptions.IOException", Path.join(Environment.cwd(), p)));
-
 		return 1;
 	}
 
@@ -459,46 +435,5 @@ static:
 		insert(t, -3);
 
 		return 3;
-	}
-
-	uword join(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		checkAnyParam(t, 1);
-		
-		char[][] tmp;
-
-		scope(exit)
-			delete tmp;
-
-		for(uword i = 1; i <= numParams; i++)
-			tmp ~= checkStringParam(t, i);
-
-		pushString(t, safeCode(t, "exceptions.IOException", Path.join(tmp)));
-		return 1;
-	}
-	
-	uword dirName(CrocThread* t)
-	{
-		pushString(t, safeCode(t, "exceptions.IOException", Path.parse(checkStringParam(t, 1))).path);
-		return 1;
-	}
-
-	uword name(CrocThread* t)
-	{
-		pushString(t, safeCode(t, "exceptions.IOException", Path.parse(checkStringParam(t, 1))).name);
-		return 1;
-	}
-
-	uword extension(CrocThread* t)
-	{
-		pushString(t, safeCode(t, "exceptions.IOException", Path.parse(checkStringParam(t, 1))).ext);
-		return 1;
-	}
-
-	uword fileName(CrocThread* t)
-	{
-		pushString(t, safeCode(t, "exceptions.IOException", Path.parse(checkStringParam(t, 1))).file);
-		return 1;
 	}
 }

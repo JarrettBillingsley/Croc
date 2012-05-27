@@ -20,10 +20,10 @@ foreach(rule; rules)
 
 function main()
 {
-	local text = io.readFile("wiki.txt")
+	local text = file.readFile("wiki.txt")
 
 	foreach(rule; rules)
 		text = rule[0].replace(text, rule[1])
 
-	io.writeFile("wikiOut.txt", text)
+	file.writeFile("wikiOut.txt", text)
 }
