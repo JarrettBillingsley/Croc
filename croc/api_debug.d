@@ -194,7 +194,7 @@ debug
 		for(uword i = wholeStack ? 0 : tmp; i < top; i++)
 		{
 			// ORDER CROCVALUE TYPE
-			if(t.stack[i].type >= 0 && t.stack[i].type <= CrocValue.Type.max)
+			if(t.stack[i].type >= CrocValue.Type.FirstUserType && t.stack[i].type <= CrocValue.Type.LastUserType)
 			{
 				pushToString(t, i, true);
 				pushTypeString(t, i);

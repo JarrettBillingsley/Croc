@@ -1704,7 +1704,7 @@ Checks that the parameter at the given index is of the given type.
 void checkParam(CrocThread* t, word index, CrocValue.Type type)
 {
 	// ORDER CROCVALUE TYPE
-	assert(type >= CrocValue.Type.Null && type <= CrocValue.Type.FuncDef, "invalid type");
+	assert(type >= CrocValue.Type.FirstUserType && type <= CrocValue.Type.LastUserType, "invalid type");
 
 	checkAnyParam(t, index);
 

@@ -2418,7 +2418,7 @@ void loadPtr(CrocThread* t, ref CrocValue* ptr)
 CrocNamespace* getMetatable(CrocThread* t, CrocValue.Type type)
 {
 	// ORDER CROCVALUE TYPE
-	assert(type >= CrocValue.Type.Null && type <= CrocValue.Type.FuncDef);
+	assert(type >= CrocValue.Type.FirstUserType && type <= CrocValue.Type.LastUserType);
 	return t.vm.metaTabs[type];
 }
 

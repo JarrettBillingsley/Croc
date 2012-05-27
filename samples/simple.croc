@@ -8,6 +8,39 @@ function main()
 	t.outputItem(docsOf(console), "")
 }
 
+
+
+// local docTables = hash.WeakKeyTable()
+// 
+// function _doc_(
+// 	val: table|array|memblock|function|class|instance|namespace|thread|funcdef,
+// 	doctable: table,
+// 	vararg)
+// {
+// 	local d = doctable
+// 
+// 	for(i: 0 .. #vararg)
+// 	{
+// 		local idx = vararg[i]
+// 
+// 		if(!isInt(idx))
+// 			throw TypeException(format("_doc_ - Parameter {} expected to be 'int', not '{}'", i + 2, typeof(idx)))
+// 
+// 		d = d.children[idx]
+// 	}
+// 
+// 	docTables[val] = d
+// 	return val
+// }
+// 
+// function docsOf(val) =
+// 	docTables[val]
+
+
+
+
+
+
 import exceptions:
 	TypeException,
 	ValueException,
@@ -687,7 +720,7 @@ class BaseDocOutput
 	function outputItem(doctable: table, parentFQN: string)
 	{
 		:beginItem(doctable, parentFQN)
-		
+
 		if(doctable.dittos)
 		{
 			foreach(d; doctable.dittos)

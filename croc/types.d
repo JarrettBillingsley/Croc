@@ -173,34 +173,39 @@ align(1) struct CrocValue
 		Float,
 		/** ditto */
 		Char,
-
 		/** ditto */
 		String,     // 5
+
 		/** ditto */
 		Table,
 		/** ditto */
 		Array,
 		/** ditto */
-		Memblock,
+		Memblock,   // 10
 		/** ditto */
 		Function,
 		/** ditto */
-		Class,      // 10
+		Class,
 		/** ditto */
 		Instance,
 		/** ditto */
 		Namespace,
 		/** ditto */
-		Thread,
+		Thread,     // 15
 		/** ditto */
 		NativeObj,
 		/** ditto */
-		WeakRef,    // 15
+		WeakRef,
 		/** ditto */
 		FuncDef,
 
 		// Internal types
-		Upvalue
+		Upvalue,
+
+		// Other
+		FirstRefType = Type.String,
+		FirstUserType = Type.Null,
+		LastUserType = Type.FuncDef
 	}
 
 package:
@@ -211,8 +216,10 @@ package:
 		Type.Int:       "int",
 		Type.Float:     "float",
 		Type.Char:      "char",
-
 		Type.String:    "string",
+		Type.NativeObj: "nativeobj",
+		Type.WeakRef:   "weakref",
+
 		Type.Table:     "table",
 		Type.Array:     "array",
 		Type.Memblock:  "memblock",
@@ -221,8 +228,6 @@ package:
 		Type.Instance:  "instance",
 		Type.Namespace: "namespace",
 		Type.Thread:    "thread",
-		Type.NativeObj: "nativeobj",
-		Type.WeakRef:   "weakref",
 		Type.FuncDef:   "funcdef",
 
 		Type.Upvalue:   "upvalue"
@@ -387,7 +392,7 @@ package:
 
 	bool isObject()
 	{
-		return type >= Type.String;
+		return type >= Type.FirstRefType;
 	}
 
 	GCObject* toGCObject()

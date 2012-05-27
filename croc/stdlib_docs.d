@@ -70,8 +70,8 @@ uword _doc_(CrocThread* t)
 	checkAnyParam(t, 1);
 
 	// ORDER CROCVALUE TYPE
-	if(type(t, 1) <= CrocValue.Type.String)
-		paramTypeError(t, 1, "non-string object type");
+	if(type(t, 1) < CrocValue.Type.FirstRefType)
+		paramTypeError(t, 1, "reference type");
 
 	checkParam(t, 2, CrocValue.Type.Table);
 
