@@ -166,7 +166,7 @@ package:
 			CrocArray.Slot slot = void;
 			slot.value = val;
 
-			if(val.isObject())
+			if(val.isGCObject())
 			{
 				mixin(containerWriteBarrier!("alloc", "a"));
 				slot.modified = true;
@@ -188,7 +188,7 @@ package:
 			mixin(removeRef!("alloc", "slot"));
 			slot.value = val;
 
-			if(val.isObject())
+			if(val.isGCObject())
 			{
 				mixin(containerWriteBarrier!("alloc", "a"));
 				slot.modified = true;
@@ -243,13 +243,13 @@ private:
 
 	template addRef(char[] slot)
 	{
-		const char[] addRef = "if(" ~ slot ~ ".value.isObject()) " ~ slot ~ ".modified = true;";
+		const char[] addRef = "if(" ~ slot ~ ".value.isGCObject()) " ~ slot ~ ".modified = true;";
 	}
 
 	template removeRef(char[] alloc, char[] slot)
 	{
 		const char[] removeRef =
-		"if(!" ~ slot  ~ ".modified && " ~ slot  ~ ".value.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
+		"if(!" ~ slot  ~ ".modified && " ~ slot  ~ ".value.isGCObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
 	}
 
 	template addRefs(char[] arr)

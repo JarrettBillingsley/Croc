@@ -72,7 +72,7 @@ alias double crocfloat;
 The current version of Croc as a 32-bit integer. The upper 16 bits are the major, and the lower 16 are
 the minor.
 */
-const uint CrocVersion = MakeVersion!(2, 1);
+const uint CrocVersion = MakeVersion!(0, 1);
 
 /**
 An alias for the type signature of a native function. It is defined as uword function(CrocThread*, uword).
@@ -163,47 +163,35 @@ align(1) struct CrocValue
 	*/
 	enum Type : uint
 	{
-		/** */
+		// Value
 		Null,       // 0
-		/** ditto */
-		Bool,
-		/** ditto */
-		Int,
-		/** ditto */
-		Float,
-		/** ditto */
-		Char,
-		/** ditto */
-		String,     // 5
+		Bool,       // 1
+		Int,        // 2
+		Float,      // 3
+		Char,       // 4
 
-		/** ditto */
-		Table,
-		/** ditto */
-		Array,
-		/** ditto */
+		// Quasi-value (GC'ed but still value)
+		NativeObj,  // 5
+		String,     // 6
+		WeakRef,    // 7
+
+		// Ref
+		Table,      // 8
+		Array,      // 9
 		Memblock,   // 10
-		/** ditto */
-		Function,
-		/** ditto */
-		Class,
-		/** ditto */
-		Instance,
-		/** ditto */
-		Namespace,
-		/** ditto */
+		Function,   // 11
+		Class,      // 12
+		Instance,   // 13
+		Namespace,  // 14
 		Thread,     // 15
-		/** ditto */
-		NativeObj,
-		/** ditto */
-		WeakRef,
-		/** ditto */
-		FuncDef,
+		FuncDef,    // 16
 
-		// Internal types
-		Upvalue,
+		// Internal
+		Upvalue,    // 17
 
 		// Other
-		FirstRefType = Type.String,
+		FirstGCType = Type.NativeObj,
+		FirstRefType = Type.Table,
 		FirstUserType = Type.Null,
 		LastUserType = Type.FuncDef
 	}
@@ -216,8 +204,8 @@ package:
 		Type.Int:       "int",
 		Type.Float:     "float",
 		Type.Char:      "char",
-		Type.String:    "string",
 		Type.NativeObj: "nativeobj",
+		Type.String:    "string",
 		Type.WeakRef:   "weakref",
 
 		Type.Table:     "table",
@@ -389,15 +377,25 @@ package:
 		type = src.mType;
 		mBaseObj = src;
 	}
+	
+	bool isValType()
+	{
+		return type < Type.FirstRefType;
+	}
 
-	bool isObject()
+	bool isRefType()
 	{
 		return type >= Type.FirstRefType;
 	}
 
+	bool isGCObject()
+	{
+		return type >= Type.FirstGCType;
+	}
+
 	GCObject* toGCObject()
 	{
-		assert(isObject());
+		assert(isGCObject());
 		return cast(GCObject*)mBaseObj;
 	}
 

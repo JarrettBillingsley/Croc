@@ -104,7 +104,7 @@ package:
 		
 		if(*slot != *val)
 		{
-			if((*slot).isObject() || val.isObject())
+			if((*slot).isGCObject() || val.isGCObject())
 				mixin(writeBarrier!("alloc", "f"));
 
 			*slot = *val;

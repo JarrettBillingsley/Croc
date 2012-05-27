@@ -72,7 +72,7 @@ package:
 		mixin(containerWriteBarrier!("alloc", "ns"));
 		auto node = ns.data.insertNode(alloc, key);
 		node.value = *value;
-		node.modified |= KeyModified | (value.isObject() ? ValModified : 0);
+		node.modified |= KeyModified | (value.isGCObject() ? ValModified : 0);
 	}
 
 	bool setIfExists(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
@@ -87,7 +87,7 @@ package:
 			mixin(removeValueRef!("alloc", "node"));
 			node.value = *value;
 
-			if(value.isObject())
+			if(value.isGCObject())
 			{
 				mixin(containerWriteBarrier!("alloc", "ns"));
 				node.modified |= ValModified;
@@ -147,7 +147,7 @@ package:
 	template removeValueRef(char[] alloc, char[] slot)
 	{
 		const char[] removeValueRef =
-		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
+		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isGCObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
 	}
 
 }

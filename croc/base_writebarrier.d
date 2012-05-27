@@ -81,7 +81,7 @@ void writeBarrierSlow(ref Allocator alloc, GCObject* srcObj)
 // For visiting CrocValues. Visits it only if it's an object.
 template ValueCallback(char[] name)
 {
-	const ValueCallback = "if(" ~ name ~ ".isObject()) callback(" ~ name ~ ".toGCObject());";
+	const ValueCallback = "if(" ~ name ~ ".isGCObject()) callback(" ~ name ~ ".toGCObject());";
 }
 
 // For visiting pointers. Visits it only if it's non-null.

@@ -239,7 +239,7 @@ ulong createRef(CrocThread* t, word idx)
 
 	auto v = getValue(t, idx);
 
-	if(!v.isObject())
+	if(!v.isGCObject())
 	{
 		pushTypeString(t, idx);
 		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Can only get references to reference types, not '{}'", getString(t, -1));

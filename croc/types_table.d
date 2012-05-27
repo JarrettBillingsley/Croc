@@ -79,7 +79,7 @@ package:
 				mixin(removeValueRef!("alloc", "node"));
 				node.value = val;
 
-				if(val.isObject())
+				if(val.isGCObject())
 				{
 					mixin(containerWriteBarrier!("alloc", "t"));
 					node.modified |= ValModified;
@@ -94,10 +94,10 @@ package:
 			node = t.data.insertNode(alloc, key);
 			node.value = val;
 
-			if(key.isObject() || val.isObject())
+			if(key.isGCObject() || val.isGCObject())
 			{
 				mixin(containerWriteBarrier!("alloc", "t"));
-				node.modified |= (key.isObject() ? KeyModified : 0) | (val.isObject() ? ValModified : 0);
+				node.modified |= (key.isGCObject() ? KeyModified : 0) | (val.isGCObject() ? ValModified : 0);
 			}
 		}
 
@@ -136,12 +136,12 @@ package:
 	template removeKeyRef(char[] alloc, char[] slot)
 	{
 		const char[] removeKeyRef =
-		"if(!(" ~ slot  ~ ".modified & KeyModified) && " ~ slot  ~ ".key.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".key.toGCObject());";
+		"if(!(" ~ slot  ~ ".modified & KeyModified) && " ~ slot  ~ ".key.isGCObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".key.toGCObject());";
 	}
 
 	template removeValueRef(char[] alloc, char[] slot)
 	{
 		const char[] removeValueRef =
-		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
+		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isGCObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
 	}
 }
