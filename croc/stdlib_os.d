@@ -27,7 +27,6 @@ module croc.stdlib_os;
 
 import tango.stdc.stdlib;
 import tango.stdc.stringz;
-import tango.sys.Environment;
 import tango.sys.Process;
 
 import croc.api_interpreter;
@@ -43,13 +42,10 @@ static:
 	{
 		makeModule(t, "os", function uword(CrocThread* t)
 		{
-			importModule(t, "stream");
-			pop(t);
+			importModuleNoNS(t, "stream");
 
 			ProcessObj.init(t);
 			newFunction(t, &system, "system"); newGlobal(t, "system");
-			newFunction(t, &getEnv, "getEnv"); newGlobal(t, "getEnv");
-			newFunction(t, &putEnv, "putEnv"); newGlobal(t, "putEnv");
 
 			return 0;
 		});
@@ -84,46 +80,6 @@ static:
 		}
 
 		return 1;
-	}
-
-	uword getEnv(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		if(numParams == 0)
-		{
-			newTable(t);
-
-			foreach(k, v; Environment.get())
-			{
-				pushString(t, k);
-				pushString(t, v);
-				idxa(t, -3);
-			}
-		}
-		else
-		{
-			auto val = Environment.get(checkStringParam(t, 1), optStringParam(t, 2, null));
-
-			if(val is null)
-				pushNull(t);
-			else
-				pushString(t, val);
-		}
-
-		return 1;
-	}
-
-	uword putEnv(CrocThread* t)
-	{
-		auto name = checkStringParam(t, 1);
-		checkAnyParam(t, 2);
-		
-		if(isNull(t, 2))
-			Environment.set(name, null);
-		else
-			Environment.set(name, checkStringParam(t, 2));
-		
-		return 0;
 	}
 
 	struct ProcessObj

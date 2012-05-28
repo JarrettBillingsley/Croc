@@ -57,8 +57,6 @@ void initStringLib(CrocThread* t)
 		importModuleNoNS(t, "memblock");
 
 		initStringBuffer(t);
-		
-		registerGlobals(t, _globalFuncs);
 
 		newNamespace(t, "string");
 			registerFields(t, _methodFuncs);
@@ -84,8 +82,6 @@ version(CrocBuiltinDocs) void docStringLib(CrocThread* t)
 
 	docStringBuffer(t, doc);
 
-	docFields(t, doc, _globalFuncDocs);
-
 	getTypeMT(t, CrocValue.Type.String);
 		docFields(t, doc, _methodFuncDocs);
 	pop(t);
@@ -101,87 +97,12 @@ version(CrocBuiltinDocs) void docStringLib(CrocThread* t)
 private:
 
 // ===================================================================================================================================
-// Global functions
-
-const RegisterFunc[] _globalFuncs =
-[
-	{"fromRawUnicode", &_fromRawUnicode, maxParams: 3},
-	{"fromRawAscii",   &_fromRawAscii,   maxParams: 3}
-];
-
-uword _fromRawUnicode(CrocThread* t)
-{
-	checkParam(t, 1, CrocValue.Type.Memblock);
-	auto mb = getMemblock(t, 1);
-	auto lo = optIntParam(t, 2, 0);
-	auto hi = optIntParam(t, 3, mb.itemLength);
-	
-	if(lo < 0)
-		lo += mb.itemLength;
-	
-	if(hi < 0)
-		hi += mb.itemLength;
-		
-	if(lo < 0 || lo > hi || hi > mb.itemLength)
-		throwStdException(t, "BoundsException", "Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
-
-	switch(mb.kind.code)
-	{
-		case CrocMemblock.TypeCode.u8:  pushFormat(t, "{}", (cast(char[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
-		case CrocMemblock.TypeCode.u16: pushFormat(t, "{}", (cast(wchar[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
-		case CrocMemblock.TypeCode.u32: pushFormat(t, "{}", (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
-		default: throwStdException(t, "ValueException", "Memblock must be of type 'u8', 'u16', or 'u32', not '{}'", mb.kind.name);
-	}
-
-	return 1;
-}
-
-uword _fromRawAscii(CrocThread* t)
-{
-	checkParam(t, 1, CrocValue.Type.Memblock);
-	auto mb = getMemblock(t, 1);
-	auto lo = optIntParam(t, 2, 0);
-	auto hi = optIntParam(t, 3, mb.itemLength);
-	
-	if(lo < 0)
-		lo += mb.itemLength;
-	
-	if(hi < 0)
-		hi += mb.itemLength;
-		
-	if(lo < 0 || lo > hi || hi > mb.itemLength)
-		throwStdException(t, "BoundsException", "Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
-
-	if(mb.kind.code != CrocMemblock.TypeCode.u8)
-		throwStdException(t, "ValueException", "Memblock must be of type 'u8', not '{}'", mb.kind.name);
-
-	auto src = (cast(char[])mb.data)[cast(uword)lo .. cast(uword)hi];
-	auto dest = allocArray!(char)(t, src.length);
-
-	scope(exit)
-		freeArray(t, dest);
-
-	foreach(i, char c; src)
-	{
-		if(c <= 0x7f)
-			dest[i] = c;
-		else
-			dest[i] = '\u001a';
-	}
-
-	pushString(t, dest);
-	return 1;
-}
-
-// ===================================================================================================================================
 // Methods
 
 const uword VSplitMax = 20;
 
 const RegisterFunc[] _methodFuncs =
 [
-	{"toRawUnicode", &_toRawUnicode, maxParams: 2},
-	{"toRawAscii",   &_toRawAscii,   maxParams: 1},
 	{"opApply",      &_opApply,      maxParams: 1},
 	{"join",         &_join,         maxParams: 1},
 	{"vjoin",        &_vjoin},
@@ -211,107 +132,6 @@ const RegisterFunc[] _methodFuncs =
 	{"istartsWith",  &_istartsWith,  maxParams: 1},
 	{"iendsWith",    &_iendsWith,    maxParams: 1}
 ];
-
-uword _toRawUnicode(CrocThread* t)
-{
-	checkStringParam(t, 0);
-	auto str = getStringObj(t, 0);
-	auto bitSize = optIntParam(t, 1, 8);
-
-	char[] typeCode;
-
-	switch(bitSize)
-	{
-		case 8:  typeCode = "u8"; break;
-		case 16: typeCode = "u16"; break;
-		case 32: typeCode = "u32"; break;
-		default: throwStdException(t, "ValueException", "Invalid encoding size of {} bits", bitSize);
-	}
-
-	CrocMemblock* ret;
-
-	if(optParam(t, 2, CrocValue.Type.Memblock))
-	{
-		ret = getMemblock(t, 2);
-		// round off to a multiple of 4 so the re-type always works
-		lenai(t, 2, len(t, 2) & ~3);
-		dup(t, 2);
-		pushNull(t);
-		pushString(t, typeCode);
-		methodCall(t, -3, "type", 0);
-		lenai(t, 2, str.length);
-	}
-	else
-	{
-		newMemblock(t, typeCode, str.length);
-		ret = getMemblock(t, -1);
-	}
-
-	uword len = 0;
-	auto src = str.toString();
-
-	switch(bitSize)
-	{
-		case 8:
-			(cast(char*)ret.data.ptr)[0 .. str.length] = src[];
-			len = str.length;
-			break;
-
-		case 16:
-			auto dest = (cast(wchar*)ret.data.ptr)[0 .. str.length];
-			
-			auto temp = allocArray!(dchar)(t, str.length);
-			scope(exit) freeArray(t, temp);
-
-			uint ate = 0;
-			auto tempData = safeCode(t, "exceptions.UnicodeException", Utf.toString32(src, temp, &ate));
-			len = safeCode(t, "exceptions.UnicodeException", Utf.toString16(temp, dest, &ate)).length;
-			break;
-
-		case 32:
-			auto dest = (cast(dchar*)ret.data.ptr)[0 .. str.length];
-			uint ate = 0;
-			len = safeCode(t, "exceptions.UnicodeException", Utf.toString32(src, dest, &ate)).length;
-			break;
-
-		default: assert(false);
-	}
-	
-	push(t, CrocValue(ret));
-	lenai(t, -1, len);
-	return 1;
-}
-
-uword _toRawAscii(CrocThread* t)
-{
-	checkStringParam(t, 0);
-	auto str = getStringObj(t, 0);
-	
-	// Take advantage of the fact that in UTF-8, codepoint length == data length iff all codepoints <= 0x7f -- valid ASCII
-	if(str.length != str.cpLength)
-		throwStdException(t, "ValueException", "Cannot convert string with codepoints higher than U+0007F to ASCII");
-
-	CrocMemblock* ret;
-
-	if(optParam(t, 1, CrocValue.Type.Memblock))
-	{
-		ret = getMemblock(t, 1);
-		dup(t, 1);
-		pushNull(t);
-		pushString(t, "u8");
-		methodCall(t, -3, "type", 0);
-		lenai(t, 1, str.length);
-	}
-	else
-	{
-		newMemblock(t, "u8", str.length);
-		ret = getMemblock(t, -1);
-	}
-
-	(cast(char*)ret.data.ptr)[0 .. str.length] = str.toString()[];
-	push(t, CrocValue(ret));
-	return 1;
-}
 
 uword _join(CrocThread* t)
 {
@@ -958,61 +778,8 @@ uword _iendsWith(CrocThread* t)
 
 version(CrocBuiltinDocs)
 {
-	const Docs[] _globalFuncDocs =
-	[
-		{kind: "function", name: "fromRawUnicode", docs:
-		`Converts data stored in a memblock into a string. The given memblock must be of type \tt{u8}, \tt{u16}, or \tt{u32}.
-		If it's \tt{u8}, it must contain UTF-8 data; if it's \tt{u16}, it must contain UTF-16 data; and if it's \tt{u32}, it
-		must contain UTF-32 data. You can specify only a slice of the memblock to convert into a string with the \tt{lo}
-		and \tt{hi} parameters; the default behavior is to convert the entire memblock. If the data is invalid Unicode,
-		an exception will be thrown. Returns the converted string.
-
-		\throws[exceptions.BoundsException] if the given slice indices are invalid.
-		\throws[exceptions.ValueException] if the given memblock is not one of the three valid types.`,
-		params: [Param("mb", "memblock"), Param("lo", "int", "0"), Param("hi", "int", "#mb")]},
-
-		{kind: "function", name: "fromRawAscii", docs:
-		`Similar to \link{fromRawUnicode}, except converts a memblock containing ASCII data into a string. The memblock
-		must be of type \tt{u8}. Any bytes above U+0007F are turned into the Unicode replacement character, U+0001A.
-		Returns the converted string.
-
-		\throws[exceptions.BoundsException] if the given slice indices are invalid.
-		\throws[exceptions.ValueException] if the given memblock is not of type \tt{u8}.`,
-		params: [Param("mb", "memblock"), Param("lo", "int", "0"), Param("hi", "int", "#mb")]},
-	];
-
 	const Docs[] _methodFuncDocs =
 	[
-		{kind: "function", name: "s.toRawUnicode", docs:
-		`Converts a string into a memblock containing Unicode-encoded data. The \tt{bits} parameter determines which
-		encoding to use. It defaults to 8, which means the resulting memblock will be filled with a UTF-8 encoding of
-		\tt{s}, and its type will be \tt{u8}. The other two valid values are 16, which will encode UTF-16 data in a memblock
-		of type \tt{u16}, and 32, which will encode UTF-32 data in a memblock of type \tt{u32}.
-
-		You may optionally pass a memblock as the second parameter to be used as the destination memblock. This way you
-		can reuse a memblock as a conversion buffer to avoid memory allocations. The memblock's type will be set
-		appropriately and its data will be replaced by the encoded string data.
-
-		\returns the memblock containing the encoded string data, either a new memblock if \tt{mb} is \tt{null}, or \tt{mb}
-		otherwise.
-
-		\throws[exceptions.ValueException] if \tt{bits} is not one of the valid values.
-		\throws[exceptions.UnicodeException] if, somehow, the Unicode transcoding fails (but this shouldn't happen unless something
-		else is broken..)`,
-		params: [Param("bits", "int", "8"), Param("mb", "memblock", "null")]},
-
-		{kind: "function", name: "s.toRawAscii", docs:
-		`Similar to \link{toRawUnicode}, except encodes \tt{s} as ASCII. \tt{s} must not contain any codepoints above U+0007F;
-		that is, \tt{s.isAscii()} must return true for this method to work.
-
-		Just like \link{toRawUnicode} you can pass a memblock as a destination buffer. Its type will be set to \tt{u8}.
-
-		\returns the memblock containing the encoded string data, either a new memblock if \tt{mb} is \tt{null}, or \tt{mb}
-		otherwise.
-
-		\throws[exceptions.ValueException] if the given string is not an ASCII string.`,
-		params: [Param("mb", "memblock", "null")]},
-
 		{kind: "function", name: "s.opApply", docs:
 		`This function allows you to iterate over the characters of a string with a \tt{foreach} loop.
 
