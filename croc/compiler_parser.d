@@ -2372,7 +2372,7 @@ public:
 
 	/**
 	Parse a unary expression. This parses negation (-), not (!), complement (~),
-	length (#), and coroutine expressions. '#vararg' is also incidentally parsed.
+	and length (#) expressions. '#vararg' is also incidentally parsed.
 	*/
 	Expression parseUnExp()
 	{
@@ -2408,12 +2408,6 @@ public:
 					exp = new(c) VargLenExp(c, location, exp.endLocation);
 				else
 					exp = new(c) LenExp(c, location, exp);
-				break;
-
-			case Token.Coroutine:
-				l.next();
-				exp = parseUnExp();
-				exp = new(c) CoroutineExp(c, exp.endLocation, exp);
 				break;
 
 			default:

@@ -144,7 +144,6 @@ enum Op
 	Closure,
 	ClosureWithEnv,
 	Class,
-	Coroutine,
 	Namespace,
 	NamespaceNP,
 
@@ -249,7 +248,6 @@ const char[][] OpNames =
 	Op.Closure: "Closure",
 	Op.ClosureWithEnv: "ClosureWithEnv",
 	Op.Class: "Class",
-	Op.Coroutine: "Coroutine",
 	Op.Namespace: "Namespace",
 	Op.NamespaceNP: "NamespaceNP",
 	Op.As: "As",
@@ -302,7 +300,6 @@ TWO SHORTS:
 	len:             rd = #rs
 	lena:            #rd = rs
 	append:          rd.append(rs)
-	coroutine:       rd = coroutine rs
 	superof:         rd = rs.superof
 	customparamfail: give error message about parameter rd not satisfying the constraint whose name is in rs
 	slice:           rd = rs[rs + 1 .. rs + 2]

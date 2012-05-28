@@ -58,7 +58,6 @@ private Op AstTagToOpcode(AstTag tag)
 		case AstTag.NegExp: return Op.Neg;
 		case AstTag.NotExp: return Op.Not;
 		case AstTag.ComExp: return Op.Com;
-		case AstTag.CoroutineExp: return Op.Coroutine;
 		case AstTag.DotSuperExp: return Op.SuperOf;
 
 		// Binary
@@ -2504,7 +2503,6 @@ package:
 			case Op.Length:          Stdout("len"); goto _4;
 			case Op.LengthAssign:    Stdout("lena"); goto _4;
 			case Op.Append:          Stdout("append"); goto _4;
-			case Op.Coroutine:       Stdout("coroutine"); goto _4;
 			case Op.SuperOf:         Stdout("superof"); goto _4;
 			case Op.CustomParamFail: Stdout("customparamfail"); goto _4;
 			case Op.Slice:           Stdout("slice"); goto _4;

@@ -121,7 +121,6 @@ const char[][] AstTagNames =
 	"ComExp",
 	"LenExp",
 	"VargLenExp",
-	"CoroutineExp",
 	"DotExp",
 	"DotSuperExp",
 	"IndexExp",
@@ -255,7 +254,6 @@ const char[][] NiceAstTagNames =
 	AstTag.ComExp:               "bitwise complement expression",
 	AstTag.LenExp:               "length expression",
 	AstTag.VargLenExp:           "vararg length expression",
-	AstTag.CoroutineExp:         "coroutine expression",
 	AstTag.DotExp:               "dot expression",
 	AstTag.DotSuperExp:          "dot-super expression",
 	AstTag.IndexExp:             "index expression",
@@ -2612,14 +2610,6 @@ class LenExp : UnExp
 	{
 		return true;
 	}
-}
-
-/**
-This node represents the coroutine expression (coroutine a).
-*/
-class CoroutineExp : UnExp
-{
-	mixin(UnExpMixin);
 }
 
 /**

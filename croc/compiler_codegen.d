@@ -1226,7 +1226,6 @@ public:
 	override UnExp visit(NegExp e)       { return visitUnExp(e); }
 	override UnExp visit(NotExp e)       { return visitUnExp(e); }
 	override UnExp visit(ComExp e)       { return visitUnExp(e); }
-	override UnExp visit(CoroutineExp e) { return visitUnExp(e); }
 
 	override LenExp visit(LenExp e)
 	{

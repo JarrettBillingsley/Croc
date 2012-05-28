@@ -3700,29 +3700,6 @@ void execute(CrocThread* t, uword depth = 1)
 					maybeGC(t);
 					break;
 
-				case Op.Coroutine:
-					mixin(GetRS);
-
-					if(RS.type != CrocValue.Type.Function)
-					{
-						typeString(t, RS);
-						throwStdException(t, "TypeException", "Coroutines must be created with a function, not '{}'", getString(t, -1));
-					}
-
-					version(CrocExtendedCoro) {} else
-					{
-						if(RS.mFunction.isNative)
-							throwStdException(t, "ValueException", "Native functions may not be used as the body of a coroutine");
-					}
-
-					auto nt = thread.create(t.vm, RS.mFunction);
-					thread.setHookFunc(t.vm.alloc, nt, t.hookFunc);
-					nt.hooks = t.hooks;
-					nt.hookDelay = t.hookDelay;
-					nt.hookCounter = t.hookCounter;
-					t.stack[stackBase + rd] = nt;
-					break;
-
 				case Op.Namespace:
 					auto name = constTable[mixin(GetUImm)].mString;
 					mixin(GetRT);

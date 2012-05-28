@@ -1666,12 +1666,6 @@ public:
 		return e;
 	}
 	
-	override Expression visit(CoroutineExp e)
-	{
-		e.op = visit(e.op);
-		return e;
-	}
-	
 	override Expression visit(DotExp e)
 	{
 		e.op = visit(e.op);

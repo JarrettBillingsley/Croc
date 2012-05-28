@@ -30,6 +30,7 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.types;
+import croc.types_thread;
 import croc.vm;
 
 struct ThreadLib
@@ -39,6 +40,7 @@ static:
 	{
 		makeModule(t, "thread", function uword(CrocThread* t)
 		{
+			newFunction(t, 1, &_new,      "new");       newGlobal(t, "new");
 			newFunction(t, 1, &halt,      "halt");      newGlobal(t, "halt");
 			newFunction(t, 0, &current,   "current");   newGlobal(t, "current");
 
@@ -56,6 +58,27 @@ static:
 		});
 
 		importModuleNoNS(t, "thread");
+	}
+	
+	uword _new(CrocThread* t)
+	{
+		checkParam(t, 1, CrocValue.Type.Function);
+		auto func = getFunction(t, 1);
+
+		version(CrocExtendedCoro) {} else
+		{
+			if(func.isNative)
+				throwStdException(t, "ValueException", "Native functions may not be used as the body of a coroutine");
+		}
+
+		auto nt = thread.create(t.vm, func);
+		thread.setHookFunc(t.vm.alloc, nt, t.hookFunc);
+		nt.hooks = t.hooks;
+		nt.hookDelay = t.hookDelay;
+		nt.hookCounter = t.hookCounter;
+
+		push(t, CrocValue(nt));
+		return 1;
 	}
 
 	uword halt(CrocThread* t)
