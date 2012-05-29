@@ -135,22 +135,4 @@ package:
 		ret.data[split .. $] = b.data[];
 		return ret;
 	}
-
-	// Returns a new memblock that is the concatenation of a memblock and an integer.
-	CrocMemblock* cat(ref Allocator alloc, CrocMemblock* a, ubyte b)
-	{
-		auto ret = memblock.create(alloc, a.data.length + 1);
-		ret.data[0 .. $ - 1] = a.data[];
-		ret.data[$ - 1] = b;
-		return ret;
-	}
-
-	// Returns a new memblock that is the concatenation of an integer and a memblock (in that order).
-	CrocMemblock* cat_r(ref Allocator alloc, ubyte a, CrocMemblock* b)
-	{
-		auto ret = memblock.create(alloc, b.data.length + 1);
-		ret.data[0] = a;
-		ret.data[1 .. $] = b.data[];
-		return ret;
-	}
 }
