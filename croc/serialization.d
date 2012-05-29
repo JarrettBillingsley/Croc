@@ -355,16 +355,12 @@ private:
 	{
 		if(alreadyWritten(cast(CrocBaseObject*)v))
 			return;
-		
+
 		if(!v.ownData)
 			throwStdException(t, "ValueException", "Attempting to persist a memblock which does not own its data");
 
 		tag(CrocValue.Type.Memblock);
-		push(t, CrocValue(mSerializeFunc));
-		pushNull(t);
-		pushString(t, v.kind.name);
-		rawCall(t, -3, 0);
-		integer(v.itemLength);
+		integer(v.data.length);
 		append(t, mOutput, v.data);
 	}
 
@@ -1113,9 +1109,7 @@ private:
 	
 	void deserializeMemblockImpl()
 	{
-  		deserializeString();
-  		auto type = getString(t, -1);
-  		newMemblock(t, type, cast(uword)integer());
+		newMemblock(t, cast(uword)integer());
   		addObject(getValue(t, -1).mBaseObj);
   		insertAndPop(t, -2);
   		readExact(t, mInput, getMemblock(t, -1).data);

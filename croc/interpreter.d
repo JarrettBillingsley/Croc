@@ -938,16 +938,13 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 			auto index = key.mInt;
 			auto mb = container.mMemblock;
 
-			if(mb.kind.code == CrocMemblock.TypeCode.v)
-				throwStdException(t, "ValueException", "Attempting to index a void memblock");
-
 			if(index < 0)
-				index += mb.itemLength;
+				index += mb.data.length;
 
-			if(index < 0 || index >= mb.itemLength)
-				throwStdException(t, "BoundsException", "Invalid memblock index {} (length is {})", key.mInt, mb.itemLength);
+			if(index < 0 || index >= mb.data.length)
+				throwStdException(t, "BoundsException", "Invalid memblock index {} (length is {})", key.mInt, mb.data.length);
 
-			t.stack[dest] = memblock.index(mb, cast(uword)index);
+			t.stack[dest] = cast(crocint)mb.data[cast(uword)index];
 			return;
 
 		case CrocValue.Type.String:
@@ -1022,42 +1019,19 @@ void idxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue* valu
 			auto index = key.mInt;
 			auto mb = t.stack[container].mMemblock;
 
-			if(mb.kind.code == CrocMemblock.TypeCode.v)
-				throwStdException(t, "ValueException", "Attempting to index-assign a void memblock");
-
 			if(index < 0)
-				index += mb.itemLength;
+				index += mb.data.length;
 
-			if(index < 0 || index >= mb.itemLength)
-				throwStdException(t, "BoundsException", "Invalid memblock index {} (length is {})", key.mInt, mb.itemLength);
+			if(index < 0 || index >= mb.data.length)
+				throwStdException(t, "BoundsException", "Invalid memblock index {} (length is {})", key.mInt, mb.data.length);
 
-			CrocValue src = void;
-
-			// ORDER MEMBLOCK TYPE
-			if(mb.kind.code <= CrocMemblock.TypeCode.u64)
+			if(value.type != CrocValue.Type.Int)
 			{
-				if(value.type != CrocValue.Type.Int)
-				{
-					typeString(t, value);
-					throwStdException(t, "TypeException", "Attempting to index-assign a value of type '{}' into a {} memblock", getString(t, -1), mb.kind.name);
-				}
-
-				src = *value;
+				typeString(t, value);
+				throwStdException(t, "TypeException", "Attempting to index-assign a value of type '{}' into a memblock", getString(t, -1));
 			}
-			else
-			{
-				if(value.type == CrocValue.Type.Float)
-					src = *value;
-				else if(value.type == CrocValue.Type.Int)
-					src = cast(crocfloat)value.mInt;
-				else
-				{
-					typeString(t, value);
-					throwStdException(t, "TypeException", "Attempting to index-assign a value of type '{}' into a {} memblock", getString(t, -1), mb.kind.name);
-				}
-			}
-
-			memblock.indexAssign(mb, cast(uword)index, src);
+			
+			mb.data[cast(uword)index] = cast(ubyte)value.mInt;
 			return;
 
 		case CrocValue.Type.Table:
@@ -1369,7 +1343,7 @@ void lenImpl(CrocThread* t, AbsStack dest, CrocValue* src)
 		case CrocValue.Type.String:    return t.stack[dest] = cast(crocint)src.mString.cpLength;
 		case CrocValue.Type.Table:     return t.stack[dest] = cast(crocint)table.length(src.mTable);
 		case CrocValue.Type.Array:     return t.stack[dest] = cast(crocint)src.mArray.length;
-		case CrocValue.Type.Memblock:  return t.stack[dest] = cast(crocint)src.mMemblock.itemLength;
+		case CrocValue.Type.Memblock:  return t.stack[dest] = cast(crocint)src.mMemblock.data.length;
 		case CrocValue.Type.Namespace: return t.stack[dest] = cast(crocint)namespace.length(src.mNamespace);
 
 		default:
@@ -1410,9 +1384,6 @@ void lenaImpl(CrocThread* t, AbsStack dest, CrocValue* len)
 
 			if(!mb.ownData)
 				throwStdException(t, "ValueException", "Attempting to resize a memblock which does not own its data");
-
-			if(mb.kind.code == CrocMemblock.TypeCode.v)
-				throwStdException(t, "ValueException", "Attempting to resize a void memblock");
 
 			auto l = len.mInt;
 
@@ -1463,7 +1434,7 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 			if(lo.type == CrocValue.Type.Null && hi.type == CrocValue.Type.Null)
 				return t.stack[dest] = *src;
 
-			if(!correctIndices(loIndex, hiIndex, lo, hi, mb.itemLength))
+			if(!correctIndices(loIndex, hiIndex, lo, hi, mb.data.length))
 			{
 				auto hisave = *hi;
 				typeString(t, lo);
@@ -1471,9 +1442,9 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 				throwStdException(t, "TypeException", "Attempting to slice a memblock with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
-			if(!validIndices(loIndex, hiIndex, mb.itemLength))
-				throwStdException(t, "RangeException", "Invalid slice indices [{} .. {}] (memblock length = {})", loIndex, hiIndex, mb.itemLength);
-
+			if(!validIndices(loIndex, hiIndex, mb.data.length))
+				throwStdException(t, "RangeException", "Invalid slice indices [{} .. {}] (memblock length = {})", loIndex, hiIndex, mb.data.length);
+				
 			return t.stack[dest] = memblock.slice(t.vm.alloc, mb, cast(uword)loIndex, cast(uword)hiIndex);
 
 		case CrocValue.Type.String:

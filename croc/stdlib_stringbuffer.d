@@ -158,15 +158,17 @@ void _setLength(CrocThread* t, uword l, word idx = 0)
 
 void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 {
-	if(mb.itemLength == 0)
+	auto dataLength = mb.data.length >> 2;
+
+	if(dataLength == 0)
 	{
 		push(t, CrocValue(mb));
-		lenai(t, -1, size);
+		lenai(t, -1, size << 2);
 		pop(t);
 	}
-	else if(size > mb.itemLength)
+	else if(size > dataLength)
 	{
-		auto l = mb.itemLength;
+		auto l = dataLength;
 
 		while(size > l)
 		{
@@ -176,7 +178,7 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 		}
 
 		push(t, CrocValue(mb));
-		lenai(t, -1, l);
+		lenai(t, -1, l << 2);
 		pop(t);
 	}
 }
@@ -212,7 +214,7 @@ uword _constructor(CrocThread* t)
 		length = 0;
 	}
 
-	newMemblock(t, "u32", length);
+	newMemblock(t, length << 2);
 
 	if(data.length > 0)
 	{
@@ -240,7 +242,7 @@ uword _toString(CrocThread* t)
 
 	if(hi < 0)
 		hi += len;
-		
+
 	if(lo < 0 || lo > hi || hi > len)
 		throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
 
@@ -672,19 +674,14 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 	}
 	else if(isFunction(t, filler))
 	{
-		void callFunc(uword i)
+		auto data = (cast(dchar[])mb.data)[0 .. _getLength(t)];
+
+		for(uword i = lo; i < hi; i++)
 		{
 			dup(t, filler);
 			pushNull(t);
 			pushInt(t, i);
 			rawCall(t, -3, 1);
-		}
-
-		auto data = (cast(dchar[])mb.data)[0 .. _getLength(t)];
-
-		for(uword i = lo; i < hi; i++)
-		{
-			callFunc(i);
 
 			if(!isChar(t, -1))
 			{

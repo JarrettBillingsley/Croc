@@ -86,6 +86,7 @@ string metamethods
 docs
 	_doc_
 	docsOf
+	processDocs
 	BaseDocOutput
 	TracWikiDocOutput
 	HtmlDocOutput

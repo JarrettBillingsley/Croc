@@ -93,32 +93,20 @@ uword _toRawUnicode(CrocThread* t)
 	auto str = getStringObj(t, 1);
 	auto bitSize = optIntParam(t, 2, 8);
 
-	char[] typeCode;
-
-	switch(bitSize)
-	{
-		case 8:  typeCode = "u8"; break;
-		case 16: typeCode = "u16"; break;
-		case 32: typeCode = "u32"; break;
-		default: throwStdException(t, "ValueException", "Invalid encoding size of {} bits", bitSize);
-	}
+	if(bitSize != 8 && bitSize != 16 && bitSize != 32)
+		throwStdException(t, "ValueException", "Invalid encoding size of {} bits", bitSize);
 
 	CrocMemblock* ret;
+	uword mbLen = str.length * (cast(uword)bitSize / 8);
 
 	if(optParam(t, 3, CrocValue.Type.Memblock))
 	{
 		ret = getMemblock(t, 3);
-		// round off to a multiple of 4 so the re-type always works
-		lenai(t, 3, len(t, 3) & ~3);
-		dup(t, 3);
-		pushNull(t);
-		pushString(t, typeCode);
-		methodCall(t, -3, "type", 0);
-		lenai(t, 3, str.length);
+		lenai(t, 3, mbLen);
 	}
 	else
 	{
-		newMemblock(t, typeCode, str.length);
+		newMemblock(t, mbLen);
 		ret = getMemblock(t, -1);
 	}
 
@@ -140,13 +128,13 @@ uword _toRawUnicode(CrocThread* t)
 
 			uint ate = 0;
 			auto tempData = safeCode(t, "exceptions.UnicodeException", Utf.toString32(src, temp, &ate));
-			len = safeCode(t, "exceptions.UnicodeException", Utf.toString16(temp, dest, &ate)).length;
+			len = 2 * safeCode(t, "exceptions.UnicodeException", Utf.toString16(temp, dest, &ate)).length;
 			break;
 
 		case 32:
 			auto dest = (cast(dchar*)ret.data.ptr)[0 .. str.length];
 			uint ate = 0;
-			len = safeCode(t, "exceptions.UnicodeException", Utf.toString32(src, dest, &ate)).length;
+			len = 4 *  safeCode(t, "exceptions.UnicodeException", Utf.toString32(src, dest, &ate)).length;
 			break;
 
 		default: assert(false);
@@ -171,15 +159,11 @@ uword _toRawAscii(CrocThread* t)
 	if(optParam(t, 2, CrocValue.Type.Memblock))
 	{
 		ret = getMemblock(t, 2);
-		dup(t, 2);
-		pushNull(t);
-		pushString(t, "u8");
-		methodCall(t, -3, "type", 0);
 		lenai(t, 2, str.length);
 	}
 	else
 	{
-		newMemblock(t, "u8", str.length);
+		newMemblock(t, str.length);
 		ret = getMemblock(t, -1);
 	}
 
@@ -192,24 +176,32 @@ uword _fromRawUnicode(CrocThread* t)
 {
 	checkParam(t, 1, CrocValue.Type.Memblock);
 	auto mb = getMemblock(t, 1);
-	auto lo = optIntParam(t, 2, 0);
-	auto hi = optIntParam(t, 3, mb.itemLength);
+	auto bitSize = checkIntParam(t, 2);
+
+	if(bitSize != 8 && bitSize != 16 && bitSize != 32)
+		throwStdException(t, "ValueException", "Invalid encoding size of {} bits", bitSize);
+
+	auto lo = optIntParam(t, 3, 0);
+	auto hi = optIntParam(t, 4, mb.data.length);
 
 	if(lo < 0)
-		lo += mb.itemLength;
+		lo += mb.data.length;
 
 	if(hi < 0)
-		hi += mb.itemLength;
+		hi += mb.data.length;
 
-	if(lo < 0 || lo > hi || hi > mb.itemLength)
-		throwStdException(t, "BoundsException", "Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
+	if(lo < 0 || lo > hi || hi > mb.data.length)
+		throwStdException(t, "BoundsException", "Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, mb.data.length);
 
-	switch(mb.kind.code)
+	if(((lo - hi) % (bitSize / 8)) != 0)
+		throwStdException(t, "ValueException", "Slice length ({}) is not an even multiple of character size ({})", lo - hi, bitSize / 8);
+
+	switch(bitSize)
 	{
-		case CrocMemblock.TypeCode.u8:  pushFormat(t, "{}", (cast(char[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
-		case CrocMemblock.TypeCode.u16: pushFormat(t, "{}", (cast(wchar[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
-		case CrocMemblock.TypeCode.u32: pushFormat(t, "{}", (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
-		default: throwStdException(t, "ValueException", "Memblock must be of type 'u8', 'u16', or 'u32', not '{}'", mb.kind.name);
+		case 8:  pushFormat(t, "{}", (cast(char[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
+		case 16: pushFormat(t, "{}", (cast(wchar[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
+		case 32: pushFormat(t, "{}", (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
+		default: assert(false);
 	}
 
 	return 1;
@@ -220,19 +212,16 @@ uword _fromRawAscii(CrocThread* t)
 	checkParam(t, 1, CrocValue.Type.Memblock);
 	auto mb = getMemblock(t, 1);
 	auto lo = optIntParam(t, 2, 0);
-	auto hi = optIntParam(t, 3, mb.itemLength);
+	auto hi = optIntParam(t, 3, mb.data.length);
 
 	if(lo < 0)
-		lo += mb.itemLength;
+		lo += mb.data.length;
 
 	if(hi < 0)
-		hi += mb.itemLength;
-		
-	if(lo < 0 || lo > hi || hi > mb.itemLength)
-		throwStdException(t, "BoundsException", "Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
+		hi += mb.data.length;
 
-	if(mb.kind.code != CrocMemblock.TypeCode.u8)
-		throwStdException(t, "ValueException", "Memblock must be of type 'u8', not '{}'", mb.kind.name);
+	if(lo < 0 || lo > hi || hi > mb.data.length)
+		throwStdException(t, "BoundsException", "Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, mb.data.length);
 
 	auto src = (cast(char[])mb.data)[cast(uword)lo .. cast(uword)hi];
 	auto dest = allocArray!(char)(t, src.length);

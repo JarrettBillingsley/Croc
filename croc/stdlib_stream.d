@@ -478,13 +478,13 @@ public:
 		auto mb = getMemblock(t, -1);
 		pop(t);
 
-		auto byteSize = mb.itemLength * mb.kind.itemSize;
+		auto data = mb.data;
 
-		if(mPos >= byteSize)
+		if(mPos >= data.length)
 			return Eof;
 
-		auto numBytes = min(byteSize - mPos, dest.length);
-		dest[0 .. numBytes] = mb.data[mPos .. mPos + numBytes];
+		auto numBytes = min(data.length - mPos, dest.length);
+		dest[0 .. numBytes] = data[mPos .. mPos + numBytes];
 		mPos += numBytes;
 		return numBytes;
 	}
@@ -495,23 +495,14 @@ public:
 		pushRef(t, mMB);
 		auto mb = getMemblock(t, -1);
 
-		auto byteSize = mb.itemLength * mb.kind.itemSize;
-		auto bytesLeft = byteSize - mPos;
+		auto data = mb.data;
 
-		if(src.length > bytesLeft)
-		{
-			auto newByteSize = byteSize - bytesLeft + src.length;
-			auto newSize = newByteSize / mb.kind.itemSize;
-
-			if((newSize * mb.kind.itemSize) < newByteSize)
-				newSize++;
-				
-			lenai(t, -1, newSize);
-		}
+		if(src.length > data.length - mPos)
+			lenai(t, -1, mPos + src.length);
 
 		pop(t);
 
-		mb.data[mPos .. mPos + src.length] = src[];
+		data[mPos .. mPos + src.length] = cast(ubyte[])src[];
 		mPos += src.length;
 		return src.length;
 	}
@@ -523,10 +514,10 @@ public:
 		auto mb = getMemblock(t, -1);
 		pop(t);
 
-		auto byteSize = mb.itemLength * mb.kind.itemSize;
+		auto data = mb.data;
 
-		if(offset > byteSize)
-			offset = byteSize;
+		if(offset > data.length)
+			offset = data.length;
 
 		switch(anchor)
 		{
@@ -535,19 +526,16 @@ public:
 				break;
 
 			case Anchor.End:
-				mPos = cast(uword)(byteSize - offset);
+				mPos = cast(uword)(data.length - offset);
 				break;
 
 			case Anchor.Current:
-				auto off = cast(uword)(mPos + offset);
-
-				if(off < 0)
-					off = 0;
-
-				if(off > byteSize)
-					off = byteSize;
-
-				mPos = off;
+				if(offset < 0 && -offset >= mPos)
+					mPos = 0;
+				else if(offset > 0 && mPos + offset > data.length)
+					mPos = data.length;
+				else
+					mPos += offset;
 				break;
 
 			default: assert(false);
@@ -826,32 +814,33 @@ template ReadFuncs(bool isInout)
 		crocint size = void;
 		CrocMemblock* mb = void;
 
-		if(isString(t, 1))
+		if(isInt(t, 1))
 		{
-			auto type = getString(t, 1);
-			size = checkIntParam(t, 2);
+			size = getInt(t, 1);
 
 			if(size < 0 || size > uword.max)
 				throwStdException(t, "RangeException", "Invalid size: {}", size);
 
-			newMemblock(t, type, cast(uword)size);
+			newMemblock(t, cast(uword)size);
 			mb = getMemblock(t, -1);
 		}
 		else if(isMemblock(t, 1))
 		{
 			mb = getMemblock(t, 1);
-			size = optIntParam(t, 2, mb.itemLength);
+			size = optIntParam(t, 2, mb.data.length);
 
-			if(size != mb.itemLength)
+			if(size < 0 || size > uword.max)
+				throwStdException(t, "RangeException", "Invalid size: {}", size);
+
+			if(size != mb.data.length)
 				lenai(t, 1, size);
 
 			dup(t, 1);
 		}
 		else
-			paramTypeError(t, 1, "string|memblock");
+			paramTypeError(t, 1, "int|memblock");
 
-		uword numBytes = cast(uword)size * mb.kind.itemSize;
-		readExact(t, memb, mb.data.ptr, numBytes);
+		readExact(t, memb, mb.data.ptr, cast(uword)size);
 		return 1;
 	}
 
@@ -862,15 +851,10 @@ template ReadFuncs(bool isInout)
 		checkParam(t, 1, CrocValue.Type.Memblock);
 		auto mb = getMemblock(t, 1);
 
-		auto typeCode = mb.kind.code;
-
-		if(typeCode != CrocMemblock.TypeCode.i8 && typeCode != CrocMemblock.TypeCode.u8)
-			throwStdException(t, "ValueException", "Memblock must be of type i8 or u8, not '{}'", mb.kind.name);
-
-		if(mb.itemLength == 0)
+		if(mb.data.length == 0)
 			throwStdException(t, "ValueException", "Memblock cannot be 0 elements long");
 
-		auto realSize = readAtMost(t, memb, mb.data.ptr, mb.itemLength);
+		auto realSize = readAtMost(t, memb, mb.data.ptr, mb.data.length);
 		pushInt(t, realSize);
 		return 1;
 	}
@@ -1062,19 +1046,18 @@ template WriteFuncs(bool isInout)
 		checkParam(t, 1, CrocValue.Type.Memblock);
 		auto mb = getMemblock(t, 1);
 		auto lo = optIntParam(t, 2, 0);
-		auto hi = optIntParam(t, 3, mb.itemLength);
+		auto hi = optIntParam(t, 3, mb.data.length);
 
 		if(lo < 0)
-			lo += mb.itemLength;
+			lo += mb.data.length;
 
 		if(hi < 0)
-			hi += mb.itemLength;
+			hi += mb.data.length;
 
-		if(lo < 0 || lo > hi || hi > mb.itemLength)
-			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
+		if(lo < 0 || lo > hi || hi > mb.data.length)
+			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.data.length);
 
-		auto isize = mb.kind.itemSize;
-		writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize);
+		writeExact(t, memb, mb.data.ptr + cast(uword)lo, cast(uword)(hi - lo));
 		static if(isInout) memb.dirty = true;
 		dup(t, 0);
 		return 1;

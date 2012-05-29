@@ -741,8 +741,10 @@ static:
 	uword getExtraBytes(CrocThread* t)
 	{
 		checkInstParam(t, 1);
-		memblockFromDArray(t, cast(ubyte[]).getExtraBytes(t, 1));
-		return 1;
+		// TODO:
+		assert(false);
+// 		memblockFromDArray(t, cast(ubyte[]).getExtraBytes(t, 1));
+// 		return 1;
 	}
 
 	uword setExtraBytes(CrocThread* t)
@@ -751,12 +753,11 @@ static:
 		auto instData = cast(ubyte[]).getExtraBytes(t, 1);
 		checkParam(t, 2, CrocValue.Type.Memblock);
 		auto mb = getMemblock(t, 2);
-		auto data = cast(ubyte[])mb.data;
 
-		if(data.length != instData.length)
-			throwStdException(t, "ValueException", "Memblock size ({}) does not match number of extra bytes ({})", data.length, instData.length);
+		if(mb.data.length != instData.length)
+			throwStdException(t, "ValueException", "Memblock size ({}) does not match number of extra bytes ({})", mb.data.length, instData.length);
 
-		instData[] = data[];
+		instData[] = mb.data[];
 		return 0;
 	}
 

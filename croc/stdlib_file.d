@@ -387,9 +387,9 @@ static:
 		if(size > uword.max)
 			throwStdException(t, "ValueException", "file too big ({} bytes)", size);
 
-		newMemblock(t, "u8", cast(uword)size);
+		newMemblock(t, cast(uword)size);
 		auto mb = getMemblock(t, -1);
-		safeCode(t, "exceptions.IOException", File.get(name, mb.data[0 .. cast(uword)size]));
+		safeCode(t, "exceptions.IOException", File.get(name, mb.data));
 		return 1;
 	}
 

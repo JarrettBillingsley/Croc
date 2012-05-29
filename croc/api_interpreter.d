@@ -614,118 +614,18 @@ word newArrayFromStack(CrocThread* t, uword len)
 }
 
 /**
-Creates a new memblock object and pushes it onto the stack. 
+Creates a new memblock object and pushes it onto the stack.
 
 Params:
-	type = The type code string. Must be one of the valid type codes.
-	len = The length of the memblock. This is measured in the number of items, not the number of
-		bytes. 
-		
+	len = The length of the memblock in bytes. Can be 0.
+
 Returns:
 	The stack index of the newly-created memblock.
 */
-word newMemblock(CrocThread* t, char[] type, uword len)
+word newMemblock(CrocThread* t, uword len)
 {
-	mixin(FuncNameMix);
-
-	alias CrocMemblock.TypeStruct TypeStruct;
-	alias CrocMemblock.TypeCode TypeCode;
-
 	maybeGC(t);
-
-	TypeStruct* ts = void;
-
-	switch(type)
-	{
-		case "v":   ts = &CrocMemblock.typeStructs[TypeCode.v];   break;
-		case "i8" : ts = &CrocMemblock.typeStructs[TypeCode.i8];  break;
-		case "i16": ts = &CrocMemblock.typeStructs[TypeCode.i16]; break;
-		case "i32": ts = &CrocMemblock.typeStructs[TypeCode.i32]; break;
-		case "i64": ts = &CrocMemblock.typeStructs[TypeCode.i64]; break;
-		case "u8" : ts = &CrocMemblock.typeStructs[TypeCode.u8];  break;
-		case "u16": ts = &CrocMemblock.typeStructs[TypeCode.u16]; break;
-		case "u32": ts = &CrocMemblock.typeStructs[TypeCode.u32]; break;
-		case "u64": ts = &CrocMemblock.typeStructs[TypeCode.u64]; break;
-		case "f32": ts = &CrocMemblock.typeStructs[TypeCode.f32]; break;
-		case "f64": ts = &CrocMemblock.typeStructs[TypeCode.f64]; break;
-
-		default:
-			throwStdException(t, "ValueException", __FUNCTION__ ~ " - Invalid memblock type code '{}'", type);
-	}
-
-	return push(t, CrocValue(memblock.create(t.vm.alloc, ts, len)));
-}
-
-/**
-Constructs a memblock from a D array and pushes the new instance onto the stack.
-The resulting memblock holds a $(B copy) of the data and owns its data.
-
-The array type must be convertible to a single-dimensional array of any integer
-type or a float or double array.
-
-Params:
-	arr = The array from which the data will be copied into the new memblock.
-
-Returns:
-	The stack index of the newly-pushed memblock.
-*/
-word memblockFromDArray(_T)(CrocThread* t, _T[] arr)
-{
-	alias realType!(_T) T;
-
-	static      if(is(T == byte))   const code = "i8";
-	else static if(is(T == ubyte))  const code = "u8";
-	else static if(is(T == short))  const code = "i16";
-	else static if(is(T == ushort)) const code = "u16";
-	else static if(is(T == int))    const code = "i32";
-	else static if(is(T == uint))   const code = "u32";
-	else static if(is(T == long))   const code = "i64";
-	else static if(is(T == ulong))  const code = "u64";
-	else static if(is(T == float))  const code = "f32";
-	else static if(is(T == double)) const code = "f64";
-	else static assert(false, "memblockFromDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
-
-	auto ret = newMemblock(t, code, arr.length);
-	auto data = getMemblock(t, ret).data;
-	(cast(_T*)data)[0 .. arr.length] = arr[];
-	return ret;
-}
-
-/**
-Constructs a memblock from a D array and pushes it onto the stack. The resulting
-memblock is a $(B view) into the data. That is, modifying the contents of the
-returned memblock will actually modify the array that you passed.
-
-Note that you must ensure that the D array is not collected while this memblock
-is around. The memblock will not keep it around for you.
-
-The array type must be convertible to a single-dimensional array of any integer
-type or a float or double array.
-
-Params:
-	arr = The array to which the new memblock will refer.
-
-Returns:
-	The stack index of the newly-pushed memblock.
-*/
-word memblockViewDArray(_T)(CrocThread* t, _T[] arr)
-{
-	alias realType!(_T) T;
-	CrocMemblock.TypeStruct* ts = void;
-
-	static      if(is(T == byte))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i8];
-	else static if(is(T == ubyte))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u8];
-	else static if(is(T == short))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i16];
-	else static if(is(T == ushort)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u16];
-	else static if(is(T == int))    ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i32];
-	else static if(is(T == uint))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u32];
-	else static if(is(T == long))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i64];
-	else static if(is(T == ulong))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u64];
-	else static if(is(T == float))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f32];
-	else static if(is(T == double)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f64];
-	else static assert(false, "memblockViewDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
-
-	return push(t, CrocValue(memblock.createView(t.vm.alloc, ts, cast(void[])arr)));
+	return push(t, CrocValue(memblock.create(t.vm.alloc, len)));
 }
 
 /**
@@ -2091,91 +1991,6 @@ void fillArray(CrocThread* t, word arr)
 // Memblock-related functions
 
 /**
-Gets the element type of a memblock.
-
-Params:
-	mb = The stack index of the memblock object.
-
-Returns:
-	A string containing the type code for the given memblock. This points into ROM, so don't modify it, but
-	at least you don't have to worry about it being collected.
-*/
-char[] memblockType(CrocThread* t, word mb)
-{
-	mixin(apiCheckNumParams!("1"));
-	auto m = getMemblock(t, mb);
-
-	if(m is null)
-	{
-		pushTypeString(t, mb);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - mb must be a memblock, not a '{}'", getString(t, -1));
-	}
-
-	return m.kind.name;
-}
-
-/**
-Sets the element type of a memblock. You cannot change the element type of void memblocks, but you can
-change the type of non-void memblocks to void. When changing types, the size of the memblock in bytes
-must be an even multiple of the size of the new element type, or else an error is thrown. For instance,
-if you have a memblock of type "u8" and its length is 7, you will get an error if you try to change the
-type to "u16", as 7 is not a valid multiple of 2, the size of a "u16".
-
-Params:
-	mb = The stack index of the memblock object.
-	type = A string containing the type code of the new type. Must be one of the valid type codes, or an
-		error is thrown.
-*/
-void setMemblockType(CrocThread* t, word mb, char[] type)
-{
-	alias CrocMemblock.TypeStruct TypeStruct;
-	alias CrocMemblock.TypeCode TypeCode;
-
-	mixin(apiCheckNumParams!("1"));
-	auto m = getMemblock(t, mb);
-
-	if(m is null)
-	{
-		pushTypeString(t, mb);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - mb must be a memblock, not a '{}'", getString(t, -1));
-	}
-
-	TypeStruct* ts;
-
-	switch(type)
-	{
-		case "v":   ts = &CrocMemblock.typeStructs[TypeCode.v];   break;
-		case "i8" : ts = &CrocMemblock.typeStructs[TypeCode.i8];  break;
-		case "i16": ts = &CrocMemblock.typeStructs[TypeCode.i16]; break;
-		case "i32": ts = &CrocMemblock.typeStructs[TypeCode.i32]; break;
-		case "i64": ts = &CrocMemblock.typeStructs[TypeCode.i64]; break;
-		case "u8" : ts = &CrocMemblock.typeStructs[TypeCode.u8];  break;
-		case "u16": ts = &CrocMemblock.typeStructs[TypeCode.u16]; break;
-		case "u32": ts = &CrocMemblock.typeStructs[TypeCode.u32]; break;
-		case "u64": ts = &CrocMemblock.typeStructs[TypeCode.u64]; break;
-		case "f32": ts = &CrocMemblock.typeStructs[TypeCode.f32]; break;
-		case "f64": ts = &CrocMemblock.typeStructs[TypeCode.f64]; break;
-
-		default:
-			throwStdException(t, "ValueException", __FUNCTION__ ~ " - Invalid memblock type code '{}'", type);
-	}
-
-	if(m.kind is ts)
-		return;
-
-	if(m.kind.code == TypeCode.v)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Cannot change the type of void memblocks");
-
-	auto byteSize = m.itemLength * m.kind.itemSize;
-
-	if(byteSize % ts.itemSize != 0)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Memblock's byte size is not an even multiple of new type's item size");
-	
-	m.kind = ts;
-	m.itemLength = byteSize / ts.itemSize;
-}
-
-/**
 Gets a memblock's data array. This is one of the few places in the native API where
 pointers to internal Croc data are exposed, and as with all of them, BE CAREFUL. Do
 not resize this array, either by setting its .length or by appending to it. Bad things
@@ -2188,7 +2003,7 @@ Params:
 Returns:
 	The memblock's data array.
 */
-void[] getMemblockData(CrocThread* t, word slot)
+ubyte[] getMemblockData(CrocThread* t, word slot)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto m = getMemblock(t, slot);
@@ -2200,48 +2015,6 @@ void[] getMemblockData(CrocThread* t, word slot)
 	}
 
 	return m.data;
-}
-
-/**
-Reassign an existing memblock so that its data is a view of a D array. If the
-memblock owns its data, it is freed. The type is also set to the appropriate
-type code corresponding to the D array. This is like memblockViewDArray except
-that it changes an existing memblock rather than creating a new one.
-
-The same caveats and restrictions that apply to memblockViewDArray apply to this
-function as well.
-
-Params:
-	slot = The stack index of the memblock to reassign.
-	arr = The array to which the given memblock will refer.
-*/
-void memblockReviewDArray(_T)(CrocThread* t, word slot, _T[] arr)
-{
-	mixin(apiCheckNumParams!("1"));
-	auto m = getMemblock(t, slot);
-
-	if(m is null)
-	{
-		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - slot must be a memblock, not a '{}'", getString(t, -1));
-	}
-
-	alias realType!(_T) T;
-	CrocMemblock.TypeStruct* ts = void;
-
-	static      if(is(T == byte))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i8];
-	else static if(is(T == ubyte))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u8];
-	else static if(is(T == short))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i16];
-	else static if(is(T == ushort)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u16];
-	else static if(is(T == int))    ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i32];
-	else static if(is(T == uint))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u32];
-	else static if(is(T == long))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i64];
-	else static if(is(T == ulong))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u64];
-	else static if(is(T == float))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f32];
-	else static if(is(T == double)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f64];
-	else static assert(false, "memblockViewDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
-
-	memblock.view(t.vm.alloc, m, ts, cast(void[])arr);
 }
 
 // ================================================================================================================================================

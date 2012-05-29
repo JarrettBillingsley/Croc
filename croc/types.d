@@ -503,48 +503,8 @@ struct CrocMemblock
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Memblock);
 
-	// If this changes, grep ORDER MEMBLOCK TYPE
-	enum TypeCode : ubyte
-	{
-		v,
-		i8,
-		i16,
-		i32,
-		i64,
-		u8,
-		u16,
-		u32,
-		u64,
-		f32,
-		f64,
-	}
-
-	static struct TypeStruct
-	{
-		TypeCode code;
-		ubyte itemSize;
-		char[] name;
-	}
-
-	const TypeStruct[] typeStructs =
-	[
-		TypeCode.v:   { TypeCode.v,   1, "v"   },
-		TypeCode.i8:  { TypeCode.i8,  1, "i8"  },
-		TypeCode.i16: { TypeCode.i16, 2, "i16" },
-		TypeCode.i32: { TypeCode.i32, 4, "i32" },
-		TypeCode.i64: { TypeCode.i64, 8, "i64" },
-		TypeCode.u8:  { TypeCode.u8,  1, "u8"  },
-		TypeCode.u16: { TypeCode.u16, 2, "u16" },
-		TypeCode.u32: { TypeCode.u32, 4, "u32" },
-		TypeCode.u64: { TypeCode.u64, 8, "u64" },
-		TypeCode.f32: { TypeCode.f32, 4, "f32" },
-		TypeCode.f64: { TypeCode.f64, 8, "f64" }
-	];
-
 package:
-	void[] data;
-	uword itemLength;
-	TypeStruct* kind;
+	ubyte[] data;
 	bool ownData;
 
 	static const bool ACYCLIC = true;
