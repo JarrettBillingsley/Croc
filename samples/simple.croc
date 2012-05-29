@@ -13,7 +13,7 @@ function main()
 // local docTables = hash.WeakKeyTable()
 //
 // function _doc_(
-// 	val: table|array|memblock|function|class|instance|namespace|thread|funcdef,
+// 	val: table|namespace|array|memblock|function|funcdef|class|instance|thread,
 // 	doctable: table,
 // 	vararg)
 // {

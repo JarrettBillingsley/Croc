@@ -101,6 +101,7 @@ const RegisterFunc[] _methodFuncs =
 [
 	{"toString",    &_toString,          maxParams: 0},
 	{"dup",         &_dup,               maxParams: 0},
+	{"fill",        &_fill,              maxParams: 1},
 	{"copyRange",   &_copyRange,         maxParams: 5},
 	{"readByte",    &_rawRead!(byte),    maxParams: 1},
 	{"readShort",   &_rawRead!(short),   maxParams: 1},
@@ -160,6 +161,14 @@ uword _dup(CrocThread* t)
 	newMemblock(t, mb.data.length);
 	getMemblock(t, -1).data[] = mb.data[];
 	return 1;
+}
+
+uword _fill(CrocThread* t)
+{
+	checkParam(t, 0, CrocValue.Type.Memblock);
+	auto mb = getMemblock(t, 0);
+	mb.data[] = cast(ubyte)checkIntParam(t, 1);
+	return 0;
 }
 
 uword _copyRange(CrocThread* t)

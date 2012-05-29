@@ -17,12 +17,6 @@ function clamp(x, lo, hi) =
 
 local function checkInput(m, offset, size)
 {
-	switch(m.type())
-	{
-		case "i8", "u8": break
-		default: throw ValueException(format("Memblock must be of type 'i8' or 'u8', not '{}'", m.typeCode()))
-	}
-
 	offset = clamp(offset, 0, #m)
 	return m, offset, clamp(size, 0, #m - offset)
 }
@@ -36,7 +30,7 @@ class Stream
 		if(!:readable() && !:writable())
 			throw IOException(format("Instances of class {} are neither readable nor writable; not a very useful stream, is it?", nameOf(:super)))
 
-		:_scratch = memblock.new("u8", 4096)
+		:_scratch = memblock.new(4096)
 	}
 
 	function read(this: @InStream, m: memblock, offset: int = 0, size: int = intMax)
@@ -90,18 +84,9 @@ class Stream
 	function readAll(this: @InStream, m: memblock = null)
 	{
 		if(m is null)
-			m = memblock.new("u8", 4096)
-		else
-		{
-			switch(m.type())
-			{
-				case "i8", "u8": break
-				default: throw ValueException(format("Memblock must be of type 'i8' or 'u8', not '{}'", m.typeCode()))
-			}
-
-			if(#m < 4096)
-				#m = 4096
-		}
+			m = memblock.new(4096)
+		else if(#m < 4096)
+			#m = 4096
 
 		local offs = 0
 
@@ -165,12 +150,6 @@ class MemblockStream : Stream
 
 	this(mb: memblock)
 	{
-		switch(mb.type())
-		{
-			case "i8", "u8": break
-			default: throw ValueException(format("Memblock must be of type 'i8' or 'u8', not '{}'", mb.type()))
-		}
-
 		:mb = mb
 		super()
 	}
@@ -278,8 +257,8 @@ class UTF8Stream
 	this(s: Stream)
 	{
 		:stream = s
-		:readBuf = memblock.new("u8", 4096)
-		:writeBuf = memblock.new("u8", 0)
+		:readBuf = memblock.new(4096)
+		:writeBuf = memblock.new(0)
 		:chunks = []
 	}
 
@@ -409,8 +388,8 @@ class BinaryStream : StreamWrapper
 	this(s: Stream)
 	{
 		super(s)
-		:rwBuf = memblock.new("u8", 8)
-		:strBuf = memblock.new("u8", 0)
+		:rwBuf = memblock.new(8)
+		:strBuf = memblock.new(0)
 	}
 
 	function readByte()   { :stream.readExact(:rwBuf, 0, 1); return :rwBuf.readByte(0)           }
@@ -522,7 +501,7 @@ class BufferedReader : StreamWrapper
 	this(s: @InStream, bufSize: int = 4096)
 	{
 		super(s)
-		:buf = memblock.new("u8", clamp(bufSize, 128, intMax))
+		:buf = memblock.new(clamp(bufSize, 128, intMax))
 	}
 
 	function read(m: memblock, offset: int = 0, size: int = intMax)
@@ -583,7 +562,7 @@ class BufferedWriter : StreamWrapper
 	this(s: @OutStream, bufSize: int = 4096)
 	{
 		super(s)
-		:buf = memblock.new("u8", clamp(bufSize, 128, intMax))
+		:buf = memblock.new(clamp(bufSize, 128, intMax))
 	}
 
 	function read(vararg)
