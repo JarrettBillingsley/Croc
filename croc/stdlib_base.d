@@ -65,7 +65,7 @@ void initBaseLib(CrocThread* t)
 	registerGlobals(t, _convFuncs);
 
 		newTable(t);
-	register(t, 2, "dumpVal", &_dumpVal, 1);
+	register(t, _dumpValFunc);
 	
 // 	initVector(t);
 }
@@ -623,6 +623,8 @@ uword _format(CrocThread* t)
 
 // ===================================================================================================================================
 // Console IO
+
+const RegisterFunc _dumpValFunc = {"dumpVal", &_dumpVal, maxParams: 2, numUpvals: 1};
 
 uword _dumpVal(CrocThread* t)
 {

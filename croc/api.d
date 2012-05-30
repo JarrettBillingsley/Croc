@@ -138,7 +138,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	initMemblockLib(t);
 	initStringLib(t); // depends on memblock
 	HashLib.init(t); // depends on string
-	initDocsLib(t);
+	initDocsLib(t); // depends on hash
 
 	// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later)
 	version(CrocBuiltinDocs)

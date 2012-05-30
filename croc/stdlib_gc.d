@@ -46,13 +46,7 @@ void initGCLib(CrocThread* t)
 {
 	makeModule(t, "gc", function uword(CrocThread* t)
 	{
-		register(t, 0, "collect",            &_collect);
-		register(t, 0, "collectFull",        &_collectFull);
-		register(t, 0, "allocated",          &_allocated);
-		register(t, 2, "limit",              &_limit);
-		register(t, 1, "postCallback",       &_postCallback);
-		register(t, 1, "removePostCallback", &_removePostCallback);
-
+		registerGlobals(t, _globalFuncs);
 		newArray(t, 0); setRegistryVar(t, PostGCCallbacks);
 
 		return 0;
@@ -80,6 +74,16 @@ version(CrocBuiltinDocs) void docGCLib(CrocThread* t)
 // ================================================================================================================================================
 
 private:
+
+const RegisterFunc[] _globalFuncs =
+[
+	{"collect",            &_collect,            maxParams: 0},
+	{"collectFull",        &_collectFull,        maxParams: 0},
+	{"allocated",          &_allocated,          maxParams: 0},
+	{"limit",              &_limit,              maxParams: 2},
+	{"postCallback",       &_postCallback,       maxParams: 1},
+	{"removePostCallback", &_removePostCallback, maxParams: 1}
+];
 
 const PostGCCallbacks = "gc.postGCCallbacks";
 

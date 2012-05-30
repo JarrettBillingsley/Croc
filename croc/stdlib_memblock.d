@@ -58,7 +58,7 @@ void initMemblockLib(CrocThread* t)
 
 				newFunction(t, &_iterator, "memblock.iterator");
 				newFunction(t, &_iteratorReverse, "memblock.iteratorReverse");
-			registerField(t, 1, "opApply", &_opApply, 2);
+			registerField(t, _opApplyFunc);
 
 			field(t, -1, "opCatAssign"); fielda(t, -2, "append");
 		setTypeMT(t, CrocValue.Type.Memblock);
@@ -84,7 +84,7 @@ version(CrocBuiltinDocs) void docMemblockLib(CrocThread* t)
 	pop(t);
 
 	doc.pop(-1);
-	
+
 	pop(t);
 }
 
@@ -147,6 +147,8 @@ const RegisterFunc[] _methodFuncs =
 	{"opCat",        &_opCat,              maxParams: 1},
 	{"opCatAssign",  &_opCatAssign}
 ];
+
+const RegisterFunc _opApplyFunc = {"opApply", &_opApply, maxParams: 1, numUpvals: 2};
 
 uword _toString(CrocThread* t)
 {
@@ -412,7 +414,7 @@ version(CrocBuiltinDocs)
 		{kind: "function", name: "new", docs:
 		`Creates a new memblock.
 
-		\param[size] is the size of the memblock to create, in bytes.
+		\param[size] is the size of the memblock to create, in bytes. Can be 0.
 		\param[fill] is the value to fill each byte of the memblock with. Defaults to 0. The value will be wrapped to the
 		range of an unsigned byte.
 

@@ -33,67 +33,6 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.types;
 
-void register(CrocThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
-{
-	newFunction(t, func, name, numUpvals);
-	newGlobal(t, name);
-}
-
-void register(CrocThread* t, uword numParams, char[] name, NativeFunc func, uword numUpvals = 0)
-{
-	newFunction(t, numParams, func, name, numUpvals);
-	newGlobal(t, name);
-}
-
-void registerField(CrocThread* t, char[] name, NativeFunc func, uword numUpvals = 0, char[] fieldName = null)
-{
-	newFunction(t, func, name, numUpvals);
-	fielda(t, -2, fieldName ? fieldName : name);
-}
-
-void registerField(CrocThread* t, uword numParams, char[] name, NativeFunc func, uword numUpvals = 0, char[] fieldName = null)
-{
-	if(fieldName is null)
-		fieldName = name;
-	newFunction(t, numParams, func, name, numUpvals);
-	fielda(t, -2, fieldName ? fieldName : name);
-}
-
-template Register(char[] funcName, uword numUpvals = 0, char[] crocName = funcName)
-{
-	const char[] Register =
-	CommonRegister!(funcName, numUpvals, crocName, "") ~
-	"newGlobal(t, \"" ~ crocName ~ "\");";
-}
-
-template Register(uword numParams, char[] funcName, uword numUpvals = 0, char[] crocName = funcName)
-{
-	const char[] Register =
-	CommonRegister!(funcName, numUpvals, crocName, ctfe_i2a(numParams)) ~
-	"newGlobal(t, \"" ~ crocName ~ "\");";
-}
-
-template RegisterField(char[] funcName, uword numUpvals = 0, char[] crocName = funcName, char[] fieldName = crocName)
-{
-	const char[] RegisterField =
-	CommonRegister!(funcName, numUpvals, crocName, "") ~
-	"fielda(t, -2, \"" ~ fieldName ~ "\");";
-}
-
-template RegisterField(uword numParams, char[] funcName, uword numUpvals = 0, char[] crocName = funcName, char[] fieldName = crocName)
-{
-	const char[] RegisterField =
-	CommonRegister!(funcName, numUpvals, crocName, ctfe_i2a(numParams)) ~
-	"fielda(t, -2, \"" ~ fieldName ~ "\");";
-}
-
-template CommonRegister(char[] funcName, uword numUpvals = 0, char[] crocName, char[] numParams)
-{
-	const char[] CommonRegister =
-	"newFunction(t, " ~ (numParams.length == 0 ? "" : numParams ~ ", ") ~ "&" ~ funcName ~ ", \"" ~ crocName ~ "\", " ~ ctfe_i2a(numUpvals) ~ ");\n";
-// 	"version(CrocBuiltinDocs) doc(-1, " ~ funcName ~ "_docs);\n";
-}
-
 struct RegisterFunc
 {
 	char[] name;
@@ -102,14 +41,34 @@ struct RegisterFunc
 	uword numUpvals = 0;
 }
 
+private void _pushFunc(CrocThread* t, RegisterFunc f)
+{
+	if(f.maxParams == uword.max)
+		newFunction(t, f.func, f.name, f.numUpvals);
+	else
+		newFunction(t, f.maxParams, f.func, f.name, f.numUpvals);
+}
+
+void register(CrocThread* t, RegisterFunc f)
+{
+	_pushFunc(t, f);
+	newGlobal(t, f.name);
+}
+
+void registerField(CrocThread* t, RegisterFunc f)
+{
+	_pushFunc(t, f);
+	fielda(t, -2, f.name);
+}
+
 void registerGlobals(CrocThread* t, RegisterFunc[] funcs...)
 {
 	foreach(ref func; funcs)
 	{
-		if(func.maxParams == uword.max)
-			register(t, func.name, func.func, func.numUpvals);
-		else
-			register(t, func.maxParams, func.name, func.func, func.numUpvals);
+		if(func.numUpvals > 0)
+			throwStdException(t, "Exception", "registerGlobals - can't register function '{}' as it has upvalues. Use register instead", func.name);
+
+		register(t, func);
 	}
 }
 
@@ -117,14 +76,14 @@ void registerFields(CrocThread* t, RegisterFunc[] funcs...)
 {
 	foreach(ref func; funcs)
 	{
-		if(func.maxParams == uword.max)
-			registerField(t, func.name, func.func, func.numUpvals);
-		else
-			registerField(t, func.maxParams, func.name, func.func, func.numUpvals);
+		if(func.numUpvals > 0)
+			throwStdException(t, "Exception", "registerFields - can't register function '{}' as it has upvalues. Use registerField instead", func.name);
+
+		registerField(t, func);
 	}
 }
 
-void docGlobals(CrocThread* t, CrocDoc doc, CrocDoc.Docs[] docs)
+void docGlobals(CrocThread* t, CrocDoc doc, CrocDoc.Docs[] docs...)
 {
 	foreach(ref d; docs)
 	{
@@ -137,7 +96,7 @@ void docGlobals(CrocThread* t, CrocDoc doc, CrocDoc.Docs[] docs)
 	}
 }
 
-void docFields(CrocThread* t, CrocDoc doc, CrocDoc.Docs[] docs)
+void docFields(CrocThread* t, CrocDoc doc, CrocDoc.Docs[] docs...)
 {
 	foreach(ref d; docs)
 	{

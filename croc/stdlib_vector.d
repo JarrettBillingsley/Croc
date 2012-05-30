@@ -107,7 +107,7 @@ void initVector(CrocThread* t)
 
 // 	field(t, -1, "fillRange");
 // 	fielda(t, -2, "opSliceAssign");
-// 
+//
 // 	field(t, -1, "opCatAssign");
 // 	fielda(t, -2, "append");
 
@@ -162,7 +162,6 @@ enum
 
 	const TypeStruct[] typeStructs =
 	[
-		TypeCode.v:   { TypeCode.v,   1, "v"   },
 		TypeCode.i8:  { TypeCode.i8,  1, "i8"  },
 		TypeCode.i16: { TypeCode.i16, 2, "i16" },
 		TypeCode.i32: { TypeCode.i32, 4, "i32" },
@@ -182,7 +181,6 @@ enum
 	CrocValue index(CrocMemblock* m, uword idx)
 	{
 		assert(idx < m.itemLength);
-		assert(m.kind.code != CrocMemblock.TypeCode.v);
 
 		switch(m.kind.code)
 		{
@@ -206,7 +204,6 @@ enum
 	void indexAssign(CrocMemblock* m, uword idx, CrocValue val)
 	{
 		assert(idx < m.itemLength);
-		assert(m.kind.code != CrocMemblock.TypeCode.v);
 
 		switch(m.kind.code)
 		{
@@ -229,7 +226,6 @@ enum
 
 	switch(type)
 	{
-		case "v":   ts = &CrocMemblock.typeStructs[TypeCode.v];   break;
 		case "i8" : ts = &CrocMemblock.typeStructs[TypeCode.i8];  break;
 		case "i16": ts = &CrocMemblock.typeStructs[TypeCode.i16]; break;
 		case "i32": ts = &CrocMemblock.typeStructs[TypeCode.i32]; break;
@@ -371,7 +367,6 @@ void setMemblockType(CrocThread* t, word mb, char[] type)
 
 	switch(type)
 	{
-		case "v":   ts = &CrocMemblock.typeStructs[TypeCode.v];   break;
 		case "i8" : ts = &CrocMemblock.typeStructs[TypeCode.i8];  break;
 		case "i16": ts = &CrocMemblock.typeStructs[TypeCode.i16]; break;
 		case "i32": ts = &CrocMemblock.typeStructs[TypeCode.i32]; break;
@@ -389,9 +384,6 @@ void setMemblockType(CrocThread* t, word mb, char[] type)
 
 	if(m.kind is ts)
 		return;
-
-	if(m.kind.code == TypeCode.v)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Cannot change the type of void memblocks");
 
 	auto byteSize = m.itemLength * m.kind.itemSize;
 
@@ -593,7 +585,7 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 				registerField(t, 1, "opMod_r",     &opMod_r);
 				registerField(t, 1, "opModAssign", &opModAssign);
 				registerField(t, 1, "revMod",      &revMod);
-				
+
 				field(t, -1, "opAdd"); fielda(t, -2, "opAdd_r");
 				field(t, -1, "opMul"); fielda(t, -2, "opMul_r");
 			setTypeMT(t, CrocValue.Type.Memblock);
@@ -739,9 +731,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 		checkParam(t, 0, CrocValue.Type.Memblock);
 		auto mb = getMemblock(t, 0);
 
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to convert a void memblock to an array");
-
 		auto lo = optIntParam(t, 1, 0);
 		auto hi = optIntParam(t, 2, mb.itemLength);
 
@@ -782,12 +771,7 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 		pushFormat(t, "memblock({})[", mb.kind.name);
 		b.addTop();
 
-		if(mb.kind.code == CrocMemblock.TypeCode.v)
-		{
-			pushFormat(t, "{} bytes", mb.itemLength);
-			b.addTop();
-		}
-		else if(mb.kind.code == CrocMemblock.TypeCode.u64)
+		if(mb.kind.code == CrocMemblock.TypeCode.u64)
 		{
 			for(uword i = 0; i < mb.itemLength; i++)
 			{
@@ -836,9 +820,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 		checkParam(t, 0, CrocValue.Type.Memblock);
 		auto mb = getMemblock(t, 0);
 
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to reverse a void memblock");
-
 		switch(mb.kind.itemSize)
 		{
 			case 1: (cast(ubyte*)mb.data) [0 .. mb.itemLength].reverse; break;
@@ -861,7 +842,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 
 		switch(mb.kind.code)
 		{
-			case TypeCode.v:   throwStdException(t, "ValueException", "Attempting to sort a void memblock");
 			case TypeCode.i8:  (cast(byte*)mb.data)  [0 .. mb.itemLength].sort; break;
 			case TypeCode.i16: (cast(short*)mb.data) [0 .. mb.itemLength].sort; break;
 			case TypeCode.i32: (cast(int*)mb.data)   [0 .. mb.itemLength].sort; break;
@@ -907,9 +887,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 
 		switch(mb.kind.code)
 		{
-			case TypeCode.v:
-				throwStdException(t, "ValueException", "Attempting to modify a void memblock");
-
 			case
 				TypeCode.i8, TypeCode.i16, TypeCode.i32, TypeCode.i64,
 				TypeCode.u8, TypeCode.u16, TypeCode.u32, TypeCode.u64:
@@ -932,9 +909,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 	{
 		checkParam(t, 0, CrocValue.Type.Memblock);
 		checkParam(t, 1, CrocValue.Type.Function);
-
-		if(getMemblock(t, 0).kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to map a void memblock");
 
 		dup(t, 0);
 		pushNull(t);
@@ -971,7 +945,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 
 		switch(mb.kind.code)
 		{
-			case TypeCode.v:   throwStdException(t, "ValueException", "Cannot get the max of a void memblock");
 			case TypeCode.i8:  pushInt(t, minMaxImpl!(">")(cast(byte[])mb.data));     break;
 			case TypeCode.i16: pushInt(t, minMaxImpl!(">")(cast(short[])mb.data));    break;
 			case TypeCode.i32: pushInt(t, minMaxImpl!(">")(cast(int[])mb.data));      break;
@@ -998,7 +971,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 
 		switch(mb.kind.code)
 		{
-			case TypeCode.v:   throwStdException(t, "ValueException", "Cannot get the min of a void memblock");
 			case TypeCode.i8:  pushInt(t, minMaxImpl!("<")(cast(byte[])mb.data));     break;
 			case TypeCode.i16: pushInt(t, minMaxImpl!("<")(cast(short[])mb.data));    break;
 			case TypeCode.i32: pushInt(t, minMaxImpl!("<")(cast(int[])mb.data));      break;
@@ -1024,9 +996,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 
 		if(!mb.ownData)
 			throwStdException(t, "ValueException", "Attempting to insert into a memblock which does not own its data");
-
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to insert into a void memblock");
 
 		if(idx < 0)
 			idx += mb.itemLength;
@@ -1093,9 +1062,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 		if(!mb.ownData)
 			throwStdException(t, "ValueException", "Attempting to pop from a memblock which does not own its data");
 
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to pop from a void memblock");
-
 		if(mb.itemLength == 0)
 			throwStdException(t, "ValueException", "Memblock is empty");
 
@@ -1127,9 +1093,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 
 		if(!mb.ownData)
 			throwStdException(t, "ValueException", "Attempting to remove from a memblock which does not own its data");
-
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to remove from a void memblock");
 
 		if(mb.itemLength == 0)
 			throwStdException(t, "ValueException", "Memblock is empty");
@@ -1174,7 +1137,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 
 			switch(mb.kind.code)
 			{
-				case TypeCode.v:   throwStdException(t, "ValueException", "Attempting to sum a void memblock");
 				case TypeCode.i8:  foreach(val; cast(byte[])mb.data)   res += val; break;
 				case TypeCode.i16: foreach(val; cast(short[])mb.data)  res += val; break;
 				case TypeCode.i32: foreach(val; cast(int[])mb.data)    res += val; break;
@@ -1217,7 +1179,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 
 			switch(mb.kind.code)
 			{
-				case TypeCode.v:   throwStdException(t, "ValueException", "Attempting to sum a void memblock");
 				case TypeCode.i8:  foreach(val; cast(byte[])mb.data)   res *= val; break;
 				case TypeCode.i16: foreach(val; cast(short[])mb.data)  res *= val; break;
 				case TypeCode.i32: foreach(val; cast(int[])mb.data)    res *= val; break;
@@ -1255,9 +1216,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 		auto lo = optIntParam(t, 1, 0);
 		auto hi = optIntParam(t, 2, mb.itemLength);
 		
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to copy into a void memblock");
-
 		if(lo < 0)
 			lo += mb.itemLength;
 
@@ -1270,9 +1228,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 		checkParam(t, 3, CrocValue.Type.Memblock);
 		auto other = getMemblock(t, 3);
 		
-		if(other.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to copy from a void memblock");
-
 		if(mb.kind !is other.kind)
 			throwStdException(t, "ValueException", "Attempting to copy a memblock of type '{}' into a memblock of type '{}'", other.kind.name, mb.kind.name);
 
@@ -1300,9 +1255,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 
 	void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 	{
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to fill a void memblock");
-
 		if(isMemblock(t, filler))
 		{
 			auto other = getMemblock(t, filler);
@@ -1460,100 +1412,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 		return 1;
 	}
 
-	uword rawRead(T)(CrocThread* t)
-	{
-		checkParam(t, 0, CrocValue.Type.Memblock);
-		auto mb = getMemblock(t, 0);
-
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to read from a void memblock");
-
-		word maxIdx = mb.data.length < T.sizeof ? -1 : mb.data.length - T.sizeof;
-		auto idx = checkIntParam(t, 1);
-
-		if(idx < 0)
-			idx += mb.itemLength * mb.kind.itemSize;
-
-		if(idx < 0 || idx > maxIdx)
-			throwStdException(t, "BoundsException", "Invalid index '{}'", idx);
-
-		static if(isIntegerType!(T))
-			pushInt(t, cast(crocint)*(cast(T*)(mb.data.ptr + idx)));
-		else
-			pushFloat(t, cast(crocfloat)*(cast(T*)(mb.data.ptr + idx)));
-
-		return 1;
-	}
-
-	uword rawWrite(T)(CrocThread* t)
-	{
-		checkParam(t, 0, CrocValue.Type.Memblock);
-		auto mb = getMemblock(t, 0);
-
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to write to a void memblock");
-
-		word maxIdx = mb.data.length < T.sizeof ? -1 : mb.data.length - T.sizeof;
-		auto idx = checkIntParam(t, 1);
-
-		if(idx < 0)
-			idx += mb.itemLength * mb.kind.itemSize;
-
-		if(idx < 0 || idx > maxIdx)
-			throwStdException(t, "BoundsException", "Invalid index '{}'", idx);
-
-		static if(isIntegerType!(T))
-			auto val = checkIntParam(t, 2);
-		else
-			auto val = checkNumParam(t, 2);
-
-		*(cast(T*)(mb.data.ptr + idx)) = cast(T)val;
-
-		return 0;
-	}
-	
-	uword rawCopy(CrocThread* t)
-	{
-		checkParam(t, 0, CrocValue.Type.Memblock);
-		auto dest = getMemblock(t, 0);
-		auto destPos = checkIntParam(t, 1);
-		checkParam(t, 2, CrocValue.Type.Memblock);
-		auto src = getMemblock(t, 2);
-		auto srcPos = checkIntParam(t, 3);
-		auto size = checkIntParam(t, 4);
-
-		if(dest.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to write to a void memblock");
-
-		if(src.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to read from a void memblock");
-
-		if(destPos < 0 || destPos > dest.data.length)
-			throwStdException(t, "BoundsException", "Invalid destination position {} (memblock byte length: {})", destPos, dest.data.length);
-
-		if(srcPos < 0 || srcPos > src.data.length)
-			throwStdException(t, "BoundsException", "Invalid srouce position {} (memblock byte length: {})", srcPos, src.data.length);
-
-		if(size < 0 || size > uword.max)
-			throwStdException(t, "RangeException", "Invalid size: {}", size);
-
-		if(destPos + size > dest.data.length)
-			throwStdException(t, "BoundsException", "Copy size exceeds size of destination memblock");
-
-		if(srcPos + size > src.data.length)
-			throwStdException(t, "BoundsException", "Copy size exceeds size of source memblock");
-
-		auto srcPtr = src.data.ptr + srcPos;
-		auto destPtr = dest.data.ptr + destPos;
-
-		if(abs(destPtr - srcPtr) < size)
-			memmove(destPtr, srcPtr, cast(uword)size);
-		else
-			memcpy(destPtr, srcPtr, cast(uword)size);
-
-		return 0;
-	}
-
 	version(CrocBuiltinDocs) Docs memblockOpEquals_docs = {kind: "function", name: "opEquals", docs:
 	"Compares two memblocks for equality. Throws an error if the two memblocks are of different types. Returns
 	true only if the two memblocks are the same length and have the same contents.",
@@ -1627,7 +1485,6 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 
 			switch(mb.kind.code)
 			{
-				case CrocMemblock.TypeCode.v:   auto a = mb.data[0 .. l]; auto b = other.data[0 .. l]; cmp = typeid(void[]).compare(&a, &b); break;
 				case CrocMemblock.TypeCode.i8:  auto a = (cast(byte[])  mb.data)[0 .. l]; auto b = (cast(byte[])  other.data)[0 .. l]; cmp = typeid(byte[]). compare(&a, &b); break;
 				case CrocMemblock.TypeCode.i16: auto a = (cast(short[]) mb.data)[0 .. l]; auto b = (cast(short[]) other.data)[0 .. l]; cmp = typeid(short[]). compare(&a, &b); break;
 				case CrocMemblock.TypeCode.i32: auto a = (cast(int[])   mb.data)[0 .. l]; auto b = (cast(int[])   other.data)[0 .. l]; cmp = typeid(int[]).  compare(&a, &b); break;
@@ -1725,9 +1582,6 @@ foreach(val; m, \"reverse\")
 		auto mb = getMemblock(t, 0);
 		checkAnyParam(t, 1);
 
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to concatenate a void memblock");
-
 		if(isMemblock(t, 1))
 		{
 			auto other = getMemblock(t, 1);
@@ -1757,9 +1611,6 @@ foreach(val; m, \"reverse\")
 		auto mb = getMemblock(t, 0);
 		checkAnyParam(t, 1);
 
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to concatenate a void memblock");
-
 		// ORDER MEMBLOCK TYPE
 		if(mb.kind.code <= TypeCode.u64)
 			checkIntParam(t, 1);
@@ -1776,9 +1627,6 @@ foreach(val; m, \"reverse\")
 		auto mb = getMemblock(t, 0);
 		auto numParams = stackSize(t) - 1;
 		checkAnyParam(t, 1);
-
-		if(mb.kind.code == TypeCode.v)
-			throwStdException(t, "ValueException", "Attempting to append to a void memblock");
 
 		if(!mb.ownData)
 			throwStdException(t, "ValueException", "Attempting to append to a memblock which does not own its data");
@@ -1851,9 +1699,6 @@ foreach(val; m, \"reverse\")
 			checkParam(t, 0, CrocValue.Type.Memblock);
 			auto mb = getMemblock(t, 0);
 			checkAnyParam(t, 1);
-
-			if(mb.kind.code == TypeCode.v)
-				throwStdException(t, "ValueException", "Attempting to modify a void memblock");
 
 			if(isMemblock(t, 1))
 			{
@@ -1972,9 +1817,6 @@ foreach(val; m, \"reverse\")
 			auto mb = getMemblock(t, 0);
 			checkAnyParam(t, 1);
 
-			if(mb.kind.code == TypeCode.v)
-				throwStdException(t, "ValueException", "Attempting to modify a void memblock");
-
 			if(isMemblock(t, 1))
 			{
 				auto other = getMemblock(t, 1);
@@ -2082,7 +1924,7 @@ foreach(val; m, \"reverse\")
 						auto data = cast(uint[])mb.data;
 						data[] = val ` ~ op ~ `data[];
 						break;
-	
+
 					case TypeCode.u64:
 						auto val = cast(ulong)checkIntParam(t, 1);
 						auto data = cast(ulong[])mb.data;
