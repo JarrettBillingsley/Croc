@@ -6,9 +6,162 @@ function main()
 {
 // 	local t = TracWikiDocOutput()
 // 	t.outputItem(docsOf(console), "")
+
+	registerCodec("ascii", AsciiCodec())
+
+	local s = "hello there!"
+	local asc = getCodec("ascii")
+	local m = asc.encode(s, "replace")
+	writeln$ m
+	m[0] = 188
+	local t = asc.decode(m, null, null, "replace")
+	writeln$ t
 }
 
+import exceptions: BoundsException, UnicodeException
+import string: StringBuffer
 
+local textCodecs = {}
+
+function registerCodec(name: string, codec: TextCodec)
+{
+	if(name in textCodecs)
+		throw LookupException(format("Already a codec for '{}' registered", name))
+
+	textCodecs[name] = codec
+}
+
+function getCodec(name: string)
+{
+	if(local ret = textCodecs[name])
+		return ret
+
+	throw LookupException(format("No codec registered for '{}'", name))
+}
+
+function hasCodec(name: string) =
+	name in textCodecs
+
+class TextCodec
+{
+	name = ""
+	
+	function encodeInto(str: string, dest: memblock, errors: string = "strict")
+		throw NotImplementedException()
+
+	function encode(str: string, errors: string = "strict") =
+		:encodeInto(str, memblock.new(0), errors)
+
+	function decode(src: memblock, lo: int = 0, hi: int = #src, errors: string = "strict")
+		throw NotImplementedException()
+
+	function incrementalEncoder(errors: string = "strict")
+		throw NotImplementedException()
+
+	function incrementalDecoder(errors: string = "strict")
+		throw NotImplementedException()
+}
+
+class IncrementalEncoder
+{
+	this(errors: string = "strict")
+		throw NotImplementedException()
+
+	function encodeInto(str: string, dest: memblock, final: bool = false)
+		throw NotImplementedException()
+
+	function encode(str: string, final: bool = false) =
+		:encodeInto(str, memblock.new(0), final)
+
+	function reset()
+		throw NotImplementedException()
+}
+
+class IncrementalDecoder
+{
+	this(errors: string = "strict")
+		throw NotImplementedException()
+
+	function decode(src: memblock, lo: int = 0, hi: int = #src, final: bool = false)
+		throw NotImplementedException()
+
+	function reset()
+		throw NotImplementedException()
+}
+
+class AsciiCodec : TextCodec
+{
+	name = "ascii"
+
+	function encodeInto(str: string, dest: memblock, errors: string = "strict")
+	{
+		switch(errors)
+		{
+			case "strict", "ignore", "replace": break
+			default: throw ValueException(format("Invalid error handling type '{}'", errors))
+		}
+
+		#dest = #str
+		local i = 0
+
+		foreach(j, ch; str)
+		{
+			local c = toInt(ch)
+
+			if(c > 0x7f)
+			{
+				if(errors is "strict")
+					throw UnicodeException(format("Character {} cannot be encoded as ASCII as its codepoint (U+{:X5}) is above U+0007F", j, c))
+				else if(errors is "ignore")
+					continue
+				else // replace
+					c = 63 // '?'
+			}
+
+			dest[i] = c
+			i++;
+		}
+
+		#dest = i
+		return dest
+	}
+
+	function decode(src: memblock, lo: int = 0, hi: int = #src, errors: string = "strict")
+	{
+		switch(errors)
+		{
+			case "strict", "ignore", "replace": break
+			default: throw ValueException(format("Invalid error handling type '{}'", errors))
+		}
+		
+		if(lo < 0) lo += #src
+		if(hi < 0) hi += #src
+		
+		if(lo < 0 || lo > hi || hi > #src)
+			throw BoundsException(format("Invalid slice indices ({} .. {}) for memblock of length {}", lo, hi, #src))
+			
+		local s = StringBuffer(#src)
+		
+		for(i: lo .. hi)
+		{
+			local c = src[i]
+			
+			if(c > 0x7f)
+			{
+				if(errors is "strict")
+					throw UnicodeException(format("Character at byte offset {} is invalid ASCII as its value (0x{:X2}) is above 0x7F", i, c))
+				else if(errors is "ignore")
+					continue
+				else
+					c = 0xFFFD
+			}
+			
+			s.append(toChar(c))
+		}
+		
+		return s.toString()
+	}
+}
 
 // local docTables = hash.WeakKeyTable()
 //

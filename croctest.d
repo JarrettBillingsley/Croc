@@ -100,10 +100,6 @@ text
 	registerCodec
 	getCodec
 	hasCodec
-	encode
-	decode
-	incrementalEncoder
-	incrementalDecoder
 time
 	Timer
 	compare
