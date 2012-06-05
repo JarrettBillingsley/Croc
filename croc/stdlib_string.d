@@ -27,9 +27,7 @@ module croc.stdlib_string;
 
 import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
-import tango.core.Array;
 import tango.text.Util;
-import Uni = tango.text.Unicode;
 import Utf = tango.text.convert.Utf;
 
 import croc.api_interpreter;
@@ -106,17 +104,11 @@ const RegisterFunc[] _methodFuncs =
 	{"opApply",      &_opApply,      maxParams: 1},
 	{"join",         &_join,         maxParams: 1},
 	{"vjoin",        &_vjoin},
-	{"isAscii",      &_isAscii,      maxParams: 0},
 	{"toInt",        &_toInt,        maxParams: 1},
 	{"toFloat",      &_toFloat,      maxParams: 0},
 	{"compare",      &_compare,      maxParams: 1},
-	{"icompare",     &_icompare,     maxParams: 1},
 	{"find",         &_find,         maxParams: 2},
-	{"ifind",        &_ifind,        maxParams: 2},
 	{"rfind",        &_rfind,        maxParams: 2},
-	{"irfind",       &_irfind,       maxParams: 2},
-	{"toLower",      &_toLower,      maxParams: 0},
-	{"toUpper",      &_toUpper,      maxParams: 0},
 	{"repeat",       &_repeat,       maxParams: 1},
 	{"reverse",      &_reverse,      maxParams: 0},
 	{"split",        &_split,        maxParams: 1},
@@ -129,8 +121,6 @@ const RegisterFunc[] _methodFuncs =
 	{"replace",      &_replace,      maxParams: 2},
 	{"startsWith",   &_startsWith,   maxParams: 1},
 	{"endsWith",     &_endsWith,     maxParams: 1},
-	{"istartsWith",  &_istartsWith,  maxParams: 1},
-	{"iendsWith",    &_iendsWith,    maxParams: 1}
 ];
 
 uword _join(CrocThread* t)
@@ -240,33 +230,9 @@ uword _toFloat(CrocThread* t)
 	return 1;
 }
 
-uword _isAscii(CrocThread* t)
-{
-	checkStringParam(t, 0);
-	auto str = getStringObj(t, 0);
-	// Take advantage of the fact that we're using UTF-8... ASCII strings will have a codepoint length
-	// exactly equal to their data length
-	pushBool(t, str.length == str.cpLength);
-	return 1;
-}
-
 uword _compare(CrocThread* t)
 {
 	pushInt(t, scmp(checkStringParam(t, 0), checkStringParam(t, 1)));
-	return 1;
-}
-
-uword _icompare(CrocThread* t)
-{
-	auto s1 = checkStringParam(t, 0);
-	auto s2 = checkStringParam(t, 1);
-
-	char[64] buf1 = void;
-	char[64] buf2 = void;
-	s1 = Uni.toFold(s1, buf1);
-	s2 = Uni.toFold(s2, buf2);
-
-	pushInt(t, scmp(s1, s2));
 	return 1;
 }
 
@@ -299,48 +265,6 @@ uword _find(CrocThread* t)
 	{
 		dchar[1] dc = getChar(t, 1);
 		pat = Utf.toString(dc[], buf);
-	}
-	else
-		paramTypeError(t, 1, "char|string");
-
-	pushInt(t, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start)));
-
-	return 1;
-}
-
-uword _ifind(CrocThread* t)
-{
-	auto src = checkStringParam(t, 0);
-	auto srcLen = len(t, 0);
-	auto start = optIntParam(t, 2, 0);
-
-	if(start < 0)
-	{
-		start += srcLen;
-
-		if(start < 0)
-			throwStdException(t, "BoundsException", "Invalid start index {}", start);
-	}
-
-	if(start >= srcLen)
-	{
-		pushInt(t, srcLen);
-		return 1;
-	}
-
-	char[64] buf1 = void;
-	char[64] buf2 = void;
-	src = Uni.toFold(src, buf1);
-	char[] pat;
-
-	if(isString(t, 1))
-		pat = Uni.toFold(getString(t, 1), buf2);
-	else if(isChar(t, 1))
-	{
-		dchar[1] dc = getChar(t, 1);
-		char[6] cbuf = void;
-		pat = Utf.toString(dc[], cbuf);
-		pat = Uni.toFold(pat, buf2);
 	}
 	else
 		paramTypeError(t, 1, "char|string");
@@ -388,85 +312,6 @@ uword _rfind(CrocThread* t)
 
 	pushInt(t, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start)));
 
-	return 1;
-}
-
-uword _irfind(CrocThread* t)
-{
-	auto src = checkStringParam(t, 0);
-	auto srcLen = len(t, 0);
-	auto start = optIntParam(t, 2, srcLen);
-
-	if(start > srcLen)
-		throwStdException(t, "BoundsException", "Invalid start index: {}", start);
-
-	if(start < 0)
-	{
-		start += srcLen;
-
-		if(start < 0)
-			throwStdException(t, "BoundsException", "Invalid start index {}", start);
-	}
-
-	if(start == 0)
-	{
-		pushInt(t, srcLen);
-		return 1;
-	}
-
-	char[64] buf1 = void;
-	char[64] buf2 = void;
-	src = Uni.toFold(src, buf1);
-	char[] pat;
-
-	if(isString(t, 1))
-		pat = Uni.toFold(getString(t, 1), buf2);
-	else if(isChar(t, 1))
-	{
-		dchar[1] dc = getChar(t, 1);
-		char[6] cbuf = void;
-		pat = Utf.toString(dc[], cbuf);
-		pat = Uni.toFold(pat, buf2);
-	}
-	else
-		paramTypeError(t, 1, "char|string");
-
-	pushInt(t, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start)));
-
-	return 1;
-}
-
-uword _toLower(CrocThread* t)
-{
-	auto src = checkStringParam(t, 0);
-	auto buf = StrBuffer(t);
-
-	foreach(dchar c; src)
-	{
-		dchar[4] outbuf = void;
-
-		foreach(ch; Uni.toLower((&c)[0 .. 1], outbuf))
-			buf.addChar(ch);
-	}
-
-	buf.finish();
-	return 1;
-}
-
-uword _toUpper(CrocThread* t)
-{
-	auto src = checkStringParam(t, 0);
-	auto buf = StrBuffer(t);
-	
-	foreach(dchar c; src)
-	{
-		dchar[4] outbuf = void;
-		
-		foreach(ch; Uni.toUpper((&c)[0 .. 1], outbuf))
-			buf.addChar(ch);
-	}
-
-	buf.finish();
 	return 1;
 }
 
@@ -689,7 +534,7 @@ uword _iterator(CrocThread* t)
 
 	pushInt(t, realIdx);
 	setUpval(t, 0);
-	
+
 	pushInt(t, fakeIdx);
 	pushChar(t, c);
 	return 2;
@@ -754,28 +599,6 @@ uword _endsWith(CrocThread* t)
 	return 1;
 }
 
-uword _istartsWith(CrocThread* t)
-{
-	char[64] buf1 = void;
-	char[64] buf2 = void;
-	auto s1 = Uni.toFold(checkStringParam(t, 0), buf1);
-	auto s2 = Uni.toFold(checkStringParam(t, 1), buf2);
-
-	pushBool(t, .startsWith(s1, s2));
-	return 1;
-}
-
-uword _iendsWith(CrocThread* t)
-{
-	char[64] buf1 = void;
-	char[64] buf2 = void;
-	auto s1 = Uni.toFold(checkStringParam(t, 0), buf1);
-	auto s2 = Uni.toFold(checkStringParam(t, 1), buf2);
-
-	pushBool(t, .endsWith(s1, s2));
-	return 1;
-}
-
 version(CrocBuiltinDocs)
 {
 	const Docs[] _methodFuncDocs =
@@ -813,10 +636,6 @@ foreach(i, v; "hello", "reverse")
 		\throws[exceptions.TypeException] if any of the varargs is not a string or character.`,
 		params: [Param("vararg", "vararg")]},
 
-		{kind: "function", name: "s.isAscii", docs:
-		`\returns a bool indicating whether or not this string is pure ASCII, that is, whether or not all the codepoints in it
-		are less than or equal to U+0007F.`},
-
 		{kind: "function", name: "s.toInt", docs:
 		`Converts the string into an integer. The optional \tt{base} parameter defaults to 10, but you can use any base between
 		2 and 36 inclusive.
@@ -836,10 +655,6 @@ foreach(i, v; "hello", "reverse")
 		achieved by using the \tt{<=>} operator on two strings.`,
 		params: [Param("other", "string")]},
 
-		{kind: "function", name: "s.icompare", docs:
-		`The same as \link{compare}, but case-insensitive, so "foo", "Foo", and "FOO" will all compare equal, for instance.`,
-		params: [Param("other", "string")]},
-
 		{kind: "function", name: "s.find", docs:
 		`Searches for an occurence of \tt{sub} in \tt{s}. \tt{sub} can be either a string or a single character. The search starts
 		from \tt{start} (which defaults to the first character) and goes right. If \tt{sub} is found, this function returns the integer
@@ -852,10 +667,6 @@ foreach(i, v; "hello", "reverse")
 		\throws[exceptions.BoundsException] if \tt{start} is negative and out-of-bounds (that is, \tt{abs(start) > #s}).`,
 		params: [Param("sub", "string|char"), Param("start", "int", "0")]},
 
-		{kind: "function", name: "s.ifind", docs:
-		`The same as \link{find}, but case-insensitive.`,
-		params: [Param("sub", "string|char"), Param("start", "int", "0")]},
-
 		{kind: "function", name: "s.rfind", docs:
 		`Reverse find. Works similarly to \tt{find}, but the search starts with the character at \tt{start - 1} (which defaults to
 		the last character) and goes \em{left}. \tt{start} is not included in the search so you can use the result of this function
@@ -866,18 +677,6 @@ foreach(i, v; "hello", "reverse")
 
 		\throws[exceptions.BoundsException] if \tt{start >= #s} or if \tt{start} is negative an out-of-bounds (that is, \tt{abs(start > #s}).`,
 		params: [Param("sub", "string|char"), Param("start", "int", "#s")]},
-
-		{kind: "function", name: "s.irfind", docs:
-		`The same as \link{rfind}, but case-insensitive.`,
-		params: [Param("sub", "string|char"), Param("start", "int", "#s")]},
-
-		{kind: "function", name: "s.toLower", docs:
-		`\returns a new string with any uppercase letters converted to lowercase. Non-uppercase letters and non-letters are not
-		affected.`},
-
-		{kind: "function", name: "s.toUpper", docs:
-		`\returns a new string with any lowercase letters converted to uppercase. Non-lowercase letters and non-letters are not
-		affected.`},
 
 		{kind: "function", name: "s.repeat", docs:
 		`\returns a string which is the concatenation of \tt{n} instances of \tt{s}. So \tt{"hello".repeat(3)} will return
@@ -930,13 +729,5 @@ foreach(i, v; "hello", "reverse")
 		{kind: "function", name: "s.endsWith", docs:
 		`\returns a bool of whether or not \tt{s} ends with the substring \tt{other}. This is case-sensitive.`,
 		params: [Param("other", "string")]},
-
-		{kind: "function", name: "s.istartsWith", docs:
-		`\returns a bool of whether or not \tt{s} starts with the substring \tt{other}. This is case-insensitive.`,
-		params: [Param("other", "string")]},
-
-		{kind: "function", name: "s.iendsWith", docs:
-		`\returns a bool of whether or not \tt{s} ends with the substring \tt{other}. This is case-insensitive.`,
-		params: [Param("other", "string")]}
 	];
 }

@@ -73,6 +73,8 @@ const RegisterFunc[] _methodFuncs =
 [
 	{"toLower",    &_toLower,    maxParams: 0},
 	{"toUpper",    &_toUpper,    maxParams: 0},
+	{"isAscii",    &_isAscii,    maxParams: 0},
+
 	{"isAlpha",    &_isAlpha,    maxParams: 0},
 	{"isAlNum",    &_isAlNum,    maxParams: 0},
 	{"isLower",    &_isLower,    maxParams: 0},
@@ -82,8 +84,7 @@ const RegisterFunc[] _methodFuncs =
 	{"isPunct",    &_isPunct,    maxParams: 0},
 	{"isSpace",    &_isSpace,    maxParams: 0},
 	{"isHexDigit", &_isHexDigit, maxParams: 0},
-	{"isAscii",    &_isAscii,    maxParams: 0},
-	{"isValid",    &_isValid,    maxParams: 0}
+
 ];
 
 uword _toLower(CrocThread* t)
@@ -216,9 +217,5 @@ version(CrocBuiltinDocs)
 		{kind: "function", name: "c.isAscii", docs:
 		`Returns \tt{true} if c is an ASCII character (<= 0x7f); \tt{false} otherwise.`,
 		params: []},
-
-		{kind: "function", name: "c.isValid", docs:
-		`Returns \tt{true} if c is a valid Unicode character; \tt{false} otherwise.`,
-		params: []}
 	];
 }

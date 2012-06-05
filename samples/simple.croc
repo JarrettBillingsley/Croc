@@ -2,20 +2,60 @@ module samples.simple
 
 import streams
 
+function partition(src: string, pat: string)
+{
+	local pos = src.find(pat)
+	
+	if(pos == #src)
+		return src, "", true
+	else
+		return src[.. pos], src[pos + #pat ..], false
+}
+
 function main()
 {
 // 	local t = TracWikiDocOutput()
 // 	t.outputItem(docsOf(console), "")
 
-	registerCodec("ascii", AsciiCodec())
+	local s = "this|is|a|tokenized|string"
 
-	local s = "hello there!"
-	local asc = getCodec("ascii")
-	local m = asc.encode(s, "replace")
-	writeln$ m
-	m[0] = 188
-	local t = asc.decode(m, null, null, "replace")
-	writeln$ t
+	do
+	{
+		local before, after, last = partition(s, "|")
+		writeln(before)
+		s = after
+	} while(!last)
+
+// 	local i = 0
+// 	local pos = ascii.ifind(s, "IS", i)
+// 
+// 	while(pos != #s)
+// 	{
+// 		writeln(pos)
+// 		pos = ascii.ifind(s, "IS", pos + 1)
+// 	}
+// 
+// 	writeln()
+// 
+// 	i = #s
+// 	pos = ascii.irfind(s, "IS", i)
+// 
+// 	while(pos != #s)
+// 	{
+// 		writeln(pos)
+// 		pos = ascii.irfind(s, "IS", pos - 1)
+// 	}
+
+
+// 	registerCodec("ascii", AsciiCodec())
+// 
+// 	local s = "hello there!"
+// 	local asc = getCodec("ascii")
+// 	local m = asc.encode(s, "replace")
+// 	writeln$ m
+// 	m[0] = 188
+// 	local t = asc.decode(m, null, null, "replace")
+// 	writeln$ t
 }
 
 import exceptions: BoundsException, UnicodeException
