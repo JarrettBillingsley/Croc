@@ -2,60 +2,20 @@ module samples.simple
 
 import streams
 
-function partition(src: string, pat: string)
-{
-	local pos = src.find(pat)
-	
-	if(pos == #src)
-		return src, "", true
-	else
-		return src[.. pos], src[pos + #pat ..], false
-}
-
 function main()
 {
 // 	local t = TracWikiDocOutput()
-// 	t.outputItem(docsOf(console), "")
+// 	t.outputItem(docsOf(ascii), "")
 
-	local s = "this|is|a|tokenized|string"
+	registerCodec("ascii", AsciiCodec())
 
-	do
-	{
-		local before, after, last = partition(s, "|")
-		writeln(before)
-		s = after
-	} while(!last)
-
-// 	local i = 0
-// 	local pos = ascii.ifind(s, "IS", i)
-// 
-// 	while(pos != #s)
-// 	{
-// 		writeln(pos)
-// 		pos = ascii.ifind(s, "IS", pos + 1)
-// 	}
-// 
-// 	writeln()
-// 
-// 	i = #s
-// 	pos = ascii.irfind(s, "IS", i)
-// 
-// 	while(pos != #s)
-// 	{
-// 		writeln(pos)
-// 		pos = ascii.irfind(s, "IS", pos - 1)
-// 	}
-
-
-// 	registerCodec("ascii", AsciiCodec())
-// 
-// 	local s = "hello there!"
-// 	local asc = getCodec("ascii")
-// 	local m = asc.encode(s, "replace")
-// 	writeln$ m
-// 	m[0] = 188
-// 	local t = asc.decode(m, null, null, "replace")
-// 	writeln$ t
+	local s = "hello there!"
+	local asc = getCodec("ascii")
+	local m = asc.encode(s, "replace")
+	writeln$ m
+	m[0] = 188
+	local t = asc.decode(m, "replace")
+	writeln$ t
 }
 
 import exceptions: BoundsException, UnicodeException
@@ -85,15 +45,18 @@ function hasCodec(name: string) =
 class TextCodec
 {
 	name = ""
-	
+
 	function encodeInto(str: string, dest: memblock, errors: string = "strict")
 		throw NotImplementedException()
 
 	function encode(str: string, errors: string = "strict") =
 		:encodeInto(str, memblock.new(0), errors)
 
-	function decode(src: memblock, lo: int = 0, hi: int = #src, errors: string = "strict")
+	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 		throw NotImplementedException()
+		
+	function decode(src: memblock, errors: string = "strict") =
+		:decodeRange(src, 0, #src, errors)
 
 	function incrementalEncoder(errors: string = "strict")
 		throw NotImplementedException()
@@ -122,8 +85,11 @@ class IncrementalDecoder
 	this(errors: string = "strict")
 		throw NotImplementedException()
 
-	function decode(src: memblock, lo: int = 0, hi: int = #src, final: bool = false)
+	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
 		throw NotImplementedException()
+
+	function decode(src: memblock, final: bool = false) =
+		:decodeRange(src, 0, #src, final)
 
 	function reset()
 		throw NotImplementedException()
@@ -166,7 +132,7 @@ class AsciiCodec : TextCodec
 		return dest
 	}
 
-	function decode(src: memblock, lo: int = 0, hi: int = #src, errors: string = "strict")
+	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 	{
 		switch(errors)
 		{
@@ -415,9 +381,9 @@ class BaseDocOutput
 		:beginBold()
 		
 		if(name.startsWith("_"))
-			:outputText(name[1].toUpper(), name[2..], ": ")
+			:outputText(ascii.toUpper(name[1]), name[2..], ": ")
 		else
-			:outputText(name[0].toUpper(), name[1..], ": ")
+			:outputText(ascii.toUpper(name[0]), name[1..], ": ")
 		:endBold()
 		:outputParagraphContents(contents[0])
 		:endParagraph()

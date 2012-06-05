@@ -90,14 +90,23 @@ private:
 
 const RegisterFunc[] _globalFuncs =
 [
-	{"isAscii",      &_isAscii,      maxParams: 1},
-	{"icompare",     &_icompare,     maxParams: 2},
-	{"ifind",        &_ifind,        maxParams: 3},
-	{"irfind",       &_irfind,       maxParams: 3},
-	{"toLower",      &_toLower,      maxParams: 1},
-	{"toUpper",      &_toUpper,      maxParams: 1},
-	{"istartsWith",  &_istartsWith,  maxParams: 2},
-	{"iendsWith",    &_iendsWith,    maxParams: 2}
+	{"isAscii",      &_isAscii,           maxParams: 1},
+	{"icompare",     &_icompare,          maxParams: 2},
+	{"ifind",        &_ifind,             maxParams: 3},
+	{"irfind",       &_irfind,            maxParams: 3},
+	{"toLower",      &_toLower,           maxParams: 1},
+	{"toUpper",      &_toUpper,           maxParams: 1},
+	{"istartsWith",  &_istartsWith,       maxParams: 2},
+	{"iendsWith",    &_iendsWith,         maxParams: 2},
+	{"isAlpha",      &_isImpl!(isalpha),  maxParams: 1},
+	{"isAlNum",      &_isImpl!(isalnum),  maxParams: 1},
+	{"isLower",      &_isImpl!(islower),  maxParams: 1},
+	{"isUpper",      &_isImpl!(isupper),  maxParams: 1},
+	{"isDigit",      &_isImpl!(isdigit),  maxParams: 1},
+	{"isHexDigit",   &_isImpl!(isxdigit), maxParams: 1},
+	{"isCtrl",       &_isImpl!(iscntrl),  maxParams: 1},
+	{"isPunct",      &_isImpl!(ispunct),  maxParams: 1},
+	{"isSpace",      &_isImpl!(isspace),  maxParams: 1},
 ];
 
 uword _isAscii(CrocThread* t)
@@ -148,22 +157,20 @@ uword _ifind(CrocThread* t)
 	else
 		paramTypeError(t, 2, "char|string");
 
-	// Start index
-	auto start = optIntParam(t, 3, 0);
-
-	if(start < 0)
-	{
-		start += src.length;
-
-		if(start < 0)
-			throwStdException(t, "BoundsException", "Invalid start index {}", start);
-	}
-
-	if(start > (src.length - pat.length))
+	if(src.length < pat.length)
 	{
 		pushInt(t, src.length);
 		return 1;
 	}
+
+	// Start index
+	auto start = optIntParam(t, 3, 0);
+
+	if(start < 0)
+		start += src.length;
+
+	if(start < 0 || start >= src.length)
+		throwStdException(t, "BoundsException", "Invalid start index {}", start);
 
 	// Search
 	auto maxIdx = src.length - pat.length;
@@ -204,31 +211,26 @@ uword _irfind(CrocThread* t)
 	}
 	else
 		paramTypeError(t, 2, "char|string");
-
-	// Start index
-	auto start = optIntParam(t, 3, src.length);
-	
-	if(start > src.length)
-		throwStdException(t, "BoundsException", "Invalid start index: {}", start);
-
-	if(start < 0)
-	{
-		start += src.length;
-
-		if(start < 0)
-			throwStdException(t, "BoundsException", "Invalid start index {}", start);
-	}
-
-	if(start == 0)
+		
+	if(src.length < pat.length)
 	{
 		pushInt(t, src.length);
 		return 1;
 	}
 
+	// Start index
+	auto start = optIntParam(t, 3, src.length - 1);
+
+	if(start < 0)
+		start += src.length;
+
+	if(start < 0 || start >= src.length)
+		throwStdException(t, "BoundsException", "Invalid start index: {}", start);
+
 	// Search
 	auto maxIdx = src.length - pat.length;
 	auto firstChar = ctolower(pat[0]);
-	
+
 	if(start > maxIdx)
 		start = maxIdx;
 
@@ -275,7 +277,7 @@ uword _toLower(CrocThread* t)
 uword _toUpper(CrocThread* t)
 {
 	checkAnyParam(t, 1);
-	
+
 	if(isString(t, 1))
 	{
 		auto src = _checkAsciiString(t, 1);
@@ -321,6 +323,12 @@ uword _iendsWith(CrocThread* t)
 	}
 
 	pushBool(t, _icmp(s1[$ - s2.length .. $], s2) == 0);
+	return 1;
+}
+
+uword _isImpl(alias func)(CrocThread* t)
+{
+	pushBool(t, cast(bool)func(_checkAsciiChar(t, 1)));
 	return 1;
 }
 
@@ -383,31 +391,107 @@ version(CrocBuiltinDocs)
 		This function treats lower- and uppercase ASCII letters as comparing equal. For instance, "foo", "Foo", and "FOO" will
 		all compare equal.
 
-		\throws[exceptions.ValueException] if either string is not ASCII.`,
+		\throws[exceptions.ValueException] if either string is not ASCII.
+		\returns a negative \tt{int} if \tt{str1} compares before \tt{str2}, a positive \tt{int} if \tt{str1} compares after \tt{str2},
+		and 0 if they compare equal.`,
 		params: [Param("str1", "string"), Param("str2", "string")]},
 
 		{kind: "function", name: "ifind", docs:
-		`The same as \link{find}, but case-insensitive.`,
-		params: [Param("sub", "string|char"), Param("start", "int", "0")]},
+		`Searches for an instance of the string \tt{sub} in the string \tt{str} in a case-insensitive manner.
+
+		The search begins at the character index given by \tt{start}, which defaults to 0 (the beginning of the string). The search
+		progresses from there to the right; if an instance of \tt{sub} (ignoring case) is found in \tt{str}, the character index of the match
+		in \tt{str} is returned. If the search reaches the end of the string without finding a match, returns the length of \tt{str}. Note
+		that many other libraries would return -1 in this case; however, returning the length of the string works better with string slicing.
+
+		The \tt{sub} parameter can also be a character, in which case it's simply treated like a one-character string.
+
+		The \tt{start} parameter can be negative to mean from the end of the string. The search begins \em{at} the \tt{start} index, so if there
+		is a match starting there, the same index will be returned. The \tt{start} parameter can be used to find multiple instances of a
+		substring inside a string. By passing the position of the previous match plus one as the \tt{start} parameter, you can find the next
+		instance of the substring (if any).
+
+		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
+		\throws[exceptions.BoundsException] if the \tt{start} parameter is invalid.`,
+		params: [Param("str", "string"), Param("sub", "string|char"), Param("start", "int", "0")]},
 
 		{kind: "function", name: "irfind", docs:
-		`The same as \link{rfind}, but case-insensitive.`,
-		params: [Param("sub", "string|char"), Param("start", "int", "#s")]},
+		`The same as \link{ifind}, but works in reverse, starting from the right and searching left.
+
+		The search begins \em{at} the \tt{start} index, so if there is a match starting there, the same index will be returned. The \tt{start}
+		parameter can be used to find multiple instances of a substring inside a string. By passing the position of the previous match minus one
+		as the \tt{start} parameter, you can find the previous instance of the substring (if any).
+
+		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
+		\throws[exceptions.BoundsException] if the \tt{start} parameter is invalid.`,
+		params: [Param("str", "string"), Param("sub", "string|char"), Param("start", "int", "#s - 1")]},
 
 		{kind: "function", name: "toLower", docs:
-		`\returns a new string with any uppercase letters converted to lowercase. Non-uppercase letters and non-letters are not
-		affected.`},
+		`Converts a string or character to lowercase.
+
+		If \tt{val} is a \tt{string}, the return value is a new string with any uppercase letters converted to lowercase. Non-uppercase letters
+		and non-letters are not affected. If \tt{val} is a \tt{char}, the return value will be a \tt{char} converted in the same way.
+
+		\throws[exceptions.ValueException] if \tt{val} is not ASCII.`,
+		params: [Param("val", "char|string")]},
 
 		{kind: "function", name: "toUpper", docs:
-		`\returns a new string with any lowercase letters converted to uppercase. Non-lowercase letters and non-letters are not
-		affected.`},
+		`Converts a string or character to uppercase.
+
+		If \tt{val} is a \tt{string}, the return value is a new string with any lowercase letters converted to uppercase. Non-lowercase letters
+		and non-letters are not affected. If \tt{val} is a \tt{char}, the return value will be a \tt{char} converted in the same way.
+
+		\throws[exceptions.ValueException] if \tt{val} is not ASCII.`,
+		params: [Param("val", "char|string")]},
 
 		{kind: "function", name: "istartsWith", docs:
-		`\returns a bool of whether or not \tt{s} starts with the substring \tt{other}. This is case-insensitive.`,
-		params: [Param("other", "string")]},
+		`Checks if \tt{str} begins with the substring \tt{other} in a case-insensitive manner.
+
+		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
+		\returns a bool.`,
+		params: [Param("str", "string"), Param("sub", "string")]},
 
 		{kind: "function", name: "iendsWith", docs:
-		`\returns a bool of whether or not \tt{s} ends with the substring \tt{other}. This is case-insensitive.`,
-		params: [Param("other", "string")]}
+		`Checks if \tt{str} ends with the substring \tt{other} in a case-insensitive manner.
+
+		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
+		\returns a bool.`,
+		params: [Param("str", "string"), Param("sub", "string")]},
+
+		{kind: "function", name: "c.isAlpha", docs:
+		`\returns \tt{true} if \tt{c} is an alphabetic character; \tt{false} otherwise.`,
+		params: [Param("c", "char")]},
+
+		{kind: "function", name: "isAlNum", docs:
+		`\returns \tt{true} if \tt{c} is an alphanumeric character; \tt{false} otherwise.`,
+		params: [Param("c", "char")]},
+
+		{kind: "function", name: "isLower", docs:
+		`\returns \tt{true} if \tt{c} is a lowercase alphabetic character; \tt{false} otherwise.`,
+		params: [Param("c", "char")]},
+
+		{kind: "function", name: "isUpper", docs:
+		`\returns \tt{true} if \tt{c} is an uppercase alphabetic character; \tt{false} otherwise.`,
+		params: [Param("c", "char")]},
+
+		{kind: "function", name: "isDigit", docs:
+		`\returns \tt{true} if \tt{c} is a decimal digit (0 - 9); \tt{false} otherwise.`,
+		params: [Param("c", "char")]},
+
+		{kind: "function", name: "isHexDigit", docs:
+		`Returns \tt{true} if \tt{c} is a hexadecimal digit (0 - 9, A - F, a - f); \tt{false} otherwise.`,
+		params: [Param("c", "char")]},
+
+		{kind: "function", name: "isCtrl", docs:
+		`\returns \tt{true} if \tt{c} is a control character (characters 0x0 to 0x1f and character 0x7f); \tt{false} otherwise.`,
+		params: [Param("c", "char")]},
+
+		{kind: "function", name: "isPunct", docs:
+		`Returns \tt{true} if \tt{c} is a punctuation character; \tt{false} otherwise.`,
+		params: [Param("c", "char")]},
+
+		{kind: "function", name: "isSpace", docs:
+		`Returns \tt{true} if \tt{c} is a whitespace character; \tt{false} otherwise.`,
+		params: [Param("c", "char")]}
 	];
 }

@@ -45,7 +45,6 @@ import croc.compiler;
 import croc.stdlib_array;
 import croc.stdlib_ascii;
 import croc.stdlib_base;
-import croc.stdlib_char;
 import croc.stdlib_compiler;
 import croc.stdlib_console;
 import croc.stdlib_debug;
@@ -157,7 +156,6 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	StreamLib.init(t);
 	initArrayLib(t);
 	initAsciiLib(t);
-	initCharLib(t);
 	CompilerLib.init(t);
 	initConsoleLib(t); // depends on stream
 	initEnvLib(t);
