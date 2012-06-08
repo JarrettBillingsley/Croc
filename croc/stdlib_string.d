@@ -238,23 +238,12 @@ uword _compare(CrocThread* t)
 
 uword _find(CrocThread* t)
 {
+	// Source (search) string
 	auto src = checkStringParam(t, 0);
 	auto srcLen = len(t, 0);
-	auto start = optIntParam(t, 2, 0);
 
-	if(start < 0)
-	{
-		start += srcLen;
-
-		if(start < 0)
-			throwStdException(t, "BoundsException", "Invalid start index {}", start);
-	}
-
-	if(start >= srcLen)
-	{
-		pushInt(t, srcLen);
-		return 1;
-	}
+	// Pattern (searched) string/char
+	checkAnyParam(t, 1);
 
 	char[6] buf = void;
 	char[] pat;
@@ -269,33 +258,28 @@ uword _find(CrocThread* t)
 	else
 		paramTypeError(t, 1, "char|string");
 
-	pushInt(t, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start)));
+	// Start index
+	auto start = optIntParam(t, 2, 0);
 
+	if(start < 0)
+		start += srcLen;
+
+	if(start < 0 || start >= srcLen)
+		throwStdException(t, "BoundsException", "Invalid start index {}", start);
+
+	// Search
+	pushInt(t, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start)));
 	return 1;
 }
 
 uword _rfind(CrocThread* t)
 {
+	// Source (search) string
 	auto src = checkStringParam(t, 0);
 	auto srcLen = len(t, 0);
-	auto start = optIntParam(t, 2, srcLen);
 
-	if(start > srcLen)
-		throwStdException(t, "BoundsException", "Invalid start index: {}", start);
-
-	if(start < 0)
-	{
-		start += srcLen;
-
-		if(start < 0)
-			throwStdException(t, "BoundsException", "Invalid start index {}", start);
-	}
-
-	if(start == 0)
-	{
-		pushInt(t, srcLen);
-		return 1;
-	}
+	// Pattern (searched) string/char
+	checkAnyParam(t, 1);
 
 	char[6] buf = void;
 	char[] pat;
@@ -310,8 +294,17 @@ uword _rfind(CrocThread* t)
 	else
 		paramTypeError(t, 1, "char|string");
 
-	pushInt(t, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start)));
+	// Start index
+	auto start = optIntParam(t, 2, 0);
 
+	if(start < 0)
+		start += srcLen;
+
+	if(start < 0 || start >= srcLen)
+		throwStdException(t, "BoundsException", "Invalid start index {}", start);
+
+	// Search
+	pushInt(t, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start)));
 	return 1;
 }
 
