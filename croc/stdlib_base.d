@@ -83,7 +83,7 @@ version(CrocBuiltinDocs) void docBaseLib(CrocThread* t)
 	pop(t);
 
 	docGlobals(t, doc, _docTables);
-	
+
 // 	docVector(t, doc);
 
 	pushGlobal(t, "_G");
@@ -656,13 +656,9 @@ uword _dumpVal(CrocThread* t)
 				case '\'': Stdout(`\'`); break;
 				case '\"': Stdout(`\"`); break;
 				case '\\': Stdout(`\\`); break;
-				case '\a': Stdout(`\a`); break;
-				case '\b': Stdout(`\b`); break;
-				case '\f': Stdout(`\f`); break;
 				case '\n': Stdout(`\n`); break;
 				case '\r': Stdout(`\r`); break;
 				case '\t': Stdout(`\t`); break;
-				case '\v': Stdout(`\v`); break;
 
 				default:
 					if(c <= 0x7f && isprint(c))

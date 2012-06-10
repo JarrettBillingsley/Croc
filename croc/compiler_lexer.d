@@ -839,13 +839,9 @@ private:
 
 		switch(mCharacter)
 		{
-			case 'a':  nextChar(); return '\a';
-			case 'b':  nextChar(); return '\b';
-			case 'f':  nextChar(); return '\f';
 			case 'n':  nextChar(); return '\n';
 			case 'r':  nextChar(); return '\r';
 			case 't':  nextChar(); return '\t';
-			case 'v':  nextChar(); return '\v';
 			case '\\': nextChar(); return '\\';
 			case '\"': nextChar(); return '\"';
 			case '\'': nextChar(); return '\'';

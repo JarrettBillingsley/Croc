@@ -59,11 +59,10 @@ IdentifierChar:
 	DecimalDigit
 
 Keyword:
-	as | assert | break | case | catch | class | continue | coroutine
-	default | do | else | false | finally | for | foreach | function
-	global | if | import | in | is | local | module | namespace | null
-	return | scope | super | switch | this | throw | true | try | vararg
-	while | with | yield
+	as | assert | break | case | catch | class | continue | default | do
+	else | false | finally | for | foreach | function | global | if | import
+	in | is | local | module | namespace | null | return | scope | super
+	switch | this | throw | true | try | vararg | while | with | yield
 
 CharLiteral:
 	' (Character | EscapeSequence) '
@@ -79,13 +78,9 @@ EscapeSequence:
 	\'
 	\"
 	\\
-	\a
-	\b
-	\f
 	\n
 	\r
 	\t
-	\v
 	\x HexDigit HexDigit
 	\u HexDigit HexDigit HexDigit HexDigit
 	\U HexDigit HexDigit HexDigit HexDigit HexDigit HexDigit HexDigit HexDigit
@@ -442,7 +437,6 @@ UnaryExpression:
 	! UnaryExpression
 	~ UnaryExpression
 	# UnaryExpression
-	coroutine UnaryExpression
 
 PostfixExpression:
 	PrimaryExpression
