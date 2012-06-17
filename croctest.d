@@ -78,10 +78,6 @@ version(CrocAllAddons)
 	toInt
 	toString
 
-string metamethods
-	toRawAscii
-	toRawUnicode
-
 
 docs
 	_doc_
@@ -92,9 +88,6 @@ docs
 	HtmlDocOutput
 	LatexDocOutput?
 stream
-string : memblock
-	fromRawUnicode
-	fromRawAscii
 text
 	TextCodec
 	registerCodec

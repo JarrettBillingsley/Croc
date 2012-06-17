@@ -664,6 +664,9 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 
 	if(as(t, filler, -1))
 	{
+		if(opis(t, 0, filler))
+			return;
+
 		auto other = cast(dchar[])_getData(t, filler).data;
 		auto otherLen = _getLength(t, filler);
 
@@ -816,11 +819,26 @@ uword _insert(CrocThread* t)
 		doResize(1)[0] = getChar(t, 2);
 	else if(as(t, 2, -1))
 	{
-		auto other = cast(dchar[])_getData(t, 2).data;
-		auto otherLen = _getLength(t, 2);
+		if(opis(t, 0, 2))
+		{
+			// special case for inserting a stringbuffer into itself
+			
+			if(len != 0)
+			{
+				auto slice = doResize(len);
+				auto data = cast(dchar[])_getData(t, 0).data;
+				slice[0 .. cast(uword)idx] = data[0 .. cast(uword)idx];
+				slice[cast(uword)idx .. $] = data[cast(uword)idx + len .. $];
+			}
+		}
+		else
+		{
+			auto other = cast(dchar[])_getData(t, 2).data;
+			auto otherLen = _getLength(t, 2);
 
-		if(otherLen != 0)
-			doResize(otherLen)[] = other[0 .. otherLen];
+			if(otherLen != 0)
+				doResize(otherLen)[] = other[0 .. otherLen];
+		}
 	}
 	else
 	{
