@@ -157,7 +157,7 @@ public:
 		foreach(i, ref p; d.params)
 		{
 			// Skip "this" unless it has a nontrivial typemask
-			if(i == 0 && p.typeMask == FuncDef.TypeMask.Any)
+			if(i == 0 && p.typeMask == FuncDef.TypeMask.Any && p.customConstraint is null)
 				continue;
 
 			// TODO: this currently does not report the correct typemask for params like "x: int = 4", since
