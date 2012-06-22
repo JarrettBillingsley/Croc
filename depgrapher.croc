@@ -2,23 +2,22 @@ module depgrapher
 
 import math: min
 import regexp: Regexp
-
 import string: StringBuffer
 
 function as_(c: class) =
 	\i: instance ->
 		(i as c) !is null
 
-local cats = 
+local cats =
 {
 	["__ignore"] =
 	[
 		"object"
-	
+
 		@"std..*"
 		@"tango\..*"
 		@"rt\..*"
-	
+
 		@"derelict\..*"
 
 		@"croc\.api"
@@ -33,41 +32,38 @@ local cats =
 		"croc"
 	]
 
-// 	api =
-// 	[
-// 		@"croc\.api.*"
-// 	]
-
 	BaseLayer =
 	[
 		@"croc\.base.*"
 		@"croc\.types.*"
 		@"croc\.utils"
 	]
-	
+
 	TopLayer =
 	[
+		@"croc\.addons.*"
 		@"croc\.stdlib.*"
 		@"croc\.ex.*"
 	]
-	
+
 	Compiler =
 	[
 		@"croc\.compiler.*"
 	]
-	
+
 	Serialization =
 	[
 		@"croc\.serialization.*"
 	]
 	
-	Misc =
+	Interp =
 	[
-		@"croc\.interp.*"
-		@"croc\.stackmanip"
-		@"croc\.vm"
+		@"croc\.api_interpreter"
 		@"croc\.api_checks"
 		@"croc\.api_debug"
+		@"croc\.api_stack"
+		@"croc\.interpreter"
+		@"croc\.vm"
 	]
 }
 
@@ -133,7 +129,7 @@ class Category
 		catch(e: Exception)
 			throw Exception(format("Syntax error in pattern '{}'", pat))
 	}
-	
+
 	function matchesModule(mod: string)
 	{
 		foreach(pat; :patterns)

@@ -2789,7 +2789,7 @@ void execute(CrocThread* t, uword depth = 1)
 	{
 		const char[] GetRS = "if((*pc).uimm & Instruction.constBit) RS = &constTable[(*pc).uimm & ~Instruction.constBit]; else RS = &t.stack[stackBase + (*pc).uimm]; (*pc)++;";
 		const char[] GetRT = "if((*pc).uimm & Instruction.constBit) RT = &constTable[(*pc).uimm & ~Instruction.constBit]; else RT = &t.stack[stackBase + (*pc).uimm]; (*pc)++;";
-		const char[] GetRTAndrt = "auto rt = (*pc).uimm; if((*pc).uimm & Instruction.constBit) RT = &constTable[(*pc).uimm & ~Instruction.constBit]; else RT = &t.stack[stackBase + (*pc).uimm]; (*pc)++;";
+		const char[] GetRTAndrt = "auto rt = (*pc).uimm; if(rt & Instruction.constBit) RT = &constTable[rt & ~Instruction.constBit]; else RT = &t.stack[stackBase + rt]; (*pc)++;";
 		const char[] GetUImm = "((*pc)++).uimm";
 		const char[] GetImm = "((*pc)++).imm";
 
