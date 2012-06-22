@@ -14,17 +14,14 @@ import math:
 local function clamp(x, lo, hi) =
 	x < lo ? lo : x > hi ? hi : x
 
-class EOFClass {}
-
 /**
-A value that represents an end-of-file condition.
-
-The value of this variable doesn't really matter, only so long as it's unique. This value will be returned by API functions
-when end-of-file is reached. You can then test for an end-of-file condition by using \tt{returnValue is stream.EOF}.
-
-Note that the "core" stream API does not use this value to signify end-of-file. This value is used by the higher level APIs.
+An exception type derived from \tt{IOException} thrown in some APIs when end-of-file is reached.
 */
-global EOF = EOFClass()
+class EOFException : IOException
+{
+	this()
+		super("Unexpected end of file")
+}
 
 /**
 A helper function for checking the params to stream \tt{read} and \tt{write} functions.
@@ -49,7 +46,7 @@ The base class for stream-based IO.
 
 This class defines the interface that all streams must implement, as well as some helper functions which are implemented in
 terms of the user-defined methods. This interface is fairly low-level and is meant to be wrapped by higher-level stream
-wrapers and filters.
+wrappers and filters.
 
 There are a relatively small number of functions which must be implemented to satisfy the stream interface. Detailed descriptions
 of these methods and their behavior is given inside this class, but a quick overview is as follows:
@@ -59,16 +56,10 @@ of these methods and their behavior is given inside this class, but a quick over
 		written to, and seeked.
 	\li \b{\tt{read, write, seek}} - The real workhorse functions which actually perform the reading, writing, and seeking of the
 		stream. Each of these only needs to be implemented if the corresponding \tt{-able} method returns \tt{true}.
-	\li \b{\tt{hasError, getOSError, getError}} - For error handling of streams which wrap system-level interfaces.
 	\li \b{\tt{flush, close, isOpen}} - Miscellaneous optional methods.
 \endlist
 
 For any given stream, likely only the first six (or some subset thereof) will have to be implemented.
-
-There is a deliberate avoidance of throwing exceptions from the lowest level of the stream API. Many IO events and error
-conditions are not exceptional and/or do not represent an error on behalf of the programmer. Only in cases where it is obvious
-that programmer error has occurred are exceptions thrown. In all other cases, return values are used to indicate success
-or failure.
 */
 class Stream
 {
@@ -77,6 +68,8 @@ class Stream
 	/**
 	Constructor. Be sure to call this as \tt{super()} in classes derived from \link{Stream}. While it only checks
 	that one of \link{readable} and \link{writable} returns true right now, this may change in the future.
+
+	\throws[exceptions.IOException] if both \link{readable} and \link{writable} return \tt{false}.
 	*/
 	this()
 	{
@@ -92,7 +85,7 @@ class Stream
 	\param[offset] is the offset into \tt{m} where the first byte of data will be placed. Defaults to 0.
 	\param[size] is the number of bytes to read. Defaults to the size of \tt{m} minus the \tt{offset}.
 
-	\returns Either an integer or \tt{null}.
+	\returns an integer.
 
 	\blist
 		\li If \tt{size} is 0, this function is a no-op, and the return value is 0.
@@ -103,13 +96,13 @@ class Stream
 				situations. If you need to fill up a buffer, make repeated calls to \tt{read} until the desired number
 				of bytes has been read. The \link{readExact} method does this for you.
 			\li If the stream has reached the end of the file, the return value is 0.
-			\li If any error has occurred, the return value is \tt{null}. In this case, the cause of the error can be
-				determined by the \link{getOSError} and \link{getError} methods.
 		\endlist
 	\endlist
 
 	\throws[exceptions.BoundsException] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
 	is outside the range \tt{[0, #m - offset]}.
+
+	\throws[exceptions.IOException] or a derived class if some error occurred.
 	*/
 	function read(this: @InStream, m: memblock, offset: int = 0, size: int = #m - offset)
 		throw NotImplementedException()
@@ -122,24 +115,21 @@ class Stream
 	\param[offset] is the offset into \tt{m} where the first byte of data will be retrieved. Defaults to 0.
 	\param[size] is the number of bytes to write. Defaults to the size of \tt{m} minus the \tt{offset}.
 
-	\returns Either an integer or \tt{null}.
+	\returns an integer.
 
 	\blist
 		\li If \tt{size} is 0, this function is a no-op, and the return value is 0.
-		\li If \tt{size} is nonzero,
-		\blist
-			\li If the write is successful, the return value is an integer in the range \tt{[1, size]} and indicates
-				the number of bytes actually written. Fewer than \tt{size} bytes can be written in a number of non-error
-				situations. If you need to write a whole buffer, make repeated calls to \tt{write} until the desired number
-				of bytes has been written. The \link{writeExact} method does this for you.
-			\li If the stream has reached the end of the file, the return value is 0.
-			\li If any error has occurred, the return value is \tt{null}. In this case, the cause of the error can be
-				determined by the \link{getOSError} and \link{getError} methods.
-		\endlist
+		\li If \tt{size} is nonzero and the write is successful, the return value is an integer in the range \tt{[1, size]}
+			and indicates the number of bytes actually written. Fewer than \tt{size} bytes can be written in a number of
+			non-error situations. If you need to write a whole buffer, make repeated calls to \tt{write} until the desired
+			number of bytes has been written. The \link{writeExact} method does this for you.
 	\endlist
 
 	\throws[exceptions.BoundsException] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
 	is outside the range \tt{[0, #m - offset]}.
+
+	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[EOFException] if end-of-file was reached.
 	*/
 	function write(this: @OutStream, m: memblock, offset: int = 0, size: int = #m - offset)
 		throw NotImplementedException()
@@ -161,13 +151,9 @@ class Stream
 		\li{\b{\tt{'e'}}} The \tt{offset} is treated as a relative offset from the end of the stream.
 	\endlist
 
-	\returns Either an integer or \tt{null}.
+	\returns the new stream position as an absolute position from the beginning of the stream.
 
-	If the seek was successful, returns the new stream position as an absolute position from the beginning of the stream.
-
-	If there was an error, returns \tt{null}.
-
-	\throws[exceptions.IOException] if the resulting stream position would be negative.
+	\throws[exceptions.IOException] if the resulting stream position would be negative, or if some error occurred.
 	*/
 	function seek(this: @SeekStream, offset: int, where: char)
 		throw NotImplementedException()
@@ -191,58 +177,23 @@ class Stream
 	function seekable() = false
 
 	/**
-	Tells whether or not an error has occurred on this stream.
-	\returns a bool indicating such. The default implementation returns \tt{false}.
-	*/
-	function hasError() = false
-
-	/**
-	Returns an OS-specific error code of the most recent error that occurred on this stream, and resets the stored error.
-
-	The value that this function returns is meant to be used for more precise error handling than would be possible with just a
-	message or an exception. However, its interpretation is platform-dependent and is therefore really only useful for very
-	low-level programming.
-
-	When this function is called, the error stored in the stream is reset to a "non-error" code.
-
-	\returns an integer error code. The default implementation just returns 0.
-	*/
-	function getOSError() = 0
-
-	/**
-	Returns a human-readable representation of the most recent error that occurred on this stream, and resets the stored error.
-
-	This message is likely to be used in error messages or exception objects. Of course, this message can't really be used to
-	diagnose the error programmatically.
-
-	Because this has to call \link{getOSError}, the stored error will be reset.
-
-	\returns a string representation of the most recent error. The default implementation just returns the empty string.
-	*/
-	function getError() = ""
-
-	/**
 	An optional method used to flush cached data to the stream.
 
 	Often buffering schemes are used to improve IO performance, but such schemes mean that the stream and its backing store are
 	often incoherent. This method is called to force coherency by flushing any buffered data and writing it into the backing store.
 
-	The default implementation is simply to do nothing and return \tt{true}.
-
-	\returns either a bool or \tt{null}. If the flush was successful, returns \tt{true}. If end-of-file was reached, returns
-	\tt{false}. If an error occurred, returns \tt{null}.
+	The default implementation is simply to do nothing.
 	*/
-	function flush() = true
+	function flush() {}
 
 	/**
 	An optional method used to close a stream by releasing any system resources associated with it and preventing any further use.
 
-	The default implementation is simply to do nothing and return \tt{true}.
+	This method should be allowed to be called more than once, but calls beyond the first should be no-ops.
 
-	\returns either a bool or \tt{null}. If closing was successful, returns \tt{true}. If end-of-file was reached (this can happen
-	when flushing out buffers associated with the stream before closing), returns \tt{false}. If an error occurred, returns \tt{null}.
+	The default implementation is simply to do nothing.
 	*/
-	function close() = true
+	function close() {}
 
 	/**
 	An optional method used to check whether or not this stream has been closed.
@@ -259,12 +210,8 @@ class Stream
 	Since \link{read} may not read all the data for a block in one call, this method exists to automatically make as many calls
 	to \link{read} as needed to fill the requested block of data. The parameters are identical to those of \link{read}.
 
-	\returns either a bool or \tt{null}.
-	\blist
-		\li If the read completed successfully, returns \tt{true}.
-		\li If end-of-file was reached, returns \tt{false}.
-		\li If some error occurred, returns \tt{null}.
-	\endlist
+	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[EOFException] if end-of-file was reached.
 	*/
 	function readExact(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
@@ -275,10 +222,8 @@ class Stream
 		{
 			local bytesRead = :read(m, offset, remaining)
 
-			if(bytesRead is null)
-				return null
-			else if(bytesRead == 0)
-				return false
+			if(bytesRead == 0)
+				throw EOFException()
 
 			offset += bytesRead
 			remaining -= bytesRead
@@ -293,12 +238,8 @@ class Stream
 	Since \link{write} may not write all the data for a block in one call, this method exists to automatically make as many calls
 	to \link{write} as needed to write the requested block of data. The parameters are identical to those of \link{write}.
 
-	\returns either a bool or \tt{null}.
-	\blist
-		\li If the write completed successfully, returns \tt{true}.
-		\li If end-of-file was reached, returns \tt{false}.
-		\li If some error occurred, returns \tt{null}.
-	\endlist
+	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[EOFException] if end-of-file was reached.
 	*/
 	function writeExact(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
@@ -308,17 +249,9 @@ class Stream
 		while(remaining > 0)
 		{
 			local bytesWritten = :write(m, offset, remaining)
-
-			if(bytesWritten is null)
-				return null
-			else if(bytesWritten == 0)
-				return false
-
 			offset += bytesWritten
 			remaining -= bytesWritten
 		}
-
-		return true
 	}
 
 	/**
@@ -331,57 +264,37 @@ class Stream
 	\param[this] must be readable, and may optionally be seekable.
 	\param[dist] is the number of bytes to skip. Can be 0.
 
-	\returns either a bool or \tt{null}.
-	\blist
-		\li If the number of bytes requested was skipped, returns \tt{true}.
-		\li If end-of-file was reached before the skip could be finished, returns \tt{false}.
-		\li If some error occurred, returns \tt{null}.
-	\endlist
-
 	\throws[exceptions.RangeException] if \tt{dist} is negative.
+	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[EOFException] if end-of-file was reached.
 	*/
 	function skip(this: @InStream, dist: int)
 	{
 		if(dist < 0)
 			throw RangeException(format("Invalid skip distance ({})", dist))
 		else if(dist == 0)
-			return true
+			return
 
 		if(:seekable())
 		{
-			local pos = :seek(dist, 'c')
-
-			if(pos is null)
-				return null
-			else
-				return true
+			:seek(dist, 'c')
+			return
 		}
 
-		local f = :flush()
-		
-		if(f is null)
-			return null
-		else if(!f)
-			return false
+		:flush()
 
 		:_scratch ?= memblock.new(4096)
 		local buf = :_scratch
 
 		while(dist > 0)
 		{
-			local numBytes = min(dist, #buf)
+			local bytesRead = :readExact(buf, 0, min(dist, #buf))
 
-			local bytesRead = :readExact(buf, 0, numBytes)
-
-			if(bytesRead is null)
-				return null
-			else if(bytesRead == 0)
-				return false
+			if(bytesRead == 0)
+				throw EOFException()
 
 			dist -= numBytes
 		}
-
-		return true
 	}
 
 	/**
@@ -393,7 +306,7 @@ class Stream
 	\param[m] is an optional memblock to use as the buffer to hold the read data. If one is given, it will be resized to hold the
 		read data. If it is not given, a new memblock will be used instead.
 
-	\returns the memblock holding the read data if successful, or \tt{null} if an error occurred.
+	\returns the memblock holding the read data.
 	*/
 	function readAll(this: @InStream, m: memblock = null)
 	{
@@ -408,9 +321,7 @@ class Stream
 		{
 			local numBytes = :read(m, offs)
 
-			if(numBytes is null)
-				return null
-			else if(numBytes == 0)
+			if(numBytes == 0)
 				break
 
 			offs += numBytes
@@ -432,19 +343,8 @@ class Stream
 	\param[s] is the source stream from which the data will be read, and must be readable.
 	\param[size] is the number of bytes to copy, or -1 to mean all data until \tt{s} reaches end-of-file.
 
-	\returns either a bool or \tt{null}, followed by \tt{null} or a \link{Stream}.
-	\blist
-		\li If the copy completed successfully, returns \tt{true, null}.
-		\li If \tt{size != -1} and end-of-file was reached on \tt{s} before copying completed, returns \tt{false, s}.
-		\li If end-of-file was reached on \tt{this} before copying completed, returns \tt{false, this}.
-		\li If an error occurred when reading from \tt{s}, returns \tt{null, s}.
-		\li if an error occurred when writing to \tt{this}, returns \tt{null, this}.
-	\endlist
-
-	That is, if EOF was reached or an error occurred on either stream, the stream on which that happened is returned as
-	the second value.
-
 	\throws[exceptions.RangeException] if \tt{size < -1}.
+	\throws[EOFException] if \tt{size > 0} and end-of-file was reached before copying could finish.
 	*/
 	function copy(this: @OutStream, s: @InStream, size: int = -1)
 	{
@@ -460,17 +360,10 @@ class Stream
 			{
 				local numRead = s.read(buf)
 
-				if(numRead is null)
-					return null, s
-				else if(numRead == 0)
+				if(numRead == 0)
 					break
 
-				local written = :writeExact(buf, 0, numRead)
-
-				if(written is null)
-					return null, this
-				else if(!written)
-					return false, this
+				:writeExact(buf, 0, numRead)
 			}
 		}
 		else
@@ -479,26 +372,15 @@ class Stream
 
 			while(remaining > 0)
 			{
-				local numBytes = min(remaining, #buf)
-				local numRead = s.read(buf, 0, numBytes)
+				local numRead = s.read(buf, 0, min(remaining, #buf))
 
-				if(numRead is null)
-					return null, s
-				else if(numRead == 0)
-					return false, s
+				if(numRead == 0)
+					throw EOFException()
 
-				local written = :writeExact(buf, 0, numRead)
-
-				if(written is null)
-					return null, this
-				else if(!written)
-					return false, this
-
+				:writeExact(buf, 0, numRead)
 				remaining -= numRead
 			}
 		}
-
-		return true, null
 	}
 
 	/**
@@ -507,8 +389,7 @@ class Stream
 	\param[this] must be seekable.
 	\param[pos] is either the new read/write position, measured in bytes from the beginning of the stream, or \tt{null}.
 
-	\returns the new position if \tt{pos} was non-null, or the current position if \tt{pos} was \tt{null}. If an error occurred,
-	returns \tt{null} instead.
+	\returns the new position if \tt{pos} was non-null, or the current position if \tt{pos} was \tt{null}.
 	*/
 	function position(this: @SeekStream, pos: int|null)
 	{
@@ -526,23 +407,13 @@ class Stream
 
 	\param[this] must be seekable.
 
-	\returns an integer indicating how many bytes long this stream is, or \tt{null} if any error occurred.
+	\returns an integer indicating how many bytes long this stream is.
 	*/
 	function size(this: @SeekStream)
 	{
 		local pos = :position()
-
-		if(pos is null)
-			return null
-
 		local ret = :seek(0, 'e')
-
-		if(ret is null)
-			return null
-
-		if(:position(pos) is null)
-			return null
-
+		:position(pos)
 		return ret
 	}
 }
@@ -593,7 +464,7 @@ class MemblockStream : Stream
 
 	/**
 	Constructor.
-	
+
 	\param[mb] is the memblock to use as the backing store. If none is given, a new zero-size memblock will be used instead.
 	*/
 	this(mb: memblock = memblock.new(0))
@@ -604,8 +475,6 @@ class MemblockStream : Stream
 
 	/**
 	Implmentation of \link{Stream.read}.
-
-	This will never return \tt{null}.
 	*/
 	function read(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
@@ -625,10 +494,8 @@ class MemblockStream : Stream
 
 	/**
 	Implmentation of \link{Stream.write}.
-	
-	If there is not enough space in the memblock to hold the new data, the memblock's size will be expanded to accommodate.
 
-	This will never return \tt{null}.
+	If there is not enough space in the memblock to hold the new data, the memblock's size will be expanded to accommodate.
 	*/
 	function write(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
@@ -649,12 +516,10 @@ class MemblockStream : Stream
 
 	/**
 	Implmentation of \link{Stream.seek}.
-	
+
 	If you seek past the end of the memblock, the memblock will be resized to the new offset. This is to match the behavior
 	of seeking on files.
 
-	This will never return \tt{null}.
-	
 	\throws[exceptions.ValueException] if \tt{where} is invalid.
 	\throws[exceptions.IOException] if the resulting offset is negative.
 	*/
@@ -687,9 +552,9 @@ class MemblockStream : Stream
 
 	/**
 	Gets the backing memblock.
-	
+
 	It's probably best not to change the size of the memblock while it's still being used by the stream.
-	
+
 	\returns the backing memblock.
 	*/
 	function getBacking() = :_mb
@@ -859,7 +724,7 @@ class StreamWrapper : Stream
 
 	/**
 	Constructor.
-	
+
 	\param[s] is the stream object to be wrapped.
 	*/
 	this(s: Stream)
@@ -880,20 +745,17 @@ class StreamWrapper : Stream
 	function readable() = :_stream.readable()                   /// ditto
 	function writable() = :_stream.writable()                   /// ditto
 	function seekable() = :_stream.seekable()                   /// ditto
-	function hasError() = :_stream.hasError()                   /// ditto
-	function getOSError() = :_stream.getOSError()               /// ditto
-	function getError() = :_stream.getError()                   /// ditto
 
 	/**
 	Gets the stream that this instance wraps.
-	
+
 	\returns the same stream object that was passed to the constructor.
 	*/
 	function getWrappedStream() = :_stream
 }
 
 /**
-A kind of stream wrapper class that adds a simple interface for reading and writing binary data. 
+A kind of stream wrapper class that adds a simple interface for reading and writing binary data.
 
 Because it's a stream wrapper, the basic stream interface can still be used on it and the functionality will be passed through
 to the wrapped stream.
@@ -915,57 +777,38 @@ class BinaryStream : StreamWrapper
 		:_strBuf = memblock.new(0)
 	}
 
-	function _commonRead(size, readMethod)
-	{
-		local r = :stream.readExact(:_rwBuf, 0, size)
-		
-		if(r)
-			return :_rwBuf.(readMethod)(0)
-		else if(r is null)
-			return null
-		else
-			return EOF
-	}
-
 	/**
 	These all read a single integer or floating-point value of the given type and size.
 
 	Note that because Croc's \tt{int} type is a signed 64-bit integer, \tt{readUInt64} will return negative numbers for those
 	that exceed 2\sup{63} - 1. It exists for completeness.
 
-	\returns \tt{null} if an error occurred; \link{EOF} if end-of-file was reached; or an \tt{int} or \tt{float} representing
-	the value read, if successful.
+	\returns an \tt{int} or \tt{float} representing the value read.
+	\throws[EOFException] if end-of-file was reached.
 	*/
-	function readInt8() =    :_commonRead(1, "readInt8")
-	function readInt16() =   :_commonRead(2, "readInt16")   /// ditto
-	function readInt32() =   :_commonRead(4, "readInt32")   /// ditto
-	function readInt64() =   :_commonRead(8, "readInt64")   /// ditto
-	function readUInt8() =   :_commonRead(1, "readUInt8")   /// ditto
-	function readUInt16() =  :_commonRead(2, "readUInt16")  /// ditto
-	function readUInt32() =  :_commonRead(4, "readUInt32")  /// ditto
-	function readUInt64() =  :_commonRead(8, "readUInt64")  /// ditto
-	function readFloat32() = :_commonRead(4, "readFloat32") /// ditto
-	function readFloat64() = :_commonRead(8, "readFloat64") /// ditto
+	function readInt8()    { :_stream.readExact(:_rwBuf, 0, 1); return :_rwBuf.readInt8(0)    }
+	function readInt16()   { :_stream.readExact(:_rwBuf, 0, 2); return :_rwBuf.readInt16(0)   } /// ditto
+	function readInt32()   { :_stream.readExact(:_rwBuf, 0, 4); return :_rwBuf.readInt32(0)   } /// ditto
+	function readInt64()   { :_stream.readExact(:_rwBuf, 0, 8); return :_rwBuf.readInt64(0)   } /// ditto
+	function readUInt8()   { :_stream.readExact(:_rwBuf, 0, 1); return :_rwBuf.readUInt8(0)   } /// ditto
+	function readUInt16()  { :_stream.readExact(:_rwBuf, 0, 2); return :_rwBuf.readUInt16(0)  } /// ditto
+	function readUInt32()  { :_stream.readExact(:_rwBuf, 0, 4); return :_rwBuf.readUInt32(0)  } /// ditto
+	function readUInt64()  { :_stream.readExact(:_rwBuf, 0, 8); return :_rwBuf.readUInt64(0)  } /// ditto
+	function readFloat32() { :_stream.readExact(:_rwBuf, 0, 4); return :_rwBuf.readFloat32(0) } /// ditto
+	function readFloat64() { :_stream.readExact(:_rwBuf, 0, 8); return :_rwBuf.readFloat64(0) } /// ditto
 
 	/**
 	Reads a binary representation of a \tt{string} object. Should only be used as the inverse to \link{writeString}.
 
-	\returns \tt{null} if an error occurred; \link{EOF} if end-of-file was reached; or a \tt{string} representing the value read,
-	if successful.
+	\returns a \tt{string} representing the value read.
+	\throws[EOFException] if end-of-file was reached.
 	*/
 	function readString()
 	{
 		local len = :readUInt64()
 		#:_strBuf = len
-
-		local r = :stream.readExact(:_strBuf)
-
-		if(r)
-			return text.fromRawUnicode(:_strBuf)
-		else if(r is null)
-			return null
-		else
-			return EOF
+		:stream.readExact(:_strBuf)
+		return text.fromRawUnicode(:_strBuf)
 	}
 
 	/**
@@ -975,10 +818,10 @@ class BinaryStream : StreamWrapper
 
 	\param[n] is the number of bytes to read.
 
-	\returns \tt{null} if an error occurred; \link{EOF} if end-of-file was reached; or a \tt{string} representing the characters
-	read, if successful.
+	\returns a \tt{string} representing the characters read.
 
 	\throws[exceptions.RangeException] if \tt{n < 1}.
+	\throws[EOFException] if end-of-file was reached.
 	*/
 	function readChars(n: int)
 	{
@@ -986,159 +829,61 @@ class BinaryStream : StreamWrapper
 			throw RangeException(format("Invalid number of characters ({})", n))
 
 		#:_strBuf = n
-
-		local r = :stream.readExact(:_strBuf)
-
-		if(r)
-			return text.fromRawAscii(:_strBuf)
-		else if(r is null)
-			return null
-		else
-			return EOF
-	}
-
-	/**
-	Reads a chunk of data from the stream as a memblock. Acts as a higher-level interface than the raw \tt{read} and \tt{readExact}
-	methods.
-
-	\param[m] is either a memblock to act as the destination or an \tt{int} saying how many bytes to read. If \tt{m} is a memblock,
-	\tt{#m} bytes will be read and \tt{m}'s contents will be replaced by them. If \tt{m} is an \tt{int}, a new memblock of size \tt{m}
-	will be created and returned.
-
-	\returns a memblock holding the read data (either \tt{m} if \tt{m} was a memblock, or a new memblock if not) if successful. Returns
-	\tt{null} if an error occurred, or \tt{EOF} if end-of-file was reached.
-	*/
-	function readMemblock(m: memblock|int)
-	{
-		if(isInt(m))
-		{
-			if(m < 0)
-				throw RangeException(format("Invalid size: {}", m))
-
-			m = memblock.new(m)
-		}
-
-		local r = :stream.readExact(m)
-
-		if(r)
-			return m
-		else if(r is null)
-			return null
-		else
-			return EOF
-	}
-
-	function _commonWrite(val, size, writeMethod)
-	{
-		:_rwbuf.(writeMethod)(0, val)
-
-		local r = :stream.writeExact(:_rwBuf, 0, size)
-
-		if(r)
-			return this
-		else if(r is null)
-			return null
-		else
-			return EOF
+		:stream.readExact(:_strBuf)
+		return text.fromRawAscii(:_strBuf)
 	}
 
 	/**
 	These all write a single integer or floating-point value of the given type and size.
 
 	\param[x] is the value to write.
-	\returns \tt{null} if an error occurred; \link{EOF} if end-of-file was reached; or \tt{this} if the write was successful.
+	\returns \tt{this}.
+	\throws[EOFException] if end-of-file was reached.
 	*/
-	function writeInt8(x: int) =      :_commonWrite(x, 1, "writeInt8")
-	function writeInt16(x: int) =     :_commonWrite(x, 2, "writeInt16")   /// ditto
-	function writeInt32(x: int) =     :_commonWrite(x, 4, "writeInt32")   /// ditto
-	function writeInt64(x: int) =     :_commonWrite(x, 8, "writeInt64")   /// ditto
-	function writeUInt8(x: int) =     :_commonWrite(x, 1, "writeUInt8")   /// ditto
-	function writeUInt16(x: int) =    :_commonWrite(x, 2, "writeUInt16")  /// ditto
-	function writeUInt32(x: int) =    :_commonWrite(x, 4, "writeUInt32")  /// ditto
-	function writeUInt64(x: int) =    :_commonWrite(x, 8, "writeUInt64")  /// ditto
-	function writeFloat32(x: float) = :_commonWrite(x, 4, "writeFloat32") /// ditto
-	function writeFloat64(x: float) = :_commonWrite(x, 8, "writeFloat64") /// ditto
+	function writeInt8(x: int)      { :_rwbuf.writeInt8(0, x);    :_stream.writeExact(:_rwBuf, 0, 1); return this }
+	function writeInt16(x: int)     { :_rwbuf.writeInt16(0, x);   :_stream.writeExact(:_rwBuf, 0, 2); return this }
+	function writeInt32(x: int)     { :_rwbuf.writeInt32(0, x);   :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeInt64(x: int)     { :_rwbuf.writeInt64(0, x);   :_stream.writeExact(:_rwBuf, 0, 8); return this }
+	function writeUInt8(x: int)     { :_rwbuf.writeUInt8(0, x);   :_stream.writeExact(:_rwBuf, 0, 1); return this }
+	function writeUInt16(x: int)    { :_rwbuf.writeUInt16(0, x);  :_stream.writeExact(:_rwBuf, 0, 2); return this }
+	function writeUInt32(x: int)    { :_rwbuf.writeUInt32(0, x);  :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeUInt64(x: int)    { :_rwbuf.writeUInt64(0, x);  :_stream.writeExact(:_rwBuf, 0, 8); return this }
+	function writeFloat32(x: float) { :_rwbuf.writeFloat32(0, x); :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeFloat64(x: float) { :_rwbuf.writeFloat64(0, x); :_stream.writeExact(:_rwBuf, 0, 8); return this }
 
 	/**
 	Writes a binary representation of the given string. To read this binary representation back again, use \link{readString}.
 
 	\param[x] is the string to write.
-	\returns \tt{null} if an error occurred; \link{EOF} if end-of-file was reached; or \tt{this} if the write was successful.
+	\returns \tt{this}.
+	\throws[EOFException] if end-of-file was reached.
 	*/
 	function writeString(x: string)
 	{
 		text.toRawUnicode(x, 8, :_strBuf)
 		:writeUInt64(#:_strBuf)
-
-		local r = :stream.writeExact(:_strBuf)
-
-		if(r)
-			return this
-		else if(r is null)
-			return null
-		else
-			return EOF
+		:stream.writeExact(:_strBuf)
+		return this
 	}
 
 	/**
 	Writes the given string, which must be ASCII only, as a raw sequence of byte-sized characters.
-	
+
 	This is particularly useful for chunk identifiers in RIFF-type files and "magic numbers", though it can have other uses
 	as well.
-	
+
 	\param[x] is the string containing the characters to be written. It must be ASCII.
-	\returns \tt{null} if an error occurred; \link{EOF} if end-of-file was reached; or \tt{this} if the write was successful.
+	\returns \tt{this}.
 	\throws[exceptions.ValueException] if \tt{x} is not ASCII.
+	\throws[EOFException] if end-of-file was reached.
 	*/
 	function writeChars(x: string)
 	{
 		if(!ascii.isAscii(x))
 			throw ValueException("Can only write ASCII strings as raw characters")
 
-		text.toRawUnicode(x, 8, :_strBuf)
-
-		local r = :stream.writeExact(:_strBuf)
-
-		if(r)
-			return this
-		else if(r is null)
-			return null
-		else
-			return EOF
-	}
-
-	/**
-	Writes a slice of a memblock as a chunk of data. Acts as a higher-level interface than the \tt{write} and \tt{writeExact}
-	methods.
-	
-	\param[m] is the memblock from which the data will be written.
-	\param[lo] is the low slice index into the memblock. Defaults to 0.
-	\param[hi] is the high slice index into the memblock. Defaults to the length of the memblock.
-	\returns \tt{null} if an error occurred; \link{EOF} if end-of-file was reached; or \tt{this} if the write was successful.
-	Zero-length writes will always succeed.
-	\throws[exceptions.BoundsException] if the given slice indices are invalid.
-	*/
-	function writeMemblock(m: memblock, lo: int = 0, hi: int = #m)
-	{
-		if(lo < 0)
-			lo += #m
-
-		if(hi < 0)
-			hi += #m
-
-		if(lo < 0 || lo > hi || hi > #m)
-			throw BoundsException(format("Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, #m))
-
-		if(local size = hi - lo)
-		{
-			local r = :stream.writeExact(m, lo, size)
-
-			if(r is null)
-				return null
-			else if(!r)
-				return EOF
-		}
-
+		text.toRawAscii(x, :_strBuf)
+		:stream.writeExact(:_strBuf)
 		return this
 	}
 }
@@ -1195,9 +940,7 @@ class BufferedInStream : StreamWrapper
 			{
 				buffered = :_readMore()
 
-				if(buffered is null)
-					return null
-				else if(buffered == 0)
+				if(buffered == 0)
 					break
 			}
 
@@ -1231,13 +974,6 @@ class BufferedInStream : StreamWrapper
 		assert((:_bound - :_bufPos) == 0)
 		:_bufPos = 0
 		:_bound = :_stream.read(:_buf)
-
-		if(:_bound is null)
-		{
-			:_bound = 0
-			return null
-		}
-
 		return :_bound
 	}
 }
@@ -1291,13 +1027,7 @@ class BufferedOutStream : StreamWrapper
 
 			if(spaceLeft == 0)
 			{
-				local f = :flush()
-
-				if(f is null)
-					return null
-				else if(!f)
-					return EOF
-
+				:flush()
 				spaceLeft = #:_buf
 			}
 
@@ -1323,53 +1053,32 @@ class BufferedOutStream : StreamWrapper
 			offset -= :_bufPos
 
 		if(:_bufPos > 0)
-		{
-			local f = :flush()
-			
-			if(f is null)
-				return null
-			else if(!f)
-				return EOF
-		}
+			:flush()
 
 		return :_stream.seek(offset, where)
 	}
 
 	/**
 	Implementation of the \tt{flush} method. This writes any buffered data to the stream. If no data is buffered, does nothing.
+	
+	\throws[EOFException] if end-of-file is reached.
 	*/
 	function flush()
 	{
 		if(:_bufPos > 0)
 		{
-			local w = :_stream.write(:_buf, 0, :_bufPos)
-			
-			if(w is null)
-				return null
-			else if(w == 0)
-				return false
-
+			:_stream.write(:_buf, 0, :_bufPos)
 			:_bufPos = 0
-			w = :_stream.flush()
-			
-			if(w is null)
-				return null
-			else if(!w)
-				return false
+			:_stream.flush()
 		}
-
-		return true
 	}
 
+	/**
+	Implementation of the \tt{close} method. Simply flushes the buffer and then calls \tt{close} on the underlying stream.
+	*/
 	function close()
 	{
-		local f = :_flush()
-		
-		if(f is null)
-			return null
-		else if(!f)
-			return false
-
-		return :_stream.close()
+		:_flush()
+		:_stream.close()
 	}
 }
