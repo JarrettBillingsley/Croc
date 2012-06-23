@@ -28,7 +28,9 @@ module croc.stdlib_stringbuffer;
 
 import tango.math.Math;
 import tango.stdc.string;
-import Utf = tango.text.convert.Utf;
+import tango.text.convert.Utf;
+
+alias tango.text.convert.Utf.toString32 Utf_toString32;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -220,7 +222,7 @@ uword _constructor(CrocThread* t)
 	{
 		auto mb = getMemblock(t, -1);
 		uint ate = 0;
-		Utf.toString32(data, cast(dchar[])mb.data, &ate);
+		Utf_toString32(data, cast(dchar[])mb.data, &ate);
 		_setLength(t, length);
 	}
 	else
@@ -476,7 +478,7 @@ uword _opCat(CrocThread* t)
 	{
 		auto dest = makeObj(.len(t, 1));
 		uint ate = 0;
-		Utf.toString32(getString(t, 1), dest, &ate);
+		Utf_toString32(getString(t, 1), dest, &ate);
 	}
 	else if(isChar(t, 1))
 	{
@@ -493,7 +495,7 @@ uword _opCat(CrocThread* t)
 		auto s = getString(t, -1);
 		auto dest = makeObj(.len(t, -1));
 		uint ate = 0;
-		Utf.toString32(s, dest, &ate);
+		Utf_toString32(s, dest, &ate);
 		pop(t);
 	}
 
@@ -529,7 +531,7 @@ uword _opCat_r(CrocThread* t)
 	{
 		auto dest = makeObj(.len(t, 1));
 		uint ate = 0;
-		Utf.toString32(getString(t, 1), dest, &ate);
+		Utf_toString32(getString(t, 1), dest, &ate);
 	}
 	else if(isChar(t, 1))
 	{
@@ -541,7 +543,7 @@ uword _opCat_r(CrocThread* t)
 		auto s = getString(t, -1);
 		auto dest = makeObj(.len(t, -1));
 		uint ate = 0;
-		Utf.toString32(s, dest, &ate);
+		Utf_toString32(s, dest, &ate);
 		pop(t);
 	}
 
@@ -578,7 +580,7 @@ uword _opCatAssign(CrocThread* t)
 		{
 			auto dest = resize(.len(t, i));
 			uint ate = 0;
-			Utf.toString32(getString(t, i), dest, &ate);
+			Utf_toString32(getString(t, i), dest, &ate);
 		}
 		else if(isChar(t, i))
 			resize(1)[0] = getChar(t, i);
@@ -600,7 +602,7 @@ uword _opCatAssign(CrocThread* t)
 			pushToString(t, i);
 			auto dest = resize(.len(t, -1));
 			uint ate = 0;
-			Utf.toString32(getString(t, -1), dest, &ate);
+			Utf_toString32(getString(t, -1), dest, &ate);
 			pop(t);
 		}
 	}
@@ -706,7 +708,7 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 			throwStdException(t, "ValueException", "Length of destination ({}) and length of source string ({}) do not match", hi - lo, cpLen);
 
 		uint ate = 0;
-		Utf.toString32(getString(t, filler), (cast(dchar[])mb.data)[lo .. hi], &ate);
+		Utf_toString32(getString(t, filler), (cast(dchar[])mb.data)[lo .. hi], &ate);
 	}
 	else if(isArray(t, filler))
 	{
@@ -812,7 +814,7 @@ uword _insert(CrocThread* t)
 			auto str = getString(t, 2);
 			auto tmp = doResize(cpLen);
 			uint ate = 0;
-			Utf.toString32(str, tmp, &ate);
+			Utf_toString32(str, tmp, &ate);
 		}
 	}
 	else if(isChar(t, 2))
@@ -851,7 +853,7 @@ uword _insert(CrocThread* t)
 			auto str = getString(t, -1);
 			auto tmp = doResize(cpLen);
 			uint ate = 0;
-			Utf.toString32(str, tmp, &ate);
+			Utf_toString32(str, tmp, &ate);
 		}
 
 		pop(t);
@@ -915,7 +917,7 @@ uword _format(CrocThread* t)
 		len = cast(uword)totalLen;
 
 		uint ate = 0;
-		Utf.toString32(data, (cast(dchar[])mb.data)[cast(uword)oldLen .. cast(uword)totalLen], &ate);
+		Utf_toString32(data, (cast(dchar[])mb.data)[cast(uword)oldLen .. cast(uword)totalLen], &ate);
 		return data.length;
 	}
 

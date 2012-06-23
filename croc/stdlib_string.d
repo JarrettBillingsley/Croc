@@ -25,10 +25,17 @@ subject to the following restrictions:
 
 module croc.stdlib_string;
 
-import Float = tango.text.convert.Float;
-import Integer = tango.text.convert.Integer;
+import tango.text.convert.Float;
+import tango.text.convert.Integer;
+import tango.text.convert.Utf;
 import tango.text.Util;
-import Utf = tango.text.convert.Utf;
+
+alias tango.text.convert.Float.toFloat Float_toFloat;
+alias tango.text.convert.Integer.toInt Integer_toInt;
+alias tango.text.convert.Utf.cropRight Utf_cropRight;
+alias tango.text.convert.Utf.decode Utf_decode;
+alias tango.text.convert.Utf.toString Utf_toString;
+alias tango.text.Util.trim trim;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -220,13 +227,13 @@ uword _toInt(CrocThread* t)
 	if(numParams > 0)
 		base = cast(int)getInt(t, 1);
 
-	pushInt(t, safeCode(t, "exceptions.ValueException", Integer.toInt(src, base)));
+	pushInt(t, safeCode(t, "exceptions.ValueException", Integer_toInt(src, base)));
 	return 1;
 }
 
 uword _toFloat(CrocThread* t)
 {
-	pushFloat(t, safeCode(t, "exceptions.ValueException", Float.toFloat(checkStringParam(t, 0))));
+	pushFloat(t, safeCode(t, "exceptions.ValueException", Float_toFloat(checkStringParam(t, 0))));
 	return 1;
 }
 
@@ -253,7 +260,7 @@ uword _find(CrocThread* t)
 	else if(isChar(t, 1))
 	{
 		dchar[1] dc = getChar(t, 1);
-		pat = Utf.toString(dc[], buf);
+		pat = Utf_toString(dc[], buf);
 	}
 	else
 		paramTypeError(t, 1, "char|string");
@@ -289,7 +296,7 @@ uword _rfind(CrocThread* t)
 	else if(isChar(t, 1))
 	{
 		dchar[1] dc = getChar(t, 1);
-		pat = Utf.toString(dc[], buf);
+		pat = Utf_toString(dc[], buf);
 	}
 	else
 		paramTypeError(t, 1, "char|string");
@@ -522,7 +529,7 @@ uword _iterator(CrocThread* t)
 		return 0;
 
 	uint ate = void;
-	auto c = Utf.decode(s.toString()[cast(uword)realIdx .. $], ate);
+	auto c = Utf_decode(s.toString()[cast(uword)realIdx .. $], ate);
 	realIdx += ate;
 
 	pushInt(t, realIdx);
@@ -546,9 +553,9 @@ uword _iteratorReverse(CrocThread* t)
 	if(realIdx <= 0)
 		return 0;
 
-	auto tmp = Utf.cropRight(s.toString[0 .. cast(uword)realIdx - 1]);
+	auto tmp = Utf_cropRight(s.toString[0 .. cast(uword)realIdx - 1]);
 	uint ate = void;
-	auto c = Utf.decode(s.toString()[tmp.length .. $], ate);
+	auto c = Utf_decode(s.toString()[tmp.length .. $], ate);
 
 	pushInt(t, tmp.length);		
 	setUpval(t, 0);

@@ -26,10 +26,13 @@ subject to the following restrictions:
 
 module croc.vm;
 
-import Float = tango.text.convert.Float;
+import tango.text.convert.Float;
 import tango.text.convert.Format;
 import tango.text.convert.Layout;
 import tango.text.Util;
+
+alias tango.text.convert.Float.format Float_format;
+alias tango.text.convert.Float.truncate Float_truncate;
 
 debug import tango.io.Stdout;
 
@@ -209,15 +212,15 @@ class CustomLayout : Layout!(char)
 			}
 
 			if(p - format.ptr > 1)
-				return Float.format(output, v, number, (style == 'e' || style == 'E') ? 0 : 10);
+				return Float_format(output, v, number, (style == 'e' || style == 'E') ? 0 : 10);
 		}
 
 		if(style == 'e' || style == 'E')
-			return Float.format(output, v, 2, 0);
+			return Float_format(output, v, 2, 0);
 		else
 		{
-			auto str = Float.format(output, v, 6);
-			auto tmp = Float.truncate(str);
+			auto str = Float_format(output, v, 6);
+			auto tmp = Float_truncate(str);
 
 			if(tmp.locate('.') == tmp.length && str.length >= tmp.length + 2)
 				tmp = str[0 .. tmp.length + 2];

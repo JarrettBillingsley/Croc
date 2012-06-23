@@ -39,8 +39,10 @@ import tango.stdc.stdlib;
 import tango.stdc.stringz;
 import tango.sys.Environment;
 import tango.sys.SharedLib;
+import tango.text.convert.Integer;
 import tango.text.Util;
-import Int = tango.text.convert.Integer;
+
+alias tango.text.convert.Integer.parse Int_parse;
 
 import croc.api;
 
@@ -58,8 +60,8 @@ struct PcreLib
 			// Check that we have an appropriate libpcre, first..
 			{
 				auto vers = fromStringz(pcre_version());
-				auto major = Int.parse(vers[0 .. vers.locate('.')]);
-				auto minor = Int.parse(vers[vers.locate('.') + 1 .. vers.locate(' ')]);
+				auto major = Int_parse(vers[0 .. vers.locate('.')]);
+				auto minor = Int_parse(vers[vers.locate('.') + 1 .. vers.locate(' ')]);
 
 				if(minor < 4 || major < 7)
 					throwStdException(t, "Exception", "Your PCRE library is only version {}. You need 7.4 or higher.", vers[0 .. vers.locate(' ')]);

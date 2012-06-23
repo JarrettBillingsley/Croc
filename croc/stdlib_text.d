@@ -25,6 +25,11 @@ subject to the following restrictions:
 
 module croc.stdlib_text;
 
+import tango.text.convert.Utf;
+
+alias tango.text.convert.Utf.toString16 Utf_toString16;
+alias tango.text.convert.Utf.toString32 Utf_toString32;
+
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
@@ -127,14 +132,14 @@ uword _toRawUnicode(CrocThread* t)
 			scope(exit) freeArray(t, temp);
 
 			uint ate = 0;
-			auto tempData = safeCode(t, "exceptions.UnicodeException", Utf.toString32(src, temp, &ate));
-			len = 2 * safeCode(t, "exceptions.UnicodeException", Utf.toString16(temp, dest, &ate)).length;
+			auto tempData = safeCode(t, "exceptions.UnicodeException", Utf_toString32(src, temp, &ate));
+			len = 2 * safeCode(t, "exceptions.UnicodeException", Utf_toString16(temp, dest, &ate)).length;
 			break;
 
 		case 32:
 			auto dest = (cast(dchar*)ret.data.ptr)[0 .. str.length];
 			uint ate = 0;
-			len = 4 *  safeCode(t, "exceptions.UnicodeException", Utf.toString32(src, dest, &ate)).length;
+			len = 4 *  safeCode(t, "exceptions.UnicodeException", Utf_toString32(src, dest, &ate)).length;
 			break;
 
 		default: assert(false);

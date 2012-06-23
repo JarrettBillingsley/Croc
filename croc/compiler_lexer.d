@@ -25,12 +25,17 @@ subject to the following restrictions:
 
 module croc.compiler_lexer;
 
-import Float = tango.text.convert.Float;
-import Integer = tango.text.convert.Integer;
 import tango.core.Exception;
+import tango.text.convert.Float;
+import tango.text.convert.Utf;
+import tango.text.Unicode;
 import tango.text.Util;
-import Uni = tango.text.Unicode;
-import Utf = tango.text.convert.Utf;
+
+alias tango.text.convert.Float.toFloat Float_toFloat;
+alias tango.text.convert.Utf.decode Utf_decode;
+alias tango.text.convert.Utf.encode Utf_encode;
+alias tango.text.convert.Utf.isValid Utf_isValid;
+alias tango.text.Unicode.isUpper Uni_isUpper;
 
 import croc.compiler_types;
 import croc.types;
@@ -500,7 +505,7 @@ private:
 		if(c >= '0' && c <= '9')
 			return cast(ubyte)(c - '0');
 
-		if(Uni.isUpper(c))
+		if(Uni_isUpper(c))
 			return cast(ubyte)(c - 'A' + 10);
 		else
 			return cast(ubyte)(c - 'a' + 10);
@@ -513,7 +518,7 @@ private:
 		else
 		{
 			uint ate = 0;
-			auto ret = Utf.decode(mSource[mPosition .. $], ate);
+			auto ret = Utf_decode(mSource[mPosition .. $], ate);
 			mPosition += ate;
 			return ret;
 		}
@@ -801,7 +806,7 @@ private:
 		else
 		{
 			try
-				fret = Float.toFloat(buf[0 .. i]);
+				fret = Float_toFloat(buf[0 .. i]);
 			catch(IllegalArgumentException e)
 				mCompiler.lexException(beginning, "Invalid floating point literal");
 
@@ -876,7 +881,7 @@ private:
 				if(x == 0xFFFE || x == 0xFFFF)
 					mCompiler.lexException(mLoc, "Unicode escape '\\U{:x8}' is illegal", x);
 
-				if(!Utf.isValid(cast(dchar)x))
+				if(!Utf_isValid(cast(dchar)x))
 					mCompiler.lexException(mLoc, "Unicode escape '\\U{:x8}' too large", x);
 
 				ret = cast(dchar)x;
@@ -935,7 +940,7 @@ private:
 					if(!escape)
 						goto default;
 
-					buf ~= Utf.encode(utfbuf, readEscapeSequence(beginning));
+					buf ~= Utf_encode(utfbuf, readEscapeSequence(beginning));
 					continue;
 
 				default:
@@ -943,7 +948,7 @@ private:
 					{
 						if(lookaheadChar() == delimiter)
 						{
-							buf ~= Utf.encode(utfbuf, delimiter);
+							buf ~= Utf_encode(utfbuf, delimiter);
 							nextChar();
 							nextChar();
 						}
@@ -955,7 +960,7 @@ private:
 						if(escape && mCharacter == delimiter)
 							break;
 						
-						buf ~= Utf.encode(utfbuf, mCharacter);
+						buf ~= Utf_encode(utfbuf, mCharacter);
 						nextChar();
 					}
 					continue;
@@ -1581,7 +1586,7 @@ private:
 
 						do
 						{
-							buf ~= Utf.encode(utfbuf, mCharacter);
+							buf ~= Utf_encode(utfbuf, mCharacter);
 							nextChar();
 						} while(isAlpha() || isDecimalDigit() || mCharacter == '_');
 

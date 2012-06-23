@@ -25,10 +25,35 @@ subject to the following restrictions:
 
 module croc.stdlib_math;
 
-import math = tango.math.Math;
 import tango.math.GammaFunction;
-import ieee = tango.math.IEEE;
+import tango.math.IEEE;
+import tango.math.Math;
 import tango.math.random.Kiss;
+
+alias tango.math.IEEE.isInfinity ieee_isInfinity;
+alias tango.math.IEEE.isNaN ieee_isNaN;
+alias tango.math.Math.abs math_abs;
+alias tango.math.Math.acos math_acos;
+alias tango.math.Math.asin math_asin;
+alias tango.math.Math.atan math_atan;
+alias tango.math.Math.atan2 math_atan2;
+alias tango.math.Math.cbrt math_cbrt;
+alias tango.math.Math.ceil math_ceil;
+alias tango.math.Math.cos math_cos;
+alias tango.math.Math.E math_E;
+alias tango.math.Math.exp math_exp;
+alias tango.math.Math.floor math_floor;
+alias tango.math.Math.hypot math_hypot;
+alias tango.math.Math.log math_log;
+alias tango.math.Math.log10 math_log10;
+alias tango.math.Math.log2 math_log2;
+alias tango.math.Math.PI math_PI;
+alias tango.math.Math.pow math_pow;
+alias tango.math.Math.round math_round;
+alias tango.math.Math.sin math_sin;
+alias tango.math.Math.sqrt math_sqrt;
+alias tango.math.Math.tan math_tan;
+alias tango.math.Math.trunc math_trunc;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -54,8 +79,8 @@ static:
 	{
 		makeModule(t, "math", function uword(CrocThread* t)
 		{
-			pushFloat(t, math.E);              newGlobal(t, "e");
-			pushFloat(t, math.PI);             newGlobal(t, "pi");
+			pushFloat(t, math_E);              newGlobal(t, "e");
+			pushFloat(t, math_PI);             newGlobal(t, "pi");
 			pushFloat(t, crocfloat.nan);         newGlobal(t, "nan");
 			pushFloat(t, crocfloat.infinity);    newGlobal(t, "infinity");
 
@@ -108,64 +133,64 @@ static:
 		checkNumParam(t, 1);
 
 		if(isInt(t, 1))
-			pushInt(t, math.abs(getInt(t, 1)));
+			pushInt(t, math_abs(getInt(t, 1)));
 		else
-			pushFloat(t, math.abs(getFloat(t, 1)));
+			pushFloat(t, math_abs(getFloat(t, 1)));
 
 		return 1;
 	}
 
 	uword sin(CrocThread* t)
 	{
-		pushFloat(t, math.sin(checkNumParam(t, 1)));
+		pushFloat(t, math_sin(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword cos(CrocThread* t)
 	{
-		pushFloat(t, math.cos(checkNumParam(t, 1)));
+		pushFloat(t, math_cos(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword tan(CrocThread* t)
 	{
-		pushFloat(t, math.tan(checkNumParam(t, 1)));
+		pushFloat(t, math_tan(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword asin(CrocThread* t)
 	{
-		pushFloat(t, math.asin(checkNumParam(t, 1)));
+		pushFloat(t, math_asin(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword acos(CrocThread* t)
 	{
-		pushFloat(t, math.acos(checkNumParam(t, 1)));
+		pushFloat(t, math_acos(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword atan(CrocThread* t)
 	{
-		pushFloat(t, math.atan(checkNumParam(t, 1)));
+		pushFloat(t, math_atan(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword atan2(CrocThread* t)
 	{
-		pushFloat(t, math.atan2(checkNumParam(t, 1), checkNumParam(t, 2)));
+		pushFloat(t, math_atan2(checkNumParam(t, 1), checkNumParam(t, 2)));
 		return 1;
 	}
 
 	uword sqrt(CrocThread* t)
 	{
-		pushFloat(t, math.sqrt(checkNumParam(t, 1)));
+		pushFloat(t, math_sqrt(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword cbrt(CrocThread* t)
 	{
-		pushFloat(t, math.cbrt(checkNumParam(t, 1)));
+		pushFloat(t, math_cbrt(checkNumParam(t, 1)));
 		return 1;
 	}
 
@@ -175,40 +200,40 @@ static:
 		auto exp = checkNumParam(t, 2);
 
 		if(isInt(t, 2))
-			pushFloat(t, math.pow(cast(real)base, cast(uint)getInt(t, 2)));
+			pushFloat(t, math_pow(cast(real)base, cast(uint)getInt(t, 2)));
 		else
-			pushFloat(t, math.pow(base, exp));
+			pushFloat(t, math_pow(base, exp));
 
 		return 1;
 	}
 
 	uword exp(CrocThread* t)
 	{
-		pushFloat(t, math.exp(checkNumParam(t, 1)));
+		pushFloat(t, math_exp(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword ln(CrocThread* t)
 	{
-		pushFloat(t, math.log(checkNumParam(t, 1)));
+		pushFloat(t, math_log(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword log2(CrocThread* t)
 	{
-		pushFloat(t, math.log2(checkNumParam(t, 1)));
+		pushFloat(t, math_log2(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword log10(CrocThread* t)
 	{
-		pushFloat(t, math.log10(checkNumParam(t, 1)));
+		pushFloat(t, math_log10(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword hypot(CrocThread* t)
 	{
-		pushFloat(t, math.hypot(checkNumParam(t, 1), checkNumParam(t, 2)));
+		pushFloat(t, math_hypot(checkNumParam(t, 1), checkNumParam(t, 2)));
 		return 1;
 	}
 
@@ -226,37 +251,37 @@ static:
 
 	uword ceil(CrocThread* t)
 	{
-		pushFloat(t, math.ceil(checkNumParam(t, 1)));
+		pushFloat(t, math_ceil(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword floor(CrocThread* t)
 	{
-		pushFloat(t, math.floor(checkNumParam(t, 1)));
+		pushFloat(t, math_floor(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword round(CrocThread* t)
 	{
-		pushInt(t, cast(crocint)math.round(checkNumParam(t, 1)));
+		pushInt(t, cast(crocint)math_round(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword trunc(CrocThread* t)
 	{
-		pushInt(t, cast(crocint)math.trunc(checkNumParam(t, 1)));
+		pushInt(t, cast(crocint)math_trunc(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword isNan(CrocThread* t)
 	{
-		pushBool(t, cast(bool)ieee.isNaN(checkNumParam(t, 1)));
+		pushBool(t, cast(bool)ieee_isNaN(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword isInf(CrocThread* t)
 	{
-		pushBool(t, cast(bool)ieee.isInfinity(checkNumParam(t, 1)));
+		pushBool(t, cast(bool)ieee_isInfinity(checkNumParam(t, 1)));
 		return 1;
 	}
 

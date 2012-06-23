@@ -25,11 +25,15 @@ subject to the following restrictions:
 
 module croc.stdlib_base;
 
-import Float = tango.text.convert.Float;
-import Integer = tango.text.convert.Integer;
 import tango.io.Console;
 import tango.io.Stdout;
 import tango.stdc.ctype;
+import tango.text.convert.Float;
+import tango.text.convert.Integer;
+
+alias tango.text.convert.Float.toFloat Float_toFloat;
+alias tango.text.convert.Integer.format Integer_format;
+alias tango.text.convert.Integer.toLong Integer_toLong;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -537,7 +541,7 @@ uword _toString(CrocThread* t)
 			style[0] = checkCharParam(t, 2);
 
 		char[80] buffer = void;
-		pushString(t, safeCode(t, "exceptions.ValueException", Integer.format(buffer, getInt(t, 1), style)));
+		pushString(t, safeCode(t, "exceptions.ValueException", Integer_format(buffer, getInt(t, 1), style)));
 	}
 	else
 		pushToString(t, 1);
@@ -569,7 +573,7 @@ uword _toInt(CrocThread* t)
 		case CrocValue.Type.Int:    dup(t, 1); break;
 		case CrocValue.Type.Float:  pushInt(t, cast(crocint)getFloat(t, 1)); break;
 		case CrocValue.Type.Char:   pushInt(t, cast(crocint)getChar(t, 1)); break;
-		case CrocValue.Type.String: pushInt(t, safeCode(t, "exceptions.ValueException", cast(crocint)Integer.toLong(getString(t, 1), 10))); break;
+		case CrocValue.Type.String: pushInt(t, safeCode(t, "exceptions.ValueException", cast(crocint)Integer_toLong(getString(t, 1), 10))); break;
 
 		default:
 			pushTypeString(t, 1);
@@ -589,7 +593,7 @@ uword _toFloat(CrocThread* t)
 		case CrocValue.Type.Int: pushFloat(t, cast(crocfloat)getInt(t, 1)); break;
 		case CrocValue.Type.Float: dup(t, 1); break;
 		case CrocValue.Type.Char: pushFloat(t, cast(crocfloat)getChar(t, 1)); break;
-		case CrocValue.Type.String: pushFloat(t, safeCode(t, "exceptions.ValueException", cast(crocfloat)Float.toFloat(getString(t, 1)))); break;
+		case CrocValue.Type.String: pushFloat(t, safeCode(t, "exceptions.ValueException", cast(crocfloat)Float_toFloat(getString(t, 1)))); break;
 
 		default:
 			pushTypeString(t, 1);

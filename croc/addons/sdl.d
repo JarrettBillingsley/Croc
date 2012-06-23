@@ -32,7 +32,9 @@ version(CrocSdlAddon)
 {
 
 import tango.stdc.stringz;
-import Utf = tango.text.convert.Utf;
+import tango.text.convert.Utf;
+
+alias tango.text.convert.Utf.isValid Utf_isValid;
 
 import derelict.sdl.sdl;
 import derelict.sdl.image;
@@ -358,7 +360,7 @@ static:
 				pushInt(t, ev.key.keysym.sym);
 				pushInt(t, ev.key.keysym.mod);
 
-				if(Utf.isValid(cast(dchar)ev.key.keysym.unicode))
+				if(Utf_isValid(cast(dchar)ev.key.keysym.unicode))
 					pushChar(t, cast(dchar)ev.key.keysym.unicode);
 				else
 					pushChar(t, '\0');

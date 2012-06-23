@@ -26,10 +26,12 @@ subject to the following restrictions:
 
 module croc.ex_format;
 
-import Integer = tango.text.convert.Integer;
 import tango.stdc.ctype;
 import tango.stdc.stdlib;
+import tango.text.convert.Integer;
 import tango.text.Util;
+
+alias tango.text.convert.Integer.atoi Integer_atoi;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -125,7 +127,7 @@ void formatImpl(CrocThread* t, uword startIndex, uword numParams, uint delegate(
 			for(; j < fmtSpec.length && isdigit(fmtSpec[j]); j++)
 			{}
 
-			index = Integer.atoi(fmtSpec[0 .. j]) + startIndex + 1;
+			index = Integer_atoi(fmtSpec[0 .. j]) + startIndex + 1;
 			fmtSpec = fmtSpec[j .. $];
 		}
 		else

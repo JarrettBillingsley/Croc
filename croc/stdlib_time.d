@@ -33,7 +33,6 @@ import tango.time.Clock;
 import tango.time.StopWatch;
 import tango.time.Time;
 import tango.time.WallClock;
-import Utf = tango.text.convert.Utf;
 
 import croc.api_interpreter;
 import croc.api_stack;

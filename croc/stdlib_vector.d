@@ -28,7 +28,6 @@ module croc.stdlib_vector;
 
 // import tango.math.Math;
 // import tango.stdc.string;
-// import Utf = tango.text.convert.Utf;
 
 import croc.api_interpreter;
 import croc.api_stack;

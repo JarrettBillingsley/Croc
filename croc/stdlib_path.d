@@ -25,14 +25,20 @@ subject to the following restrictions:
 
 module croc.stdlib_path;
 
-import Path = tango.io.Path;
+import tango.io.Path;
 import tango.sys.Environment;
+
+alias tango.io.Path.join Path_join;
+alias tango.io.Path.parse Path_parse;
+alias tango.io.Path.pop Path_pop;
 
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.stdlib_utils;
 import croc.types;
+
+alias croc.api_stack.pop pop;
 
 alias CrocDoc.Docs Docs;
 alias CrocDoc.Param Param;
@@ -98,31 +104,31 @@ uword _join(CrocThread* t)
 	for(uword i = 1; i <= numParams; i++)
 		tmp[i - 1] = checkStringParam(t, i);
 
-	pushString(t, safeCode(t, "exceptions.ValueException", Path.join(tmp)));
+	pushString(t, safeCode(t, "exceptions.ValueException", Path_join(tmp)));
 	return 1;
 }
 
 uword _dirName(CrocThread* t)
 {
-	pushString(t, safeCode(t, "exceptions.ValueException", Path.parse(checkStringParam(t, 1))).path);
+	pushString(t, safeCode(t, "exceptions.ValueException", Path_parse(checkStringParam(t, 1))).path);
 	return 1;
 }
 
 uword _name(CrocThread* t)
 {
-	pushString(t, safeCode(t, "exceptions.ValueException", Path.parse(checkStringParam(t, 1))).name);
+	pushString(t, safeCode(t, "exceptions.ValueException", Path_parse(checkStringParam(t, 1))).name);
 	return 1;
 }
 
 uword _extension(CrocThread* t)
 {
-	pushString(t, safeCode(t, "exceptions.ValueException", Path.parse(checkStringParam(t, 1))).ext);
+	pushString(t, safeCode(t, "exceptions.ValueException", Path_parse(checkStringParam(t, 1))).ext);
 	return 1;
 }
 
 uword _fileName(CrocThread* t)
 {
-	pushString(t, safeCode(t, "exceptions.ValueException", Path.parse(checkStringParam(t, 1))).file);
+	pushString(t, safeCode(t, "exceptions.ValueException", Path_parse(checkStringParam(t, 1))).file);
 	return 1;
 }
 
@@ -133,12 +139,12 @@ uword _parentDir(CrocThread* t)
 	if(p == ".")
 		p = Environment.cwd();
 
-	auto pp = safeCode(t, "exceptions.ValueException", Path.parse(p));
+	auto pp = safeCode(t, "exceptions.ValueException", Path_parse(p));
 
 	if(pp.isAbsolute)
-		pushString(t, safeCode(t, "exceptions.ValueException", Path.pop(p)));
+		pushString(t, safeCode(t, "exceptions.ValueException", Path_pop(p)));
 	else
-		pushString(t, safeCode(t, "exceptions.ValueException", Path.join(Environment.cwd(), p)));
+		pushString(t, safeCode(t, "exceptions.ValueException", Path_join(Environment.cwd(), p)));
 
 	return 1;
 }

@@ -28,10 +28,12 @@ module croc.ex_json;
 
 import tango.io.stream.Format;
 import tango.math.Math;
+import tango.text.convert.Utf;
+import tango.text.Unicode;
 import tango.text.Util;
-import Uni = tango.text.Unicode;
-import Utf = tango.text.convert.Utf;
 
+alias tango.text.convert.Utf.decode Utf_decode;
+alias tango.text.Unicode.isUpper Uni_isUpper;
 alias tango.text.Util.contains contains;
 
 import croc.api_interpreter;
@@ -423,7 +425,7 @@ private:
 		if(c >= '0' && c <= '9')
 			return cast(ubyte)(c - '0');
 
-		if(Uni.isUpper(c))
+		if(Uni_isUpper(c))
 			return cast(ubyte)(c - 'A' + 10);
 		else
 			return cast(ubyte)(c - 'a' + 10);
@@ -436,7 +438,7 @@ private:
 		else
 		{
 			uint ate = 0;
-			auto ret = Utf.decode(mSource[mPosition .. $], ate);
+			auto ret = Utf_decode(mSource[mPosition .. $], ate);
 			mPosition += ate;
 			return ret;
 		}

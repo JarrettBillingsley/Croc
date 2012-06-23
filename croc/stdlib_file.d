@@ -25,12 +25,29 @@ subject to the following restrictions:
 
 module croc.stdlib_file;
 
-import Path = tango.io.Path;
+import tango.io.Path;
 import tango.io.device.File;
 import tango.io.stream.Buffered;
 import tango.io.UnicodeFile;
 import tango.sys.Environment;
 import tango.time.WallClock;
+
+alias tango.io.Path.accessed Path_accessed;
+alias tango.io.Path.children Path_children;
+alias tango.io.Path.copy Path_copy;
+alias tango.io.Path.created Path_created;
+alias tango.io.Path.createFolder Path_createFolder;
+alias tango.io.Path.createPath Path_createPath;
+alias tango.io.Path.exists Path_exists;
+alias tango.io.Path.fileSize Path_fileSize;
+alias tango.io.Path.isFolder Path_isFolder;
+alias tango.io.Path.isWritable Path_isWritable;
+alias tango.io.Path.join Path_join;
+alias tango.io.Path.modified Path_modified;
+alias tango.io.Path.parse Path_parse;
+alias tango.io.Path.patternMatch Path_patternMatch;
+alias tango.io.Path.remove Path_remove;
+alias tango.io.Path.rename Path_rename;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -38,6 +55,8 @@ import croc.ex;
 import croc.stdlib_stream;
 import croc.stdlib_time;
 import croc.types;
+
+alias croc.api_stack.pop pop;
 
 struct FileLib
 {
@@ -152,56 +171,56 @@ static:
 
 	uword rename(CrocThread* t)
 	{
-		safeCode(t, "exceptions.IOException", Path.rename(checkStringParam(t, 1), checkStringParam(t, 2)));
+		safeCode(t, "exceptions.IOException", Path_rename(checkStringParam(t, 1), checkStringParam(t, 2)));
 		return 0;
 	}
 
 	uword remove(CrocThread* t)
 	{
-		safeCode(t, "exceptions.IOException", Path.remove(checkStringParam(t, 1)));
+		safeCode(t, "exceptions.IOException", Path_remove(checkStringParam(t, 1)));
 		return 0;
 	}
 
 	uword copy(CrocThread* t)
 	{
-		safeCode(t, "exceptions.IOException", Path.copy(checkStringParam(t, 1), checkStringParam(t, 2)));
+		safeCode(t, "exceptions.IOException", Path_copy(checkStringParam(t, 1), checkStringParam(t, 2)));
 		return 0;
 	}
 
 	uword size(CrocThread* t)
 	{
-		pushInt(t, cast(crocint)safeCode(t, "exceptions.IOException", Path.fileSize(checkStringParam(t, 1))));
+		pushInt(t, cast(crocint)safeCode(t, "exceptions.IOException", Path_fileSize(checkStringParam(t, 1))));
 		return 1;
 	}
 
 	uword exists(CrocThread* t)
 	{
-		pushBool(t, Path.exists(checkStringParam(t, 1)));
+		pushBool(t, Path_exists(checkStringParam(t, 1)));
 		return 1;
 	}
 
 	uword isFile(CrocThread* t)
 	{
-		pushBool(t, safeCode(t, "exceptions.IOException", !Path.isFolder(checkStringParam(t, 1))));
+		pushBool(t, safeCode(t, "exceptions.IOException", !Path_isFolder(checkStringParam(t, 1))));
 		return 1;
 	}
 
 	uword isDir(CrocThread* t)
 	{
-		pushBool(t, safeCode(t, "exceptions.IOException", Path.isFolder(checkStringParam(t, 1))));
+		pushBool(t, safeCode(t, "exceptions.IOException", Path_isFolder(checkStringParam(t, 1))));
 		return 1;
 	}
 
 	uword isReadOnly(CrocThread* t)
 	{
-		pushBool(t, safeCode(t, "exceptions.IOException", !Path.isWritable(checkStringParam(t, 1))));
+		pushBool(t, safeCode(t, "exceptions.IOException", !Path_isWritable(checkStringParam(t, 1))));
 		return 1;
 	}
 
 	uword fileTime(char[] which)(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		auto time = safeCode(t, "exceptions.IOException", mixin("Path." ~ which ~ "(checkStringParam(t, 1))"));
+		auto time = safeCode(t, "exceptions.IOException", mixin("Path_" ~ which ~ "(checkStringParam(t, 1))"));
 		word tab;
 
 		if(numParams == 1)
@@ -231,31 +250,31 @@ static:
 
 	uword makeDir(CrocThread* t)
 	{
-		auto p = Path.parse(checkStringParam(t, 1));
+		auto p = Path_parse(checkStringParam(t, 1));
 
 		if(!p.isAbsolute())
-			safeCode(t, "exceptions.IOException", Path.createFolder(Path.join(Environment.cwd(), p.toString())));
+			safeCode(t, "exceptions.IOException", Path_createFolder(Path_join(Environment.cwd(), p.toString())));
 		else
-			safeCode(t, "exceptions.IOException", Path.createFolder(p.toString()));
+			safeCode(t, "exceptions.IOException", Path_createFolder(p.toString()));
 
 		return 0;
 	}
 
 	uword makeDirChain(CrocThread* t)
 	{
-		auto p = Path.parse(checkStringParam(t, 1));
+		auto p = Path_parse(checkStringParam(t, 1));
 
 		if(!p.isAbsolute())
-			safeCode(t, "exceptions.IOException", Path.createPath(Path.join(Environment.cwd(), p.toString())));
+			safeCode(t, "exceptions.IOException", Path_createPath(Path_join(Environment.cwd(), p.toString())));
 		else
-			safeCode(t, "exceptions.IOException", Path.createPath(p.toString()));
+			safeCode(t, "exceptions.IOException", Path_createPath(p.toString()));
 
 		return 0;
 	}
 
 	uword removeDir(CrocThread* t)
 	{
-		safeCode(t, "exceptions.IOException", Path.remove(checkStringParam(t, 1)));
+		safeCode(t, "exceptions.IOException", Path_remove(checkStringParam(t, 1)));
 		return 0;
 	}
 
@@ -274,11 +293,11 @@ static:
 
 			safeCode(t, "exceptions.IOException", 
 			{
-				foreach(ref info; Path.children(fp))
+				foreach(ref info; Path_children(fp))
 				{
 					if(info.folder is isFolder)
 					{
-						if(!Path.patternMatch(info.name, filter))
+						if(!Path_patternMatch(info.name, filter))
 							continue;
 
 						dup(t, 3);
@@ -302,7 +321,7 @@ static:
 
 			safeCode(t, "exceptions.IOException",
 			{
-				foreach(ref info; Path.children(fp))
+				foreach(ref info; Path_children(fp))
 				{
 					if(info.folder is isFolder)
 					{
@@ -382,7 +401,7 @@ static:
 	uword readMemblock(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
-		auto size = safeCode(t, "exceptions.IOException", Path.fileSize(name));
+		auto size = safeCode(t, "exceptions.IOException", Path_fileSize(name));
 
 		if(size > uword.max)
 			throwStdException(t, "ValueException", "file too big ({} bytes)", size);

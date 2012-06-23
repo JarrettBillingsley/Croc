@@ -27,8 +27,10 @@ subject to the following restrictions:
 module croc.ex_doccomments;
 
 import tango.core.Vararg;
+import tango.text.convert.Utf;
 import tango.text.Util;
-import Utf = tango.text.convert.Utf;
+
+alias tango.text.convert.Utf.decode Utf_decode;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -376,7 +378,7 @@ private:
 		else
 		{
 			uint ate = 0;
-			auto ret = Utf.decode(mCommentSource[mPosition .. $], ate);
+			auto ret = Utf_decode(mCommentSource[mPosition .. $], ate);
 			mPosition += ate;
 			return ret;
 		}

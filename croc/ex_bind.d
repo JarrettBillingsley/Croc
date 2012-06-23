@@ -39,7 +39,11 @@ module croc.ex_bind;
 
 import tango.core.Traits;
 import tango.core.Tuple;
-import Utf = tango.text.convert.Utf;
+import tango.text.convert.Utf;
+
+alias tango.text.convert.Utf.toString Utf_toString;
+alias tango.text.convert.Utf.toString16 Utf_toString16;
+alias tango.text.convert.Utf.toString32 Utf_toString32;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -643,7 +647,7 @@ word superPush(Type)(CrocThread* t, Type val)
 		static if(is(T : char[]))
 			return pushString(t, cast(T)val);
 		else
-			return pushString(t, Utf.toString(cast(T)val));
+			return pushString(t, Utf_toString(cast(T)val));
 	}
 	else static if(isAAType!(T))
 	{
@@ -933,9 +937,9 @@ Type superGet(Type)(CrocThread* t, word idx)
 			static if(is(T == char[]))
 				return cast(Type)getString(t, idx).dup;
 			else static if(is(T == wchar[]))
-				return cast(Type)Utf.toString16(getString(t, idx));
+				return cast(Type)Utf_toString16(getString(t, idx));
 			else
-				return cast(Type)Utf.toString32(getString(t, idx));
+				return cast(Type)Utf_toString32(getString(t, idx));
 		}
 		else
 			static assert(false, "superGet - Invalid argument type '" ~ Type.stringof ~ "'");

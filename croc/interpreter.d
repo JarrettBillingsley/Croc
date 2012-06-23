@@ -25,9 +25,13 @@ subject to the following restrictions:
 
 module croc.interpreter;
 
-import Integer = tango.text.convert.Integer;
 import tango.core.Tuple;
-import Utf = tango.text.convert.Utf;
+import tango.text.convert.Integer;
+import tango.text.convert.Utf;
+
+alias tango.text.convert.Integer.format Integer_format;
+alias tango.text.convert.Utf.isValid Utf_isValid;
+alias tango.text.convert.Utf.toString Utf_toString;
 
 import tango.stdc.string;
 
@@ -158,7 +162,7 @@ uword commonCall(CrocThread* t, AbsStack slot, word numReturns, bool isScript)
 
 	if(isScript)
 		execute(t);
-		
+
 	uword ret;
 
 	if(numReturns == -1)
@@ -762,7 +766,7 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 		{
 			case CrocValue.Type.Null:  return pushString(t, "null");
 			case CrocValue.Type.Bool:  return pushString(t, v.mBool ? "true" : "false");
-			case CrocValue.Type.Int:   return pushString(t, Integer.format(buffer, v.mInt));
+			case CrocValue.Type.Int:   return pushString(t, Integer_format(buffer, v.mInt));
 			case CrocValue.Type.Float:
 				uword pos = 0;
 
@@ -781,11 +785,11 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 			case CrocValue.Type.Char:
 				auto inbuf = v.mChar;
 
-				if(!Utf.isValid(inbuf))
+				if(!Utf_isValid(inbuf))
 					throwStdException(t, "UnicodeException", "Character '{:X}' is not a valid Unicode codepoint", cast(uint)inbuf);
 
 				uint ate = 0;
-				return pushString(t, Utf.toString((&inbuf)[0 .. 1], buffer, &ate));
+				return pushString(t, Utf_toString((&inbuf)[0 .. 1], buffer, &ate));
 
 			case CrocValue.Type.String:
 				return push(t, v);
@@ -1868,7 +1872,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 						len += stack[idx].mString.length;
 					else if(stack[idx].type == CrocValue.Type.Char)
 					{
-						if(!Utf.isValid(stack[idx].mChar))
+						if(!Utf_isValid(stack[idx].mChar))
 							throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (\\U{:x8})", cast(uint)stack[idx].mChar);
 
 						len += charLen(stack[idx].mChar);
@@ -2069,7 +2073,7 @@ void stringConcat(CrocThread* t, CrocValue first, CrocValue[] vals, uword len)
 			inbuf[0] = v.mChar;
 			char[4] outbuf = void;
 			uint ate = 0;
-			s = Utf.toString(inbuf, outbuf, &ate);
+			s = Utf_toString(inbuf, outbuf, &ate);
 		}
 
 		tmpBuffer[i .. i + s.length] = s[];
@@ -2099,7 +2103,7 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 
 			if(t.stack[dest].type == CrocValue.Type.Char)
 			{
-				if(!Utf.isValid(t.stack[dest].mChar))
+				if(!Utf_isValid(t.stack[dest].mChar))
 					throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (\\U{:x8})", t.stack[dest].mChar);
 
 				len = charLen(t.stack[dest].mChar);
@@ -2113,7 +2117,7 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 					len += stack[idx].mString.length;
 				else if(stack[idx].type == CrocValue.Type.Char)
 				{
-					if(!Utf.isValid(stack[idx].mChar))
+					if(!Utf_isValid(stack[idx].mChar))
 						throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (\\U{:x8})", cast(uint)stack[idx].mChar);
 
 					len += charLen(stack[idx].mChar);
@@ -2433,7 +2437,7 @@ uword charLen(dchar c)
 	inbuf[0] = c;
 	char[4] outbuf = void;
 	uint ate = 0;
-	return Utf.toString(inbuf, outbuf, &ate).length;
+	return Utf_toString(inbuf, outbuf, &ate).length;
 }
 
 word pushNamespaceNamestring(CrocThread* t, CrocNamespace* ns)
