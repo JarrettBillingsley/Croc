@@ -318,7 +318,7 @@ package:
 		type = Type.Array;
 		mArray = src;
 	}
-	
+
 	void opAssign(CrocMemblock* src)
 	{
 		type = Type.Memblock;
@@ -489,6 +489,7 @@ package:
 	{
 		CrocValue value;
 		bool modified;
+		int opEquals(Slot other) { return value == other.value; }
 	}
 
 	Slot[] data;
