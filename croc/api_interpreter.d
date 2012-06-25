@@ -629,6 +629,42 @@ word newMemblock(CrocThread* t, uword len)
 }
 
 /**
+Creates a new memblock object whose data is a copy of a native array. The resulting memblock will
+own its data and the original array will not be referenced in any way.
+
+Params:
+	arr = The source data array.
+	
+Returns:
+	The stack index of the newly-created memblock.
+*/
+word memblockFromNativeArray(CrocThread* t, void[] arr)
+{
+	auto ret = newMemblock(t, arr.length);
+	auto data = cast(void[])getMemblock(t, ret).data;
+	data[] = arr[];
+	return ret;
+}
+
+/**
+Creates a new memblock object whose data is a view into a native array.
+
+This means that $(B the memblock will point into the native heap.) As a result, it is the responsibility
+of the host program to ensure that this data is valid for the lifetime of the memblock. If it becomes
+invalid, script code can crash the host. The resulting memblock will $(B not) own its data.
+
+Params:
+	arr = The array to create a view of.
+
+Returns:
+	The stack index of the newly-created memblock.
+*/
+word memblockViewNativeArray(CrocThread* t, void[] arr)
+{
+	return push(t, CrocValue(memblock.createView(t.vm.alloc, arr)));
+}
+
+/**
 Creates a new native closure and pushes it onto the stack.
 
 If you want to associate upvalues with the function, you should push them in order on
@@ -2015,6 +2051,33 @@ ubyte[] getMemblockData(CrocThread* t, word slot)
 	}
 
 	return m.data;
+}
+
+/**
+Similar to memblockViewNativeArray, except it changes an existing memblock's data array instead of creating
+a new memblock object. The memblock's data will become a view into a native array.
+
+This means that $(B the memblock will point into the native heap.) As a result, it is the responsibility
+of the host program to ensure that this data is valid for the lifetime of the memblock. If it becomes
+invalid, script code can crash the host. The resulting memblock will $(B not) own its data. The memblock's
+previous data, if any, is freed.
+
+Params:
+	slot = The stack index of the existing memblock.
+	arr = The array to become the data of the memblock.
+*/
+void memblockReviewNativeArray(CrocThread* t, word slot, void[] arr)
+{
+	mixin(apiCheckNumParams!("1"));
+	auto m = getMemblock(t, slot);
+
+	if(m is null)
+	{
+		pushTypeString(t, slot);
+		throwStdException(t, "TypeException", __FUNCTION__ ~ " - slot must be a memblock, not a '{}'", getString(t, -1));
+	}
+
+	memblock.view(t.vm.alloc, m, arr);
 }
 
 // ================================================================================================================================================
