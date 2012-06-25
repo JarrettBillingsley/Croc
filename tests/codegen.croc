@@ -1,84 +1,12 @@
 module tests.codegen
 
-import exceptions: CompileException
-import compiler: loadString
-
-namespace Test {}
-
-function xpass(code: string, result = null)
-{
-	local func, ret
-	hash.clear(Test)
-
-	try
-		func = loadString(code, Test)
-	catch(e: CompileException)
-		throw Exception(format("Test '{}' failed to compile", code), e)
-
-	try
-		ret = func()
-	catch(e: Exception)
-		throw Exception(format("Test '{}' expected to pass but failed", code), e)
-
-	if(typeof(ret) != typeof(result) || ret != result)
-		throw Exception(format("Test '{}' expected to give results '{}' but gave '{}' instead", code, result, ret))
-}
-
-function xfail(code: string, args: array, result: class)
-{
-	local func
-	hash.clear(Test)
-
-	try
-		func = loadString(code, Test)
-	catch(e: CompileException)
-		throw Exception(format("Test '{}' failed to compile", code), e)
-
-	try
-		func(args.expand())
-	catch(e: Exception)
-	{
-		if(e as result)
-			return
-
-		throw Exception(format("Test '{}' expected to fail and did, but threw exception type '{}' instead of '{}'", code, e.super, result), e)
-	}
-
-	throw Exception(format("Test '{}' expected to fail but passed"))
-}
-
-function xcomppass(code: string)
-{
-	try
-		loadString(code)
-	catch(e: CompileException)
-		throw Exception(format("Test '{}' expected to pass compilation but failed", code), e)
-	catch(e: Exception)
-		throw Exception(format("Test '{}' expected to pass compilation but caused an error", e))
-}
-
-function xcompfail(code: string, somethingLike: string)
-{
-	try
-		loadString(code)
-	catch(e: CompileException)
-	{
-		if(somethingLike in e.msg)
-			return
-		else
-			throw Exception(format("Test '{}' failed compilation, but instead of an error like '{}', it gave '{}'", code, somethingLike, e.msg), e)
-	}
-	catch(e: Exception)
-		throw Exception(format("Test '{}' expected to fail compilation but caused another error", e))
-
-	throw Exception(format("Test '{}' expected to fail compilation but passed"))
-}
+import tests.harness: xpass, xfail, xcomppass, xcompfail
 
 function main()
 {
 	xpass("function foo(x: @isString) {} foo(@`hi`)")
 	xpass("local t = {f = isString}; function foo(x: @t.f) {} foo(@`hi`)")
-	xpass("@attrs({}) @attrs({}) function foo() {} foo(); attributesOf(foo)")
+	xpass("function id(x) = x @id @id function foo() {} foo();")
 	xpass("local function foo() {} foo()")
 	xpass("local class C {} C()")
 	xcompfail("@foo.bar(with 5) function blah(){}", "'with' is disallowed")
@@ -86,8 +14,8 @@ function main()
 	xpass("local C = class C{}; C()")
 	xpass("local N = namespace N{x = 5}; N.x = 10")
 	xpass("local namespace N {x = 5} local namespace M : N {x = 4} M.x = 10")
-	xpass("@attrs({}) class C{} C(); attributesOf(C)")
-	xpass("@attrs({}) namespace N{x = 5} N.x = 10; attributesOf(N)")
+	xpass("function id(x) = x @id class C{} C()")
+	xpass("function id(x) = x @id namespace N{x = 5} N.x = 10")
 	xcompfail("local x, x", "conflicts with previous definition")
 	xpass("global x; x = 5")
 	xpass("local x = 5; if(local y = x) return y; return 0", 5)
@@ -132,7 +60,7 @@ function main()
 	xpass("local x = 1; return -x", -1);
 	xpass("local x = 1; return !x", false);
 	xpass("local x = 1; return ~x", 0xFFFFFFFF_FFFFFFFE);
-	xpass("function foo() { return 5; } local coro = coroutine foo; return coro()", 5)
+	xpass("function foo() { return 5; } local coro = thread.new(foo); return coro()", 5)
 	xpass("return #vararg", 0)
 	xcompfail("function foo() = #vararg", "cannot be used in a non")
 	xpass("class B { function f() = 5 } class C : B { function f() = super.f() } return C().f()", 5)
@@ -146,7 +74,7 @@ function main()
 	xpass("function foo(vararg) return (vararg); return foo(3)", 3)
 	xcompfail("function foo() return (vararg)", "cannot be used in a non")
 	xpass("function foo() return 1, 2, 3; return [foo()]", [1 2 3])
-	xpass("function foo() { yield(); yield(1, 2, 3) } local c = coroutine foo; c(); return [c()]", [1 2 3])
+	xpass("function foo() { yield(); yield(1, 2, 3) } local c = thread.new(foo); c(); return [c()]", [1 2 3])
 	xpass("local t = {[i] = v foreach i, v; @`abc`}; return hash.keys(t).sort() ~ hash.values(t).sort()", [0 1 2 'a' 'b' 'c'])
 	xpass("local a = [c foreach c; @`abc`]; return a", ['a' 'b' 'c'])
 	xpass("local a = [c for c: 0 .. 3]; return a", [0 1 2])

@@ -1,0 +1,102 @@
+module tests.harness
+
+import exceptions: CompileException
+import compiler: loadString
+
+namespace Test {}
+
+function xpassfn(func: function, result = null)
+{
+	try
+		ret = func()
+	catch(e: Exception)
+		throw Exception("Test expected to pass but failed", e)
+
+	if(typeof(ret) != typeof(result) || ret != result)
+		throw Exception(format("Test expected to give results '{}' but gave '{}' instead", result, ret))
+}
+
+function xfailfn(func: function, result: class)
+{
+	try
+		func()
+	catch(e: Exception)
+	{
+		if(e as result)
+			return
+
+		throw Exception(format("Test expected to fail and did, but threw exception type '{}' instead of '{}'", e.super, result), e)
+	}
+
+	throw Exception("Test expected to fail but passed")
+}
+
+
+function xpass(code: string, result = null)
+{
+	local func, ret
+	hash.clear(Test)
+
+	try
+		func = loadString(code, Test)
+	catch(e: CompileException)
+		throw Exception(format("Test '{}' failed to compile", code), e)
+
+	try
+		ret = func()
+	catch(e: Exception)
+		throw Exception(format("Test '{}' expected to pass but failed", code), e)
+
+	if(typeof(ret) != typeof(result) || ret != result)
+		throw Exception(format("Test '{}' expected to give results '{}' but gave '{}' instead", code, result, ret))
+}
+
+function xfail(code: string, args: array, result: class)
+{
+	local func
+	hash.clear(Test)
+
+	try
+		func = loadString(code, Test)
+	catch(e: CompileException)
+		throw Exception(format("Test '{}' failed to compile", code), e)
+
+	try
+		func(args.expand())
+	catch(e: Exception)
+	{
+		if(e as result)
+			return
+
+		throw Exception(format("Test '{}' expected to fail and did, but threw exception type '{}' instead of '{}'", code, e.super, result), e)
+	}
+
+	throw Exception(format("Test '{}' expected to fail but passed", code))
+}
+
+function xcomppass(code: string)
+{
+	try
+		loadString(code)
+	catch(e: CompileException)
+		throw Exception(format("Test '{}' expected to pass compilation but failed", code), e)
+	catch(e: Exception)
+		throw Exception(format("Test '{}' expected to pass compilation but caused an error", e))
+}
+
+function xcompfail(code: string, somethingLike: string)
+{
+	try
+		loadString(code)
+	catch(e: CompileException)
+	{
+		if(somethingLike in e.msg)
+			return
+		else
+			throw Exception(format("Test '{}' failed compilation, but instead of an error like '{}', it gave '{}'", code, somethingLike, e.msg), e)
+	}
+	catch(e: Exception)
+		throw Exception(format("Test '{}' expected to fail compilation but caused another error", e))
+
+	throw Exception(format("Test '{}' expected to fail compilation but passed"))
+}
