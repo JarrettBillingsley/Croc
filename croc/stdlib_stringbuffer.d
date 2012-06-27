@@ -964,13 +964,19 @@ uword _opDeserialize(CrocThread* t)
 	dup(t, 2);
 	pushNull(t);
 	rawCall(t, -2, 1);
-	assert(isInt(t, -1));
+	
+	if(!isInt(t, -1))
+		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'int' but found '{}' instead", type(t, -1));
+
 	setExtraVal(t, 0, Length);
 
 	dup(t, 2);
 	pushNull(t);
 	rawCall(t, -2, 1);
-	assert(isMemblock(t, -1));
+
+	if(!isMemblock(t, -1))
+		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'memblock' but found '{}' instead", type(t, -1));
+
 	setExtraVal(t, 0, Data);
 
 	return 0;

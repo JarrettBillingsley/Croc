@@ -30,7 +30,7 @@ import tango.stdc.string;
 import croc.base_alloc;
 import croc.types;
 
- struct memblock
+struct memblock
 {
 static:
 	// ================================================================================================================================================
