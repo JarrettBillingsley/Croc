@@ -1991,7 +1991,7 @@ version(CrocBuiltinDocs)
 		Note that which memblock a \tt{Vector} uses to store its data cannot be changed, but you can change the data and size of
 		the memblock returned from this method. As explained in the class's documentation, though, setting the underlying
 		memblock's length to something that is not an even multiple of the \tt{Vector}'s item size will result in an exception
-		being thrown the next time a method is called on the \tt{Vector}.`
+		being thrown the next time a method is called on the \tt{Vector}.`,
 		params: []},
 		
 		{kind: "function", name: "dup", docs:
