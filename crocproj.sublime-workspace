@@ -1,0 +1,507 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"smoo",
+				"smooth"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "samples/simple.croc",
+			"settings":
+			{
+				"buffer_size": 25767,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Croc.json-tmlanguage",
+			"settings":
+			{
+				"buffer_size": 2293,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "crocgrammar.txt",
+			"settings":
+			{
+				"buffer_size": 10133,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "croctest.d",
+			"settings":
+			{
+				"buffer_size": 2395,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "croc/interpreter.d",
+			"settings":
+			{
+				"buffer_size": 98201,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "croc/stdlib_vector.d",
+			"settings":
+			{
+				"buffer_size": 60453,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "Packages/AAAPackageDev/Support/JSON to Property List.sublime-build",
+	"command_palette":
+	{
+		"height": 104.0,
+		"selected_items":
+		[
+			[
+				"insta",
+				"Package Control: Install Package"
+			],
+			[
+				"disc",
+				"Package Control: Discover Packages"
+			],
+			[
+				"disco",
+				"Package Control: Discover Packages"
+			],
+			[
+				"open",
+				"View: Toggle Open Files in Side Bar"
+			],
+			[
+				"line en un",
+				"Line Ending: Unix"
+			],
+			[
+				"brow",
+				"Preferences: Browse Packages"
+			],
+			[
+				"ope",
+				"View: Toggle Open Files in Side Bar"
+			],
+			[
+				"pack disco",
+				"Package Control: Discover Packages"
+			],
+			[
+				"packe remo",
+				"Package Control: Remove Package"
+			]
+		],
+		"width": 432.0
+	},
+	"console":
+	{
+		"height": 125.0
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/C/Users/jarrett/proj/croc/crocproj.sublime-workspace",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/D1.json-tmlanguage",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Mine.tmTheme",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/D/D.tmLanguage",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Default/Preferences.sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Preferences.sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Default/Default (Windows).sublime-keymap",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/D/D.sublime-build",
+		"/C/Users/jarrett/proj/croc/croc/api_interpreter.d",
+		"/C/Users/jarrett/proj/croc/croc/interpreter.d",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Default (Windows).sublime-keymap",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Distraction Free.sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/D1.sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Comments.tmPreferences",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Java/JavaDoc.tmLanguage",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/D.tmLanguage",
+		"/C/Users/jarrett/proj/croc/croc/types_memblock.d",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/BracketHighlighter.sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/BracketHighlighter/BracketHighlighter.sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/__Sublime Text 2/Packages/Default/Preferences.sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/.techniclauncher/technicssp/config/NEI.cfg",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/BracketHighlighter/readme.md",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/BracketHighlighter/Default (Windows).sublime-keymap",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/BracketHighlighter/BracketHighlighter.py",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/BracketHighlighter/example.png",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/BracketHighlighter/package-metadata.json",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Default/Preferences (Windows).sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Default/Default (Windows).sublime-mousemap",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Default/send2trash/plat_win.py",
+		"/C/Users/jarrett/proj/croc/croc/types.d",
+		"/C/Users/jarrett/proj/croc/croc/addons/devil.d",
+		"/C/Users/jarrett/proj/croc/croc/addons/gl.d",
+		"/C/Users/jarrett/proj/croc/croc/api_stack.d",
+		"/C/Users/jarrett/proj/croc/croc/base_gc.d",
+		"/C/Users/jarrett/proj/croc/croc/serialization.d",
+		"/C/Users/jarrett/proj/croc/croc/stdlib_stream.d",
+		"/C/Users/jarrett/proj/croc/croc/stdlib_stringbuffer.d",
+		"/C/Users/jarrett/proj/croc/croc/stdlib_text.d",
+		"/C/Users/jarrett/proj/croc/croc/stdlib_vector.d",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Color Scheme - Default/Twilight.tmTheme",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Color Scheme - Default/Solarized (Light).tmTheme",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Lua/for-i-v-in-ipairs().sublime-snippet",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Color Scheme - Default/Amy.tmTheme",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Color Scheme - Default/Amy.tmTheme.cache",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/JSON.sublime-settings"
+	],
+	"find":
+	{
+		"height": 34.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+			"C:\\Users\\jarrett\\proj\\croc\\croc"
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			" | ",
+			".d1",
+			"f8",
+			"method",
+			"CrocDoc",
+			"_toString",
+			"meta.defini",
+			"gutter",
+			"op.add",
+			"Op.A",
+			"keyword",
+			"character",
+			"strings",
+			"#strings",
+			"string.",
+			"'",
+			"comment",
+			"end",
+			"unix",
+			"windows",
+			"constant.numeri",
+			"constant.",
+			" ",
+			"constant",
+			"tab",
+			"comment",
+			"documen",
+			"comment",
+			"select",
+			"invisi",
+			"whitespa",
+			"comment",
+			"#comments",
+			"comment.block.nest",
+			"reposit",
+			"reposito",
+			"reposit",
+			"all-types",
+			"repository",
+			"all-types",
+			"#\\w",
+			"include",
+			"import",
+			"else",
+			"keyword",
+			"#FF00FF",
+			"null",
+			"true",
+			"constant",
+			"constant.",
+			"constant",
+			"constant.",
+			"entity.name",
+			"highligh",
+			"line",
+			">\n",
+			"drag",
+			"recipe",
+			"lock",
+			"CrocMemblock",
+			"i64",
+			"break;\n		case",
+			"mb",
+			"smart",
+			"name",
+			"background"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+			"|",
+			".croc",
+			"",
+			","
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 1,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "samples/simple.croc",
+					"settings":
+					{
+						"buffer_size": 25767,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								121,
+								121
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Croc.json-tmlanguage",
+					"settings":
+					{
+						"buffer_size": 2293,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								273,
+								273
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/AAAPackageDev/Support/Sublime JSON Syntax Definition.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "crocgrammar.txt",
+					"settings":
+					{
+						"buffer_size": 10133,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1438,
+								1438
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 715.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "croctest.d",
+					"settings":
+					{
+						"buffer_size": 2395,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/User/D1.tmlanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "croc/interpreter.d",
+					"settings":
+					{
+						"buffer_size": 98201,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								89770,
+								89770
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/User/D1.tmlanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 44856.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "croc/stdlib_vector.d",
+					"settings":
+					{
+						"buffer_size": 60453,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								990,
+								990
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/User/D1.tmlanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 34.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.aaa_package_dev":
+	{
+		"height": 88.0
+	},
+	"output.exec":
+	{
+		"height": 88.0
+	},
+	"replace":
+	{
+		"height": 62.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 500.0,
+		"selected_items":
+		[
+		],
+		"width": 380.0
+	},
+	"show_minimap": true,
+	"show_open_files": true,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 231.0,
+	"status_bar_visible": true
+}

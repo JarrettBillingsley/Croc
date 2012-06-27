@@ -88,7 +88,7 @@ version(CrocBuiltinDocs) void docBaseLib(CrocThread* t)
 
 	docGlobals(t, doc, _docTables);
 
-// 	docVector(t, doc);
+	docVector(t, doc);
 
 	pushGlobal(t, "_G");
 	doc.pop(-1);

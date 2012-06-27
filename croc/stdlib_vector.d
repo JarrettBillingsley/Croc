@@ -23,7 +23,7 @@ subject to the following restrictions:
 
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
-
+	
 module croc.stdlib_vector;
 
 import tango.math.Math;
@@ -53,6 +53,7 @@ void initVector(CrocThread* t)
 		c.allocator("allocator", &BasicClassAllocator!(NumFields, Members));
 
 		c.method("constructor",    3, &_constructor);
+		c.method("fromArray",      2, &_fromArray);
 		c.method("range",          4, &_range);
 
 		c.method("type",           1, &_type);
@@ -124,11 +125,11 @@ void initVector(CrocThread* t)
 
 version(CrocBuiltinDocs) void docVector(CrocThread* t, CrocDoc doc)
 {
-// 	pushGlobal(t, "Vector");
-// 		doc.push(_classDocs);
-// 		docFields(t, doc, _methodDocs);
-// 		doc.pop(-1);
-// 	pop(t);
+	pushGlobal(t, "Vector");
+		doc.push(_classDocs);
+		docFields(t, doc, _methodDocs);
+		doc.pop(-1);
+	pop(t);
 }
 
 // ================================================================================================================================================
@@ -313,67 +314,72 @@ void memblockReviewDArray(_T)(CrocThread* t, word slot, _T[] arr)
 	memblock.view(t.vm.alloc, m, ts, cast(void[])arr);
 } */
 
+TypeStruct* _typeCodeToKind(char[] typeCode)
+{
+	switch(typeCode)
+	{
+		case "i8" : return &_typeStructs[TypeCode.i8];
+		case "i16": return &_typeStructs[TypeCode.i16];
+		case "i32": return &_typeStructs[TypeCode.i32];
+		case "i64": return &_typeStructs[TypeCode.i64];
+		case "u8" : return &_typeStructs[TypeCode.u8];
+		case "u16": return &_typeStructs[TypeCode.u16];
+		case "u32": return &_typeStructs[TypeCode.u32];
+		case "u64": return &_typeStructs[TypeCode.u64];
+		case "f32": return &_typeStructs[TypeCode.f32];
+		case "f64": return &_typeStructs[TypeCode.f64];
+		default:    return null;
+	}
+}
+
 uword _constructor(CrocThread* t)
 {
 	auto self = checkInstParam!(Members)(t, 0, "Vector");
-	auto typeCode = checkStringParam(t, 1);
+	
+	if(self.m !is null)
+		throwStdException(t, "ValueException", "Attempting to call the constructor on an already-initialized Vector");
 
-	switch(typeCode)
-	{
-		case "i8" : self.kind = &_typeStructs[TypeCode.i8];  break;
-		case "i16": self.kind = &_typeStructs[TypeCode.i16]; break;
-		case "i32": self.kind = &_typeStructs[TypeCode.i32]; break;
-		case "i64": self.kind = &_typeStructs[TypeCode.i64]; break;
-		case "u8" : self.kind = &_typeStructs[TypeCode.u8];  break;
-		case "u16": self.kind = &_typeStructs[TypeCode.u16]; break;
-		case "u32": self.kind = &_typeStructs[TypeCode.u32]; break;
-		case "u64": self.kind = &_typeStructs[TypeCode.u64]; break;
-		case "f32": self.kind = &_typeStructs[TypeCode.f32]; break;
-		case "f64": self.kind = &_typeStructs[TypeCode.f64]; break;
+	self.kind = _typeCodeToKind(checkStringParam(t, 1));
 
-		default:
-			throwStdException(t, "ValueException", "Invalid type code '{}'", typeCode);
-	}
+	if(self.kind is null)
+		throwStdException(t, "ValueException", "Invalid type code '{}'", getString(t, 1));
 
-	word fillerSlot = 0;
+	auto size = checkIntParam(t, 2);
 
-	if(!isValidIndex(t, 2))
-		newMemblock(t, 0);
-	else if(isInt(t, 2))
-	{
-		if(isValidIndex(t, 3))
-			fillerSlot = 3;
+	if(size < 0 || size > uword.max)
+		throwStdException(t, "RangeException", "Invalid size ({})", size);
 
-		auto size = getInt(t, 2);
-
-		if(size < 0 || size > uword.max)
-			throwStdException(t, "RangeException", "Invalid size ({})", size);
-
-		newMemblock(t, cast(uword)size * self.kind.itemSize);
-	}
-	else if(isArray(t, 2))
-	{
-		newMemblock(t, cast(uword)len(t, 2) * self.kind.itemSize);
-		fillerSlot = 2;
-	}
-	else
-		paramTypeError(t, 2, "int|array");
-
+	newMemblock(t, cast(uword)size * self.kind.itemSize);
 	self.m = getMemblock(t, -1);
-	pop(t);
+	setExtraVal(t, 0, Data);
 
-	if(fillerSlot > 0)
+	if(isValidIndex(t, 3))
 	{
 		dup(t, 0);
 		pushNull(t);
-		dup(t, fillerSlot);
+		dup(t, 3);
 		methodCall(t, -3, "fill", 0);
 	}
 
 	return 0;
 }
 
-void rangeImpl(alias check, T)(CrocThread* t, char[] type)
+uword _fromArray(CrocThread* t)
+{
+	checkStringParam(t, 1);
+	checkParam(t, 2, CrocValue.Type.Array);
+
+	pushGlobal(t, "Vector");
+	pushNull(t);
+	dup(t, 1);
+	pushInt(t, len(t, 2));
+	dup(t, 2);
+	rawCall(t, -5, 1);
+
+	return 1;
+}
+
+void _rangeImpl(alias check, T)(CrocThread* t, char[] type)
 {
 	auto numParams = stackSize(t) - 1;
 	T v1 = check(t, 2);
@@ -410,7 +416,7 @@ void rangeImpl(alias check, T)(CrocThread* t, char[] type)
 	pushString(t, type);
 	pushInt(t, size);
 	rawCall(t, -4, 1);
-	
+
 	auto m = _getMembers(t, -1);
 	auto val = v1;
 
@@ -432,9 +438,10 @@ uword _range(CrocThread* t)
 
 	switch(type)
 	{
-		case "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64": rangeImpl!(checkIntParam, crocint)(t, type); break;
-		case "f32", "f64":                                         rangeImpl!(checkNumParam, crocfloat)(t, type); break;
-		default:                                                   throwStdException(t, "ValueException", "Invalid type code '{}'", type);
+		case "i8", "i16", "i32", "i64":
+		case "u8", "u16", "u32", "u64": _rangeImpl!(checkIntParam, crocint)(t, type); break;
+		case "f32", "f64":              _rangeImpl!(checkNumParam, crocfloat)(t, type); break;
+		default:                        throwStdException(t, "ValueException", "Invalid type code '{}'", type);
 	}
 
 	return 1;
@@ -453,26 +460,11 @@ uword _type(CrocThread* t)
 	}
 	else
 	{
-		auto typeCode = checkStringParam(t, 1);
-		TypeStruct* ts = void;
+		auto ts = _typeCodeToKind(checkStringParam(t, 1));
 
-		switch(typeCode)
-		{
-			case "i8" : ts = &_typeStructs[TypeCode.i8];  break;
-			case "i16": ts = &_typeStructs[TypeCode.i16]; break;
-			case "i32": ts = &_typeStructs[TypeCode.i32]; break;
-			case "i64": ts = &_typeStructs[TypeCode.i64]; break;
-			case "u8" : ts = &_typeStructs[TypeCode.u8];  break;
-			case "u16": ts = &_typeStructs[TypeCode.u16]; break;
-			case "u32": ts = &_typeStructs[TypeCode.u32]; break;
-			case "u64": ts = &_typeStructs[TypeCode.u64]; break;
-			case "f32": ts = &_typeStructs[TypeCode.f32]; break;
-			case "f64": ts = &_typeStructs[TypeCode.f64]; break;
+		if(ts is null)
+			throwStdException(t, "ValueException", "Invalid type code '{}'", getString(t, 1));
 
-			default:
-				throwStdException(t, "ValueException", "Invalid type code '{}'", typeCode);
-		}
-		
 		if(m.kind is ts)
 			return 0;
 
@@ -1422,22 +1414,10 @@ uword _opDeserialize(CrocThread* t)
 	if(!isString(t, -1))
 		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'string' but found '{}' instead", type(t, -1));
 
-	switch(getString(t, -1))
-	{
-		case "i8" : m.kind = &_typeStructs[TypeCode.i8];  break;
-		case "i16": m.kind = &_typeStructs[TypeCode.i16]; break;
-		case "i32": m.kind = &_typeStructs[TypeCode.i32]; break;
-		case "i64": m.kind = &_typeStructs[TypeCode.i64]; break;
-		case "u8" : m.kind = &_typeStructs[TypeCode.u8];  break;
-		case "u16": m.kind = &_typeStructs[TypeCode.u16]; break;
-		case "u32": m.kind = &_typeStructs[TypeCode.u32]; break;
-		case "u64": m.kind = &_typeStructs[TypeCode.u64]; break;
-		case "f32": m.kind = &_typeStructs[TypeCode.f32]; break;
-		case "f64": m.kind = &_typeStructs[TypeCode.f64]; break;
+	m.kind = _typeCodeToKind(getString(t, -1));
 
-		default:
-			throwStdException(t, "ValueException", "Invalid data encountered when deserializing - Invalid type code '{}'", getString(t, -1));
-	}
+	if(m.kind is null)
+		throwStdException(t, "ValueException", "Invalid data encountered when deserializing - Invalid type code '{}'", getString(t, -1));
 
 	pop(t);
 
@@ -1866,170 +1846,160 @@ mixin(rev_func("Mod", "%"));
 version(CrocBuiltinDocs)
 {
 	const Docs _classDocs =
-	{kind: "class", name: "StringBuffer", docs:
-	`Croc's strings are immutable. While this makes dealing with strings much easier in most cases, it also
-	introduces inefficiency for some operations, such as building up strings piecewise or performing text modification
-	on large string data. \tt{StringBuffer} is a mutable string class that makes these sorts of things possible.
-	\tt{StringBuffer} is optimized for building up strings dynamically, and will overallocate space when the buffer
-	size is increased. It can also preallocate space so that operations on the buffer will not allocate memory. This
-	is particularly useful in situations where memory allocations or GC cycles need to be kept to a minimum.`,
+	{kind: "class", name: "Vector", docs:
+	`Croc's built-in array type is fine for most tasks, but they're not very well-suited to high-speed number crunching.
+	Memblocks give you a low-level memory buffer, but don't provide any data structuring. \tt{Vectors} solve both these
+	problems: they are dynamically-resizable strongly-typed single-dimensional arrays of numerical values built on top of
+	memblocks.
+
+	There are ten possible types a \tt{Vector} can hold. Each type has an associated "type code", which is just a string.
+	The types and their type codes are as follows:
+
+	\table
+		\row \cell \b{Type Code} \cell \b{Definition}
+		\row \cell \tt{i8}       \cell Signed 8-bit integer
+		\row \cell \tt{i16}      \cell Signed 16-bit integer
+		\row \cell \tt{i32}      \cell Signed 32-bit integer
+		\row \cell \tt{i64}      \cell Signed 64-bit integer
+		\row \cell \tt{u8}       \cell Unsigned 8-bit integer
+		\row \cell \tt{u16}      \cell Unsigned 16-bit integer
+		\row \cell \tt{u32}      \cell Unsigned 32-bit integer
+		\row \cell \tt{u64}      \cell Unsigned 64-bit integer
+		\row \cell \tt{f32}      \cell Single-precision IEEE 754 float
+		\row \cell \tt{f64}      \cell Double-precision IEEE 754 float
+	\endtable
+
+	These type codes are case-sensitive, so for example, passing \tt{"u8"} to the constructor is legal, whereas \tt{"U8"}
+	is not.
+
+	A note on the \tt{"u64"} type: Croc's int type is a signed 64-bit integer, which does not have the range to represent
+	all possible values that an unsigned 64-bit integer can. So when dealing with \tt{"u64" Vectors}, values larger than
+	2\sup{63} - 1 will be represented as negative Croc integers. However, internally, all the operations on these \tt{Vectors}
+	will be performed according to unsigned integer rules. The \tt{toString} method is also aware of this and will print
+	the values correctly, and if you'd like to print out unsigned 64-bit integers yourself, you can use \tt{toString(val, 'u')}
+	from the base library.
+
+	A note on all types: for performance reasons, \tt{Vectors} do not check the ranges of the values that are stored in them.
+	For instance, if you assign an integer into a \tt{"u8" Vector}, only the lowest 8 bits will be stored. Storing \tt{floats}
+	into \tt{"f32" Vectors} will similarly round the value to the nearest representable value.
+	
+	Finally, the underlying memblock can be retrieved and manipulated directly; however, changing its size must be done carefully.
+	If the size is set to a byte length that is not an even multiple of the item size of the \tt{Vector}, an exception will be
+	thrown the next time a method is called on the \tt{Vector} that uses that memblock.
+
+	All methods, unless otherwise documented, return the \tt{Vector} object on which they were called.`,
 	extra: [Extra("protection", "global")]};
 
 	const Docs[] _methodDocs =
 	[
 		{kind: "function", name: "constructor", docs:
-		`If you pass nothing to the constructor, the \tt{StringBuffer} will be empty. If you pass a string, the \tt{StringBuffer}
-		will be filled with that string's data. If you pass an integer, it means how much space, in characters, should be
-		preallocated in the buffer. However, the length of the \tt{StringBuffer} will still be 0; it's just that no memory will
-		have to be allocated until you put at least \tt{init} characters into it.
+		`Constructor.
 
-		\throws[exceptions.RangeException] if \tt{init} is a negative integer or is an integer so large that the memory cannot
-		be allocated.`,
-		params: [Param("init", "string|int", "null")]},
+		\param[type] is a string containing one of the type codes listed above.
+		\param[size] is the length of the new \tt{Vector}, measured in the number of elements.
+		\param[filler] is optional. If it is not given, the \tt{Vector} is filled with 0s. If it is given, the instance will have
+		the \link{fill} method called on it with \tt{filler} as the argument. As such, if the \tt{filler} is invalid, any exceptions
+		that \link{fill} can throw, the constructor can throw as well.
+
+		\throws[exceptions.ValueException] if \tt{type} is not a valid type code.
+		\throws[exceptions.RangeException] if \tt{size} is invalid (negative or too large).`,
+		params: [Param("type", "string"), Param("size", "int"), Param("filler", "any", "null")]},
+
+		{kind: "function", name: "fromArray", docs:
+		`A convenience function to convert an \tt{array} into a \tt{Vector}.
+
+		Calling \tt{Vector.fromArray(type, arr)} is basically the same as calling \tt{Vector(type, #arr, arr)}; that is, the length
+		of the \tt{Vector} will be the length of the array, and the array will be passed as the \tt{filler} to the constructor.
+
+		\param[type] is a string containing one of the type codes.
+		\param[arr] is an array (single-dimensional, containing only numbers that can be converted to the \tt{Vector}'s element type)
+		that will be used to fill the \tt{Vector} with data.
+
+		\returns the new \tt{Vector}.`,
+		params: [Param("type", "string"), Param("arr", "array")]},
+
+		{kind: "function", name: "range", docs:
+		`Creates a Vector whose values are a range of ascending or numbers, much like the \link{array.range} function.
+
+		If the \tt{type} parameter is one of the integral types, the next three parameters must be ints; otherwise, they can be
+		ints or floats.
+
+		If called with just \tt{val1}, it specifies a noninclusive end index, with a start index of 0 and a step of 1. So
+		\tt{Vector.range("i32", 5)} gives \tt{"Vector(i32)[0, 1, 2, 3, 4]"}, and \tt{Vector.range("i32", -5)} gives
+		\tt{"Vector(i32)[0, -1, -2, -3, -4]"}.
+
+		If called with \tt{val1} and \tt{val2}, \tt{val1} will be the inclusive start index, and \tt{val2} will be the noninclusive
+		end index. The step will be 1.
+
+		The \tt{step}, if specified, specifies how much each successive element should differ by. The sign is ignored, but the step
+		may not be 0.
+
+		\param[type] is a string containing one of the type codes.
+		\param[val1] is either the end index or the start index as explained above.
+		\param[val2] is the optional end index; if specified, makes \tt{val1} the start index.
+		\param[step] is the optional step size.
+
+		\returns the new \tt{Vector}.
+		\throws[exceptions.RangeException] if \tt{step} is 0.
+		\throws[exceptions.RangeException] if the resulting \tt{Vector} would have too many elements to be represented.`,
+		params: [Param("type", "string"), Param("val1", "int|float"), Param("val2", "int|float", "null"), Param("step", "int|float", "1")]},
+
+		{kind: "function", name: "type", docs:
+		`Gets or sets the type of this \tt{Vector}.
+
+		If called with no parameters, gets the type and returns it as a string.
+
+		If called with a parameter, it must be one of the type codes given above. The \tt{Vector}'s type will be set to the
+		new type, but only if the \tt{Vector}'s byte length is an multiple of the new type's item size. That is, if you had
+		a \tt{"u8" Vector} of length 7, and tried to change its type to \tt{"u16"}, it would fail because 7 is not an even
+		multiple of the size of a \tt{"u16"} element, 2 bytes.
+
+		When the type is changed, the data is not affected at all. The existing bit patterns will simply be interpreted according
+		to the new type.
+
+		\param[type] is the new type if changing this \tt{Vector}'s type, or \tt{null} if not.
+		\returns the current type of the \tt{Vector} if \tt{type} is \tt{null}, or nothing otherwise.
+		\throws[exceptions.ValueException] if \tt{type} is not a valid type code.
+		\throws[exceptions.ValueException] if the byte size is not an even multiple of the new type's item size.`,
+		params: [Param("type", "string", "null")]},
+		
+		{kind: "function", name: "itemSize", docs:
+		`Returns the size of one item of this \tt{Vector} in bytes.`,
+		params: []},
+
+		{kind: "function", name: "toArray", docs:
+		`Converts this \tt{Vector} or a slice of it into an \tt{array}.
+
+		Simply creates a new array and fills it with the values held in the \tt{Vector}, or just a slice of it if the parameters
+		are given.
+
+		\param[lo] the low slice index.
+		\param[hi] the high slice index.
+		\returns an array holding the values from the given slice.`,
+		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")]},
 
 		{kind: "function", name: "toString", docs:
-		`Converts this \tt{StringBuffer} to a string. You can optionally slice out only a part of the buffer to turn into a
-		string with the \tt{lo} and \tt{hi} parameters, which work like regular slice indices.
+		`Returns a string representation of this \tt{Vector}.
 
-		\throws[exceptions.BoundsException] if the slice boundaries are invalid.`,
-		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")]},
+		The format will be \tt{"Vector(<type>)[<elements>]"}; that is, \tt{Vector.fromArray("i32", [1, 2, 3]).toString()} will
+		yield the string \tt{"Vector(i32)[1, 2, 3]"}.`,
+		params: []},
 
-		{kind: "function", name: "opEquals", docs:
-		`Compares this \tt{StringBuffer} to a \tt{string} or other \tt{StringBuffer} for equality. Works the same as string equality.`,
-		params: [Param("other", "string|StringBuffer")]},
+		{kind: "function", name: "getMemblock", docs:
+		`Returns the underlying \tt{memblock} in which this \tt{Vector} stores its data.
 
-		{kind: "function", name: "opCmp", docs:
-		`Compares this \tt{StringBuffer} to a \tt{string} or other \tt{StringBuffer}. Works the same as string comparison.`,
-		params: [Param("other", "string|StringBuffer")]},
-
-		{kind: "function", name: "opLength", docs:
-		`Gets the length of this \tt{StringBuffer} in characters. Note that this is just the number of characters currently
-		in use; if you preallocate space either with the constructor or by setting the length longer and shorter, the true
-		size of the underlying buffer will not be reported.`},
-
-		{kind: "function", name: "opLengthAssign", docs:
-		`Sets the length of this \tt{StringBuffer}. If you increase the length, the new characters will be filled with U+0FFFF.
-		If you decrease the length, characters will be truncated. Note that when you increase the length of the buffer, memory
-		may be overallocated to avoid allocations on every size increase. When you decrease the length of the buffer, that memory
-		is not deallocated, so you can reserve memory for a \tt{StringBuffer} by setting its length to the size you need and then
-		setting it back to 0, like so:
-
-\code
-local s = StringBuffer()
-#s = 1000
-#s = 0
-// now s can hold up to 1000 characters before it will have to reallocate its memory.
-\endcode
-
-		\throws[exceptions.RangeException] if \tt{len} is negative or is so large that the memory cannot be allocated.`,
-		params: [Param("len", "int")]},
-
-		{kind: "function", name: "opIndex", docs:
-		`Gets the character at the given index.
-
-		\throws[exceptions.BoundsException] if the index is invalid.`,
-		params: [Param("idx", "int")]},
-
-		{kind: "function", name: "opIndexAssign", docs:
-		`Sets the character at the given index to the given character.
-
-		\throws[exceptions.BoundsException] if the index is invalid.`,
-		params: [Param("idx", "int"), Param("c", "char")]},
-
-		{kind: "function", name: "opCat", docs:
-		`Concatenates this \tt{StringBuffer} with another value and returns a \b{new} \tt{StringBuffer} containing the concatenation.
-		If you want to instead add data to the beginning or end of a \tt{StringBuffer}, use the \link{opCatAssign} or \link{insert} methods.
-
-		Any type can be concatenated with a \tt{StringBuffer}; if it isn't a string, character, or another \tt{StringBuffer}, it will have
-		its \tt{toString} method called on it and the result will be concatenated.`,
-		params: [Param("o")]},
-
-		{kind: "function", name: "opCat_r", docs:
-		"ditto",
-		params: [Param("o")]},
-
-		{kind: "function", name: "opCatAssign", docs:
-		`\b{Also aliased to \tt{append}.}
-
-		This is the main way to add data into a \tt{StringBuffer} when building up strings piecewise. Each parameter will have \tt{toString}
-		called on it (unless it's a \tt{StringBuffer} itself, so no \tt{toString} is necessary), and the resulting string will be
-		appended to the end of this \tt{StringBuffer}'s data.
-
-		You can either use the \tt{~=} and \tt{~} operators to use this method, or you can call the \link{append} method; both are aliased to
-		the same method and do the same thing. Thus, \tt{"s ~= a ~ b ~ c"} is functionally identical to \tt{"s.append(a, b, c)"} and
-		vice versa.
-
-		\throws[exceptions.RangeException] if the size of the buffer grows so large that the memory cannot be allocated.`,
-		params: [Param("vararg", "vararg")]},
-
-		{kind: "function", name: "opSlice", docs:
-		`Slices data out of this \tt{StringBuffer} and creates a new \tt{StringBuffer} with that slice of data. Works just like string
-		slicing.`,
-		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")]},
-
-		{kind: "function", name: "fill", docs:
-		`A pretty flexible way to fill a \tt{StringBuffer} with some data. This only modifies existing data; the buffer's length is
-		never changed.
-
-		If you pass a character, every character in the buffer will be set to that character.
-
-		If you pass a string, it must be the same length as the buffer, and the string's data is copied into the buffer.
-
-		If you pass an array, it must be the same length of the buffer and all its elements must be characters. Those characters
-		will be copied into the buffer.
-
-		If you pass a \tt{StringBuffer}, it must be the same length as the buffer and its data will be copied into this buffer.
-
-		If you pass a function, it must take an integer and return a character. It will be called on each location in the buffer,
-		and the resulting characters will be put into the buffer.`,
-		params: [Param("v", "char|string|array|function|StringBuffer")]},
-
-		{kind: "function", name: "fillRange", docs:
-		`\b{Also aliased to \tt{opSliceAssign}.}
-
-		Works just like \link{fill}, except it works on just a subrange of the buffer. The \tt{lo} and \tt{hi} params work just like slice
-		indices - low inclusive, high noninclusive, negative from the end.
-
-		You can either call this method directly, or you can use slice-assignment; they are aliased to the same method and do
-		the same thing. Thus, \tt{"s.fillRange(x, y, z)"} is functionally identical to \tt{"s[x .. y] = z"} and vice versa.`,
-		params: [Param("lo", "int", "0"), Param("hi", "int", "#this"), Param("v", "char|string|array|function|StringBuffer")]},
-
-		{kind: "function", name: "insert", docs:
-		`Inserts the string representation of \tt{val} before the character indexed by \tt{idx}. \tt{idx} can be negative, which means an
-		index from the end of the buffer. It can also be the same as the length of this \tt{StringBuffer}, in which case the behavior
-		is identical to appending.`,
-		params: [Param("idx", "int"), Param("val")]},
-
-		{kind: "function", name: "remove", docs:
-		`Removes characters from a \tt{StringBuffer}, shifting the data after them (if any) down. The indices work like slice indices.
-		The \tt{hi} index defaults to one more than the \tt{lo} index, so you can remove a single character by just passing the \tt{lo} index.`,
-		params: [Param("lo", "int"), Param("hi", "int", "lo + 1")]},
-
-		{kind: "function", name: "format", docs:
-		`Just like the \tt{format} function in the baselib, except the results are appended directly to the end of this \tt{StringBuffer}
-		without needing a string temporary.`,
-		params: [Param("fmt", "string"), Param("vararg", "vararg")]},
-
-		{kind: "function", name: "formatln", docs:
-		`Same as \tt{format}, but also appends the \tt{\\n} character after appending the formatted string.`,
-		params: [Param("fmt", "string"), Param("vararg", "vararg")]},
-
-		{kind: "function", name: "opApply", docs:
-		`Lets you iterate over \tt{StringBuffer}s with foreach loops just like strings. You can iterate in reverse, just like strings,
-		by passing the string \tt{"reverse"} as the second value in the foreach container:
-
-\code
-local sb = StringBuffer("hello")
-foreach(i, c; sb) { }
-foreach(i, c; sb, "reverse") { } // goes backwards
-\endcode
-		`,
-		params: [Param("reverse", "string", "null")]},
-
-		{kind: "function", name: "opSerialize", docs:
-		`Overloads to allow instances of \tt{StringBuffer} to be serialized by the \tt{serialization} library.`},
-
-		{kind: "function", name: "opDeserialize", docs:
-		"ditto"},
+		Note that which memblock a \tt{Vector} uses to store its data cannot be changed, but you can change the data and size of
+		the memblock returned from this method. As explained in the class's documentation, though, setting the underlying
+		memblock's length to something that is not an even multiple of the \tt{Vector}'s item size will result in an exception
+		being thrown the next time a method is called on the \tt{Vector}.`
+		params: []},
+		
+		{kind: "function", name: "dup", docs:
+		`Duplicates this \tt{Vector}.
+		
+		Creates a new \tt{Vector} with the same type and a copy of this \tt{Vector}'s data.
+		
+		\returns the new \tt{Vector}.`,
+		params: []},
 	];
 }
