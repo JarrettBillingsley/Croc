@@ -7,15 +7,15 @@ function main()
 	local t = TracWikiDocOutput()
 	t.outputItem(docsOf(Vector), "")
 
-	//registerCodec("ascii", AsciiCodec())
+	// registerCodec("ascii", AsciiCodec())
 
-	//local s = "hello there!"
-	//local asc = getCodec("ascii")
-	//local m = asc.encode(s, "replace")
-	//writeln$ m
-	//m[0] = 188
-	//local t = asc.decode(m, "replace")
-	//writeln$ t
+	// local s = "hello there!"
+	// local asc = getCodec("ascii")
+	// local m = asc.encode(s, "replace")
+	// writeln$ m
+	// m[0] = 188
+	// local t = asc.decode(m, "replace")
+	// writeln$ t
 }
 
 import exceptions: BoundsException, UnicodeException

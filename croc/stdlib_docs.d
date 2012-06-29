@@ -113,12 +113,16 @@ uword _docsOf(CrocThread* t)
 version(CrocBuiltinDocs) const Docs[] _docTables =
 [
 	// TODO: find somewhere more... sensible to put Object's docs
-	{kind: "class", name: "Object", docs:
+	{kind: "class", name: "Object", 
+	extra: [Extra("protection", "global")],
+	docs:
 	`The root of the class hierarchy, \tt{Object}, is declared at global scope. It has no methods defined right
-	now. It is the only class in Croc which has no base class (that is, "\tt{Object.super}" returns \tt{null}).`,
-	extra: [Extra("protection", "global")]},
+	now. It is the only class in Croc which has no base class (that is, "\tt{Object.super}" returns \tt{null}).`},
 
-	{kind: "function", name: "_doc_", docs:
+	{kind: "function", name: "_doc_",
+	params: [Param("obj"), Param("docTable", "table"), Param("vararg", "vararg")],
+	extra: [Extra("protection", "global")],
+	docs:
 	`This is a decorator function used to attach documentation tables to objects. The compiler can attach
 	calls to this decorator to declarations in your code automatically by extracting documentation comments
 	and information about the declarations from the code.
@@ -131,14 +135,13 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	the table itself is set as the documentation table of the object.
 
 	Once the documentation table has been set for an object, you can retrieve it with docsOf, which can then
-	be further processed and output in a human-readable form.`,
-	params: [Param("obj"), Param("docTable", "table"), Param("vararg", "vararg")],
-	extra: [Extra("protection", "global")]},
+	be further processed and output in a human-readable form.`},
 
-	{kind: "function", name: "docsOf", docs:
+	{kind: "function", name: "docsOf",
+	params: [Param("obj")],
+	extra: [Extra("protection", "global")],
+	docs:
 	`This retrieves the documentation table, if any, associated with an object. Any type is allowed, but only
 	non-string object types can have documentation tables associated with them. Strings, value types, and objects
-	for which no documentation table has been defined will return the default value: an empty table.`,
-	params: [Param("obj")],
-	extra: [Extra("protection", "global")]}
+	for which no documentation table has been defined will return the default value: an empty table.`}
 ];

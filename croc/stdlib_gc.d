@@ -167,13 +167,15 @@ version(CrocBuiltinDocs)
 {
 	const Docs[] _docTables =
 	[
-		{kind: "function", name: "gc.collect", docs:
+		{kind: "function", name: "gc.collect",
+		docs:
 		`Performs a normal garbage collection cycle. Usually you won't have to call this because the GC will be run
 		periodically on its own, but sometimes it's useful to force a cycle.
 
 		\returns the number of bytes reclaimed by the GC.`},
 
-		{kind: "function", name: "gc.collectFull", docs:
+		{kind: "function", name: "gc.collectFull",
+		docs:
 		`Performs a full garbage collection cycle. Most GC cycles are relatively quick, but there are some kinds of objects
 		which are put off for once-in-a-while processing because they would be too expensive to process every cycle. A full
 		GC cycle will process these objects. Again, normally you don't have to call this because the GC will perform a full
@@ -182,10 +184,13 @@ version(CrocBuiltinDocs)
 
 		\returns the number of bytes reclaimed by the GC.`},
 
-		{kind: "function", name: "gc.allocated", docs:
+		{kind: "function", name: "gc.allocated",
+		docs:
 		`\returns the total bytes currently allocated by this VM instance.`},
 
-		{kind: "function", name: "gc.limit", docs:
+		{kind: "function", name: "gc.limit",
+		params: [Param("type", "string"), Param("size", "int", "null")],
+		docs:
 		`Gets or sets various limits used by the garbage collector. Most have an effect on how often GC collections are run. You can set
 		these limits to better suit your program, or to enforce certain behaviors, but setting them incorrectly can cause the GC to
 		thrash, collecting way too often and hogging the CPU. Be careful.
@@ -237,10 +242,11 @@ version(CrocBuiltinDocs)
 				whose reference counts decrease to a non-zero value are candidates for cycle collection. Of course, this is only a heuristic,
 				and can have false positives, meaning non-cyclic objects (living or dead) can be scanned by the cycle collector as well.
 				Thus the cycle collector must be run to reclaim ALL dead objects.
-		\endlist`,
-		params: [Param("type", "string"), Param("size", "int", "null")]},
+		\endlist`},
 
-		{kind: "function", name: "gc.postCallback", docs:
+		{kind: "function", name: "gc.postCallback",
+		params: [Param("cb", "function")],
+		docs:
 		`The Croc GC can maintain a list of callback functions which are called whenever the GC completes a cycle. Sometimes
 		this can be a useful feature, but it's probably best not to overuse it; after all, the GC can run arbitrarily, and
 		each time it's run, these callbacks are run as well. The standard library uses a post-GC callback to clean out empty
@@ -251,12 +257,12 @@ version(CrocBuiltinDocs)
 		When the callbacks are called, everything is safe; these are not like finalizer functions in which the GC is disabled
 		and errors are fatal. By the time the callbacks are called, the GC has completed its cycle.
 
-		If you try to register one function more than once, nothing will happen; each function will only be called once per GC cycle.`,
-		params: [Param("cb", "function")]},
+		If you try to register one function more than once, nothing will happen; each function will only be called once per GC cycle.`},
 
-		{kind: "function", name: "gc.removePostCallback", docs:
+		{kind: "function", name: "gc.removePostCallback",
+		params: [Param("cb", "function")],
+		docs:
 		`Removes a post-GC callback function that was previously added with \link{gc.postCallback}. If the given function is not in the list
-		of callbacks, nothing happens.`,
-		params: [Param("cb", "function")]}
+		of callbacks, nothing happens.`}
 	];
 }

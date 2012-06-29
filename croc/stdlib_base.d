@@ -848,86 +848,101 @@ uword _dumpVal(CrocThread* t)
 
 version(CrocBuiltinDocs) const Docs[] _funcMetatableDocs =
 [
-	{kind: "function", name: "isNative", docs:
-	`\returns a bool telling if the function is implemented in native code or in Croc.`,
-	extra: [Extra("section", "Function metamethods")]},
+	{kind: "function", name: "isNative",
+	extra: [Extra("section", "Function metamethods")],
+	docs:
+	`\returns a bool telling if the function is implemented in native code or in Croc.`},
 
-	{kind: "function", name: "numParams", docs:
-	`\returns an integer telling how many \em{non-variadic} parameters the function takes.`,
-	extra: [Extra("section", "Function metamethods")]},
+	{kind: "function", name: "numParams",
+	extra: [Extra("section", "Function metamethods")],
+	docs:
+	`\returns an integer telling how many \em{non-variadic} parameters the function takes.`},
 
-	{kind: "function", name: "maxParams", docs:
+	{kind: "function", name: "maxParams",
+	extra: [Extra("section", "Function metamethods")],
+	docs:
 	`\returns an integer of how many parameters this function this may be passed without throwing an error.
 	Passing more parameters than this will guarantee that an error is thrown. Variadic functions will
-	simply return a very large number from this method.`,
-	extra: [Extra("section", "Function metamethods")]},
+	simply return a very large number from this method.`},
 
-	{kind: "function", name: "isVararg", docs:
-	`\returns a bool telling whether or not the function takes variadic parameters.`,
-	extra: [Extra("section", "Function metamethods")]},
+	{kind: "function", name: "isVararg",
+	extra: [Extra("section", "Function metamethods")],
+	docs:
+	`\returns a bool telling whether or not the function takes variadic parameters.`},
 
-	{kind: "function", name: "isCacheable", docs:
+	{kind: "function", name: "isCacheable",
+	extra: [Extra("section", "Function metamethods")],
+	docs:
 	`\returns a bool telling whether or not a function is cacheable. Cacheable functions are script functions
 	which have no upvalues, generally speaking. A cacheable function only has a single function closure object
 	allocated for it during its lifetime. Only script functions can be cacheable; native functions always
-	return false.`,
-	extra: [Extra("section", "Function metamethods")]}
+	return false.`}
 ];
 
 version(CrocBuiltinDocs) const Docs[] _docTables =
 [
-	{kind: "function", name: "weakref", docs:
+	{kind: "function", name: "weakref",
+	params: [Param("obj")],
+	extra: [Extra("section", "Weak References"), Extra("protection", "global")],
+	docs:
 	`This function is used to create weak reference objects. If the given object is a value type (null, bool, int,
 	float, or char), it simply returns them as-is. Otherwise returns a weak reference object that refers to the
 	object. For each object, there will be exactly one weak reference object that refers to it. This means that if
-	two objects are identical, their weak references will be identical and vice versa.`,
-	params: [Param("obj")],
-	extra: [Extra("section", "Weak References"), Extra("protection", "global")]},
+	two objects are identical, their weak references will be identical and vice versa.`},
 
-	{kind: "function", name: "deref", docs:
+	{kind: "function", name: "deref",
+	params: [Param("obj", "null|bool|int|float|char|weakref")],
+	extra: [Extra("section", "Weak References"), Extra("protection", "global")],
+	docs:
 	`The parameter types for this might look a bit odd, but it's because this function acts as the inverse of
 	\link{weakref}. If you pass a value type into the function, it will return it as-is. Otherwise, it will
 	dereference the weak reference and return that object. If the object that the weak reference referred to has
-	been collected, it will return \tt{null}.`,
-	params: [Param("obj", "null|bool|int|float|char|weakref")],
-	extra: [Extra("section", "Weak References"), Extra("protection", "global")]},
+	been collected, it will return \tt{null}.`},
 
-	{kind: "function", name: "findGlobal", docs:
-	`Looks for a global in the current environment with the given name. If found, returns ''the namespace that
-	contains it;'' otherwise, returns \tt{null}.`,
+	{kind: "function", name: "findGlobal",
 	params: [Param("name", "string")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
+	`Looks for a global in the current environment with the given name. If found, returns ''the namespace that
+	contains it;'' otherwise, returns \tt{null}.`},
 
-	{kind: "function", name: "isSet", docs:
+	{kind: "function", name: "isSet",
+	params: [Param("name", "string")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
 	`Similar to \link{findGlobal}, except returns a boolean value.
 
-	\returns \tt{true} if the global exists, \tt{false} otherwise.`,
-	params: [Param("name", "string")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	\returns \tt{true} if the global exists, \tt{false} otherwise.`},
 
-	{kind: "function", name: "typeof", docs:
+	{kind: "function", name: "typeof",
+	params: [Param("value")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
 	`This will get the type of the passed-in value and return it as a string. Possible return values are "null",
 	"bool", "int", "float", "char", "string", "table", "array", "function", "class", "instance", "namespace", "thread",
-	"nativeobj", "weakref", and "funcdef".`,
-	params: [Param("value")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	"nativeobj", "weakref", and "funcdef".`},
 
-	{kind: "function", name: "nameOf", docs:
-	`Returns the name of the given value as a string. This is the name that the class, function, namespace, or funcdef was
-	declared with, or an autogenerated one if it wasn't declared with a name (such as anonymous function literals).`,
+	{kind: "function", name: "nameOf",
 	params: [Param("value", "class|function|namespace|funcdef")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
+	`Returns the name of the given value as a string. This is the name that the class, function, namespace, or funcdef was
+	declared with, or an autogenerated one if it wasn't declared with a name (such as anonymous function literals).`},
 
-	{kind: "function", name: "fieldsOf", docs:
+	{kind: "function", name: "fieldsOf",
+	params: [Param("value", "class|instance")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
 	`Returns a namespace that holds the fields of the given class or instance. Each class or instance has its own
 	unique field namespace. Note, however, that since the fields are lazily created (i.e. a class or instance will
 	not have a field unless it has been assigned into it), you won't necessarily get \em{all} the fields that can be
 	accessed from the class or instance, only those which have been set in it. If you want to get all the fields,
-	use the \link{allFieldsOf} iterator function.`,
-	params: [Param("value", "class|instance")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	use the \link{allFieldsOf} iterator function.`},
 
-	{kind: "function", name: "allFieldsOf", docs:
+	{kind: "function", name: "allFieldsOf",
+	params: [Param("value", "class|instance|namespace")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
 	`Returns an iterator function that will iterate through all fields accessible from the given class, instance,
 	or namespace, traversing the base class/parent namespace links up to the root. This iterator actually gives up
 	to three indices: the first is the name of the field, the second its value, and the third the class, instance,
@@ -957,44 +972,48 @@ foreach(k, v, o; allFieldsOf(B))
 \endcode
 
 	Note in the second example that both B and its base class A have a field 'x', but only the 'x' accessible from
-	B with value 10 is printed.`,
-	params: [Param("value", "class|instance|namespace")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	B with value 10 is printed.`},
 
-	{kind: "function", name: "hasField", docs:
+	{kind: "function", name: "hasField",
+	params: [Param("value"), Param("name", "string")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
 	`Sees if \tt{value} contains the field \tt{name}. Works for tables, namespaces, classes, and instances. For any
-	other type, always returns \tt{false}. Does not take opField metamethods into account.`,
-	params: [Param("value"), Param("name", "string")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	other type, always returns \tt{false}. Does not take opField metamethods into account.`},
 
-	{kind: "function", name: "hasMethod", docs:
+	{kind: "function", name: "hasMethod",
+	params: [Param("value"), Param("name", "string")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
 	`Sees if the method named \tt{name} can be called on \tt{value}. Looks in metatables as well, for i.e. strings
-	and arrays. Works for all types. Does not take opMethod metamethods into account.`,
-	params: [Param("value"), Param("name", "string")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	and arrays. Works for all types. Does not take opMethod metamethods into account.`},
 
-	{kind: "function", name: "findField", docs:
+	{kind: "function", name: "findField",
+	params: [Param("value", "class|instance|namespace"), Param("name", "string")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
 	`Searches the given class, instance, or namespace's inheritance/parent chain for the class/instance/namespace
 	that holds the field with the given name. Returns the class/instance/namespace that holds the field, or
-	\tt{null} if the given field name was not found. Does not take opField metamethods into account.`,
-	params: [Param("value", "class|instance|namespace"), Param("name", "string")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	\tt{null} if the given field name was not found. Does not take opField metamethods into account.`},
 
-	{kind: "function", name: "rawSetField", docs:
-	`Sets a field into an instance bypassing any \b{\tt{opFieldAssign}} metamethods.`,
+	{kind: "function", name: "rawSetField",
 	params: [Param("o", "instance"), Param("name", "string"), Param("value")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
+	`Sets a field into an instance bypassing any \b{\tt{opFieldAssign}} metamethods.`},
 
-	{kind: "function", name: "rawGetField", docs:
-	`Gets a field from an instance bypassing any \b{\tt{opField}} metamethods.`,
+	{kind: "function", name: "rawGetField",
 	params: [Param("o", "instance"), Param("name", "string")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
+	`Gets a field from an instance bypassing any \b{\tt{opField}} metamethods.`},
 
-	{kind: "function", name: "isNull", docs:
-	`All these functions return \tt{true} if the passed-in value is of the given type, and \tt{false}
-	otherwise. The fastest way to test if something is \tt{null}, however, is to use "\tt{x is null}".`,
+	{kind: "function", name: "isNull",
 	params: [Param("o")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
+	`All these functions return \tt{true} if the passed-in value is of the given type, and \tt{false}
+	otherwise. The fastest way to test if something is \tt{null}, however, is to use "\tt{x is null}".`},
 
 	{kind: "function", name: "isBool",      docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 	{kind: "function", name: "isInt",       docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
@@ -1013,14 +1032,18 @@ foreach(k, v, o; allFieldsOf(B))
 	{kind: "function", name: "isWeakRef",   docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 	{kind: "function", name: "isFuncDef",   docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
-	{kind: "function", name: "Finalizable", docs:
+	{kind: "function", name: "Finalizable",
+	params: [Param("cls", "class")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
+	docs:
 	`Used as a class decorator. You can use this decorator to make script classes have finalizers. The class should
 	have a method called "finalizer". This method will be set as the class finalizer, and will be called on instances
-	of this class when they are about to be collected.`,
-	params: [Param("cls", "class")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
+	of this class when they are about to be collected.`},
 
-	{kind: "function", name: "toString", docs:
+	{kind: "function", name: "toString",
+	params: [Param("value"), Param("style", "char", "'d'")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
+	docs:
 	`This is like \link{rawToString}, but it will call any \b{\tt{toString}} metamethods defined for the value.
 	Arrays have a \b{\tt{toString}} metamethod defined for them by default, and any \b{\tt{toString}} methods defined
 	for class instances will be used.
@@ -1033,11 +1056,12 @@ foreach(k, v, o; allFieldsOf(B))
 		\li 'x': Lowercase hexadecimal.
 		\li 'X': Uppercase hexadecimal.
 		\li 'u': Unsigned base 10.
-	\endlist`,
-	params: [Param("value"), Param("style", "char", "'d'")],
-	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
+	\endlist`},
 
-	{kind: "function", name: "rawToString", docs:
+	{kind: "function", name: "rawToString",
+	params: [Param("value")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
+	docs:
 	`This returns a string representation of the given value depending on its type, as follows:
 	\blist
 		\li \b{\tt{null}}: the string \tt{"null"}.
@@ -1062,17 +1086,19 @@ foreach(k, v, o; allFieldsOf(B))
 		\li \b{\tt{weakref}}: A string formatted as \tt{"weakref 0x00000000"}, where 0x00000000 is the address of the weak
 			reference object.
 		\li \b{\tt{funcdef}}: A string formatted as \tt{"funcdef <name>(<location>)"}.
-	\endlist`,
-	params: [Param("value")],
-	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
+	\endlist`},
 
-	{kind: "function", name: "toBool", docs:
+	{kind: "function", name: "toBool",
+	params: [Param("value")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
+	docs:
 	`This returns the truth value of the given value. \tt{null}, \tt{false}, integer 0, and float 0.0 will all
-	return \tt{false}; all other values and types will return \tt{true}.`,
-	params: [Param("value")],
-	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
+	return \tt{false}; all other values and types will return \tt{true}.`},
 
-	{kind: "function", name: "toInt", docs:
+	{kind: "function", name: "toInt",
+	params: [Param("value", "bool|int|float|char|string")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
+	docs:
 	`This will convert a value into an integer. Only the following types can be converted:
 	\blist
 		\li \b{\tt{bool}}: Converts \tt{true} to 1 and \tt{false} to 0.
@@ -1082,11 +1108,12 @@ foreach(k, v, o; allFieldsOf(B))
 		\li \b{\tt{string}}: Attempts to convert the string to an integer, and assumes it's in base 10. Throws an
 			error if it fails. If you want to convert a string to an integer with a base other than 10, use the
 			string object's \b{\tt{toInt}} method.
-	\endlist`,
-	params: [Param("value", "bool|int|float|char|string")],
-	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
+	\endlist`},
 
-	{kind: "function", name: "toFloat", docs:
+	{kind: "function", name: "toFloat",
+	params: [Param("value", "bool|int|float|char|string")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
+	docs:
 	`This will convert a value into a float. Only the following types can be converted:
 	\blist
 		\li \b{\tt{bool}}: Converts \tt{true} to 1.0 and \tt{false} to 0.0.
@@ -1096,16 +1123,18 @@ foreach(k, v, o; allFieldsOf(B))
 		\li \b{\tt{string}}: Attempts to convert the string to a float. Throws an error if it fails.
 	\endlist
 
-	Other types will throw an error.`,
-	params: [Param("value", "bool|int|float|char|string")],
-	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
+	Other types will throw an error.`},
 
-	{kind: "function", name: "toChar", docs:
-	`This will convert an integer value to a single character. Only integer parameters are allowed.`,
+	{kind: "function", name: "toChar",
 	params: [Param("value", "int")],
-	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
+	docs:
+	`This will convert an integer value to a single character. Only integer parameters are allowed.`},
 
-	{kind: "function", name: "format", docs:
+	{kind: "function", name: "format",
+	params: [Param("fmt", "string"), Param("vararg", "vararg")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
+	docs:
 	`Functions much like Tango's tango.text.convert.Layout class. \tt{fmt} is a formatting string, in
 	which may be embedded formatting specifiers, which use the same '\tt{{\}}' syntax as found in Tango,
 	.Net, and ICU.
@@ -1121,11 +1150,12 @@ foreach(k, v, o; allFieldsOf(B))
 
 	Croc's \link{writef} and \link{writefln} functions (as well as their analogues in the IO library) use
 	the same internal formatting as this function, so any rules that apply here apply for those functions as
-	well.`,
-	params: [Param("fmt", "string"), Param("vararg", "vararg")],
-	extra: [Extra("section", "Conversions"), Extra("protection", "global")]},
+	well.`},
 
-	{kind: "function", name: "dumpVal", docs:
+	{kind: "function", name: "dumpVal",
+	params: [Param("value"), Param("printNewline", "bool", "true")],
+	extra: [Extra("section", "Console IO"), Extra("protection", "global")],
+	docs:
 	`Dumps an exhaustive string representation of the given value to the console. This will recurse
 	(safely, you don't need to worry about infinite recursion) into arrays and tables, as well as escape
 	non-printing characters in strings and character values. It will also print out the names of the
@@ -1133,7 +1163,5 @@ foreach(k, v, o; allFieldsOf(B))
 	\link{toString} called on them.
 
 	If the \tt{printNewline} parameter is passed \tt{false}, no newline will be printed after the dumped
-	representation. Defaults to \tt{true}.`,
-	params: [Param("value"), Param("printNewline", "bool", "true")],
-	extra: [Extra("section", "Console IO"), Extra("protection", "global")]}
+	representation. Defaults to \tt{true}.`}
 ];

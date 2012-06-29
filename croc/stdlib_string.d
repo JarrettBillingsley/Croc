@@ -603,7 +603,9 @@ version(CrocBuiltinDocs)
 {
 	const Docs[] _methodFuncDocs =
 	[
-		{kind: "function", name: "s.opApply", docs:
+		{kind: "function", name: "s.opApply",
+		params: [Param("reverse", "string", "null")],
+		docs:
 		`This function allows you to iterate over the characters of a string with a \tt{foreach} loop.
 
 \code
@@ -615,10 +617,11 @@ foreach(i, v; "hello", "reverse")
 \endcode
 
 		As this example shows, if you pass "reverse" to the \b{\tt{opApply}} function, either directly or as the second
-		part of the \tt{foreach} container, the iteration will go in reverse, starting at the end of the string.`,
-		params: [Param("reverse", "string", "null")]},
+		part of the \tt{foreach} container, the iteration will go in reverse, starting at the end of the string.`},
 
-		{kind: "function", name: "s.join", docs:
+		{kind: "function", name: "s.join",
+		params: [Param("arr", "array")],
+		docs:
 		`The inverse of the \link{split} method. This joins together the elements of \tt{arr} using \tt{s} as the separator. The
 		elements of \tt{arr} must all be characters or strings. If \tt{s} is the empty string, this just concatenates all the
 		elements of \tt{arr} together. If \tt{#arr} is 0, returns the empty string. If \tt{#arr} is 1, returns \tt{arr[0]} as a
@@ -626,36 +629,41 @@ foreach(i, v; "hello", "reverse")
 		separator \tt{s} between each pair of arguments. So "\tt{".".join(["apple", "banana", "orange"])}" will yield
 		the string \tt{"apple.banana.orange"}.
 
-		\throws[exceptions.TypeException] if any element of \tt{arr} is not a string or character.`,
-		params: [Param("arr", "array")]},
+		\throws[exceptions.TypeException] if any element of \tt{arr} is not a string or character.`},
 
-		{kind: "function", name: "s.vjoin", docs:
+		{kind: "function", name: "s.vjoin",
+		params: [Param("vararg", "vararg")],
+		docs:
 		`Similar to \link{join}, but joins its list of variadic parameters instead of an array. The functionality is otherwise
 		identical. So "\tt{".".join("apple", "banana", "orange")}" will yield the string \tt{"apple.banana.orange"}.
 
-		\throws[exceptions.TypeException] if any of the varargs is not a string or character.`,
-		params: [Param("vararg", "vararg")]},
+		\throws[exceptions.TypeException] if any of the varargs is not a string or character.`},
 
-		{kind: "function", name: "s.toInt", docs:
+		{kind: "function", name: "s.toInt",
+		params: [Param("base", "int", "10")],
+		docs:
 		`Converts the string into an integer. The optional \tt{base} parameter defaults to 10, but you can use any base between
 		2 and 36 inclusive.
 
-		\throws[exceptions.ValueException] if the string does not follow the format of an integer.`,
-		params: [Param("base", "int", "10")]},
+		\throws[exceptions.ValueException] if the string does not follow the format of an integer.`},
 
-		{kind: "function", name: "s.toFloat", docs:
+		{kind: "function", name: "s.toFloat",
+		docs:
 		`Converts the string into a float.
 
 		\throws[exceptions.ValueException] if the string does not follow the format of a float.`},
 
-		{kind: "function", name: "s.compare", docs:
+		{kind: "function", name: "s.compare",
+		params: [Param("other", "string")],
+		docs:
 		`Compares the string to the string \tt{other}, and returns an integer. If \tt{s} is less than (alphabetically) \tt{other},
 		the return is negative; if they are the same, the return is 0; and otherwise, the return is positive. This does not perform
 		language-sensitive collation; this is a pure codepoint comparison. Note that the exact same functionality can be
-		achieved by using the \tt{<=>} operator on two strings.`,
-		params: [Param("other", "string")]},
+		achieved by using the \tt{<=>} operator on two strings.`},
 
-		{kind: "function", name: "s.find", docs:
+		{kind: "function", name: "s.find",
+		params: [Param("sub", "string|char"), Param("start", "int", "0")],
+		docs:
 		`Searches for an occurence of \tt{sub} in \tt{s}. \tt{sub} can be either a string or a single character. The search starts
 		from \tt{start} (which defaults to the first character) and goes right. If \tt{sub} is found, this function returns the integer
 		index of the occurrence in the string, with 0 meaning the first character. Otherwise, if \tt{sub} cannot be found, \tt{#s}
@@ -664,10 +672,11 @@ foreach(i, v; "hello", "reverse")
 		If \tt{start < 0} it is treated as an index from the end of the string. If \tt{start >= #s} then this function simply returns
 		\tt{#s} (that is, it didn't find anything).
 
-		\throws[exceptions.BoundsException] if \tt{start} is negative and out-of-bounds (that is, \tt{abs(start) > #s}).`,
-		params: [Param("sub", "string|char"), Param("start", "int", "0")]},
+		\throws[exceptions.BoundsException] if \tt{start} is negative and out-of-bounds (that is, \tt{abs(start) > #s}).`},
 
-		{kind: "function", name: "s.rfind", docs:
+		{kind: "function", name: "s.rfind",
+		params: [Param("sub", "string|char"), Param("start", "int", "#s")],
+		docs:
 		`Reverse find. Works similarly to \tt{find}, but the search starts with the character at \tt{start - 1} (which defaults to
 		the last character) and goes \em{left}. \tt{start} is not included in the search so you can use the result of this function
 		as the \tt{start} parameter to successive calls. If \tt{sub} is found, this function returns the integer index of the occurrence
@@ -675,59 +684,70 @@ foreach(i, v; "hello", "reverse")
 
 		If \tt{start < 0} it is treated as an index from the end of the string.
 
-		\throws[exceptions.BoundsException] if \tt{start >= #s} or if \tt{start} is negative an out-of-bounds (that is, \tt{abs(start > #s}).`,
-		params: [Param("sub", "string|char"), Param("start", "int", "#s")]},
+		\throws[exceptions.BoundsException] if \tt{start >= #s} or if \tt{start} is negative an out-of-bounds (that is, \tt{abs(start > #s}).`},
 
-		{kind: "function", name: "s.repeat", docs:
+		{kind: "function", name: "s.repeat",
+		params: [Param("n", "int")],
+		docs:
 		`\returns a string which is the concatenation of \tt{n} instances of \tt{s}. So \tt{"hello".repeat(3)} will return
 		\tt{"hellohellohello"}. If \tt{n == 0}, returns the empty string.
 
-		\throws[exceptions.RangeException] if \tt{n < 0}.`,
-		params: [Param("n", "int")]},
+		\throws[exceptions.RangeException] if \tt{n < 0}.`},
 
-		{kind: "function", name: "s.reverse", docs:
+		{kind: "function", name: "s.reverse",
+		docs:
 		`Returns a string which is the reversal of \tt{s}.`},
 
-		{kind: "function", name: "s.split", docs:
+		{kind: "function", name: "s.split",
+		params: [Param("delim", "string", "null")],
+		docs:
 		`The inverse of the \link{join} method. Splits \tt{s} into pieces and returns an array of the split pieces. If no parameters are
 		given, the splitting occurs at whitespace (spaces, tabs, newlines etc.) and all the whitespace is stripped from the split
 		pieces. Thus \tt{"one\\t\\ttwo".split()} will return \tt{["one", "two"]}. If the \tt{delim} parameter is given, it specifies
-		a delimiting string where \tt{s} will be split. Thus \tt{"one--two--three".split("--")} will return \tt{["one", "two", "three"]}.`,
-		params: [Param("delim", "string", "null")]},
+		a delimiting string where \tt{s} will be split. Thus \tt{"one--two--three".split("--")} will return \tt{["one", "two", "three"]}.`},
 
-		{kind: "function", name: "s.vsplit", docs:
+		{kind: "function", name: "s.vsplit",
+		params: [Param("delim", "string", "null")],
+		docs:
 		`Similar to \link{split}, but instead of returning an array, returns the split pieces as multiple return values. It's the inverse
 		of \link{vjoin}. \tt{"one\\t\\ttwo".split()} will return \tt{"one", "two"}. If the string splits into more than 20 pieces, an error
-		will be thrown (as returning many values can be a memory problem). Otherwise the behavior is identical to \link{split}.`,
-		params: [Param("delim", "string", "null")]},
+		will be thrown (as returning many values can be a memory problem). Otherwise the behavior is identical to \link{split}.`},
 
-		{kind: "function", name: "s.splitLines", docs:
+		{kind: "function", name: "s.splitLines",
+		docs:
 		`This will split the string at any newline characters (\tt{'\\n'}, \tt{'\\r'}, or \tt{'\\r\\n'}). Other whitespace is preserved, and empty
 		lines are preserved. This returns an array of strings, each of which holds one line of text.`},
 
-		{kind: "function", name: "s.vsplitLines", docs:
+		{kind: "function", name: "s.vsplitLines",
+		docs:
 		`Similar to \link{splitLines}, but instead of returning an array, returns the split lines as multiple return values. If the string
 		splits into more than 20 lines, an error will be thrown. Otherwise the behavior is identical to \link{splitLines}.`},
 
-		{kind: "function", name: "s.strip", docs:
+		{kind: "function", name: "s.strip",
+		docs:
 		`Strips any whitespace from the beginning and end of the string.`},
 
-		{kind: "function", name: "s.lstrip", docs:
+		{kind: "function", name: "s.lstrip",
+		docs:
 		`Strips any whitespace from just the beginning of the string.`},
 
-		{kind: "function", name: "s.rstrip", docs:
+		{kind: "function", name: "s.rstrip",
+		docs:
 		`Strips any whitespace from just the end of the string.`},
 
-		{kind: "function", name: "s.replace", docs:
-		`Replaces any occurrences in \tt{s} of the string \tt{from} with the string \tt{to}.`,
-		params: [Param("from", "string"), Param("to", "string")]},
+		{kind: "function", name: "s.replace",
+		params: [Param("from", "string"), Param("to", "string")],
+		docs:
+		`Replaces any occurrences in \tt{s} of the string \tt{from} with the string \tt{to}.`},
 
-		{kind: "function", name: "s.startsWith", docs:
-		`\returns a bool of whether or not \tt{s} starts with the substring \tt{other}. This is case-sensitive.`,
-		params: [Param("other", "string")]},
+		{kind: "function", name: "s.startsWith",
+		params: [Param("other", "string")],
+		docs:
+		`\returns a bool of whether or not \tt{s} starts with the substring \tt{other}. This is case-sensitive.`},
 
-		{kind: "function", name: "s.endsWith", docs:
-		`\returns a bool of whether or not \tt{s} ends with the substring \tt{other}. This is case-sensitive.`,
-		params: [Param("other", "string")]},
+		{kind: "function", name: "s.endsWith",
+		params: [Param("other", "string")],
+		docs:
+		`\returns a bool of whether or not \tt{s} ends with the substring \tt{other}. This is case-sensitive.`},
 	];
 }

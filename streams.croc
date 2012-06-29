@@ -19,8 +19,20 @@ An exception type derived from \tt{IOException} thrown in some APIs when end-of-
 */
 class EOFException : IOException
 {
+	///
 	this()
 		super("Unexpected end of file")
+}
+
+/**
+An exception type derived from \tt{IOException} thrown in some APIs when stream protocols (behavior,
+return values etc.) are not respected.
+*/
+class StreamProtocolException : IOException
+{
+	///
+	this(msg: string)
+		super("Stream protocol error: " ~ msg)
 }
 
 /**

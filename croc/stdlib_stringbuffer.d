@@ -985,48 +985,56 @@ uword _opDeserialize(CrocThread* t)
 version(CrocBuiltinDocs)
 {
 	const Docs _classDocs =
-	{kind: "class", name: "StringBuffer", docs:
+	{kind: "class", name: "StringBuffer", 
+	extra: [Extra("protection", "global")],
+	docs:
 	`Croc's strings are immutable. While this makes dealing with strings much easier in most cases, it also
 	introduces inefficiency for some operations, such as building up strings piecewise or performing text modification
 	on large string data. \tt{StringBuffer} is a mutable string class that makes these sorts of things possible.
 	\tt{StringBuffer} is optimized for building up strings dynamically, and will overallocate space when the buffer
 	size is increased. It can also preallocate space so that operations on the buffer will not allocate memory. This
-	is particularly useful in situations where memory allocations or GC cycles need to be kept to a minimum.`,
-	extra: [Extra("protection", "global")]};
+	is particularly useful in situations where memory allocations or GC cycles need to be kept to a minimum.`};
 
 	const Docs[] _methodDocs =
 	[
-		{kind: "function", name: "constructor", docs:
+		{kind: "function", name: "constructor",
+		params: [Param("init", "string|int", "null")],
+		docs:
 		`If you pass nothing to the constructor, the \tt{StringBuffer} will be empty. If you pass a string, the \tt{StringBuffer}
 		will be filled with that string's data. If you pass an integer, it means how much space, in characters, should be
 		preallocated in the buffer. However, the length of the \tt{StringBuffer} will still be 0; it's just that no memory will
 		have to be allocated until you put at least \tt{init} characters into it.
 
 		\throws[exceptions.RangeException] if \tt{init} is a negative integer or is an integer so large that the memory cannot
-		be allocated.`,
-		params: [Param("init", "string|int", "null")]},
+		be allocated.`},
 
-		{kind: "function", name: "toString", docs:
+		{kind: "function", name: "toString",
+		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")],
+		docs:
 		`Converts this \tt{StringBuffer} to a string. You can optionally slice out only a part of the buffer to turn into a
 		string with the \tt{lo} and \tt{hi} parameters, which work like regular slice indices.
 
-		\throws[exceptions.BoundsException] if the slice boundaries are invalid.`,
-		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")]},
+		\throws[exceptions.BoundsException] if the slice boundaries are invalid.`},
 
-		{kind: "function", name: "opEquals", docs:
-		`Compares this \tt{StringBuffer} to a \tt{string} or other \tt{StringBuffer} for equality. Works the same as string equality.`,
-		params: [Param("other", "string|StringBuffer")]},
+		{kind: "function", name: "opEquals",
+		params: [Param("other", "string|StringBuffer")],
+		docs:
+		`Compares this \tt{StringBuffer} to a \tt{string} or other \tt{StringBuffer} for equality. Works the same as string equality.`},
 
-		{kind: "function", name: "opCmp", docs:
-		`Compares this \tt{StringBuffer} to a \tt{string} or other \tt{StringBuffer}. Works the same as string comparison.`,
-		params: [Param("other", "string|StringBuffer")]},
+		{kind: "function", name: "opCmp",
+		params: [Param("other", "string|StringBuffer")],
+		docs:
+		`Compares this \tt{StringBuffer} to a \tt{string} or other \tt{StringBuffer}. Works the same as string comparison.`},
 
-		{kind: "function", name: "opLength", docs:
+		{kind: "function", name: "opLength",
+		docs:
 		`Gets the length of this \tt{StringBuffer} in characters. Note that this is just the number of characters currently
 		in use; if you preallocate space either with the constructor or by setting the length longer and shorter, the true
 		size of the underlying buffer will not be reported.`},
 
-		{kind: "function", name: "opLengthAssign", docs:
+		{kind: "function", name: "opLengthAssign",
+		params: [Param("len", "int")],
+		docs:
 		`Sets the length of this \tt{StringBuffer}. If you increase the length, the new characters will be filled with U+0FFFF.
 		If you decrease the length, characters will be truncated. Note that when you increase the length of the buffer, memory
 		may be overallocated to avoid allocations on every size increase. When you decrease the length of the buffer, that memory
@@ -1040,34 +1048,36 @@ local s = StringBuffer()
 // now s can hold up to 1000 characters before it will have to reallocate its memory.
 \endcode
 
-		\throws[exceptions.RangeException] if \tt{len} is negative or is so large that the memory cannot be allocated.`,
-		params: [Param("len", "int")]},
+		\throws[exceptions.RangeException] if \tt{len} is negative or is so large that the memory cannot be allocated.`},
 
-		{kind: "function", name: "opIndex", docs:
+		{kind: "function", name: "opIndex",
+		params: [Param("idx", "int")],
+		docs:
 		`Gets the character at the given index.
 
-		\throws[exceptions.BoundsException] if the index is invalid.`,
-		params: [Param("idx", "int")]},
+		\throws[exceptions.BoundsException] if the index is invalid.`},
 
-		{kind: "function", name: "opIndexAssign", docs:
+		{kind: "function", name: "opIndexAssign",
+		params: [Param("idx", "int"), Param("c", "char")],
+		docs:
 		`Sets the character at the given index to the given character.
 
-		\throws[exceptions.BoundsException] if the index is invalid.`,
-		params: [Param("idx", "int"), Param("c", "char")]},
+		\throws[exceptions.BoundsException] if the index is invalid.`},
 
-		{kind: "function", name: "opCat", docs:
+		{kind: "function", name: "opCat",
+		params: [Param("o")],
+		docs:
 		`Concatenates this \tt{StringBuffer} with another value and returns a \b{new} \tt{StringBuffer} containing the concatenation.
 		If you want to instead add data to the beginning or end of a \tt{StringBuffer}, use the \link{opCatAssign} or \link{insert} methods.
 
 		Any type can be concatenated with a \tt{StringBuffer}; if it isn't a string, character, or another \tt{StringBuffer}, it will have
-		its \tt{toString} method called on it and the result will be concatenated.`,
-		params: [Param("o")]},
+		its \tt{toString} method called on it and the result will be concatenated.`},
 
-		{kind: "function", name: "opCat_r", docs:
-		"ditto",
-		params: [Param("o")]},
+		{kind: "function", name: "opCat_r", docs: "ditto", params: [Param("o")]},
 
-		{kind: "function", name: "opCatAssign", docs:
+		{kind: "function", name: "opCatAssign",
+		params: [Param("vararg", "vararg")],
+		docs:
 		`\b{Also aliased to \tt{append}.}
 
 		This is the main way to add data into a \tt{StringBuffer} when building up strings piecewise. Each parameter will have \tt{toString}
@@ -1078,15 +1088,17 @@ local s = StringBuffer()
 		the same method and do the same thing. Thus, \tt{"s ~= a ~ b ~ c"} is functionally identical to \tt{"s.append(a, b, c)"} and
 		vice versa.
 
-		\throws[exceptions.RangeException] if the size of the buffer grows so large that the memory cannot be allocated.`,
-		params: [Param("vararg", "vararg")]},
+		\throws[exceptions.RangeException] if the size of the buffer grows so large that the memory cannot be allocated.`},
 
-		{kind: "function", name: "opSlice", docs:
+		{kind: "function", name: "opSlice",
+		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")],
+		docs:
 		`Slices data out of this \tt{StringBuffer} and creates a new \tt{StringBuffer} with that slice of data. Works just like string
-		slicing.`,
-		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")]},
+		slicing.`},
 
-		{kind: "function", name: "fill", docs:
+		{kind: "function", name: "fill",
+		params: [Param("v", "char|string|array|function|StringBuffer")],
+		docs:
 		`A pretty flexible way to fill a \tt{StringBuffer} with some data. This only modifies existing data; the buffer's length is
 		never changed.
 
@@ -1100,40 +1112,46 @@ local s = StringBuffer()
 		If you pass a \tt{StringBuffer}, it must be the same length as the buffer and its data will be copied into this buffer.
 
 		If you pass a function, it must take an integer and return a character. It will be called on each location in the buffer,
-		and the resulting characters will be put into the buffer.`,
-		params: [Param("v", "char|string|array|function|StringBuffer")]},
+		and the resulting characters will be put into the buffer.`},
 
-		{kind: "function", name: "fillRange", docs:
+		{kind: "function", name: "fillRange",
+		params: [Param("lo", "int", "0"), Param("hi", "int", "#this"), Param("v", "char|string|array|function|StringBuffer")],
+		docs:
 		`\b{Also aliased to \tt{opSliceAssign}.}
 
 		Works just like \link{fill}, except it works on just a subrange of the buffer. The \tt{lo} and \tt{hi} params work just like slice
 		indices - low inclusive, high noninclusive, negative from the end.
 
 		You can either call this method directly, or you can use slice-assignment; they are aliased to the same method and do
-		the same thing. Thus, \tt{"s.fillRange(x, y, z)"} is functionally identical to \tt{"s[x .. y] = z"} and vice versa.`,
-		params: [Param("lo", "int", "0"), Param("hi", "int", "#this"), Param("v", "char|string|array|function|StringBuffer")]},
+		the same thing. Thus, \tt{"s.fillRange(x, y, z)"} is functionally identical to \tt{"s[x .. y] = z"} and vice versa.`},
 
-		{kind: "function", name: "insert", docs:
+		{kind: "function", name: "insert",
+		params: [Param("idx", "int"), Param("val")],
+		docs:
 		`Inserts the string representation of \tt{val} before the character indexed by \tt{idx}. \tt{idx} can be negative, which means an
 		index from the end of the buffer. It can also be the same as the length of this \tt{StringBuffer}, in which case the behavior
-		is identical to appending.`,
-		params: [Param("idx", "int"), Param("val")]},
+		is identical to appending.`},
 
-		{kind: "function", name: "remove", docs:
+		{kind: "function", name: "remove",
+		params: [Param("lo", "int"), Param("hi", "int", "lo + 1")],
+		docs:
 		`Removes characters from a \tt{StringBuffer}, shifting the data after them (if any) down. The indices work like slice indices.
-		The \tt{hi} index defaults to one more than the \tt{lo} index, so you can remove a single character by just passing the \tt{lo} index.`,
-		params: [Param("lo", "int"), Param("hi", "int", "lo + 1")]},
+		The \tt{hi} index defaults to one more than the \tt{lo} index, so you can remove a single character by just passing the \tt{lo} index.`},
 
-		{kind: "function", name: "format", docs:
+		{kind: "function", name: "format",
+		params: [Param("fmt", "string"), Param("vararg", "vararg")],
+		docs:
 		`Just like the \tt{format} function in the baselib, except the results are appended directly to the end of this \tt{StringBuffer}
-		without needing a string temporary.`,
-		params: [Param("fmt", "string"), Param("vararg", "vararg")]},
+		without needing a string temporary.`},
 
-		{kind: "function", name: "formatln", docs:
-		`Same as \tt{format}, but also appends the \tt{\\n} character after appending the formatted string.`,
-		params: [Param("fmt", "string"), Param("vararg", "vararg")]},
+		{kind: "function", name: "formatln",
+		params: [Param("fmt", "string"), Param("vararg", "vararg")],
+		docs:
+		`Same as \tt{format}, but also appends the \tt{\\n} character after appending the formatted string.`},
 
-		{kind: "function", name: "opApply", docs:
+		{kind: "function", name: "opApply",
+		params: [Param("reverse", "string", "null")],
+		docs:
 		`Lets you iterate over \tt{StringBuffer}s with foreach loops just like strings. You can iterate in reverse, just like strings,
 		by passing the string \tt{"reverse"} as the second value in the foreach container:
 
@@ -1142,13 +1160,12 @@ local sb = StringBuffer("hello")
 foreach(i, c; sb) { }
 foreach(i, c; sb, "reverse") { } // goes backwards
 \endcode
-		`,
-		params: [Param("reverse", "string", "null")]},
+		`},
 
-		{kind: "function", name: "opSerialize", docs:
+		{kind: "function", name: "opSerialize",
+		docs:
 		`Overloads to allow instances of \tt{StringBuffer} to be serialized by the \tt{serialization} library.`},
 
-		{kind: "function", name: "opDeserialize", docs:
-		"ditto"},
+		{kind: "function", name: "opDeserialize", docs: "ditto"},
 	];
 }

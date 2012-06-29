@@ -248,7 +248,9 @@ uword _fromRawAscii(CrocThread* t)
 
 version(CrocBuiltinDocs) const Docs[] _globalFuncDocs =
 [
-	{kind: "function", name: "fromRawUnicode", docs:
+	{kind: "function", name: "fromRawUnicode",
+	params: [Param("mb", "memblock"), Param("lo", "int", "0"), Param("hi", "int", "#mb")],
+	docs:
 	`Converts data stored in a memblock into a string. The given memblock must be of type \tt{u8}, \tt{u16}, or \tt{u32}.
 	If it's \tt{u8}, it must contain UTF-8 data; if it's \tt{u16}, it must contain UTF-16 data; and if it's \tt{u32}, it
 	must contain UTF-32 data. You can specify only a slice of the memblock to convert into a string with the \tt{lo}
@@ -256,19 +258,21 @@ version(CrocBuiltinDocs) const Docs[] _globalFuncDocs =
 	an exception will be thrown. Returns the converted string.
 
 	\throws[exceptions.BoundsException] if the given slice indices are invalid.
-	\throws[exceptions.ValueException] if the given memblock is not one of the three valid types.`,
-	params: [Param("mb", "memblock"), Param("lo", "int", "0"), Param("hi", "int", "#mb")]},
+	\throws[exceptions.ValueException] if the given memblock is not one of the three valid types.`},
 
-	{kind: "function", name: "fromRawAscii", docs:
+	{kind: "function", name: "fromRawAscii",
+	params: [Param("mb", "memblock"), Param("lo", "int", "0"), Param("hi", "int", "#mb")],
+	docs:
 	`Similar to \link{fromRawUnicode}, except converts a memblock containing ASCII data into a string. The memblock
 	must be of type \tt{u8}. Any bytes above U+0007F are turned into the Unicode replacement character, U+0001A.
 	Returns the converted string.
 
 	\throws[exceptions.BoundsException] if the given slice indices are invalid.
-	\throws[exceptions.ValueException] if the given memblock is not of type \tt{u8}.`,
-	params: [Param("mb", "memblock"), Param("lo", "int", "0"), Param("hi", "int", "#mb")]},
+	\throws[exceptions.ValueException] if the given memblock is not of type \tt{u8}.`},
 
-	{kind: "function", name: "toRawUnicode", docs:
+	{kind: "function", name: "toRawUnicode",
+	params: [Param("bits", "int", "8"), Param("mb", "memblock", "null")],
+	docs:
 	`Converts a string into a memblock containing Unicode-encoded data. The \tt{bits} parameter determines which
 	encoding to use. It defaults to 8, which means the resulting memblock will be filled with a UTF-8 encoding of
 	\tt{s}, and its type will be \tt{u8}. The other two valid values are 16, which will encode UTF-16 data in a memblock
@@ -283,10 +287,11 @@ version(CrocBuiltinDocs) const Docs[] _globalFuncDocs =
 
 	\throws[exceptions.ValueException] if \tt{bits} is not one of the valid values.
 	\throws[exceptions.UnicodeException] if, somehow, the Unicode transcoding fails (but this shouldn't happen unless something
-	else is broken..)`,
-	params: [Param("bits", "int", "8"), Param("mb", "memblock", "null")]},
+	else is broken..)`},
 
-	{kind: "function", name: "toRawAscii", docs:
+	{kind: "function", name: "toRawAscii",
+	params: [Param("mb", "memblock", "null")],
+	docs:
 	`Similar to \link{toRawUnicode}, except encodes \tt{s} as ASCII. \tt{s} must not contain any codepoints above U+0007F;
 	that is, \tt{s.isAscii()} must return true for this method to work.
 
@@ -295,6 +300,5 @@ version(CrocBuiltinDocs) const Docs[] _globalFuncDocs =
 	\returns the memblock containing the encoded string data, either a new memblock if \tt{mb} is \tt{null}, or \tt{mb}
 	otherwise.
 
-	\throws[exceptions.ValueException] if the given string is not an ASCII string.`,
-	params: [Param("mb", "memblock", "null")]},
+	\throws[exceptions.ValueException] if the given string is not an ASCII string.`},
 ];

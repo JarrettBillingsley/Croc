@@ -428,28 +428,33 @@ uword _loadFiles(CrocThread* t)
 
 version(CrocBuiltinDocs) const Docs[] _docTables =
 [
-	{kind: "variable", name: "modules.path", docs:
+	{kind: "variable", name: "modules.path", 
+	extra: [Extra("protection", "global"), Extra("value", `"."`)],
+	docs:
 	`This is just a variable that holds a string. This string contains the paths that are used when searching for
 	modules. The paths are specified using forward slashes to separate path components regardless of the underlying
 	OS, and semicolons to separate paths.
 
 	By default, this variable holds the string ".", which just means "the current directory". If you changed it to
 	something like ".;imports/current", when you tried to load a module "foo.bar", it would look for "./foo/bar.croc"
-	and "imports/current/foo/bar.croc" in that order.`,
-	extra: [Extra("protection", "global"), Extra("value", `"."`)]},
+	and "imports/current/foo/bar.croc" in that order.`},
 
-	{kind: "variable", name: "modules.loaded", docs:
+	{kind: "variable", name: "modules.loaded",
+	extra: [Extra("protection", "global")],
+	docs:
 	"This is a table that holds all currently-loaded modules. The keys are the module names as strings, and the values
 	are the corresponding modules' namespaces. This is the table that \tt{modules.load} will check in first before trying
-	to look for a loader.",
-	extra: [Extra("protection", "global")]},
+	to look for a loader."},
 
-	{kind: "variable", name: "modules.customLoaders", docs:
+	{kind: "variable", name: "modules.customLoaders", 
+	extra: [Extra("protection", "global")],
+	docs:
 	`This is a table which you are free to use. It maps from module names (strings) to functions or namespaces. This
-	table is used by the \tt{customLoad} step in \link{modules.loaders}; see it for more information.`,
-	extra: [Extra("protection", "global")]},
+	table is used by the \tt{customLoad} step in \link{modules.loaders}; see it for more information.`},
 
-	{kind: "variable", name: "modules.loaders", docs:
+	{kind: "variable", name: "modules.loaders", 
+	extra: [Extra("protection", "global")],
+	docs:
 	`This is an important variable. This holds the array of \em{module loaders}, which are functions which take the name
 	of a module that's being loaded, and return one of four things: nothing or null, to indicate that the next loader
 	should be tried; a namespace, which is assumed to be the module's namespace; a native function, which is assumed to
@@ -468,10 +473,12 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 			modules (\tt{.croco}). If it finds just a script file, it will compile it and return the resulting top-level funcdef. If it finds
 			just a compiled module, it will load it and return the top-level funcdef. If it finds both in the same path, it will load whichever
 			is newer. If it gets through all the paths and finds no files, it returns nothing.
-	\endlist`,
-	extra: [Extra("protection", "global")]},
+	\endlist`},
 
-	{kind: "function", name: "modules.load", docs:
+	{kind: "function", name: "modules.load",
+	params: [Param("name", "string")],
+	extra: [Extra("protection", "global")],
+	docs:
 	`Loads a module of the given name and, if successful, returns that module's namespace. If the module is
 	already loaded (i.e. it has an entry in the \link{modules.loaded} table), just returns the preexisting namespace.
 
@@ -501,18 +508,20 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	\returns The namespace of the module after it has been imported.
 	\throws[exceptions.ImportException] if no means of loading the module could be found, or if a module loader was found
 	but failed when run. In the latter case, the exception that was thrown during module loading will be set as the cause
-	of the exception.`,
-	params: [Param("name", "string")],
-	extra: [Extra("protection", "global")]},
+	of the exception.`},
 
-	{kind: "function", name: "modules.reload", docs:
+	{kind: "function", name: "modules.reload",
+	params: [Param("name", "string")],
+	extra: [Extra("protection", "global")],
+	docs:
 	`Very similar to \link{modules.load}, but reloads an already-loaded module. This function replaces step 1 of
 	\link{modules.load}'s process with a check to see if the module has already been loaded; if it has, it continues
-	on with the process. If it hasn't been loaded, throws an error.`,
-	params: [Param("name", "string")],
-	extra: [Extra("protection", "global")]},
+	on with the process. If it hasn't been loaded, throws an error.`},
 
-	{kind: "function", name: "modules.initModule", docs:
+	{kind: "function", name: "modules.initModule",
+	params: [Param("topLevel", "function|funcdef"), Param("name", "string")],
+	extra: [Extra("protection", "global")],
+	docs:
 	`Initialize a module with a top-level function/funcdef and a name.
 
 	The name is used to create the namespace for the module in the global namespace hierarchy if it doesn't already exist.
@@ -532,11 +541,12 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	must not have had any closures created from it yet, as that would associate a namespace with that funcdef as well.
 
 	\param[topLevel] Either a native function or a script function definition, used as the top-level statements of the module.
-	\param[name]     The name of the module, in dotted form (such as "foo.bar").`,
-	params: [Param("topLevel", "function|funcdef"), Param("name", "string")],
-	extra: [Extra("protection", "global")]},
+	\param[name]     The name of the module, in dotted form (such as "foo.bar").`},
 
-	{kind: "function", name: "modules.runMain", docs:
+	{kind: "function", name: "modules.runMain",
+	params: [Param("ns", "namespace"), Param("vararg", "vararg")],
+	extra: [Extra("protection", "global")],
+	docs:
 	`Runs a function named "main" (if any) in the given namespace with the given arguments.
 
 	This will look in the given namespace for a field named \tt{main}. If one exists, and that field is a function,
@@ -544,7 +554,5 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	arguments. Otherwise, this function does nothing.
 
 	\param[ns] The namespace in which to look.
-	\param[vararg] The arguments that will be passed to the "main" function.`,
-	params: [Param("ns", "namespace"), Param("vararg", "vararg")],
-	extra: [Extra("protection", "global")]}
+	\param[vararg] The arguments that will be passed to the "main" function.`}
 ];

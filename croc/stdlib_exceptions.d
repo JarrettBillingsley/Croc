@@ -432,50 +432,60 @@ private const ExDesc[] ExDescs =
 
 version(CrocBuiltinDocs)
 {
-	const Docs Location_docs = {kind: "class", name: "exceptions.Location", docs:
+	const Docs Location_docs = {kind: "class", name: "exceptions.Location", 
+	extra: [Extra("protection", "global")],
+	docs:
 	`This class holds a source location, which is used in exception tracebacks. There two kinds of locations:
 	compile-time and runtime. Compile-time locations have a column number > 0 and indicate the exact location
 	within a source file where something went wrong. Runtime locations have a column number <= 0, in which case
-	the exact kind of location is encoded in the column number.`,
-	extra: [Extra("protection", "global")]};
+	the exact kind of location is encoded in the column number.`};
 
 	const Docs[] Location_fields =
 	[
-		{kind: "field", name: "Unknown", docs:
+		{kind: "field", name: "Unknown", 
+		extra: [Extra("value", `""`)],
+		docs:
 		`This is one of the types of locations that can be put in the \tt{col} field. It means that there isn't enough
 		information to determine a location for where an error occurred. In this case the file and line will also
 		probably meaningless.`},
 
-		{kind: "field", name: "Native", docs:
+		{kind: "field", name: "Native",
+		docs:
 		`This is another type of location that can be put in the \tt{col} field. It means that the location is within
 		a native function, so there isn't enough information to give a line, but at least the file can be determined.`},
 
-		{kind: "field", name: "Script", docs:
+		{kind: "field", name: "Script",
+		docs:
 		`This is the last type of location that can be put in the \tt{col} field. It means that the location is within
 		script code, the file and (usually) the line can be determined. The column can never be determined at runtime,
 		however.`},
 
-		{kind: "field", name: "file", docs:
+		{kind: "field", name: "file",
+		docs:
 		`This is a string containing the module and function where the error occurred, in the format "module.name.func".
-		If \tt{col} is \tt{Location.Unknown}, this field will be the empty string.`,
-		extra: [Extra("value", `""`)]},
+		If \tt{col} is \tt{Location.Unknown}, this field will be the empty string.`},
 
-		{kind: "field", name: "line", docs:
+		{kind: "field", name: "line", 
+		extra: [Extra("value", "0")],
+		docs:
 		`This is the line on which the error occurred. If the location type is \tt{Location.Script}, this field can
-		be -1, which means that no line number could be determined.`,
-		extra: [Extra("value", "0")]},
+		be -1, which means that no line number could be determined.`},
 
-		{kind: "field", name: "col", docs:
+		{kind: "field", name: "col", 
+	extra: [Extra("protection", "global")],
+		docs:
 		`This field serves double duty as either a column number for compilation errors or as a location "type".
 		If this field is > 0, it is a compilation error and represents the column where the error occurred. Otherwise,
 		this field will be one of the three constants above (which are all <= 0).`},
 
-		{kind: "function", name: "constructor", docs:
+		{kind: "function", name: "constructor",
+		params: [Param("file", "string", "null"), Param("line", "int", "-1"), Param("col", "int", "Location.Script")],
+		docs:
 		`Constructor. All parameters are optional. When passed \tt{null} for \tt{file}, the \tt{line} and \tt{col}
-		parameters are ignored, constructing an "Unknown" location.`,
-		params: [Param("file", "string", "null"), Param("line", "int", "-1"), Param("col", "int", "Location.Script")]},
+		parameters are ignored, constructing an "Unknown" location.`},
 
-		{kind: "function", name: "toString", docs:
+		{kind: "function", name: "toString",
+		docs:
 		`Gives a string representation of the location, in the following formats:
 		\blist
 			\li Unknown - \tt{"<unknown location>"}
@@ -485,24 +495,28 @@ version(CrocBuiltinDocs)
 		\endlist`}
 	];
 
-	const Docs Throwable_docs = {kind: "class", name: "Throwable", docs:
+	const Docs Throwable_docs = {kind: "class", name: "Throwable",
+	docs:
 	`This is the base class of the entire exception hierarchy. This class is "blessed" in that it is treated specially by
 	the language runtime. Whenever you throw an exception, it must be an instance of a class derived from Throwable. This class
-	is actually a global variable like Object, but is documented here for convenience.`,
-	extra: [Extra("protection", "global")]};
+	is actually a global variable like Object, but is documented here for convenience.`};
 
 	const Docs[] Throwable_fields =
 	[
-		{kind: "field", name: "location", docs:
+		{kind: "field", name: "location", 
+		extra: [Extra("value", "Location()")],
+		docs:
 		`The location where this exception was thrown. See the \link{exceptions.Location} class documentation for more info. Defaults to
-		an unknown location.`,
-		extra: [Extra("value", "Location()")]},
+		an unknown location.`},
 
-		{kind: "field", name: "msg", docs:
-		`The human-readable message associated with the exception. Defaults to the empty string.`,
-		extra: [Extra("value", `""`)]},
+		{kind: "field", name: "msg", 
+		extra: [Extra("value", `""`)],
+		docs:
+		`The human-readable message associated with the exception. Defaults to the empty string.`},
 
-		{kind: "field", name: "cause", docs:
+		{kind: "field", name: "cause", 
+		extra: [Extra("value", "null")],
+		docs:
 		`An optional field. Sometimes an exception can cause a cascade of other exceptions; for instance, an exception thrown
 		while importing a module will cause the module import to fail and throw an exception of its own. In these cases, the
 		\tt{cause} field is used to hold the exception that caused this exception to be thrown. There can be arbitrarily many exceptions
@@ -510,43 +524,48 @@ version(CrocBuiltinDocs)
 		second exception; there is no built-in mechanism to ensure that this field is filled in. You can use the \link{setCause} function
 		for this purpose.
 
-		The default value is null, which means this exception had no cause.`,
-		extra: [Extra("value", "null")]},
+		The default value is null, which means this exception had no cause.`},
 
-		{kind: "field", name: "traceback", docs:
+		{kind: "field", name: "traceback", 
+		extra: [Extra("value", "[]")],
+		docs:
 		`This is an array of Location instances that shows the call stack as it was when the exception was thrown, allowing you
 		to pinpoint the exact codepath that caused the error. This array starts at the location where the exception was thrown; that
 		is, element 0 is the same as the \tt{location} field. After that, it gives the function that called the function where the
 		exception was thrown and goes up the call stack. Tailcalls are represented as script locations. You can get a string
-		representation of this traceback with the \tt{tracebackString} method. This field defaults to an empty array.`,
-		extra: [Extra("value", "[]")]},
+		representation of this traceback with the \tt{tracebackString} method. This field defaults to an empty array.`},
 
-		{kind: "function", name: "constructor", docs:
+		{kind: "function", name: "constructor",
+		params: [Param("msg", "string", `""`), Param("cause", "Throwable", "null")],
+		docs:
 		`Constructor. All parameters are optional.
 
 		\param[msg] A descriptive message of the exception being thrown. This is meant to be human-readable, and is not used by the EH
 			mechanism in any way. Defaults to the empty string.
-		\param[cause] The exception that caused this exception to be thrown. Defaults to none (null).`,
-		params: [Param("msg", "string", `""`), Param("cause", "Throwable", "null")]},
+		\param[cause] The exception that caused this exception to be thrown. Defaults to none (null).`},
 
-		{kind: "function", name: "toString", docs:
+		{kind: "function", name: "toString",
+		docs:
 		`Gives a string representation of the exception. It is in the format \tt{"<exception type> at <location>: <msg>"}. If the
 		message is the empty string, there will be no colon after the location. If \tt{cause} is non-null, this will be followed by
 		a newline, \tt{"Caused by:"}, another newline, and the string representation of \tt{cause}. There may therefore be several
 		layers of causes in one representation.`},
 
-		{kind: "function", name: "setLocation", docs:
+		{kind: "function", name: "setLocation",
+		params: [Param("loc", "Location")],
+		docs:
 		`Acts as a setter for the \tt{location} field. This is occasionally useful when programmatically building exception objects such
-		as in the compiler.`,
-		params: [Param("loc", "Location")]},
+		as in the compiler.`},
 
-		{kind: "function", name: "setCause", docs:
+		{kind: "function", name: "setCause",
+		params: [Param("cause", "Throwable")],
+		docs:
 		`Acts as a setter for the \tt{cause} field. This can be useful when throwing an exception that is caused by another exception.
 		Rather than forcing an exception constructor to take the cause as a parameter, you can simply use \tt{"throw SomeException().setCause(ex)"}
-		instead.`,
-		params: [Param("cause", "Throwable")]},
+		instead.`},
 
-		{kind: "function", name: "tracebackString", docs:
+		{kind: "function", name: "tracebackString",
+		docs:
 		`Gets a string representation of the \tt{traceback} field. The first entry is preceded by "Traceback: ". Each subsequent entry
 		is preceded by a newline, some whitespace, and "at: ".`}
 	];

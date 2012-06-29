@@ -411,37 +411,43 @@ version(CrocBuiltinDocs)
 {
 	Docs[] _globalFuncDocs = 
 	[
-		{kind: "function", name: "new", docs:
+		{kind: "function", name: "new",
+		params: [Param("size", "int"), Param("fill", "int", "0")],
+		docs:
 		`Creates a new memblock.
 
 		\param[size] is the size of the memblock to create, in bytes. Can be 0.
 		\param[fill] is the value to fill each byte of the memblock with. Defaults to 0. The value will be wrapped to the
 		range of an unsigned byte.
 
-		\throws[exceptions.RangeException] if \tt{size} is invalid (negative or too large to be represented).`,
-		params: [Param("size", "int"), Param("fill", "int", "0")]}
+		\throws[exceptions.RangeException] if \tt{size} is invalid (negative or too large to be represented).`}
 	];
 
 	Docs[] _methodFuncDocs =
 	[
-		{kind: "function", name: "toString", docs:
+		{kind: "function", name: "toString",
+		docs:
 		`\returns a string representation of this memblock in the form "memblock[contents]".
 
 		For example, \tt{memblock.new(3, 10).toString()} would give the string \tt{"memblock[10, 10, 10]"}.`},
 
-		{kind: "function", name: "dup", docs:
+		{kind: "function", name: "dup",
+		docs:
 		`\returns a duplicate of this memblock.
 
 		The new memblock will have the same length and this memblock's data will be copied into it. The new memblock
 		will own its data, regardless of whether or not this memblock does.`},
 
-		{kind: "function", name: "fill", docs:
+		{kind: "function", name: "fill",
+		params: [Param("val", "int")],
+		docs:
 		`Fills every byte of this memblock with the given value (wrapped to the range of an unsigned byte).
 
-		\param[val] the value to fill the memblock with.`,
-		params: [Param("val", "int")]},
+		\param[val] the value to fill the memblock with.`},
 
-		{kind: "function", name: "readInt8", docs:
+		{kind: "function", name: "readInt8",
+		params: [Param("offs", "int")],
+		docs:
 		`These functions all read a numerical value of the given type from the byte offset \tt{offs}.
 
 		The "Int" versions read a signed integer of the given number of bits. The "Uint" versions read an unsigned integer
@@ -456,8 +462,7 @@ version(CrocBuiltinDocs)
 		\returns the value read, as either an \tt{int} or a \tt{float}, depending on the function.
 		\throws[exceptions.BoundsException] if \tt{offs < 0 || offs >= #this - (size of value)}.
 
-		\see \link{Vector} for a typed numerical array type which may suit your needs better than raw memblock access.`,
-		params: [Param("offs", "int")]},
+		\see \link{Vector} for a typed numerical array type which may suit your needs better than raw memblock access.`},
 
 		{kind: "function", name: "readInt16",   docs: "ditto", params: [Param("offs", "int")]},
 		{kind: "function", name: "readInt32",   docs: "ditto", params: [Param("offs", "int")]},
@@ -469,7 +474,9 @@ version(CrocBuiltinDocs)
 		{kind: "function", name: "readFloat32", docs: "ditto", params: [Param("offs", "int")]},
 		{kind: "function", name: "readFloat64", docs: "ditto", params: [Param("offs", "int")]},
 
-		{kind: "function", name: "writeInt8", docs:
+		{kind: "function", name: "writeInt8",
+		params: [Param("offs", "int"), Param("val", "int")],
+		docs:
 		`These functions all write the numerical value \tt{val} of the given type to the byte offset \tt{offs}.
 
 		The "Int" versions write a signed integer of the given number of bits. The "Uint" versions write an unsigned integer
@@ -483,8 +490,7 @@ version(CrocBuiltinDocs)
 		\param[val] the value to write.
 		\throws[exceptions.BoundsException] if \tt{offs < 0 || offs >= #this - (size of value)}.
 
-		\see \link{Vector} for a typed numerical array type which may suit your needs better than raw memblock access.`,
-		params: [Param("offs", "int"), Param("val", "int")]},
+		\see \link{Vector} for a typed numerical array type which may suit your needs better than raw memblock access.`},
 
 		{kind: "function", name: "writeInt16",   docs: "ditto", params: [Param("offs", "int"), Param("val", "int")]},
 		{kind: "function", name: "writeInt32",   docs: "ditto", params: [Param("offs", "int"), Param("val", "int")]},
@@ -496,7 +502,9 @@ version(CrocBuiltinDocs)
 		{kind: "function", name: "writeFloat32", docs: "ditto", params: [Param("offs", "int"), Param("val", "int|float")]},
 		{kind: "function", name: "writeFloat64", docs: "ditto", params: [Param("offs", "int"), Param("val", "int|float")]},
 
-		{kind: "function", name: "copy", docs:
+		{kind: "function", name: "copy",
+		params: [Param("dstOffs", "int"), Param("src", "memblock"), Param("srcOffs", "int"), Param("size", "int")],
+		docs:
 		`Copies a block of memory from one memblock to another, or within the same memblock. Also handles overlapping copies.
 
 		\param[dstOffs] the byte offset in this memblock to where the data should be copied. May \b{not} be negative.
@@ -506,23 +514,26 @@ version(CrocBuiltinDocs)
 
 		\throws[exceptions.RangeException] if the \tt{size} parameter is negative.
 		\throws[exceptions.BoundsException] if \tt{dstOffs} or \tt{srcOffs} are invalid indices into their respective memblocks,
-			or if either the source or destination ranges extend past the ends of their respective memblocks.`,
-		params: [Param("dstOffs", "int"), Param("src", "memblock"), Param("srcOffs", "int"), Param("size", "int")]},
+			or if either the source or destination ranges extend past the ends of their respective memblocks.`},
 
-		{kind: "function", name: "opEquals", docs:
+		{kind: "function", name: "opEquals",
+		params: [Param("other", "memblock")],
+		docs:
 		`Compares two memblocks for exact data equality.
 
-		\returns \tt{true} if both memblocks are the same length and contain the exact same data. Returns \tt{false} otherwise.`,
-		params: [Param("other", "memblock")]},
+		\returns \tt{true} if both memblocks are the same length and contain the exact same data. Returns \tt{false} otherwise.`},
 
-		{kind: "function", name: "opCmp", docs:
+		{kind: "function", name: "opCmp",
+		params: [Param("other", "memblock")],
+		docs:
 		`Compares the contents of two memblocks for ordering. Ordering works just like array or string ordering.
 
 		\returns a negative integer if \tt{this} compares before \tt{other}, a positive integer if \tt{this} compares after
-		\tt{other}, and 0 if \tt{this} and \tt{other} have identical contents.`,
-		params: [Param("other", "memblock")]},
+		\tt{other}, and 0 if \tt{this} and \tt{other} have identical contents.`},
 
-		{kind: "function", name: "opApply", docs:
+		{kind: "function", name: "opApply",
+		params: [Param("mode", "string", "null")],
+		docs:
 		`Allows you to iterate over the contents of a memblock with \tt{foreach} loops.
 
 		You can iterate forwards (the default) or backwards:
@@ -540,23 +551,24 @@ foreach(val; m, "reverse")
 	writeln(val) // prints 3 through 1
 \endcode
 
-		\param[mode] The iteration mode. Defaults to null, which means forwards; if passed "reverse", iterates backwards.`,
-		params: [Param("mode", "string", "null")]},
+		\param[mode] The iteration mode. Defaults to null, which means forwards; if passed "reverse", iterates backwards.`},
 
-		{kind: "function", name: "opCat", docs:
+		{kind: "function", name: "opCat",
+		params: [Param("other", "memblock")],
+		docs:
 		`Concatenates two memblocks, returning a new memblock whose contents are a concatenation of the two sources.
 
 		\param[other] the second memblock in the concatenation.
-		\returns a new memblock whose contents are a concatenation of \tt{this} followed by \tt{other}.`,
-		params: [Param("other", "memblock")]},
+		\returns a new memblock whose contents are a concatenation of \tt{this} followed by \tt{other}.`},
 
-		{kind: "function", name: "opCatAssign", docs:
+		{kind: "function", name: "opCatAssign",
+		params: [Param("vararg", "vararg")],
+		docs:
 		`Appends memblocks to the end of this memblock, resizing this memblock to hold all the contents and copying the contents
 		from the source memblocks.
 
 		\param[vararg] the memblocks to be appended.
 		\throws[exceptions.ValueException] if \tt{this} does not own its data (and therefore cannot be resized).
-		\throws[exceptions.RangeException] if the total length of \tt{this} after appending would be too large to be represented.`,
-		params: [Param("vararg", "vararg")]},
+		\throws[exceptions.RangeException] if the total length of \tt{this} after appending would be too large to be represented.`},
 	];
 }

@@ -377,15 +377,18 @@ version(CrocBuiltinDocs)
 {
 	const Docs[] _globalFuncDocs =
 	[
-		{kind: "function", name: "isAscii", docs:
+		{kind: "function", name: "isAscii",
+		params: [Param("val", "char|string")],
+		docs:
 		`Checks to see if the given \tt{char} or \tt{string} is ASCII.
 
 		If \tt{val} is a \tt{char}, it is ASCII if it's below codepoint U+00080.
 
-		If \tt{val} is a \tt{string}, it is ASCII if all of its characters are below codepoint U+00080.`,
-		params: [Param("val", "char|string")]},
+		If \tt{val} is a \tt{string}, it is ASCII if all of its characters are below codepoint U+00080.`},
 
-		{kind: "function", name: "icompare", docs:
+		{kind: "function", name: "icompare",
+		params: [Param("str1", "string"), Param("str2", "string")],
+		docs:
 		`Compares two ASCII strings in a case-insensitive manner.
 
 		This function treats lower- and uppercase ASCII letters as comparing equal. For instance, "foo", "Foo", and "FOO" will
@@ -393,10 +396,11 @@ version(CrocBuiltinDocs)
 
 		\throws[exceptions.ValueException] if either string is not ASCII.
 		\returns a negative \tt{int} if \tt{str1} compares before \tt{str2}, a positive \tt{int} if \tt{str1} compares after \tt{str2},
-		and 0 if they compare equal.`,
-		params: [Param("str1", "string"), Param("str2", "string")]},
+		and 0 if they compare equal.`},
 
-		{kind: "function", name: "ifind", docs:
+		{kind: "function", name: "ifind",
+		params: [Param("str", "string"), Param("sub", "string|char"), Param("start", "int", "0")],
+		docs:
 		`Searches for an instance of the string \tt{sub} in the string \tt{str} in a case-insensitive manner.
 
 		The search begins at the character index given by \tt{start}, which defaults to 0 (the beginning of the string). The search
@@ -412,10 +416,11 @@ version(CrocBuiltinDocs)
 		instance of the substring (if any).
 
 		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
-		\throws[exceptions.BoundsException] if the \tt{start} parameter is invalid.`,
-		params: [Param("str", "string"), Param("sub", "string|char"), Param("start", "int", "0")]},
+		\throws[exceptions.BoundsException] if the \tt{start} parameter is invalid.`},
 
-		{kind: "function", name: "irfind", docs:
+		{kind: "function", name: "irfind",
+		params: [Param("str", "string"), Param("sub", "string|char"), Param("start", "int", "#s - 1")],
+		docs:
 		`The same as \link{ifind}, but works in reverse, starting from the right and searching left.
 
 		The search begins \em{at} the \tt{start} index, so if there is a match starting there, the same index will be returned. The \tt{start}
@@ -423,75 +428,87 @@ version(CrocBuiltinDocs)
 		as the \tt{start} parameter, you can find the previous instance of the substring (if any).
 
 		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
-		\throws[exceptions.BoundsException] if the \tt{start} parameter is invalid.`,
-		params: [Param("str", "string"), Param("sub", "string|char"), Param("start", "int", "#s - 1")]},
+		\throws[exceptions.BoundsException] if the \tt{start} parameter is invalid.`},
 
-		{kind: "function", name: "toLower", docs:
+		{kind: "function", name: "toLower",
+		params: [Param("val", "char|string")],
+		docs:
 		`Converts a string or character to lowercase.
 
 		If \tt{val} is a \tt{string}, the return value is a new string with any uppercase letters converted to lowercase. Non-uppercase letters
 		and non-letters are not affected. If \tt{val} is a \tt{char}, the return value will be a \tt{char} converted in the same way.
 
-		\throws[exceptions.ValueException] if \tt{val} is not ASCII.`,
-		params: [Param("val", "char|string")]},
+		\throws[exceptions.ValueException] if \tt{val} is not ASCII.`},
 
-		{kind: "function", name: "toUpper", docs:
+		{kind: "function", name: "toUpper",
+		params: [Param("val", "char|string")],
+		docs:
 		`Converts a string or character to uppercase.
 
 		If \tt{val} is a \tt{string}, the return value is a new string with any lowercase letters converted to uppercase. Non-lowercase letters
 		and non-letters are not affected. If \tt{val} is a \tt{char}, the return value will be a \tt{char} converted in the same way.
 
-		\throws[exceptions.ValueException] if \tt{val} is not ASCII.`,
-		params: [Param("val", "char|string")]},
+		\throws[exceptions.ValueException] if \tt{val} is not ASCII.`},
 
-		{kind: "function", name: "istartsWith", docs:
+		{kind: "function", name: "istartsWith",
+		params: [Param("str", "string"), Param("sub", "string")],
+		docs:
 		`Checks if \tt{str} begins with the substring \tt{other} in a case-insensitive manner.
 
 		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
-		\returns a bool.`,
-		params: [Param("str", "string"), Param("sub", "string")]},
+		\returns a bool.`},
 
-		{kind: "function", name: "iendsWith", docs:
+		{kind: "function", name: "iendsWith",
+		params: [Param("str", "string"), Param("sub", "string")],
+		docs:
 		`Checks if \tt{str} ends with the substring \tt{other} in a case-insensitive manner.
 
 		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
-		\returns a bool.`,
-		params: [Param("str", "string"), Param("sub", "string")]},
+		\returns a bool.`},
 
-		{kind: "function", name: "c.isAlpha", docs:
-		`\returns \tt{true} if \tt{c} is an alphabetic character; \tt{false} otherwise.`,
-		params: [Param("c", "char")]},
+		{kind: "function", name: "c.isAlpha",
+		params: [Param("c", "char")],
+		docs:
+		`\returns \tt{true} if \tt{c} is an alphabetic character; \tt{false} otherwise.`},
 
-		{kind: "function", name: "isAlNum", docs:
-		`\returns \tt{true} if \tt{c} is an alphanumeric character; \tt{false} otherwise.`,
-		params: [Param("c", "char")]},
+		{kind: "function", name: "isAlNum",
+		params: [Param("c", "char")],
+		docs:
+		`\returns \tt{true} if \tt{c} is an alphanumeric character; \tt{false} otherwise.`},
 
-		{kind: "function", name: "isLower", docs:
-		`\returns \tt{true} if \tt{c} is a lowercase alphabetic character; \tt{false} otherwise.`,
-		params: [Param("c", "char")]},
+		{kind: "function", name: "isLower",
+		params: [Param("c", "char")],
+		docs:
+		`\returns \tt{true} if \tt{c} is a lowercase alphabetic character; \tt{false} otherwise.`},
 
-		{kind: "function", name: "isUpper", docs:
-		`\returns \tt{true} if \tt{c} is an uppercase alphabetic character; \tt{false} otherwise.`,
-		params: [Param("c", "char")]},
+		{kind: "function", name: "isUpper",
+		params: [Param("c", "char")],
+		docs:
+		`\returns \tt{true} if \tt{c} is an uppercase alphabetic character; \tt{false} otherwise.`},
 
-		{kind: "function", name: "isDigit", docs:
-		`\returns \tt{true} if \tt{c} is a decimal digit (0 - 9); \tt{false} otherwise.`,
-		params: [Param("c", "char")]},
+		{kind: "function", name: "isDigit",
+		params: [Param("c", "char")],
+		docs:
+		`\returns \tt{true} if \tt{c} is a decimal digit (0 - 9); \tt{false} otherwise.`},
 
-		{kind: "function", name: "isHexDigit", docs:
-		`Returns \tt{true} if \tt{c} is a hexadecimal digit (0 - 9, A - F, a - f); \tt{false} otherwise.`,
-		params: [Param("c", "char")]},
+		{kind: "function", name: "isHexDigit",
+		params: [Param("c", "char")],
+		docs:
+		`Returns \tt{true} if \tt{c} is a hexadecimal digit (0 - 9, A - F, a - f); \tt{false} otherwise.`},
 
-		{kind: "function", name: "isCtrl", docs:
-		`\returns \tt{true} if \tt{c} is a control character (characters 0x0 to 0x1f and character 0x7f); \tt{false} otherwise.`,
-		params: [Param("c", "char")]},
+		{kind: "function", name: "isCtrl",
+		params: [Param("c", "char")],
+		docs:
+		`\returns \tt{true} if \tt{c} is a control character (characters 0x0 to 0x1f and character 0x7f); \tt{false} otherwise.`},
 
-		{kind: "function", name: "isPunct", docs:
-		`Returns \tt{true} if \tt{c} is a punctuation character; \tt{false} otherwise.`,
-		params: [Param("c", "char")]},
+		{kind: "function", name: "isPunct",
+		params: [Param("c", "char")],
+		docs:
+		`Returns \tt{true} if \tt{c} is a punctuation character; \tt{false} otherwise.`},
 
-		{kind: "function", name: "isSpace", docs:
-		`Returns \tt{true} if \tt{c} is a whitespace character; \tt{false} otherwise.`,
-		params: [Param("c", "char")]}
+		{kind: "function", name: "isSpace",
+		params: [Param("c", "char")],
+		docs:
+		`Returns \tt{true} if \tt{c} is a whitespace character; \tt{false} otherwise.`}
 	];
 }

@@ -1091,15 +1091,19 @@ version(CrocBuiltinDocs)
 {
 	const Docs[] _globalFuncDocs =
 	[
-		{kind: "function", name: "array.new", docs:
+		{kind: "function", name: "array.new",
+		params: [Param("size", "int"), Param("fill", "any", "null")],
+		extra: [Extra("section", "Functions"), Extra("protection", "global")],
+		docs:
 		`You can use array literals to create arrays in Croc, but sometimes you just need to be able to
 		create an array of arbitrary size. This function will create an array of the given size. If
 		you pass a value for the \tt{fill} parameter, the new array will have every element set to it.
-		Otherwise, it will be filled with \tt{null}.`,
-		params: [Param("size", "int"), Param("fill", "any", "null")],
-		extra: [Extra("section", "Functions"), Extra("protection", "global")]},
+		Otherwise, it will be filled with \tt{null}.`},
 
-		{kind: "function", name: "array.range", docs:
+		{kind: "function", name: "array.range",
+		params: [Param("val1", "int"), Param("val2", "int", "null"), Param("step", "int", "null")],
+		extra: [Extra("section", "Functions"), Extra("protection", "global")],
+		docs:
 		`Creates a new array filled with integer values specified by the arguments. This is similar to
 		the Python \tt{range()} function, but is a little more intelligent when it comes to the direction
 		of the range. Namely, if you give it indices where the ending index is less than the beginning,
@@ -1120,21 +1124,23 @@ version(CrocBuiltinDocs)
 		ending noninclusive index, and the third the step value. The step must be greater than 0; this
 		function will automatically figure out that it needs to subtract the step if the ending index is
 		less than the beginning index. Example: \tt{array.range(1, 20, 4)} yields \tt{[1, 5, 9, 13, 17]} and
-		\tt{array.range(10, 0, 2)} yields \tt{[10, 8, 6, 4, 2]}.`,
-		params: [Param("val1", "int"), Param("val2", "int", "null"), Param("step", "int", "null")],
-		extra: [Extra("section", "Functions"), Extra("protection", "global")]}
+		\tt{array.range(10, 0, 2)} yields \tt{[10, 8, 6, 4, 2]}.`}
 	];
 
 	const Docs[] _methodFuncDocs =
 	[
-		{kind: "function", name: "array.opEquals", docs:
+		{kind: "function", name: "array.opEquals",
+		params: [Param("other", "array")],
+		extra: [Extra("section", "Functions"), Extra("protection", "global")],
+		docs:
 		`Compares two arrays for shallow equality. Shallow equality means two arrays are equal if they
 		are the same length, and for each index i, \tt{a[i] is b[i]} is true. This does not call opEquals
-		metamethods on any of the arrays' elements.`,
-		params: [Param("other", "array")],
-		extra: [Extra("section", "Functions"), Extra("protection", "global")]},
+		metamethods on any of the arrays' elements.`},
 
-		{kind: "function", name: "sort", docs:
+		{kind: "function", name: "sort",
+		params: [Param("how", "function|string", "null")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Sorts the given array. All the elements must be comparable with one another. Will call any
 		\b{\tt{opCmp}} metamethods. Returns the array itself.
 
@@ -1146,24 +1152,27 @@ version(CrocBuiltinDocs)
 		If the \tt{how} parameter is a function, it is treated as a sorting predicate. It should take
 		two arguments, compare them, and return an ordering integer (i.e. negative if the first is
 		less than the second, positive if the first is greater than the second, and 0 if they are
-		equal).`,
-		params: [Param("how", "function|string", "null")],
-		extra: [Extra("section", "Methods")]},
+		equal).`},
 
-		{kind: "function", name: "reverse", docs:
+		{kind: "function", name: "reverse",
+		params: [],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Reverses the elements in the given array in-place.
 
-		\returns the array itself.`,
-		params: [],
-		extra: [Extra("section", "Methods")]},
+		\returns the array itself.`},
 
-		{kind: "function", name: "dup", docs:
+		{kind: "function", name: "dup",
+		params: [],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Creates a copy of the given array. Only the array elements are copied, not any data that
-		they point to.`,
-		params: [],
-		extra: [Extra("section", "Methods")]},
+		they point to.`},
 
-		{kind: "function", name: "opApply", docs:
+		{kind: "function", name: "opApply",
+		params: [Param("mode", "string", "null")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`This allows you to iterate over arrays using \tt{foreach} loops.
 \code
 foreach(i, v; a)
@@ -1174,42 +1183,47 @@ foreach(i, v; a, "reverse")
 \endcode
 
 		As the second example shows, passing in the string "reverse" as the second parameter will
-		cause the iteration to run in reverse.`,
-		params: [Param("mode", "string", "null")],
-		extra: [Extra("section", "Methods")]},
+		cause the iteration to run in reverse.`},
 
-		{kind: "function", name: "expand", docs:
+		{kind: "function", name: "expand",
+		params: [],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Returns all the elements of the array in order. In this way, you can "unpack" an array's
 		values to pass as separate parameters to a function, or as return values, etc. Note that you
-		probably shouldn't use this on really big arrays.`,
-		params: [],
-		extra: [Extra("section", "Methods")]},
+		probably shouldn't use this on really big arrays.`},
 
-		{kind: "function", name: "toString", docs:
+		{kind: "function", name: "toString",
+		params: [],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Returns a nice string representation of the array. This will format the array into a string
 		that looks like a Croc expression, like "[1, 2, 3]". Note that the elements of the array do
 		not have their toString metamethods called, since that could lead to infinite loops if the array
 		references itself directly or indirectly. To get a more complete representation of an array,
-		look at the baselib \link{dumpVal} function (though that only outputs to the console).`,
-		params: [],
-		extra: [Extra("section", "Methods")]},
+		look at the baselib \link{dumpVal} function (though that only outputs to the console).`},
 
-		{kind: "function", name: "apply", docs:
+		{kind: "function", name: "apply",
+		params: [Param("func", "function")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Iterates over the array, calling the function with each element of the array, and assigns
 		the result of the function back into the corresponding array element. The function should
 		take one value and return one value. Returns the array it was called on. This works in-place,
 		modifying the array on which it was called. As an example, "\tt{[1, 2, 3, 4, 5].apply(\\x -> x * x)}"
-		will replace the values in the array with "\tt{[1, 4, 9, 16, 25]}".`,
-		params: [Param("func", "function")],
-		extra: [Extra("section", "Methods")]},
+		will replace the values in the array with "\tt{[1, 4, 9, 16, 25]}".`},
 
-		{kind: "function", name: "map", docs:
+		{kind: "function", name: "map",
+		params: [Param("func", "function")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Like \link{apply}, but creates a new array and puts the output of the function in there,
-		rather than modifying the source array. Returns the new array.`,
-		params: [Param("func", "function")],
-		extra: [Extra("section", "Methods")]},
+		rather than modifying the source array. Returns the new array.`},
 
-		{kind: "function", name: "reduce", docs:
+		{kind: "function", name: "reduce",
+		params: [Param("func", "function"), Param("start", "any", "null")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Also known as \tt{fold} or \tt{foldl} (left fold) in many functional languages. This function
 		takes a function \tt{func} of two arguments which is expected to return a value. It treats the
 		array as a list of operands, and uses \tt{func} as if it were a left-associative binary operator
@@ -1223,100 +1237,112 @@ foreach(i, v; a, "reverse")
 		\tt{(((10 + 1) + 2) + 3)}. In the event that the array's length is 0, the start value is simply
 		returned as is.
 
-		If no start value is given, and the array's length is 0, an error is thrown.`,
-		params: [Param("func", "function"), Param("start", "any", "null")],
-		extra: [Extra("section", "Methods")]},
+		If no start value is given, and the array's length is 0, an error is thrown.`},
 
-		{kind: "function", name: "rreduce", docs:
+		{kind: "function", name: "rreduce",
+		params: [Param("func", "function"), Param("start", "any", "null")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Similar to \link{reduce} but goes right-to-left instead of left-to-right. "\tt{[1 2 3 4 5].rreduce(\\a, b -> a + b)}"
 		will still sum all the elements, because addition is commutative, but the order in which this
 		is done becomes \tt{(1 + (2 + (3 + (4 + 5))))}. Obviously if \tt{func} is not commutative, \tt{reduce}
-		and \tt{rreduce} will give different results.`,
-		params: [Param("func", "function"), Param("start", "any", "null")],
-		extra: [Extra("section", "Methods")]},
+		and \tt{rreduce} will give different results.`},
 
-		{kind: "function", name: "each", docs:
+		{kind: "function", name: "each",
+		params: [Param("func", "function")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`This is an alternate way of iterating over an array. The function is called once for each
 		element, starting at the first element. The parameters to the function are the array as the
 		\tt{this} param, then the index, and then the value. If the function returns \tt{false}, iteration will
-		stop and this function will return. This function returns the array on which it was called.`,
-		params: [Param("func", "function")],
-		extra: [Extra("section", "Methods")]},
+		stop and this function will return. This function returns the array on which it was called.`},
 
-		{kind: "function", name: "filter", docs:
+		{kind: "function", name: "filter",
+		params: [Param("func", "function")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Creates a new array which holds only those elements for which the given function returned \tt{true}
 		when called with elements from the source array. The function is passed two arguments, the index
 		and the value, and should return a boolean value. \tt{true} means the given element should be included
 		in the result, and \tt{false} means it should be skipped. "\tt{[1, 2, "hi", 4.5, 6].filter(\\i, v -> isInt(v))}"
-		would result in the array "\tt{[1, 2, 6]}", as the filter function only returns true for integral elements.`,
-		params: [Param("func", "function")],
-		extra: [Extra("section", "Methods")]},
+		would result in the array "\tt{[1, 2, 6]}", as the filter function only returns true for integral elements.`},
 
-		{kind: "function", name: "find", docs:
+		{kind: "function", name: "find",
+		params: [Param("value")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Performs a linear search for the value in the array. Returns the length of the array if it wasn't
 		found, or its index if it was.
 
 		This only compares items against the searched-for value if they are the same type. This differs from
 		"\tt{val in a}" in that 'in' only checks if \tt{val} is identical to any of the values in \tt{a}; it never
-		calls \tt{opCmp} metamethods like this function does.`,
-		params: [Param("value")],
-		extra: [Extra("section", "Methods")]},
+		calls \tt{opCmp} metamethods like this function does.`},
 
-		{kind: "function", name: "findIf", docs:
+		{kind: "function", name: "findIf",
+		params: [Param("pred", "function")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Similar to \link{find} except that it uses a predicate instead of looking for a value. Performs a
 		linear search of the array, calling the predicate on each value. Returns the index of the first value
 		for which the predicate returns \tt{true}. Returns the length of the array if no value is found that satisfies
-		the predicate.`,
-		params: [Param("pred", "function")],
-		extra: [Extra("section", "Methods")]},
+		the predicate.`},
 
-		{kind: "function", name: "bsearch", docs:
+		{kind: "function", name: "bsearch",
+		params: [Param("value")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Performs a binary search for the value in the array. Because of the way binary search works, the array
 		must be sorted for this search to work properly. Additionally, all the elements must be comparable (they
 		had to be for the sort to work in the first place).
 
-		\returns the array's length if the value wasn't found, or its index if it was.`,
-		params: [Param("value")],
-		extra: [Extra("section", "Methods")]},
+		\returns the array's length if the value wasn't found, or its index if it was.`},
 
-		{kind: "function", name: "pop", docs:
+		{kind: "function", name: "pop",
+		params: [Param("index", "int", "-1")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`This function makes it easy to use an array as a stack. Called with no parameters, it will remove
 		the last element of the array and return it. Called with an index (which can be negative to mean from
 		the end of the array), it will remove that element and shift all the other elements after it down a
-		slot. In either case, if the array's length is 0, an error will be thrown.`,
-		params: [Param("index", "int", "-1")],
-		extra: [Extra("section", "Methods")]},
+		slot. In either case, if the array's length is 0, an error will be thrown.`},
 		
-		{kind: "function", name: "insert", docs:
+		{kind: "function", name: "insert",
+		params: [Param("index", "int"), Param("value")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`More or less the inverse of \tt{pop}, this function lets you insert a value into an array, shifting
 		down all the values after it. The \tt{index} can be negative to mean from the end of the array. \tt{index}
-		can also be the length of the array, in which case the value is appended to the end of the array.`,
-		params: [Param("index", "int"), Param("value")],
-		extra: [Extra("section", "Methods")]},
+		can also be the length of the array, in which case the value is appended to the end of the array.`},
 
-		{kind: "function", name: "set", docs:
+		{kind: "function", name: "set",
+		params: [Param("vararg", "vararg")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Kind of like the inverse of \link{expand}, this takes a variadic number of parameters, sets the length
 		of the array to as many parameters as there are, and fills the array with those parameters. This is very
 		similar to using an array constructor, but it reuses an array instead of creating a new one, which can
-		save a lot of memory and time if you're doing this a lot.`,
-		params: [Param("vararg", "vararg")],
-		extra: [Extra("section", "Methods")]},
+		save a lot of memory and time if you're doing this a lot.`},
 
-		{kind: "function", name: "min", docs:
+		{kind: "function", name: "min",
+		params: [],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Gets the smallest value in the array. All elements of the array must be comparable to
 		each other for this to work. Throws an error if the array is empty. If the array only
-		has one value, returns that value.`,
-		params: [],
-		extra: [Extra("section", "Methods")]},
+		has one value, returns that value.`},
 
-		{kind: "function", name: "max", docs:
+		{kind: "function", name: "max",
+		params: [],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Gets the largest value in the array. All elements of the array must be comparable to
 		each other for this to work. Throws an error if the array is empty. If the array only
-		has one value, returns that value.`,
-		params: [],
-		extra: [Extra("section", "Methods")]},
+		has one value, returns that value.`},
 
-		{kind: "function", name: "extreme", docs:
+		{kind: "function", name: "extreme",
+		params: [Param("pred", "function")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`This is a generic version of \link{min} and \link{max}. Takes a predicate which should
 		take two parameters: a new value, and the current extreme. The predicate should return \tt{true}
 		if the new value is more extreme than the current extreme, and false otherwise. To illustrate,
@@ -1327,11 +1353,12 @@ foreach(i, v; a, "reverse")
 
 		If the array only has one value, returns that value.
 
-		\throws[exceptions.ValueException] if the array is empty.`,
-		params: [Param("pred", "function")],
-		extra: [Extra("section", "Methods")]},
+		\throws[exceptions.ValueException] if the array is empty.`},
 		
-		{kind: "function", name: "all", docs:
+		{kind: "function", name: "all",
+		params: [Param("pred", "function", "null")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`This is a generalized boolean "and" (logical conjunction) operation.
 
 		If called with no predicate function, returns \tt{true} if every element in the array has a truth
@@ -1340,11 +1367,12 @@ foreach(i, v; a, "reverse")
 		If called with a predicate, returns \tt{true} if the predicate returned \tt{true} for every element
 		in the array, and \tt{false} otherwise.
 
-		Returns \tt{true} if called on an empty array.`,
-		params: [Param("pred", "function", "null")],
-		extra: [Extra("section", "Methods")]},
+		Returns \tt{true} if called on an empty array.`},
 		
-		{kind: "function", name: "any", docs:
+		{kind: "function", name: "any",
+		params: [Param("pred", "function", "null")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`This is a generalized boolean "or" (logical disjunction) operation.
 
 		If called with no predicate function, returns \tt{true} if any element in the array has a truth
@@ -1353,44 +1381,47 @@ foreach(i, v; a, "reverse")
 		If called with a predicate, returns \tt{true} if the predicate returned \tt{true} for any element
 		in the array, and \tt{false} otherwise.
 
-		Returns \tt{false} if called on an empty array.`,
-		params: [Param("pred", "function", "null")],
-		extra: [Extra("section", "Methods")]},
+		Returns \tt{false} if called on an empty array.`},
 
-		{kind: "function", name: "fill", docs:
-		`Sets every element in the array to the given value.`,
+		{kind: "function", name: "fill",
 		params: [Param("value")],
-		extra: [Extra("section", "Methods")]},
+		extra: [Extra("section", "Methods")],
+		docs:
+		`Sets every element in the array to the given value.`},
 
-		{kind: "function", name: "append", docs:
+		{kind: "function", name: "append",
+		params: [Param("vararg", "vararg")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Appends all the arguments to the end of the array, in order. This is different from the append
 		operator (~=), because arrays will be appended as a single value, instead of having their elements
-		appended.`,
-		params: [Param("vararg", "vararg")],
-		extra: [Extra("section", "Methods")]},
+		appended.`},
 
-		{kind: "function", name: "flatten", docs:
+		{kind: "function", name: "flatten",
+		params: [],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Flattens a multi-dimensional array into a single-dimensional array. The dimensions can be nested
 		arbitrarily deep. If an array is directly or indirectly circularly referenced, throws an error. Always
 		returns a new array. Can be called on single-dimensional arrays too, in which case it just returns a
-		duplicate of the array.`,
-		params: [],
-		extra: [Extra("section", "Methods")]},
+		duplicate of the array.`},
 
-		{kind: "function", name: "count", docs:
+		{kind: "function", name: "count",
+		params: [Param("value"), Param("pred", "function", "null")],
+		extra: [Extra("section", "Methods")],
+		docs:
 		`Called with just a value, returns the number of elements in the array that are equal to that value
 		(according, optionally, to any \b{\tt{opCmp}} overloads). If called with a predicate, the predicate
 		should take two parameters. The second parameter will always be the value that is being counted, the
 		first parameter will be values from the array. The predicate should return a bool telling whether
 		that value of the array should be counted. Returns the number of elements for which the predicate
-		returned \tt{true}.`,
-		params: [Param("value"), Param("pred", "function", "null")],
-		extra: [Extra("section", "Methods")]},
+		returned \tt{true}.`},
 
-		{kind: "function", name: "countIf", docs:
-		`Similar to \link{count}, takes a predicate that should take a value and return a bool telling
-		whether or not to count it. Returns the number of elements for which the predicate returned \tt{true}.`,
+		{kind: "function", name: "countIf",
 		params: [Param("pred", "function")],
-		extra: [Extra("section", "Methods")]}
+		extra: [Extra("section", "Methods")],
+		docs:
+		`Similar to \link{count}, takes a predicate that should take a value and return a bool telling
+		whether or not to count it. Returns the number of elements for which the predicate returned \tt{true}.`}
 	];
 }
