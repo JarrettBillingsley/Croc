@@ -70,8 +70,8 @@ void initVector(CrocThread* t)
 		c.method("min",            0, &_min);
 		c.method("max",            0, &_max);
 		c.method("insert",         2, &_insert);
-		c.method("pop",            1, &_pop);
 		c.method("remove",         2, &_remove);
+		c.method("pop",            1, &_pop);
 		c.method("sum",            0, &_sum);
 		c.method("product",        0, &_product);
 		c.method("copyRange",      5, &_copyRange);
@@ -830,38 +830,6 @@ uword _insert(CrocThread* t)
 	return 1;
 }
 
-uword _pop(CrocThread* t)
-{
-	auto m = _getMembers(t);
-
-	if(!m.m.ownData)
-		throwStdException(t, "ValueException", "Attempting to pop from a Vector which does not own its data");
-
-	if(m.itemLength == 0)
-		throwStdException(t, "ValueException", "Vector is empty");
-
-	auto index = optIntParam(t, 1, -1);
-
-	if(index < 0)
-		index += m.itemLength;
-
-	if(index < 0 || index >= m.itemLength)
-		throwStdException(t, "BoundsException", "Invalid index: {}", index);
-
-	push(t, _rawIndex(m, cast(uword)index));
-
-	auto isize = m.kind.itemSize;
-
-	if(index < m.itemLength - 1)
-		memmove(&m.m.data[cast(uword)index * isize], &m.m.data[(cast(uword)index + 1) * isize], cast(uint)((m.itemLength - index - 1) * isize));
-
-	push(t, CrocValue(m.m));
-	lenai(t, -1, (m.itemLength - 1) * isize);
-	pop(t);
-
-	return 1;
-}
-
 uword _remove(CrocThread* t)
 {
 	auto m = _getMembers(t);
@@ -898,6 +866,38 @@ uword _remove(CrocThread* t)
 	}
 
 	dup(t, 0);
+	return 1;
+}
+
+uword _pop(CrocThread* t)
+{
+	auto m = _getMembers(t);
+
+	if(!m.m.ownData)
+		throwStdException(t, "ValueException", "Attempting to pop from a Vector which does not own its data");
+
+	if(m.itemLength == 0)
+		throwStdException(t, "ValueException", "Vector is empty");
+
+	auto index = optIntParam(t, 1, -1);
+
+	if(index < 0)
+		index += m.itemLength;
+
+	if(index < 0 || index >= m.itemLength)
+		throwStdException(t, "BoundsException", "Invalid index: {}", index);
+
+	push(t, _rawIndex(m, cast(uword)index));
+
+	auto isize = m.kind.itemSize;
+
+	if(index < m.itemLength - 1)
+		memmove(&m.m.data[cast(uword)index * isize], &m.m.data[(cast(uword)index + 1) * isize], cast(uint)((m.itemLength - index - 1) * isize));
+
+	push(t, CrocValue(m.m));
+	lenai(t, -1, (m.itemLength - 1) * isize);
+	pop(t);
+
 	return 1;
 }
 
@@ -1017,7 +1017,11 @@ uword _copyRange(CrocThread* t)
 		throwStdException(t, "ValueException", "Destination length ({}) and source length({}) do not match", hi - lo, hi2 - lo2);
 
 	auto isize = m.kind.itemSize;
-	memcpy(&m.m.data[cast(uword)lo * isize], &other.m.data[cast(uword)lo2 * isize], cast(uword)(hi - lo) * isize);
+
+	if(opis(t, 0, 3))
+		memmove(&m.m.data[cast(uword)lo * isize], &other.m.data[cast(uword)lo2 * isize], cast(uword)(hi - lo) * isize);
+	else
+		memcpy(&m.m.data[cast(uword)lo * isize], &other.m.data[cast(uword)lo2 * isize], cast(uword)(hi - lo) * isize);
 
 	dup(t, 0);
 	return 1;
@@ -1259,7 +1263,7 @@ uword _opLengthAssign(CrocThread* t)
 		throwStdException(t, "ValueException", "Attempting to change the length of a Vector which does not own its data");
 
 	if(len < 0 || len > uword.max)
-		throwStdException(t, "ValueException", "Invalid new length: {}", len);
+		throwStdException(t, "RangeException", "Invalid new length: {}", len);
 	
 	auto isize = cast(uword)len * m.kind.itemSize;
 	push(t, CrocValue(m.m));
@@ -1632,7 +1636,7 @@ char[] opAssign(char[] name, char[] op)
 		}
 
 		return 0;
-	}`; /+  +/
+	}`;
 }
 
 mixin(opAssign("Add", "+"));
@@ -1659,7 +1663,7 @@ char[] op(char[] name)
 		methodCall(t, -3, "op` ~ name ~ `Assign", 0);
 
 		return 1;
-	}`; /+  +/
+	}`;
 }
 
 mixin(op("Add"));
@@ -1685,7 +1689,7 @@ char[] op_rev(char[] name)
 		methodCall(t, -3, "rev` ~ name ~ `", 0);
 
 		return 1;
-	}`; /+  +/
+	}`;
 }
 
 mixin(op_rev("Sub"));
@@ -1836,7 +1840,7 @@ char[] rev_func(char[] name, char[] op)
 
 		dup(t, 0);
 		return 0;
-	}`; /+  +/
+	}`;
 }
 
 mixin(rev_func("Sub", "-"));
@@ -1848,11 +1852,11 @@ version(CrocBuiltinDocs)
 	const Docs _classDocs =
 	{kind: "class", name: "Vector", docs:
 	`Croc's built-in array type is fine for most tasks, but they're not very well-suited to high-speed number crunching.
-	Memblocks give you a low-level memory buffer, but don't provide any data structuring. \tt{Vectors} solve both these
+	Memblocks give you a low-level memory buffer, but don't provide any data structuring. Vectors solve both these
 	problems: they are dynamically-resizable strongly-typed single-dimensional arrays of numerical values built on top of
 	memblocks.
 
-	There are ten possible types a \tt{Vector} can hold. Each type has an associated "type code", which is just a string.
+	There are ten possible types a Vector can hold. Each type has an associated "type code", which is just a string.
 	The types and their type codes are as follows:
 
 	\table
@@ -1874,20 +1878,20 @@ version(CrocBuiltinDocs)
 
 	A note on the \tt{"u64"} type: Croc's int type is a signed 64-bit integer, which does not have the range to represent
 	all possible values that an unsigned 64-bit integer can. So when dealing with \tt{"u64" Vectors}, values larger than
-	2\sup{63} - 1 will be represented as negative Croc integers. However, internally, all the operations on these \tt{Vectors}
+	2\sup{63} - 1 will be represented as negative Croc integers. However, internally, all the operations on these Vectors
 	will be performed according to unsigned integer rules. The \tt{toString} method is also aware of this and will print
 	the values correctly, and if you'd like to print out unsigned 64-bit integers yourself, you can use \tt{toString(val, 'u')}
 	from the base library.
 
-	A note on all types: for performance reasons, \tt{Vectors} do not check the ranges of the values that are stored in them.
+	A note on all types: for performance reasons, Vectors do not check the ranges of the values that are stored in them.
 	For instance, if you assign an integer into a \tt{"u8" Vector}, only the lowest 8 bits will be stored. Storing \tt{floats}
 	into \tt{"f32" Vectors} will similarly round the value to the nearest representable value.
 	
 	Finally, the underlying memblock can be retrieved and manipulated directly; however, changing its size must be done carefully.
-	If the size is set to a byte length that is not an even multiple of the item size of the \tt{Vector}, an exception will be
-	thrown the next time a method is called on the \tt{Vector} that uses that memblock.
+	If the size is set to a byte length that is not an even multiple of the item size of the Vector, an exception will be
+	thrown the next time a method is called on the Vector that uses that memblock.
 
-	All methods, unless otherwise documented, return the \tt{Vector} object on which they were called.`,
+	All methods, unless otherwise documented, return the Vector object on which they were called.`,
 	extra: [Extra("protection", "global")]};
 
 	const Docs[] _methodDocs =
@@ -1896,8 +1900,8 @@ version(CrocBuiltinDocs)
 		`Constructor.
 
 		\param[type] is a string containing one of the type codes listed above.
-		\param[size] is the length of the new \tt{Vector}, measured in the number of elements.
-		\param[filler] is optional. If it is not given, the \tt{Vector} is filled with 0s. If it is given, the instance will have
+		\param[size] is the length of the new Vector, measured in the number of elements.
+		\param[filler] is optional. If it is not given, the Vector is filled with 0s. If it is given, the instance will have
 		the \link{fill} method called on it with \tt{filler} as the argument. As such, if the \tt{filler} is invalid, any exceptions
 		that \link{fill} can throw, the constructor can throw as well.
 
@@ -1906,16 +1910,16 @@ version(CrocBuiltinDocs)
 		params: [Param("type", "string"), Param("size", "int"), Param("filler", "any", "null")]},
 
 		{kind: "function", name: "fromArray", docs:
-		`A convenience function to convert an \tt{array} into a \tt{Vector}.
+		`A convenience function to convert an \tt{array} into a Vector.
 
 		Calling \tt{Vector.fromArray(type, arr)} is basically the same as calling \tt{Vector(type, #arr, arr)}; that is, the length
-		of the \tt{Vector} will be the length of the array, and the array will be passed as the \tt{filler} to the constructor.
+		of the Vector will be the length of the array, and the array will be passed as the \tt{filler} to the constructor.
 
 		\param[type] is a string containing one of the type codes.
-		\param[arr] is an array (single-dimensional, containing only numbers that can be converted to the \tt{Vector}'s element type)
-		that will be used to fill the \tt{Vector} with data.
+		\param[arr] is an array (single-dimensional, containing only numbers that can be converted to the Vector's element type)
+		that will be used to fill the Vector with data.
 
-		\returns the new \tt{Vector}.`,
+		\returns the new Vector.`,
 		params: [Param("type", "string"), Param("arr", "array")]},
 
 		{kind: "function", name: "range", docs:
@@ -1939,38 +1943,38 @@ version(CrocBuiltinDocs)
 		\param[val2] is the optional end index; if specified, makes \tt{val1} the start index.
 		\param[step] is the optional step size.
 
-		\returns the new \tt{Vector}.
+		\returns the new Vector.
 		\throws[exceptions.RangeException] if \tt{step} is 0.
-		\throws[exceptions.RangeException] if the resulting \tt{Vector} would have too many elements to be represented.`,
+		\throws[exceptions.RangeException] if the resulting Vector would have too many elements to be represented.`,
 		params: [Param("type", "string"), Param("val1", "int|float"), Param("val2", "int|float", "null"), Param("step", "int|float", "1")]},
 
 		{kind: "function", name: "type", docs:
-		`Gets or sets the type of this \tt{Vector}.
+		`Gets or sets the type of this Vector.
 
 		If called with no parameters, gets the type and returns it as a string.
 
-		If called with a parameter, it must be one of the type codes given above. The \tt{Vector}'s type will be set to the
-		new type, but only if the \tt{Vector}'s byte length is an multiple of the new type's item size. That is, if you had
+		If called with a parameter, it must be one of the type codes given above. The Vector's type will be set to the
+		new type, but only if the Vector's byte length is an multiple of the new type's item size. That is, if you had
 		a \tt{"u8" Vector} of length 7, and tried to change its type to \tt{"u16"}, it would fail because 7 is not an even
 		multiple of the size of a \tt{"u16"} element, 2 bytes.
 
 		When the type is changed, the data is not affected at all. The existing bit patterns will simply be interpreted according
 		to the new type.
 
-		\param[type] is the new type if changing this \tt{Vector}'s type, or \tt{null} if not.
-		\returns the current type of the \tt{Vector} if \tt{type} is \tt{null}, or nothing otherwise.
+		\param[type] is the new type if changing this Vector's type, or \tt{null} if not.
+		\returns the current type of the Vector if \tt{type} is \tt{null}, or nothing otherwise.
 		\throws[exceptions.ValueException] if \tt{type} is not a valid type code.
 		\throws[exceptions.ValueException] if the byte size is not an even multiple of the new type's item size.`,
 		params: [Param("type", "string", "null")]},
 		
 		{kind: "function", name: "itemSize", docs:
-		`Returns the size of one item of this \tt{Vector} in bytes.`,
+		`Returns the size of one item of this Vector in bytes.`,
 		params: []},
 
 		{kind: "function", name: "toArray", docs:
-		`Converts this \tt{Vector} or a slice of it into an \tt{array}.
+		`Converts this Vector or a slice of it into an \tt{array}.
 
-		Simply creates a new array and fills it with the values held in the \tt{Vector}, or just a slice of it if the parameters
+		Simply creates a new array and fills it with the values held in the Vector, or just a slice of it if the parameters
 		are given.
 
 		\param[lo] the low slice index.
@@ -1979,27 +1983,339 @@ version(CrocBuiltinDocs)
 		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")]},
 
 		{kind: "function", name: "toString", docs:
-		`Returns a string representation of this \tt{Vector}.
+		`Returns a string representation of this Vector.
 
 		The format will be \tt{"Vector(<type>)[<elements>]"}; that is, \tt{Vector.fromArray("i32", [1, 2, 3]).toString()} will
 		yield the string \tt{"Vector(i32)[1, 2, 3]"}.`,
 		params: []},
 
 		{kind: "function", name: "getMemblock", docs:
-		`Returns the underlying \tt{memblock} in which this \tt{Vector} stores its data.
+		`Returns the underlying \tt{memblock} in which this Vector stores its data.
 
-		Note that which memblock a \tt{Vector} uses to store its data cannot be changed, but you can change the data and size of
+		Note that which memblock a Vector uses to store its data cannot be changed, but you can change the data and size of
 		the memblock returned from this method. As explained in the class's documentation, though, setting the underlying
-		memblock's length to something that is not an even multiple of the \tt{Vector}'s item size will result in an exception
-		being thrown the next time a method is called on the \tt{Vector}.`,
+		memblock's length to something that is not an even multiple of the Vector's item size will result in an exception
+		being thrown the next time a method is called on the Vector.`,
 		params: []},
 		
 		{kind: "function", name: "dup", docs:
-		`Duplicates this \tt{Vector}.
+		`Duplicates this Vector.
 		
-		Creates a new \tt{Vector} with the same type and a copy of this \tt{Vector}'s data.
+		Creates a new Vector with the same type and a copy of this Vector's data.
 		
-		\returns the new \tt{Vector}.`,
+		\returns the new Vector.`,
 		params: []},
+
+		{kind: "function", name: "reverse", docs:
+		`Reverses the elements of this Vector.
+
+		This method operates in-place.`,
+		params: []},
+
+		{kind: "function", name: "sort", docs:
+		`Sorts the elements of this Vector in ascending order.
+
+		This method operates in-place.`,
+		params: []},
+
+		{kind: "function", name: "apply", docs:
+		`Like \link{array.apply}, calls a function on each element of this Vector and assigns the results back into it.
+
+		\param[func] should be a function which takes one value (an int for integral Vectors or a float for floating-point
+		ones), and should return one value of the same type that was passed in (though it's okay to return ints for floating-point
+		Vectors.
+
+		\throws[exceptions.TypeException] if \tt{func} returns a value of an invalid type.`,
+		params: [Param("func", "function")]},
+
+		{kind: "function", name: "map", docs:
+		`Same as \link{apply}, except puts the results into a new Vector instead of operating in-place.
+
+		This is functionally equivalent to writing \tt{this.dup().apply(func)}.
+
+		\param[func] is the same as the \tt{func} parameter for \link{apply}.
+		\returns the new Vector.
+		\throws[exceptions.TypeException] if \tt{func} returns a value of an invalid type.`,
+		params: [Param("func", "function")]},
+
+		{kind: "function", name: "max", docs:
+		`Finds the largest value in this Vector.
+
+		\returns the largest value.
+		\throws[exceptions.ValueException] if \tt{#this == 0}.`,
+		params: []},
+
+		{kind: "function", name: "max", docs:
+		`Finds the smallest value in this Vector.
+
+		\returns the smallest value.
+		\throws[exceptions.ValueException] if \tt{#this == 0}.`,
+		params: []},
+
+		{kind: "function", name: "insert", docs:
+		`Inserts a single number or another Vector's contents at the given position.
+
+		\param[idx] is the position where \tt{val} should be inserted. All the elements (if any) after \tt{idx} are
+		shifted down to make room for the inserted data. \tt{idx} can be \tt{#this}, in which case \tt{val} will be appended
+		to the end of \tt{this}. \tt{idx} can be negative to mean an index from the end of this Vector.
+		\param[val] is the value to insert. If \tt{val} is a Vector, it must be the same type as \tt{this}. It is legal
+		for \tt{val} to be \tt{this}. If \tt{val} isn't a Vector, it must be a valid type for this Vector.
+		\throws[exceptions.ValueException] if this Vector's memblock does not own its data.
+		\throws[exceptions.BoundsException] if \tt{idx} is invalid.
+		\throws[exceptions.ValueException] if \tt{val} is a Vector but its type differs from \tt{this}'s type.
+		\throws[exceptions.RangeException] if inserting would cause this Vector to grow too large.`,
+		params: [Param("idx", "int"), Param("val", "int|float|Vector")]},
+
+		{kind: "function", name: "remove", docs:
+		`Removes one or more items from this Vector, shifting the data after the removed data up.
+
+		It is legal for the size of the slice to be removed to be 0, in which case nothing happens.
+
+		\param[lo] is the lower slice index of the items to be removed.
+		\param[hi] is the upper slice index of the items to be removed. It defaults to one after \tt{lo}, so that called with
+		just one parameter, this method will remove one item.
+		\throws[exceptions.ValueException] if this Vector's memblock does not own its data.
+		\throws[exceptions.ValueException] if this Vector is empty.
+		\throws[exceptions.BoundsException] if \tt{lo} and \tt{hi} are invalid.`,
+		params: [Param("lo", "int"), Param("hi", "int", "lo + 1")]},
+
+		{kind: "function", name: "pop", docs:
+		`Removes one item from anywhere in this Vector (the last item by default) and returns its value, like
+		\link{array.pop}. 
+
+		\param[idx] is the index of the item to be removed, which defaults to the last item in this Vector.
+		\returns the value of the item that was removed.
+		\throws[exceptions.ValueException] if this Vector's memblock does not own its data.
+		\throws[exceptions.ValueException] if this Vector is empty.
+		\throws[exceptions.BoundsException] if \tt{idx} is invalid.`,
+		params: [Param("idx", "int", "-1")]},
+
+		{kind: "function", name: "sum", docs:
+		`Sums all the elements in this Vector, returning 0 or 0.0 if empty.
+
+		\returns the sum.`,
+		params: []},
+
+		{kind: "function", name: "product", docs:
+		`Multiplies all the elements in this Vector together, returning 1 or 1.0 if empty.
+
+		\returns the product.`,
+		params: []},
+
+		{kind: "function", name: "copyRange", docs:
+		`Copies a slice of another Vector into a slice of this one without creating an unnecessary temporary.
+
+		If you try to use slice-assignment to copy a slice of one vector into another (such as \tt{a[x .. y] = b[z .. w]}), an
+		unnecessary temporary Vector will be created, as well as performing two memory copies. For better performance, you can
+		use this method to copy the data directly without creating an intermediate object and only performing one memory copy.
+
+		The lengths of the slices must be identical.
+
+		\param[lo1] is the lower index of the slice into this Vector.
+		\param[hi1] is the upper index of the slice into this Vector.
+		\param[other] is the Vector from which data will be copied.
+		\param[lo2] is the lower index of the slice into \tt{other}.
+		\param[hi2] is the upper index of the slice into \tt{other}. Note that its default value means \tt{lo2 + the size of the
+		slice into this}.
+
+		\throws[exceptions.BoundsException] if either pair of slice indices is invalid for its respective Vector.
+		\throws[exceptions.ValueException] if \tt{other}'s type is not the same as this Vector's.
+		\throws[exceptions.ValueException] if the sizes of the slices differ.`,
+		params: [Param("lo1", "int", "0"), Param("hi1", "int", "#this"), Param("other", "Vector"), Param("lo2", "int", "0"), Param("hi2", "int", "lo2 + (hi - lo)")]},
+
+		{kind: "function", name: "fill", docs:
+		`A flexible way to fill a Vector with data.
+
+		This method never changes the Vector's size; it always works in-place, and all data in this Vector is replaced. The
+		behavior of this method depends on the type of its \tt{val} parameter.
+
+		\param[val] is the value used to fill this Vector.
+
+		If \tt{this} is an integral Vector, and \tt{val} is an int, all items in this Vector will be set to \tt{val}.
+
+		If \tt{this} is a floating-point Vector, \tt{val} can be an int or float, and all items in this Vector will be set to
+		the float representation of \tt{val}.
+
+		If \tt{val} is a function, it should take an integer that is the index of the element, and should return one value 
+		the appropriate type which will be the value placed in that index. This function is called once for each element 
+		this Vector.
+
+		If \tt{val} is an array, it should be the same length as this Vector, be single-dimensional, and all elements must be
+		valid types for this Vector. The values will be assigned element-for-element into this Vector.
+
+		Lastly, if \tt{val} is a Vector, it must be the same length and type, and the data will be copied from \tt{val} into
+		this Vector.`,
+		params: [Param("val", "int|float|function|array|Vector")]},
+
+		{kind: "function", name: "fillRange", docs:
+		`Same as \link{fill}, but operates on only a slice of this Vector instead of on the entire length.
+
+		\b{Also aliased to opSliceAssign.} This means that any slice-assignment of the form \tt{"v[x, y] = b"} can be written
+		equivalently as \tt{"v.fillRange(x, y, b)"}, and vice versa.
+
+		\param[lo] is the lower slice index.
+		\param[hi] is the upper slice index.
+		\param[val] is the same as for \link{fill}.`,
+		params: [Param("lo", "int", "0"), Param("hi", "int", "#this"), Param("val", "int|float|function|array|Vector")]},
+
+		{kind: "function", name: "opEquals", docs:
+		`Checks if two Vectors have the same contents. Both Vectors must be the same type.
+
+		\param[other] is the Vector to compare \tt{this} to.
+		\returns \tt{true} if \tt{this} and \tt{other} are the same length and contain the same data, or \tt{false} otherwise.
+		\throws[exceptions.ValueException] if \tt{other}'s type differs from \tt{this}'s.`,
+		params: [Param("other", "Vector")]},
+
+		{kind: "function", name: "opCmp", docs:
+		`Compares two Vectors lexicographically. Both Vectors must be the same type.
+
+		\param[other] is the Vector to compare \tt{this} to.
+		\returns a negative integer if \{this} compares less than \tt{other}, positive if \tt{this} compares greater than \tt{other},
+		and 0 if \tt{this} and \tt{other} have the same length and contents.
+		\throws[exceptions.ValueException] if \tt{other}'s type differs from \tt{this}'s.`,
+		params: [Param("other", "Vector")]},
+
+		{kind: "function", name: "opLength", docs:
+		`Gets the number of items in this Vector.
+
+		\returns the length as an integer.`,
+		params: []},
+
+		{kind: "function", name: "opLengthAssign", docs:
+		`Sets the number of items in this Vector.
+
+		\param[len] is the new length.
+		\throws[exceptions.ValueException] if this Vector's memblock does not own its data.
+		\throws[exceptions.RangeException] if \tt{len} is invalid.`,
+		params: [Param("len", "int")]},
+
+		{kind: "function", name: "opIndex", docs:
+		`Gets a single item from this Vector at the given index.
+
+		\param[idx] is the index of the item to retrieve. Can be negative.
+		\throws[exception.BoundsException] if \tt{idx} is invalid.`,
+		params: [Param("idx", "int")]},
+
+		{kind: "function", name: "opIndex", docs:
+		`Sets a single item in this Vector at the given index to the given value.
+
+		\param[idx] is the index of the item to set. Can be negative.
+		\param[val] is the value to be set.
+		\throws[exception.BoundsException] if \tt{idx} is invalid.`,
+		params: [Param("idx", "int"), Param("val", "int|float")]},
+
+		{kind: "function", name: "opSlice", docs:
+		`Creates a new Vector whose data is a copy of a slice of this Vector.
+
+		Note that in the case that you want to copy data from a slice of one Vector into a slice of another (or even
+		between parts of the same Vector), you can avoid creating unnecessary temporaries by using \link{copyRange}
+		instead.
+
+		\param[lo] is lower slice index into this Vector.
+		\param[hi] is upper slice index into this Vector.
+		\returns a new Vector with the same type as \tt{this}, whose data is a copy of the given slice.
+		\throws[exception.BoundsException] if \tt{lo} and \tt{hi} are invalid.`,
+		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")]},
+
+		{kind: "function", name: "opApply", docs:
+		`Allows you to iterate over the contents of a Vector using a \tt{foreach} loop.
+
+		This works just like the \tt{opApply} defined for arrays. The indices in the loop will be the element index
+		followed by the element value. You can iterate in reverse by passing the string value \tt{"reverse"} as the
+		\tt{mode} argument. For example:
+
+\code
+local v = Vector.range("i32", 1, 6)
+foreach(i, val; v) write(val) // prints 12345
+foreach(i, val; v, "reverse") write(val) // prints 54321
+\endcode
+
+		\param[mode] is the iteration mode. The only valid modes are \tt{"reverse"}, which runs iteration backwards,
+		and the empty string \{""}, which is normal forward iteration.
+		\throws[exceptions.ValueException] if \tt{mode} is invalid.`,
+		params: [Param("mode", "string", "\"\"")]},
+
+		{kind: "field", name: "opSerialize", docs:
+		`These are methods meant to work with the \tt{serialization} library, allowing instances of \tt{Vector} to be
+		serialized and deserialized.`,},
+
+		{kind: "field", name: "opDeserialize", docs: `ditto`,},
+
+		{kind: "function", name: "opCat", docs:
+		`Concatenates this Vector with a number or another Vector, returning a new Vector that is the concatenation
+		of the two.
+
+		\tt{opCat_r} is to allow reverse concatenation, where the value is on the left and the Vector is on the right.
+
+		\param[other] is either a number of the appropriate type, or another Vector. If \tt{other} is a Vector, it
+		must be the same type as \tt{this}.
+		\returns the new Vector object.
+		\throws[exceptions.ValueException] if \tt{other} is a Vector and its type differs from \tt{this}'s.`,
+		params: [Param("other", "int|float|Vector")]},
+
+		{kind: "function", name: "opCat_r", docs: `ditto`, params: [Param("other", "int|float")]},
+
+		{kind: "function", name: "opCatAssign", docs:
+		`Appends one or more values or Vectors to the end of this Vector, in place.
+
+		\param[vararg] is one or more values, each of which must be either a number of the appropriate type, or a Vector
+		whose type is the same as \tt{this}'s. All the arguments will be appended to the end of this Vector in order.
+		\throws[exceptions.ParamException] if no varargs were passed.
+		\throws[exceptions.ValueException] if this Vector's memblock does not own its data.
+		\throws[exceptions.ValueException] if one of the varargs is a Vector whose type differs from \tt{this}'s.
+		\throws[exceptions.RangeException] if this memblock grows too large.`,
+		params: [Param("vararg", "vararg")]},
+
+		{kind: "function", name: "opAdd", docs:
+		`These all implement binary mathematical operators on Vectors. All return new Vector objects as the results.
+
+		When performing an operation on a Vector and a number, the operation will be performed on each element of the
+		Vector using the number as the other operand. When performing an operation on two Vectors, they must be the
+		same type and length, and the operation is performed on each pair of elements.
+
+		\param[other] is the second operand in the operation.
+		\returns the new Vector whos values are the result of the operation.
+		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`,
+		params: [Param("other", "int|float|Vector")]},
+
+		{kind: "function", name: "opSub",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opMul",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opDiv",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opMod",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opAdd_r", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opSub_r", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opMul_r", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opDiv_r", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opMod_r", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+
+		{kind: "function", name: "opAddAssign", docs:
+		`These all implement reflexive mathematical operators on Vectors. All operate in-place on this Vector.
+
+		The behavior is otherwise identical to the binary operator metamethods.
+
+		\param[other] is the right-hand side of the operation.
+		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`,
+		params: [Param("other", "int|float|Vector")]},
+
+		{kind: "function", name: "opSubAssign", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opMulAssign", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opDivAssign", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "opModAssign", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+
+		{kind: "function", name: "revSub", docs:
+		`These allow you to perform in-place reflexive operations where this Vector will be used as the second operand instead
+		of as the first. 
+
+		For example, doing \tt{"v -= 5"} will subtract 5 from each element in \tt{v}, but doing \tt{"v.revSub(5)"} will instead
+		subtract each element in \tt{v} from 5. 
+
+		The behavior is otherwise identical to the reflexive operator metamethods.
+
+		\param[other] is the left-hand side of the operation.
+		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`,
+		params: [Param("other", "int|float|Vector")]},
+
+		{kind: "function", name: "revDiv", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "revMod", docs: `ditto`, params: [Param("other", "int|float|Vector")]}
 	];
 }

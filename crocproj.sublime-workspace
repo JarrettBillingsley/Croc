@@ -15,23 +15,7 @@
 			"file": "samples/simple.croc",
 			"settings":
 			{
-				"buffer_size": 25767,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Croc.json-tmlanguage",
-			"settings":
-			{
-				"buffer_size": 2293,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "crocgrammar.txt",
-			"settings":
-			{
-				"buffer_size": 10133,
+				"buffer_size": 25757,
 				"line_ending": "Unix"
 			}
 		},
@@ -44,28 +28,124 @@
 			}
 		},
 		{
-			"file": "croc/interpreter.d",
+			"file": "croc/stdlib_vector.d",
 			"settings":
 			{
-				"buffer_size": 98201,
+				"buffer_size": 60455,
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"file": "croc/stdlib_vector.d",
+			"file": "croc/stdlib_stringbuffer.d",
 			"settings":
 			{
-				"buffer_size": 60453,
+				"buffer_size": 30316,
 				"line_ending": "Unix"
 			}
 		}
 	],
-	"build_system": "Packages/AAAPackageDev/Support/JSON to Property List.sublime-build",
+	"build_system": "",
 	"command_palette":
 	{
 		"height": 104.0,
 		"selected_items":
 		[
+			[
+				"stat",
+				"Git: Status"
+			],
+			[
+				"git status",
+				"Git: Status"
+			],
+			[
+				"git diff",
+				"Git: Diff All"
+			],
+			[
+				"disco",
+				"Package Control: Discover Packages"
+			],
+			[
+				"remove",
+				"Package Control: Remove Package"
+			],
+			[
+				"syn d1	",
+				"Set Syntax: D 1.0"
+			],
+			[
+				"git push",
+				"Git: Push"
+			],
+			[
+				"git push c",
+				"Git: Push Current Branch"
+			],
+			[
+				"git comm",
+				"Git: Commit"
+			],
+			[
+				"git add ..",
+				"Git: Add..."
+			],
+			[
+				"diff",
+				"Git: Diff All"
+			],
+			[
+				"git statu",
+				"Git: Status"
+			],
+			[
+				"git add",
+				"Git: Add..."
+			],
+			[
+				"git add ",
+				"Git: Add Current File"
+			],
+			[
+				"git diff cu",
+				"Git: Diff Current File"
+			],
+			[
+				"git reset",
+				"Git: Reset (unstage) Current File"
+			],
+			[
+				"annot",
+				"Git: Toggle Annotations"
+			],
+			[
+				"anno",
+				"Git: Toggle Annotations"
+			],
+			[
+				"package list",
+				"Package Control: List Packages"
+			],
+			[
+				"syntax d 1.",
+				"Set Syntax: D 1.0"
+			],
+			[
+				"git anno",
+				"Git: Toggle Annotations"
+			],
+			[
+				"syntax d",
+				"Set Syntax: D"
+			],
+			[
+				"git push ",
+				"Git: Push"
+			],
+			[
+				"git stat",
+				"Git: Status"
+			],
 			[
 				"insta",
 				"Package Control: Install Package"
@@ -75,8 +155,12 @@
 				"Package Control: Discover Packages"
 			],
 			[
-				"disco",
-				"Package Control: Discover Packages"
+				"set syn cro",
+				"Set Syntax: Croc"
+			],
+			[
+				"syn cro",
+				"Set Syntax: Croc"
 			],
 			[
 				"open",
@@ -120,20 +204,37 @@
 	},
 	"file_history":
 	[
-		"/C/Users/jarrett/proj/croc/crocproj.sublime-workspace",
-		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/D1.json-tmlanguage",
+		"/C/Users/jarrett/AppData/Roaming/.techniclauncher/technicssp/config/mod_RedPowerCore.cfg",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Color Scheme - Default/Twilight.tmTheme",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Mine.tmTheme",
-		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/D/D.tmLanguage",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Color Scheme - Default/Monokai.tmTheme",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/D1.sublime-build",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/D1.sublime-settings",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Default/Preferences.sublime-settings",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Preferences.sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Color Scheme - Default/Monokai.tmTheme.cache",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/CommentsCroc.tmPreferences",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Default/Default (Windows).sublime-keymap",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Default (Windows).sublime-keymap",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Default/Default (Linux).sublime-keymap",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Settings/Session.sublime_session",
+		"/C/Users/jarrett/proj/croc/croc/croc/stdlib_vector.d",
+		"/C/Users/jarrett/proj/croc/crocproj.sublime-project",
+		"/C/Users/jarrett/proj/croc/.git/config",
+		"/C/Users/jarrett/proj/croc/croc/stdlib_vector.d",
+		"/C/Users/jarrett/proj/croc/croc/interpreter.d",
+		"/C/Users/jarrett/proj/croc/crocgrammar.txt",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Croc.json-tmlanguage",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Comments.tmPreferences",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Package Control.sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/D.sublime-settings",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Default (Linux).sublime-keymap",
+		"/C/Users/jarrett/proj/croc/crocproj.sublime-workspace",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/D1.json-tmlanguage",
+		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/D/D.tmLanguage",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/D/D.sublime-build",
 		"/C/Users/jarrett/proj/croc/croc/api_interpreter.d",
-		"/C/Users/jarrett/proj/croc/croc/interpreter.d",
-		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Default (Windows).sublime-keymap",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Distraction Free.sublime-settings",
-		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/D1.sublime-settings",
-		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Comments.tmPreferences",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Java/JavaDoc.tmLanguage",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/D.tmLanguage",
 		"/C/Users/jarrett/proj/croc/croc/types_memblock.d",
@@ -158,8 +259,6 @@
 		"/C/Users/jarrett/proj/croc/croc/stdlib_stream.d",
 		"/C/Users/jarrett/proj/croc/croc/stdlib_stringbuffer.d",
 		"/C/Users/jarrett/proj/croc/croc/stdlib_text.d",
-		"/C/Users/jarrett/proj/croc/croc/stdlib_vector.d",
-		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Color Scheme - Default/Twilight.tmTheme",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Color Scheme - Default/Solarized (Light).tmTheme",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Lua/for-i-v-in-ipairs().sublime-snippet",
 		"/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/Color Scheme - Default/Amy.tmTheme",
@@ -175,6 +274,7 @@
 		"height": 0.0,
 		"where_history":
 		[
+			"C:\\Users\\jarrett\\AppData\\Roaming\\Sublime Text 2",
 			"C:\\Users\\jarrett\\proj\\croc\\croc"
 		]
 	},
@@ -183,6 +283,27 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"exceptions",
+			"textCodecs",
+			"registerCodec",
+			"import",
+			"gutter",
+			"bracket",
+			"registerCo",
+			"find",
+			"selec",
+			"color",
+			"outline",
+			"ffe792",
+			"selec",
+			"registerCode",
+			"selec",
+			"enter",
+			"ctrl+z",
+			"build",
+			"show_pane",
+			"ctrl+shift+o",
+			"escape",
 			" | ",
 			".d1",
 			"f8",
@@ -270,7 +391,7 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 0,
 			"sheets":
 			[
 				{
@@ -278,20 +399,21 @@
 					"file": "samples/simple.croc",
 					"settings":
 					{
-						"buffer_size": 25767,
+						"buffer_size": 25757,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								121,
-								121
+								163,
+								163
 							]
 						],
 						"settings":
 						{
-							"syntax": "Packages/Text/Plain text.tmLanguage",
+							"live_git_annotations": false,
+							"syntax": "Packages/User/Croc.tmlanguage",
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
@@ -302,60 +424,6 @@
 				},
 				{
 					"buffer": 1,
-					"file": "/C/Users/jarrett/AppData/Roaming/Sublime Text 2/Packages/User/Croc.json-tmlanguage",
-					"settings":
-					{
-						"buffer_size": 2293,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								273,
-								273
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/AAAPackageDev/Support/Sublime JSON Syntax Definition.tmLanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"type": "text"
-				},
-				{
-					"buffer": 2,
-					"file": "crocgrammar.txt",
-					"settings":
-					{
-						"buffer_size": 10133,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1438,
-								1438
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Text/Plain text.tmLanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 715.0,
-						"zoom_level": 1.0
-					},
-					"type": "text"
-				},
-				{
-					"buffer": 3,
 					"file": "croctest.d",
 					"settings":
 					{
@@ -366,12 +434,13 @@
 						"selection":
 						[
 							[
-								0,
-								0
+								246,
+								246
 							]
 						],
 						"settings":
 						{
+							"live_git_annotations": true,
 							"syntax": "Packages/User/D1.tmlanguage",
 							"translate_tabs_to_spaces": false
 						},
@@ -382,46 +451,19 @@
 					"type": "text"
 				},
 				{
-					"buffer": 4,
-					"file": "croc/interpreter.d",
-					"settings":
-					{
-						"buffer_size": 98201,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								89770,
-								89770
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/User/D1.tmlanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 44856.0,
-						"zoom_level": 1.0
-					},
-					"type": "text"
-				},
-				{
-					"buffer": 5,
+					"buffer": 2,
 					"file": "croc/stdlib_vector.d",
 					"settings":
 					{
-						"buffer_size": 60453,
+						"buffer_size": 60455,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								990,
-								990
+								41064,
+								41064
 							]
 						],
 						"settings":
@@ -430,7 +472,35 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 18572.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "croc/stdlib_stringbuffer.d",
+					"settings":
+					{
+						"buffer_size": 30316,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								17661,
+								17661
+							]
+						],
+						"settings":
+						{
+							"live_git_annotations": false,
+							"syntax": "Packages/User/D1.tmlanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 10121.0,
 						"zoom_level": 1.0
 					},
 					"type": "text"
@@ -475,6 +545,10 @@
 	},
 	"output.exec":
 	{
+		"height": 234.0
+	},
+	"output.git":
+	{
 		"height": 88.0
 	},
 	"replace":
@@ -487,6 +561,10 @@
 		"height": 0.0,
 		"selected_items":
 		[
+			[
+				"stringbu",
+				"croc/stdlib_stringbuffer.d"
+			]
 		],
 		"width": 0.0
 	},
@@ -499,7 +577,7 @@
 		"width": 380.0
 	},
 	"show_minimap": true,
-	"show_open_files": true,
+	"show_open_files": false,
 	"show_tabs": true,
 	"side_bar_visible": true,
 	"side_bar_width": 231.0,

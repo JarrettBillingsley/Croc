@@ -1074,7 +1074,7 @@ local s = StringBuffer()
 		called on it (unless it's a \tt{StringBuffer} itself, so no \tt{toString} is necessary), and the resulting string will be
 		appended to the end of this \tt{StringBuffer}'s data.
 
-		You can either use the \tt{~=} and \tt{~} operators to use this method, or you can call the \link{append} method; both are aliased to
+		You can either use the \tt{~=} and \tt{~} operators to use this method, or you can call the \tt{append} method; both are aliased to
 		the same method and do the same thing. Thus, \tt{"s ~= a ~ b ~ c"} is functionally identical to \tt{"s.append(a, b, c)"} and
 		vice versa.
 
