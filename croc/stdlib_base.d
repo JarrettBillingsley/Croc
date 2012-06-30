@@ -38,7 +38,6 @@ alias tango.text.convert.Integer.toLong Integer_toLong;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
-import croc.ex_format;
 import croc.stdlib_utils;
 import croc.stdlib_vector;
 import croc.types;
@@ -524,8 +523,7 @@ const RegisterFunc[] _convFuncs =
 	{"toBool",      &_toBool,      maxParams: 1},
 	{"toInt",       &_toInt,       maxParams: 1},
 	{"toFloat",     &_toFloat,     maxParams: 1},
-	{"toChar",      &_toChar,      maxParams: 1},
-	{"format",      &_format}
+	{"toChar",      &_toChar,      maxParams: 1}
 ];
 
 uword _toString(CrocThread* t)
@@ -606,22 +604,6 @@ uword _toFloat(CrocThread* t)
 uword _toChar(CrocThread* t)
 {
 	pushChar(t, cast(dchar)checkIntParam(t, 1));
-	return 1;
-}
-
-uword _format(CrocThread* t)
-{
-	uint sink(char[] s)
-	{
-		if(s.length)
-			pushString(t, s);
-
-		return s.length;
-	}
-
-	auto startSize = stackSize(t);
-	formatImpl(t, startSize - 1, &sink);
-	cat(t, stackSize(t) - startSize);
 	return 1;
 }
 
@@ -1130,27 +1112,6 @@ foreach(k, v, o; allFieldsOf(B))
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
 	docs:
 	`This will convert an integer value to a single character. Only integer parameters are allowed.`},
-
-	{kind: "function", name: "format",
-	params: [Param("fmt", "string"), Param("vararg", "vararg")],
-	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
-	docs:
-	`Functions much like Tango's tango.text.convert.Layout class. \tt{fmt} is a formatting string, in
-	which may be embedded formatting specifiers, which use the same '\tt{{\}}' syntax as found in Tango,
-	.Net, and ICU.
-
-	By default, when you format an item, it will call any \b{\tt{toString}} metamethod defined for it.
-	If you want to use the "raw" formatting for a parameter instead, write a lowercase 'r' immediately
-	after the opening brace of a format specifier. So something like "\tt{format("{r\}", [1, 2, 3])}"
-	will call \link{rawToString} on the array parameter, resulting in something like "\tt{array 0x00000000}"
-	instead of a string representation of the contents of the array.
-
-	Just about everything else works exactly as it does in Tango. You can use any field width and formatting
-	characters that Tango allows.
-
-	Croc's \link{writef} and \link{writefln} functions (as well as their analogues in the IO library) use
-	the same internal formatting as this function, so any rules that apply here apply for those functions as
-	well.`},
 
 	{kind: "function", name: "dumpVal",
 	params: [Param("value"), Param("printNewline", "bool", "true")],

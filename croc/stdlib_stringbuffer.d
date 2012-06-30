@@ -1141,8 +1141,8 @@ local s = StringBuffer()
 		{kind: "function", name: "format",
 		params: [Param("fmt", "string"), Param("vararg", "vararg")],
 		docs:
-		`Just like the \tt{format} function in the baselib, except the results are appended directly to the end of this \tt{StringBuffer}
-		without needing a string temporary.`},
+		`Just like \link{string.format}, except the results are appended directly to the end of this \tt{StringBuffer} without needing a
+		string temporary.`},
 
 		{kind: "function", name: "formatln",
 		params: [Param("fmt", "string"), Param("vararg", "vararg")],

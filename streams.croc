@@ -45,10 +45,10 @@ This ensures that the \tt{offset} and \tt{size} parameters are valid, and throws
 function checkRWParams(m, offset, size)
 {
 	if(offset < 0 || offset > #m)
-		throw BoundsException(format("Invalid offset {} in memblock of size {}", offset, #m))
+		throw BoundsException("Invalid offset {} in memblock of size {}".format(offset, #m))
 
 	if(size < 0 || size > #m - offset)
-		throw BoundsException(format("Invalid size {} in memblock of size {} starting from offset {}", size, #m, offset))
+		throw BoundsException("Invalid size {} in memblock of size {} starting from offset {}".format(size, #m, offset))
 }
 
 local checkRWParams = checkRWParams
@@ -283,7 +283,7 @@ class Stream
 	function skip(this: @InStream, dist: int)
 	{
 		if(dist < 0)
-			throw RangeException(format("Invalid skip distance ({})", dist))
+			throw RangeException("Invalid skip distance ({})".format(dist))
 		else if(dist == 0)
 			return
 
@@ -364,7 +364,7 @@ class Stream
 		local buf = :_scratch
 
 		if(size < -1)
-			throw RangeException(format("Invalid size: {}", size))
+			throw RangeException("Invalid size: {}".format(size))
 
 		if(size == -1)
 		{
@@ -542,7 +542,7 @@ class MemblockStream : Stream
 			case 'b': break
 			case 'c': offset += :_pos; break
 			case 'e': offset += #:_mb; break
-			default: throw ValueException(format("Invalid seek type '{}'", where))
+			default: throw ValueException("Invalid seek type '{}'".format(where))
 		}
 
 		if(offset < 0)
@@ -701,7 +701,7 @@ class UTF8Stream
 
 	function writef(fmt: string, vararg)
 	{
-		:stream.write(format(fmt, vararg).toRawUnicode(8, :writeBuf))
+		:stream.write(fmt.format(vararg).toRawUnicode(8, :writeBuf))
 	}
 
 	function writefln(fmt: string, vararg)
@@ -838,7 +838,7 @@ class BinaryStream : StreamWrapper
 	function readChars(n: int)
 	{
 		if(n < 1)
-			throw RangeException(format("Invalid number of characters ({})", n))
+			throw RangeException("Invalid number of characters ({})".format(n))
 
 		#:_strBuf = n
 		:stream.readExact(:_strBuf)

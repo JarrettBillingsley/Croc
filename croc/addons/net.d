@@ -140,12 +140,6 @@ static:
 			c.method("setLinger",    &setLinger);
 			c.method("setTimeout",   &setTimeout);
 			c.method("accept",       &accept);
-
-			// Tango BUG 1690
-			c.method("write",        &write_shim);
-			c.method("writeln",      &writeln_shim);
-			c.method("writef",       &writef_shim);
-			c.method("writefln",     &writefln_shim);
 		});
 
 		newFunction(t, &allocator, "Socket.allocator");
@@ -286,74 +280,6 @@ static:
 		pushNativeObj(t, sock);
 		rawCall(t, -3, 1);
 		return 1;
-	}
-	
-	uword write_shim(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		auto memb = getOpenThis(t);
-
-		for(uword i = 1; i <= numParams; i++)
-		{
-			pushToString(t, i);
-
-			if(len(t, -1) > 0)
-				memb.base.print.write(getString(t, -1));
-
-			pop(t);
-		}
-
-		return 0;
-	}
-
-	uword writeln_shim(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		auto memb = getOpenThis(t);
-
-		for(uword i = 1; i <= numParams; i++)
-		{
-			pushToString(t, i);
-
-			if(len(t, -1) > 0)
-				memb.base.print.write(getString(t, -1));
-
-			pop(t);
-		}
-
-		memb.base.print.newline;
-		return 0;
-	}
-
-	uword writef_shim(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-
-		pushGlobal(t, "format");
-		pushNull(t);
-		rotateAll(t, 2);
-		rawCall(t, 1, 1);
-
-		if(len(t, 1) > 0)
-			memb.base.print.write(getString(t, 1));
-
-		return 0;
-	}
-
-	uword writefln_shim(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-
-		pushGlobal(t, "format");
-		pushNull(t);
-		rotateAll(t, 2);
-		rawCall(t, 1, 1);
-
-		if(len(t, 1) > 0)
-			memb.base.print.write(getString(t, 1));
-
-		memb.base.print.newline;
-		return 0;
 	}
 }
 

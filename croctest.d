@@ -86,6 +86,7 @@ docs
 	BaseDocOutput
 	TracWikiDocOutput
 	HtmlDocOutput
+	RstDocOutput?
 	LatexDocOutput?
 stream
 text
@@ -93,16 +94,6 @@ text
 	registerCodec
 	getCodec
 	hasCodec
-time
-	Timer
-	compare
-	culture
-	dateString
-	dateTime
-	microTime
-	sleep
-	timestamp
-	timex
 */
 
 void main()

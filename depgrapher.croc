@@ -127,7 +127,7 @@ class Category
 		try
 			:patterns ~= Regexp(pat)
 		catch(e: Exception)
-			throw Exception(format("Syntax error in pattern '{}'", pat))
+			throw Exception("Syntax error in pattern '{}'".format(pat))
 	}
 
 	function matchesModule(mod: string)
@@ -216,7 +216,7 @@ class Engine
 				if(ret is null)
 					ret = cat
 				else
-					throw Exception(format("Module '{}' matches both categories '{}' and '{}'", name, ret.name, cat.name))
+					throw Exception("Module '{}' matches both categories '{}' and '{}'".format(name, ret.name, cat.name))
 			}
 		}
 
@@ -272,7 +272,7 @@ digraph d
 			if(c !in cycleColors)
 			{
 // 				local r, g, b =
-				cycleColors[c] = format("\"#{:x2}{:x2}{:x2}\"", math.rand(128) + 127, math.rand(128) + 127, math.rand(128) + 127)
+				cycleColors[c] = "\"#{:x2}{:x2}{:x2}\"".format(math.rand(128) + 127, math.rand(128) + 127, math.rand(128) + 127)
 			}
 
 			return cycleColors[c]
@@ -336,7 +336,7 @@ digraph d
 		local reason, status = p.wait()
 
 		if(reason != "exit")
-			throw Exception(format("Could not execute dot process (reason: {}, return code: {})", reason, status))
+			throw Exception("Could not execute dot process (reason: {}, return code: {})".format(reason, status))
 	}
 
 	function findCycles()

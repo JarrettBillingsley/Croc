@@ -13,7 +13,7 @@ function xpassfn(func: function, result = null)
 		throw Exception("Test expected to pass but failed", e)
 
 	if(typeof(ret) != typeof(result) || ret != result)
-		throw Exception(format("Test expected to give results '{}' but gave '{}' instead", result, ret))
+		throw Exception("Test expected to give results '{}' but gave '{}' instead".format(result, ret))
 }
 
 function xfailfn(func: function, result: class)
@@ -25,7 +25,7 @@ function xfailfn(func: function, result: class)
 		if(e as result)
 			return
 
-		throw Exception(format("Test expected to fail and did, but threw exception type '{}' instead of '{}'", e.super, result), e)
+		throw Exception("Test expected to fail and did, but threw exception type '{}' instead of '{}'".format(e.super, result), e)
 	}
 
 	throw Exception("Test expected to fail but passed")
@@ -40,15 +40,15 @@ function xpass(code: string, result = null)
 	try
 		func = loadString(code, Test)
 	catch(e: CompileException)
-		throw Exception(format("Test '{}' failed to compile", code), e)
+		throw Exception("Test '{}' failed to compile".format(code), e)
 
 	try
 		ret = func()
 	catch(e: Exception)
-		throw Exception(format("Test '{}' expected to pass but failed", code), e)
+		throw Exception("Test '{}' expected to pass but failed".format(code), e)
 
 	if(typeof(ret) != typeof(result) || ret != result)
-		throw Exception(format("Test '{}' expected to give results '{}' but gave '{}' instead", code, result, ret))
+		throw Exception("Test '{}' expected to give results '{}' but gave '{}' instead".format(code, result, ret))
 }
 
 function xfail(code: string, args: array, result: class)
@@ -59,7 +59,7 @@ function xfail(code: string, args: array, result: class)
 	try
 		func = loadString(code, Test)
 	catch(e: CompileException)
-		throw Exception(format("Test '{}' failed to compile", code), e)
+		throw Exception("Test '{}' failed to compile".format(code), e)
 
 	try
 		func(args.expand())
@@ -68,10 +68,10 @@ function xfail(code: string, args: array, result: class)
 		if(e as result)
 			return
 
-		throw Exception(format("Test '{}' expected to fail and did, but threw exception type '{}' instead of '{}'", code, e.super, result), e)
+		throw Exception("Test '{}' expected to fail and did, but threw exception type '{}' instead of '{}'".format(code, e.super, result), e)
 	}
 
-	throw Exception(format("Test '{}' expected to fail but passed", code))
+	throw Exception("Test '{}' expected to fail but passed".format(code))
 }
 
 function xcomppass(code: string)
@@ -79,9 +79,9 @@ function xcomppass(code: string)
 	try
 		loadString(code)
 	catch(e: CompileException)
-		throw Exception(format("Test '{}' expected to pass compilation but failed", code), e)
+		throw Exception("Test '{}' expected to pass compilation but failed".format(code), e)
 	catch(e: Exception)
-		throw Exception(format("Test '{}' expected to pass compilation but caused an error", e))
+		throw Exception("Test '{}' expected to pass compilation but caused an error".format(e))
 }
 
 function xcompfail(code: string, somethingLike: string)
@@ -93,10 +93,10 @@ function xcompfail(code: string, somethingLike: string)
 		if(somethingLike in e.msg)
 			return
 		else
-			throw Exception(format("Test '{}' failed compilation, but instead of an error like '{}', it gave '{}'", code, somethingLike, e.msg), e)
+			throw Exception("Test '{}' failed compilation, but instead of an error like '{}', it gave '{}'".format(code, somethingLike, e.msg), e)
 	}
 	catch(e: Exception)
-		throw Exception(format("Test '{}' expected to fail compilation but caused another error", e))
+		throw Exception("Test '{}' expected to fail compilation but caused another error".format(e))
 
-	throw Exception(format("Test '{}' expected to fail compilation but passed"))
+	throw Exception("Test '{}' expected to fail compilation but passed".format(code))
 }

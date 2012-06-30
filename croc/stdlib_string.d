@@ -40,6 +40,7 @@ alias tango.text.Util.trim trim;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
+import croc.ex_format;
 import croc.stdlib_stringbuffer;
 import croc.stdlib_utils;
 import croc.types;
@@ -108,7 +109,7 @@ const uword VSplitMax = 20;
 
 const RegisterFunc[] _methodFuncs =
 [
-	{"opApply",      &_opApply,      maxParams: 1},
+	{"format",       &_format},
 	{"join",         &_join,         maxParams: 1},
 	{"vjoin",        &_vjoin},
 	{"toInt",        &_toInt,        maxParams: 1},
@@ -126,9 +127,27 @@ const RegisterFunc[] _methodFuncs =
 	{"lstrip",       &_lstrip,       maxParams: 0},
 	{"rstrip",       &_rstrip,       maxParams: 0},
 	{"replace",      &_replace,      maxParams: 2},
+	{"opApply",      &_opApply,      maxParams: 1},
 	{"startsWith",   &_startsWith,   maxParams: 1},
 	{"endsWith",     &_endsWith,     maxParams: 1},
 ];
+
+uword _format(CrocThread* t)
+{
+	uint sink(char[] s)
+	{
+		if(s.length)
+			pushString(t, s);
+
+		return s.length;
+	}
+
+	checkStringParam(t, 0);
+	auto startSize = stackSize(t);
+	formatImpl(t, 0, startSize, &sink);
+	cat(t, stackSize(t) - startSize);
+	return 1;
+}
 
 uword _join(CrocThread* t)
 {
@@ -603,21 +622,25 @@ version(CrocBuiltinDocs)
 {
 	const Docs[] _methodFuncDocs =
 	[
-		{kind: "function", name: "s.opApply",
-		params: [Param("reverse", "string", "null")],
+		{kind: "function", name: "s.format",
+		params: [Param("vararg", "vararg")],
 		docs:
-		`This function allows you to iterate over the characters of a string with a \tt{foreach} loop.
+		`Functions much like Tango's tango.text.convert.Layout class. \tt{this} is a formatting string, in
+		which may be embedded formatting specifiers, which use the same '\tt{{\}}' syntax as found in Tango,
+		.Net, and ICU.
 
-\code
-foreach(i, v; "hello")
-	writeln("string[", i, "] = ", v)
+		By default, when you format an item, it will call any \b{\tt{toString}} metamethod defined for it.
+		If you want to use the "raw" formatting for a parameter instead, write a lowercase 'r' immediately
+		after the opening brace of a format specifier. So something like "\tt{format("{r\}", [1, 2, 3])}"
+		will call \link{rawToString} on the array parameter, resulting in something like "\tt{array 0x00000000}"
+		instead of a string representation of the contents of the array.
 
-foreach(i, v; "hello", "reverse")
-	writeln("string[", i, "] = ", v)
-\endcode
+		Just about everything else works exactly as it does in Tango. You can use any field width and formatting
+		characters that Tango allows.
 
-		As this example shows, if you pass "reverse" to the \b{\tt{opApply}} function, either directly or as the second
-		part of the \tt{foreach} container, the iteration will go in reverse, starting at the end of the string.`},
+		Croc's \link{writef} and \link{writefln} functions (as well as their analogues in the IO library) use
+		the same internal formatting as this function, so any rules that apply here apply for those functions as
+		well.`},
 
 		{kind: "function", name: "s.join",
 		params: [Param("arr", "array")],
@@ -739,6 +762,22 @@ foreach(i, v; "hello", "reverse")
 		params: [Param("from", "string"), Param("to", "string")],
 		docs:
 		`Replaces any occurrences in \tt{s} of the string \tt{from} with the string \tt{to}.`},
+
+		{kind: "function", name: "s.opApply",
+		params: [Param("reverse", "string", "null")],
+		docs:
+		`This function allows you to iterate over the characters of a string with a \tt{foreach} loop.
+
+\code
+foreach(i, v; "hello")
+	writeln("string[", i, "] = ", v)
+
+foreach(i, v; "hello", "reverse")
+	writeln("string[", i, "] = ", v)
+\endcode
+
+		As this example shows, if you pass "reverse" to the \b{\tt{opApply}} function, either directly or as the second
+		part of the \tt{foreach} container, the iteration will go in reverse, starting at the end of the string.`},
 
 		{kind: "function", name: "s.startsWith",
 		params: [Param("other", "string")],
