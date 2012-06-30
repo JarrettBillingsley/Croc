@@ -70,7 +70,6 @@ version(CrocAllAddons)
 
 	nameOf
 
-	format
 	rawToString
 	toBool
 	toChar

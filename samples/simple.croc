@@ -26,7 +26,7 @@ local textCodecs = {}
 function registerCodec(name: string, codec: TextCodec)
 {
 	if(name in textCodecs)
-		throw LookupException(format("Already a codec for '{}' registered", name))
+		throw LookupException("Already a codec for '{}' registered".format(name))
 
 	textCodecs[name] = codec
 }
@@ -36,7 +36,7 @@ function getCodec(name: string)
 	if(local ret = textCodecs[name])
 		return ret
 
-	throw LookupException(format("No codec registered for '{}'", name))
+	throw LookupException("No codec registered for '{}'".format(name))
 }
 
 function hasCodec(name: string) =
@@ -104,7 +104,7 @@ class AsciiCodec : TextCodec
 		switch(errors)
 		{
 			case "strict", "ignore", "replace": break
-			default: throw ValueException(format("Invalid error handling type '{}'", errors))
+			default: throw ValueException("Invalid error handling type '{}'".format(errors))
 		}
 
 		#dest = #str
@@ -117,7 +117,7 @@ class AsciiCodec : TextCodec
 			if(c > 0x7f)
 			{
 				if(errors is "strict")
-					throw UnicodeException(format("Character {} cannot be encoded as ASCII as its codepoint (U+{:X5}) is above U+0007F", j, c))
+					throw UnicodeException("Character {} cannot be encoded as ASCII as its codepoint (U+{:X5}) is above U+0007F".format(j, c))
 				else if(errors is "ignore")
 					continue
 				else // replace
@@ -137,14 +137,14 @@ class AsciiCodec : TextCodec
 		switch(errors)
 		{
 			case "strict", "ignore", "replace": break
-			default: throw ValueException(format("Invalid error handling type '{}'", errors))
+			default: throw ValueException("Invalid error handling type '{}'".format(errors))
 		}
 		
 		if(lo < 0) lo += #src
 		if(hi < 0) hi += #src
 		
 		if(lo < 0 || lo > hi || hi > #src)
-			throw BoundsException(format("Invalid slice indices ({} .. {}) for memblock of length {}", lo, hi, #src))
+			throw BoundsException("Invalid slice indices ({} .. {}) for memblock of length {}".format(lo, hi, #src))
 			
 		local s = StringBuffer(#src)
 		
@@ -155,7 +155,7 @@ class AsciiCodec : TextCodec
 			if(c > 0x7f)
 			{
 				if(errors is "strict")
-					throw UnicodeException(format("Character at byte offset {} is invalid ASCII as its value (0x{:X2}) is above 0x7F", i, c))
+					throw UnicodeException("Character at byte offset {} is invalid ASCII as its value (0x{:X2}) is above 0x7F".format(i, c))
 				else if(errors is "ignore")
 					continue
 				else
@@ -169,31 +169,31 @@ class AsciiCodec : TextCodec
 	}
 }
 
-// local docTables = hash.WeakKeyTable()
-//
-// function _doc_(
-// 	val: table|namespace|array|memblock|function|funcdef|class|instance|thread,
-// 	doctable: table,
-// 	vararg)
-// {
-// 	local d = doctable
-//
-// 	for(i: 0 .. #vararg)
-// 	{
-// 		local idx = vararg[i]
-//
-// 		if(!isInt(idx))
-// 			throw TypeException(format("_doc_ - Parameter {} expected to be 'int', not '{}'", i + 2, typeof(idx)))
-//
-// 		d = d.children[idx]
-// 	}
-//
-// 	docTables[val] = d
-// 	return val
-// }
-//
-// function docsOf(val) =
-// 	docTables[val]
+local docTables = hash.WeakKeyTable()
+
+function _doc_(
+	val: table|namespace|array|memblock|function|funcdef|class|instance|thread,
+	doctable: table,
+	vararg)
+{
+	local d = doctable
+
+	for(i: 0 .. #vararg)
+	{
+		local idx = vararg[i]
+
+		if(!isInt(idx))
+			throw TypeException("_doc_ - Parameter {} expected to be 'int', not '{}'".format(i + 2, typeof(idx)))
+
+		d = d.children[idx]
+	}
+
+	docTables[val] = d
+	return val
+}
+
+function docsOf(val) =
+	docTables[val]
 
 
 
@@ -307,9 +307,9 @@ class BaseDocOutput
 	function _insertSectionImpl(sec: string, target: string, after: bool)
 	{
 		if(!validSectionName(sec))
-			throw ValueException(format("Invalid section name '{}'", sec))
+			throw ValueException("Invalid section name '{}'".format(sec))
 		else if(!validSectionName(target))
-			throw ValueException(format("Invalid section name '{}'", target))
+			throw ValueException("Invalid section name '{}'".format(target))
 		else if(sec == target)
 			throw ValueException("Section names must be different")
 
@@ -326,7 +326,7 @@ class BaseDocOutput
 		local targetIdx = ord.find(target)
 
 		if(targetIdx == #ord)
-			throw ValueException(format("Section '{}' does not exist in the section order", target))
+			throw ValueException("Section '{}' does not exist in the section order".format(target))
 
 		ord.insert(after ? targetIdx + 1 : targetIdx, sec)
 	}
@@ -342,13 +342,13 @@ class BaseDocOutput
 			if(!isString(name))
 				throw ValueException("Order must be an array of nothing but strings")
 			else if(!validSectionName(name))
-				throw ValueException(format("Invalid section name '{}' in given order", name))
+				throw ValueException("Invalid section name '{}' in given order".format(name))
 		}
 
 		// Make sure all standard sections are accounted for
 		foreach(sec; stdSections)
 			if(sec !in order)
-				throw ValueException(format("Standard section '{}' does not exist in the given order", sec))
+				throw ValueException("Standard section '{}' does not exist in the given order".format(sec))
 
 		:_sectionOrder = order.dup()
 	}
@@ -367,10 +367,10 @@ class BaseDocOutput
 	function setSectionHandler(name: string, handlerName: string)
 	{
 		if(name !in :_sectionOrder)
-			throw ValueException(format("Section '{}' does not appear in the section order", name))
+			throw ValueException("Section '{}' does not appear in the section order".format(name))
 
 		if(!hasMethod(this, handlerName))
-			throw ValueException(format("No method named '{}' exists in this class", handlerName))
+			throw ValueException("No method named '{}' exists in this class".format(handlerName))
 
 		:_sectionHandlers[name] = handlerName
 	}
@@ -497,10 +497,10 @@ class BaseDocOutput
 	function setSpanHandler(name: string, handlerName: string)
 	{
 		if(!validSpanName(name))
-			throw ValueException(format("Invalid span name '{}'", name))
+			throw ValueException("Invalid span name '{}'".format(name))
 
 		if(!hasMethod(this, handlerName))
-			throw ValueException(format("No method named '{}' exists in this class", handlerName))
+			throw ValueException("No method named '{}' exists in this class".format(handlerName))
 
 		:_spanHandlers[name] = handlerName
 	}
@@ -830,7 +830,7 @@ class BaseDocOutput
 				throw ValueException("Cannot call outputHeader on a parameter doctable")
 
 			default:
-				throw ValueException(format("Malformed documentation for {}", doctable.name))
+				throw ValueException("Malformed documentation for {}".format(doctable.name))
 		}
 	}
 
@@ -1145,7 +1145,7 @@ function help(x, child: string = null)
 		try
 			mt = debug.getMetatable(x)
 		catch(e: Exception)
-			throw TypeException(format("Invalid type '{}'", x))
+			throw TypeException("Invalid type '{}'".format(x))
 
 		if(child in mt)
 			d = docsOf(mt.(child))
