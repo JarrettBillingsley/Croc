@@ -26,8 +26,6 @@ subject to the following restrictions:
 module croc.stdlib_time;
 
 import tango.core.Thread;
-import tango.text.locale.Convert;
-import tango.text.locale.Core;
 import tango.time.chrono.Gregorian;
 import tango.time.Clock;
 import tango.time.StopWatch;
@@ -73,9 +71,7 @@ static:
 		{
 			Timer.init(t);
 			newFunction(t, 0, &microTime,  "microTime");  newGlobal(t, "microTime");
-			newFunction(t, 3, &dateString, "dateString"); newGlobal(t, "dateString");
 			newFunction(t, 2, &dateTime,   "dateTime");   newGlobal(t, "dateTime");
-			newFunction(t, 1, &culture,    "culture");    newGlobal(t, "culture");
 			newFunction(t, 0, &timestamp,  "timestamp");  newGlobal(t, "timestamp");
 			newFunction(t,    &timex,      "timex");      newGlobal(t, "timex");
 			newFunction(t, 1, &sleep,      "sleep");      newGlobal(t, "sleep");
@@ -102,35 +98,6 @@ static:
 			pushInt(t, cast(crocint)(tv.tv_sec * 1_000_000L + tv.tv_usec));
 		}
 
-		return 1;
-	}
-
-	uword dateString(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		char[] format = numParams > 0 ? GetFormat(t, 1) : "G";
-
-		Time time = void;
-
-		if(numParams > 1 && !isNull(t, 2))
-			time = TableToTime(t, 2);
-		else if(format == "R")
-			time = Clock.now;
-		else
-			time = WallClock.now;
-
-		Culture culture = null;
-
-		if(numParams > 2)
-		{
-			auto name = StrToCulture(t, 1);
-			culture = safeCode(t, "exceptions.ValueException", Culture.getCulture(name));
-		}
-
-		char[40] buffer;
-		auto ret = safeCode(t, "exceptions.ValueException", formatDateTime(buffer, time, format, culture));
-
-		pushString(t, ret);
 		return 1;
 	}
 	
@@ -165,20 +132,6 @@ static:
 		return 1;
 	}
 
-	uword culture(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		pushString(t, Culture.current.name);
-
-		if(numParams > 0)
-		{
-			auto name = StrToCulture(t, 1);
-			Culture.current = safeCode(t, "exceptions.ValueException", Culture.getCulture(name));
-		}
-
-		return 1;
-	}
-	
 	uword compare(CrocThread* t)
 	{
 		checkParam(t, 1, CrocValue.Type.Table);
@@ -187,45 +140,6 @@ static:
 		auto t2 = TableToTime(t, 2);
 		pushInt(t, cast(crocint)t1.opCmp(t2));
 		return 1;
-	}
-
-	// longest possible is 5 chars * 4 bytes per char = 20 bytes?
-	char[] StrToCulture(CrocThread* t, word slot)
-	{
-		checkStringParam(t, slot);
-
-		if(len(t, slot) != 5)
-			throwStdException(t, "ValueException", "Culture name {} is not supported.", getString(t, slot));
-
-		return getString(t, slot);
-	}
-
-	char[] GetFormat(CrocThread* t, word slot)
-	{
-		auto s = checkStringParam(t, slot);
-
-		if(s.length == 1)
-		{
-			switch(s[0])
-			{
-				case 'd':
-				case 'D':
-				case 't':
-				case 'T':
-				case 'g':
-				case 'G':
-				case 'M':
-				case 'R':
-				case 's':
-				case 'Y': return s;
-
-				default:
-					break;
-			}
-		}
-
-		throwStdException(t, "ValueException", "invalid format string");
-		assert(false);
 	}
 
 	Time TableToTime(CrocThread* t, word tab)
