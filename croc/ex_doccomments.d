@@ -50,6 +50,13 @@ void processComment(CrocThread* t, char[] comment)
 	p.parse(comment);
 }
 
+// Pushes the parsed text to the stack.
+word parseCommentText(CrocThread* t, char[] comment)
+{
+	auto p = CommentParser(t);
+	return p.parseText(comment);
+}
+
 // ================================================================================================================================================
 // Private
 // ================================================================================================================================================
@@ -801,6 +808,33 @@ private:
 			if(mIsFunction)
 				ensureParamDocs();
 		}
+	}
+
+	word parseText(char[] comment)
+	{
+		// dummy doctable
+		docTable = newTable(t);
+		section = docTable + 1;
+
+		l.parser = this;
+		l.begin(comment);
+
+		beginStdSection("docs");
+
+		while(l.type != Token.EOC)
+		{
+			if(l.type == Token.SectionBegin)
+				error("Section commands are not allowed when parsing plain comment text");
+
+			readParagraph();
+		}
+
+		endSection();
+
+		field(t, -1, "docs");
+		insertAndPop(t, docTable);
+
+		return stackSize(t) - 1;		
 	}
 
 	void checkForSectionChange()

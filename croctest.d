@@ -12,16 +12,6 @@ import croc.addons.gl;
 import croc.addons.net;
 import croc.addons.devil;
 
-import croc.ex_doccomments;
-
-uword processComment_wrap(CrocThread* t)
-{
-	auto str = checkStringParam(t, 1);
-	checkParam(t, 2, CrocValue.Type.Table);
-	processComment(t, str);
-	return 1;
-}
-
 version(CrocAllAddons)
 {
 	version = CrocPcreAddon;
@@ -77,16 +67,6 @@ version(CrocAllAddons)
 	toInt
 	toString
 
-
-docs
-	_doc_
-	docsOf
-	processDocs
-	BaseDocOutput
-	TracWikiDocOutput
-	HtmlDocOutput
-	RstDocOutput?
-	LatexDocOutput?
 stream
 text
 	TextCodec
@@ -112,9 +92,6 @@ void main()
 		version(CrocGlAddon) GlLib.init(t);
 		version(CrocNetAddon) NetLib.init(t);
 		version(CrocDevilAddon) DevilLib.init(t);
-
-		newFunction(t, &processComment_wrap, "processComment");
-		newGlobal(t, "processComment");
 
 		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
 		runModule(t, "samples.simple");

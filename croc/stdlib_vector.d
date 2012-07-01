@@ -2197,7 +2197,7 @@ version(CrocBuiltinDocs)
 		`Compares two Vectors lexicographically. Both Vectors must be the same type.
 
 		\param[other] is the Vector to compare \tt{this} to.
-		\returns a negative integer if \{this} compares less than \tt{other}, positive if \tt{this} compares greater than \tt{other},
+		\returns a negative integer if \tt{this} compares less than \tt{other}, positive if \tt{this} compares greater than \tt{other},
 		and 0 if \tt{this} and \tt{other} have the same length and contents.
 		\throws[exceptions.ValueException] if \tt{other}'s type differs from \tt{this}'s.`},
 

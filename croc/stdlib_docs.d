@@ -29,6 +29,7 @@ module croc.stdlib_docs;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
+import croc.ex_doccomments;
 import croc.stdlib_utils;
 import croc.types;
 
@@ -44,19 +45,29 @@ public:
 
 void initDocsLib(CrocThread* t)
 {
-		lookup(t, "hash.WeakKeyTable");
-		pushNull(t);
-		rawCall(t, -2, 1);
-		dup(t);
-		dup(t);
-	newFunction(t, &_doc_, "_doc_", 1);    newGlobal(t, "_doc_");
-	newFunction(t, &_docsOf, "docsOf", 1); newGlobal(t, "docsOf");
+	auto docs = importModuleFromString(t, "docs", docsSource, "docs.croc");
 
-	version(CrocBuiltinDocs)
-	{
-		scope doc = new CrocDoc(t, __FILE__);
-		docGlobals(t, doc, _docTables);
-	}
+	// docs.processComment = _doc_(<d func>, docs.docsOf(docs.processComment))
+	auto f = pushGlobal(t, "_doc_");
+	pushNull(t);
+	newFunction(t, 2, &_processComment, "processComment");
+	lookup(t, "docs.docsOf");
+	pushNull(t);
+	lookup(t, "docs.processComment");
+	rawCall(t, -3, 1);
+	rawCall(t, f, 1);
+	fielda(t, docs, "processComment");
+
+	// docs.parseCommentText = _doc_(<d func>, docs.docsOf(docs.parseCommentText))
+	f = pushGlobal(t, "_doc_");
+	pushNull(t);
+	newFunction(t, 2, &_parseCommentText, "parseCommentText");
+	lookup(t, "docs.docsOf");
+	pushNull(t);
+	lookup(t, "docs.parseCommentText");
+	rawCall(t, -3, 1);
+	rawCall(t, f, 1);
+	fielda(t, docs, "parseCommentText");
 }
 
 // ================================================================================================================================================
@@ -65,83 +76,1170 @@ void initDocsLib(CrocThread* t)
 
 private:
 
-uword _doc_(CrocThread* t)
+uword _processComment(CrocThread* t)
 {
-	checkAnyParam(t, 1);
-
-	// ORDER CROCVALUE TYPE
-	if(type(t, 1) < CrocValue.Type.FirstRefType)
-		paramTypeError(t, 1, "reference type");
-
+	auto str = checkStringParam(t, 1);
 	checkParam(t, 2, CrocValue.Type.Table);
+	dup(t, 2);
+	processComment(t, str);
+	return 1;
+}
 
-	auto size = stackSize(t);
+uword _parseCommentText(CrocThread* t)
+{
+	auto str = checkStringParam(t, 1);
+	parseCommentText(t, str);
+	return 1;
+}
 
-	auto docTable = dup(t, 2);
+/*
+	HtmlDocOutput
+	ConsoleDocOutput
+	RstDocOutput?
+	LatexDocOutput?
+*/
 
-	for(word i = 3; i < size; i++)
+const char[] docsSource =
+`module docs
+
+import exceptions:
+	TypeException,
+	ValueException,
+	NotImplementedException
+
+import hash: WeakKeyTable
+
+local docTables = WeakKeyTable()
+
+// Neat: we can actually use doc comments on _doc_ because of the way decorators work. The global _doc_ is
+// defined before the decorator is called. So _doc_ can be used on itself!
+
+/**
+This is a decorator function used to attach documentation tables to objects. The compiler can attach
+calls to this decorator to declarations in your code automatically by extracting documentation comments
+and information about the declarations from the code.
+
+Once the documentation table has been set for an object, you can retrieve it with docsOf, which can then
+be further processed and output in a human-readable form (for instance, by using the various DocOutput
+classes).
+
+This function is also exported in the global namespace so that you can access it unqualified (that is,
+both \tt{_doc_} and \tt{docs._doc_} refer to this function.
+
+\param[val] is the decorated object and can be any reference type.
+\param[doctable] is a table, presumably one which matches the specifications for doc tables.
+\param[vararg] should all be integers and are used to extract the correct sub-table from the root
+documentation table (the \tt{doctable} parameter). So, for instance, using "\tt{@_doc_(someTable, 0, 2)}"
+on a declaration would mean that the table \tt{someTable.children[0].children[2]} would be used as the
+documentation for the decorated declaration. If no variadic arguments are given, the table itself is set
+as the documentation table of the object.
+
+\returns \tt{val} as per the decorator protocol.
+\throws[exceptions.TypeException] if any of the \tt{varargs} are not ints, or if the value that will be
+set as the doctable for \tt{val} is not a table.
+*/
+function _doc_(
+	val: table|namespace|array|memblock|function|funcdef|class|instance|thread,
+	doctable: table,
+	vararg)
+{
+	local d = doctable
+
+	for(i: 0 .. #vararg)
 	{
-		checkIntParam(t, i);
-		field(t, docTable, "children");
-		idxi(t, -1, getInt(t, i));
-		insertAndPop(t, -3);
+		local idx = vararg[i]
+
+		if(!isInt(idx))
+			throw TypeException("_doc_ - Parameter {} expected to be 'int', not '{}'".format(i + 2, typeof(idx)))
+
+		d = d.children[idx]
 	}
 
-	getUpval(t, 0);
-	dup(t, 1);
-	dup(t, docTable);
-	idxa(t, -3);
+	if(!isTable(d))
+		throw TypeException("_doc_ - Doc table is not a table, it is of type '{}'", typeof(d))
 
-	dup(t, 1);
-	return 1;
+	docTables[val] = d
+	return val
 }
 
-uword _docsOf(CrocThread* t)
-{
-	checkAnyParam(t, 1);
+// Export globally
+_G._doc_ = _doc_
 
-	getUpval(t, 0);
-	dup(t, 1);
-	idx(t, -2);
+/**
+This retrieves the documentation table, if any, associated with an object. 
 
-	if(isNull(t, -1))
-		newTable(t);
+\param[val] is the object whose docs are to be retrieved. Any type is allowed, but only reference types
+can have documentation tables associated with them. 
 
-	return 1;
-}
+\returns the doc table for \tt{val} if one has been set, or \tt{null} if none has been set (or if \tt{val} is
+a value type).
+*/
+function docsOf(val) =
+	docTables[val]
 
-version(CrocBuiltinDocs) const Docs[] _docTables =
+/**
+Low-level function which takes the raw text from a doc comment and a doctable (with no docs member) and parses the
+doc comment, adding the appropriate members to the given doctable.
+
+This is actually the same function that the compiler itself calls to process doc comments. Note that the doctable
+that is to be passed to this function must be properly formed (with all the "standard" members, as well as any
+extra kind-specific members as defined in the doc comment spec), but there must be no "docs" members at all. The
+"docs" members, as well as members for other sections, will be filled in by this function.
+
+\param[comment] is the raw text of the doc comment.
+\param[doctable] is the doctable as explained above.
+\returns the \tt{doctable} parameter.
+\throws[exceptions.SyntaxException] if parsing the comment failed. Note that in this case the \tt{doctable} may be
+partially filled-in.
+*/
+function processComment(comment: string, doctable: table) {} // Dummy function which will be replaced after loading
+
+/**
+Takes a string containing Croc doc comment markup, and parses it into a paragraph list.
+
+This doesn't parse the whole text of a doc comment; rather it just parses one or more paragraphs of text. Section
+commands are not allowed to appear in the text. Span and text structure commands, however, are valid. 
+
+\param[comment] is the raw markup to be parsed.
+\returns an array which is a paragraph list as defined in the doc comment spec.
+\throws[exceptions.SyntaxException] if parsing failed.
+*/
+function parseCommentText(comment: string) {} // Dummy function which will be replaced after loading
+
+local stdSections =
 [
-	// TODO: find somewhere more... sensible to put Object's docs
-	{kind: "class", name: "Object", 
-	extra: [Extra("protection", "global")],
-	docs:
-	`The root of the class hierarchy, \tt{Object}, is declared at global scope. It has no methods defined right
-	now. It is the only class in Croc which has no base class (that is, "\tt{Object.super}" returns \tt{null}).`},
+	"deprecated"
 
-	{kind: "function", name: "_doc_",
-	params: [Param("obj"), Param("docTable", "table"), Param("vararg", "vararg")],
-	extra: [Extra("protection", "global")],
-	docs:
-	`This is a decorator function used to attach documentation tables to objects. The compiler can attach
-	calls to this decorator to declarations in your code automatically by extracting documentation comments
-	and information about the declarations from the code.
+	"docs"
+	"examples"
+	"params"
+	"returns"
+	"throws"
 
-	The \tt{obj} param can be any non-string reference type. The docTable param must be a table, preferably one
-	which matches the specifications for doc tables. The variadic arguments should all be integers and are
-	used to extract the correct sub-table from the root documentation table. So, for instance, using
-	"\tt{@_doc_(someTable, 0, 2)}" on a declaration would mean that the table \tt{someTable.children[0].children[2]}
-	would be used as the documentation for the decorated declaration. If no variadic arguments are given,
-	the table itself is set as the documentation table of the object.
+	"bugs"
+	"notes"
+	"todo"
+	"warnings"
 
-	Once the documentation table has been set for an object, you can retrieve it with docsOf, which can then
-	be further processed and output in a human-readable form.`},
+	"see"
 
-	{kind: "function", name: "docsOf",
-	params: [Param("obj")],
-	extra: [Extra("protection", "global")],
-	docs:
-	`This retrieves the documentation table, if any, associated with an object. Any type is allowed, but only
-	non-string object types can have documentation tables associated with them. Strings, value types, and objects
-	for which no documentation table has been defined will return the default value: an empty table.`}
-];
+	"authors"
+	"date"
+	"history"
+	"since"
+	"version"
+
+	"copyright"
+	"license"
+]
+
+local stdSpans =
+[
+	"b"
+	"em"
+	"link"
+	"sub"
+	"sup"
+	"tt"
+	"u"
+]
+
+local stdStructures =
+[
+	"code"
+	"verbatim"
+	"blist"
+	"nlist"
+	"dlist"
+	"table"
+]
+
+local function validSectionName(name: string) =
+	!(#name == 0 || (#name == 1 && name[0] == '_') || (name[0] != '_' && name !in stdSections))
+
+local function validSpanName(name: string) =
+	!(#name == 0 || (#name == 1 && name[0] == '_') || (name[0] != '_' && name !in stdSpans))
+
+class BaseDocOutput
+{
+	_sectionOrder = [stdSections[i] for i: 0 .. #stdSections] // can't use .dup or foreach here as the arraylib has not yet been loaded
+	_sectionHandlers =
+	{
+    	docs = "handleSection_docs",
+    	params = "handleSection_params",
+    	throws = "handleSection_throws"
+	}
+
+	_spanHandlers =
+	{
+    	b = "handleSpan_b",
+    	em = "handleSpan_em",
+    	link = "handleSpan_link",
+    	sub = "handleSpan_sub",
+    	sup = "handleSpan_sup",
+    	tt = "handleSpan_tt",
+    	u = "handleSpan_u"
+	}
+
+	// =================================================================================================
+	// Constructor
+
+	this()
+	{
+		:_sectionOrder = :_sectionOrder.dup()
+		:_sectionHandlers = hash.dup(:_sectionHandlers)
+		:_spanHandlers = hash.dup(:_spanHandlers)
+	}
+
+	// =================================================================================================
+	// Section ordering
+
+	function insertSectionBefore(sec: string, before: string)
+		:_insertSectionImpl(sec, before, false)
+
+	function insertSectionAfter(sec: string, after: string)
+		:_insertSectionImpl(sec, after, true)
+
+	function _insertSectionImpl(sec: string, target: string, after: bool)
+	{
+		if(!validSectionName(sec))
+			throw ValueException("Invalid section name '{}'".format(sec))
+		else if(!validSectionName(target))
+			throw ValueException("Invalid section name '{}'".format(target))
+		else if(sec == target)
+			throw ValueException("Section names must be different")
+
+		local ord = :_sectionOrder
+
+		// Check if this section is already in the order. It's possible for it not to be,
+		// if it's a custom section.
+		local idx = ord.find(sec)
+
+		if(idx < #ord)
+			ord.pop(idx)
+
+		// Find where to insert and put it there.
+		local targetIdx = ord.find(target)
+
+		if(targetIdx == #ord)
+			throw ValueException("Section '{}' does not exist in the section order".format(target))
+
+		ord.insert(after ? targetIdx + 1 : targetIdx, sec)
+	}
+
+	function getSectionOrder() =
+		:_sectionOrder.dup()
+
+	function setSectionOrder(order: array)
+	{
+		// Make sure it's an array of valid section names
+		foreach(name; order)
+		{
+			if(!isString(name))
+				throw ValueException("Order must be an array of nothing but strings")
+			else if(!validSectionName(name))
+				throw ValueException("Invalid section name '{}' in given order".format(name))
+		}
+
+		// Make sure all standard sections are accounted for
+		foreach(sec; stdSections)
+			if(sec !in order)
+				throw ValueException("Standard section '{}' does not exist in the given order".format(sec))
+
+		:_sectionOrder = order.dup()
+	}
+
+	// =================================================================================================
+	// Section handlers
+
+	function getSectionHandler(name: string)
+	{
+		if(local handler = :_sectionHandlers[name])
+			return handler
+		else
+			return "defaultSectionHandler"
+	}
+
+	function setSectionHandler(name: string, handlerName: string)
+	{
+		if(name !in :_sectionOrder)
+			throw ValueException("Section '{}' does not appear in the section order".format(name))
+
+		if(!hasMethod(this, handlerName))
+			throw ValueException("No method named '{}' exists in this class".format(handlerName))
+
+		:_sectionHandlers[name] = handlerName
+	}
+
+	function defaultSectionHandler(name: string, contents: array)
+	{
+		:beginParagraph()
+		:beginBold()
+		
+		if(name.startsWith("_"))
+			:outputText(ascii.toUpper(name[1]), name[2..], ": ")
+		else
+			:outputText(ascii.toUpper(name[0]), name[1..], ": ")
+		:endBold()
+		:outputParagraphContents(contents[0])
+		:endParagraph()
+
+		:outputParagraphs(contents[1 ..])
+	}
+
+	function handleSection_docs(name: string, contents: array)
+	{
+		if(#contents == 1 && #contents[0] == 1 && contents[0][0] is "")
+			return
+
+		:outputParagraphs(contents)
+	}
+
+	function handleSection_params(name: string, contents: array)
+	{
+		if(#contents == 0)
+			return
+		else if(!contents.any(\p -> #p.docs > 1 || #p.docs[0] > 1 || p.docs[0][0] != ""))
+			return
+
+		:beginParagraph()
+		:beginBold()
+		:outputText("Params:")
+		:endBold()
+		:endParagraph()
+
+		:beginTable()
+
+		foreach(param; contents)
+		{
+			:beginRow()
+			:beginCell()
+			:beginBold()
+			:outputText(param.name)
+			:endBold()
+			:endCell()
+
+			:beginCell()
+			:outputParagraphs(param.docs)
+			:endCell()
+
+			:endRow()
+		}
+
+		:endTable()
+	}
+
+	function handleSection_throws(name: string, contents: array)
+	{
+		assert(#contents > 0)
+
+		:beginParagraph()
+		:beginBold()
+		:outputText("Throws:")
+		:endBold()
+		:endParagraph()
+
+		:beginDefList()
+
+		foreach(ex; contents)
+		{
+			:beginDefTerm()
+			:beginBold()
+			:outputText(ex[0])
+			:endBold()
+			:endDefTerm()
+
+			:beginDefDef()
+			:outputParagraphs(ex[1..])
+			:endDefDef()
+		}
+
+		:endDefList()
+	}
+
+	function outputSection(name: string, doctable: table)
+	{
+		local contents = null
+
+		if(name[0] == '_')
+		{
+			if(hasField(doctable, "custom"))
+				contents = doctable.custom[name[1 ..]]
+		}
+		else
+			contents = doctable[name]
+
+		if(contents !is null)
+			:(:getSectionHandler(name))(name, contents)
+	}
+
+	function outputDocSections(doctable: table)
+	{
+		foreach(section; :_sectionOrder)
+			:outputSection(section, doctable)
+	}
+
+	// =================================================================================================
+	// Span handlers
+
+	function getSpanHandler(name: string)
+	{
+		if(local handler = :_spanHandlers[name])
+			return handler
+		else
+			return "defaultSpanHandler"
+	}
+
+	function setSpanHandler(name: string, handlerName: string)
+	{
+		if(!validSpanName(name))
+			throw ValueException("Invalid span name '{}'".format(name))
+
+		if(!hasMethod(this, handlerName))
+			throw ValueException("No method named '{}' exists in this class".format(handlerName))
+
+		:_spanHandlers[name] = handlerName
+	}
+
+	function defaultSpanHandler(contents: array)
+	{
+		:outputParagraphContents(contents[1..])
+	}
+
+	function handleSpan_b(contents: array)
+	{
+		:beginBold()
+		:outputParagraphContents(contents[1..])
+		:endBold()
+	}
+
+	function handleSpan_em(contents: array)
+	{
+		:beginEmphasis()
+		:outputParagraphContents(contents[1..])
+		:endEmphasis()
+	}
+
+	function handleSpan_link(contents: array)
+	{
+		:beginLink(:resolveLink(contents[1]))
+		:outputParagraphContents(contents[2..])
+		:endLink()
+	}
+
+	function handleSpan_sub(contents: array)
+	{
+		:beginSubscript()
+		:outputParagraphContents(contents[1..])
+		:endSubscript()
+	}
+
+	function handleSpan_sup(contents: array)
+	{
+		:beginSuperscript()
+		:outputParagraphContents(contents[1..])
+		:endSuperscript()
+	}
+
+	function handleSpan_tt(contents: array)
+	{
+		:beginMonospace()
+		:outputParagraphContents(contents[1..])
+		:endMonospace()
+	}
+
+	function handleSpan_u(contents: array)
+	{
+		:beginUnderline()
+		:outputParagraphContents(contents[1..])
+		:endUnderline()
+	}
+
+	function outputSpan(contents: array)
+		:(:getSpanHandler(contents[0]))(contents)
+
+	// =================================================================================================
+	// Text structure handlers
+
+	function outputCode(contents: array)
+	{
+		:beginCode(contents[1])
+		:outputText(contents[2])
+		:endCode()
+	}
+
+	function outputVerbatim(contents: array)
+	{
+		:beginVerbatim()
+		:outputText(contents[1])
+		:endVerbatim()
+	}
+
+	function outputBlist(contents: array)
+	{
+		:beginBulletList()
+
+		for(i: 1 .. #contents)
+		{
+			:beginListItem()
+			:outputParagraphs(contents[i])
+			:endListItem()
+		}
+
+		:endBulletList()
+	}
+
+	function outputNlist(contents: array)
+	{
+		:beginNumList(contents[1])
+
+		for(i: 2 .. #contents)
+		{
+			:beginListItem()
+			:outputParagraphs(contents[i])
+			:endListItem()
+		}
+
+		:endNumList()
+	}
+
+	function outputDlist(contents: array)
+	{
+		:beginDefList()
+
+		for(i: 1 .. #contents)
+		{
+			:beginDefTerm()
+			:outputParagraphContents(contents[i][0])
+			:endDefTerm()
+
+			:beginDefDef()
+			:outputParagraphs(contents[i][1..])
+			:endDefDef()
+		}
+
+		:endDefList()
+	}
+
+	function outputTable(contents: array)
+	{
+		:beginTable()
+
+		for(row: 1 .. #contents)
+		{
+			:beginRow()
+
+			foreach(cell; contents[row])
+			{
+				:beginCell()
+				:outputParagraphs(cell)
+				:endCell()
+			}
+
+			:endRow()
+		}
+
+		:endTable()
+	}
+
+	// =================================================================================================
+	// Link handling
+
+	function resolveLink(link: string) throw NotImplementedException()
+
+	// =================================================================================================
+	// Element-level output functions
+
+	function beginBold() throw NotImplementedException()
+	function endBold() throw NotImplementedException()
+	function beginEmphasis() throw NotImplementedException()
+	function endEmphasis() throw NotImplementedException()
+	function beginLink(link: string) throw NotImplementedException()
+	function endLink() throw NotImplementedException()
+	function beginMonospace() throw NotImplementedException()
+	function endMonospace() throw NotImplementedException()
+	function beginSubscript() throw NotImplementedException()
+	function endSubscript() throw NotImplementedException()
+	function beginSuperscript() throw NotImplementedException()
+	function endSuperscript() throw NotImplementedException()
+	function beginUnderline() throw NotImplementedException()
+	function endUnderline() throw NotImplementedException()
+
+	function beginCode(language: string) throw NotImplementedException()
+	function endCode() throw NotImplementedException()
+	function beginVerbatim() throw NotImplementedException()
+	function endVerbatim() throw NotImplementedException()
+	function beginBulletList() throw NotImplementedException()
+	function endBulletList() throw NotImplementedException()
+	function beginNumList(type: string) throw NotImplementedException()
+	function endNumList() throw NotImplementedException()
+	function beginListItem() throw NotImplementedException()
+	function endListItem() throw NotImplementedException()
+	function beginDefList() throw NotImplementedException()
+	function endDefList() throw NotImplementedException()
+	function beginDefTerm() throw NotImplementedException()
+	function endDefTerm() throw NotImplementedException()
+	function beginDefDef() throw NotImplementedException()
+	function endDefDef() throw NotImplementedException()
+	function beginTable() throw NotImplementedException()
+	function endTable() throw NotImplementedException()
+	function beginRow() throw NotImplementedException()
+	function endRow() throw NotImplementedException()
+	function beginCell() throw NotImplementedException()
+	function endCell() throw NotImplementedException()
+
+	function beginParagraph() throw NotImplementedException()
+	function endParagraph() throw NotImplementedException()
+
+	function outputText(vararg) throw NotImplementedException()
+
+	function outputParagraphContents(par: array)
+	{
+		foreach(elem; par)
+		{
+			if(isString(elem))
+				:outputText(elem)
+			else if(isArray(elem))
+			{
+				local tag = elem[0]
+
+				if(tag in stdStructures)
+				{
+					switch(tag)
+					{
+						case "code":     :outputCode(elem);     break
+						case "verbatim": :outputVerbatim(elem); break
+						case "blist":    :outputBlist(elem);    break
+						case "nlist":    :outputNlist(elem);    break
+						case "dlist":    :outputDlist(elem);    break
+						case "table":    :outputTable(elem);    break
+						default: assert(false)
+					}
+				}
+				else
+					:outputSpan(elem)
+			}
+			else
+				throw ValueException("Malformed documentation")
+		}
+	}
+
+	function outputParagraph(par: array)
+	{
+		:beginParagraph()
+		:outputParagraphContents(par)
+		:endParagraph()
+	}
+
+	function outputParagraphs(plist: array)
+	{
+		foreach(par; plist)
+			:outputParagraph(par)
+	}
+
+	// =================================================================================================
+	// Item-level output functions
+
+	function beginItem(doctable: table, parentFQN: string) throw NotImplementedException()
+	function endItem() throw NotImplementedException()
+
+	function outputHeader(doctable: table, parentFQN: string, full: bool = true)
+	{
+		switch(doctable.kind)
+		{
+			case "module":
+				:outputText("module ", doctable.name)
+				return
+
+			case "function":
+				if(parentFQN !is "")
+					:outputText(parentFQN, ".")
+
+				:outputText(doctable.name == "constructor" ? "this" : doctable.name)
+
+				if(!full)
+					return
+
+				:outputText("(")
+
+				foreach(i, p; doctable.params)
+				{
+					if(i > 0)
+						:outputText(", ")
+
+					:outputText(p.name)
+
+					if(p.type != "any" && p.type != "vararg")
+						:outputText(": ", p.type)
+
+					if(p.value)
+						:outputText(" = ", p.value)
+				}
+
+				:outputText(")")
+				break
+
+			case "class", "namespace":
+				:outputText(doctable.kind, " ")
+
+				if(parentFQN !is "")
+					:outputText(parentFQN, ".")
+
+				:outputText(doctable.name)
+
+				if(!full)
+					return
+
+				if(doctable.base)
+					write(" : ", doctable.base)
+				break
+
+			case "field":
+				if(parentFQN !is "")
+					:outputText(parentFQN, ".")
+
+				write(doctable.name)
+
+				if(!full)
+					return
+
+				if(doctable.value)
+					write(" = ", doctable.value)
+				break
+
+			case "variable":
+				write(doctable.protection, " ")
+
+				if(parentFQN !is "")
+					:outputText(parentFQN, ".")
+
+				:outputText(doctable.name)
+
+				if(!full)
+					return
+
+				if(doctable.value)
+					write(" = ", d.value)
+				break
+
+			case "parameter":
+				throw ValueException("Cannot call outputHeader on a parameter doctable")
+
+			default:
+				throw ValueException("Malformed documentation for {}".format(doctable.name))
+		}
+	}
+
+	function outputChildren(doctable: table, parentFQN: string)
+	{
+		foreach(child; doctable.children)
+			:outputItem(child, parentFQN)
+	}
+
+	function outputModule(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "module")
+		:outputChildren(doctable, doctable.name)
+	}
+
+	function outputFunction(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "function")
+		// nothing different, all the func-specific sections are already handled
+	}
+
+	function outputClass(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "class")
+		:outputChildren(doctable, "")
+	}
+
+	function outputNamespace(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "namespace")
+		:outputChildren(doctable, "")
+	}
+
+	function outputField(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "field")
+		// nothing different
+	}
+
+	function outputVariable(doctable: table, parentFQN: string)
+	{
+		assert(doctable.kind is "variable")
+		// nothing different
+	}
+
+	function outputItem(doctable: table, parentFQN: string)
+	{
+		:beginItem(doctable, parentFQN)
+
+		if(doctable.dittos)
+		{
+			foreach(d; doctable.dittos)
+			{
+				:endItem()
+				:beginItem(d, parentFQN)
+			}
+		}
+
+		:outputDocSections(doctable)
+
+		switch(doctable.kind)
+		{
+			case "module":    :outputModule(doctable, parentFQN);    break
+			case "function":  :outputFunction(doctable, parentFQN);  break
+			case "class":     :outputClass(doctable, parentFQN);     break
+			case "namespace": :outputNamespace(doctable, parentFQN); break
+			case "field":     :outputField(doctable, parentFQN);     break
+			case "variable":  :outputVariable(doctable, parentFQN);  break
+
+			case "parameter":
+				throw ValueException("Can't call outputItem on a parameter doctable")
+
+			default:
+				throw ValueException("Malformed documentation")
+		}
+
+		:endItem()
+	}
+
+	// =================================================================================================
+	// Top-level output functions
+}
+
+class TracWikiDocOutput : BaseDocOutput
+{
+	_listType = []
+	_inTable = false
+	_itemDepth = 0
+
+	function resolveLink(link: string) = link
+
+	function beginBold() :outputText("'''")
+	function endBold()  :outputText("'''")
+	function beginEmphasis() :outputText("''")
+	function endEmphasis() :outputText("''")
+	function beginLink(link: string) :beginMonospace()
+	function endLink() :endMonospace()
+	function beginMonospace() :outputText("` "`" `")
+	function endMonospace() :outputText("` "`" `")
+	function beginSubscript() :outputText(",,")
+	function endSubscript() :outputText(",,")
+	function beginSuperscript() :outputText("^")
+	function endSuperscript() :outputText("^")
+	function beginUnderline() :outputText("__")
+	function endUnderline() :outputText("__")
+
+	function beginCode(language: string)
+	{
+		:checkNotInTable()
+		:outputText("\n{{{\n#!", language, "\n")
+	}
+
+	function endCode()
+		:outputText("\n}}}\n")
+
+	function beginVerbatim()
+	{
+		:checkNotInTable()
+		:outputText("\n{{{\n")
+	}
+
+	function endVerbatim()
+		:outputText("\n}}}\n")
+
+	function beginBulletList()
+	{
+		:checkNotInTable()
+		:_listType.append("*")
+		:outputText("\n")
+	}
+
+	function endBulletList()
+	{
+		:_listType.pop()
+		:outputText("\n")
+	}
+
+	function beginNumList(type: string)
+	{
+		:checkNotInTable()
+		:_listType.append(type ~ ".")
+		:outputText("\n")
+	}
+
+	function endNumList()
+	{
+		:_listType.pop()
+		:outputText("\n")
+	}
+
+	function beginListItem()
+	{
+		assert(#:_listType > 0)
+		:outputIndent()
+		:outputText(:_listType[-1], " ")
+	}
+
+	function endListItem()
+		:outputText("\n")
+
+	function beginDefList()
+	{
+		:checkNotInTable()
+		:_listType.append(null)
+		:outputText("\n")
+	}
+
+	function endDefList()
+	{
+		:_listType.pop()
+		:outputText("\n")
+	}
+
+	function beginDefTerm()
+	{
+		assert(#:_listType > 0)
+		:outputIndent()
+	}
+
+	function endDefTerm()
+		:outputText("::\n")
+
+	function beginDefDef()
+		:outputIndent()
+
+	function endDefDef()
+		:outputText("\n")
+
+	function beginTable()
+	{
+		if(#:_listType > 0)
+			throw ValueException("Sorry, tables inside lists are unsupported in Trac wiki markup")
+
+		:_inTable = true
+		:outputText("\n")
+	}
+
+	function endTable()
+	{
+		:_inTable = false
+		:outputText("\n")
+	}
+
+	function beginRow()
+		:outputText("||")
+
+	function endRow()
+		:outputText("\n")
+
+	function beginCell() {}
+
+	function endCell()
+		:outputText("||")
+
+	function beginParagraph()
+	{
+		if(!:_inTable)
+		{
+			:outputText("\n")
+			:outputIndent()
+		}
+	}
+
+	function endParagraph()
+	{
+		if(:_inTable)
+			:outputText(" ")
+		else
+			:outputText("\n")
+	}
+
+	function outputText(vararg)
+	{
+		for(i: 0 .. #vararg)
+			write(vararg[i])
+	}
+
+	function beginItem(doctable: table, parentFQN: string)
+	{
+		if(doctable.kind is "module")
+		{
+			:outputText("[[PageOutline]]\n")
+			:outputWikiHeader(doctable, parentFQN)
+		}
+		else
+			:outputWikiHeader(doctable, parentFQN)
+
+		:_itemDepth++
+	}
+
+	function endItem()
+	{
+		:outputText("\n")
+		:_itemDepth--
+	}
+
+	function outputWikiHeader(doctable: table, parentFQN: string)
+	{
+		local h = "=".repeat(:_itemDepth + 1)
+
+		:outputText(h, " ")
+		:beginMonospace()
+		:outputHeader(doctable, parentFQN, false)
+		:endMonospace()
+		:outputText(" ", h, "\n")
+
+		if(doctable.kind is "module")
+			return
+
+		if((doctable.kind is "variable" || doctable.kind is "field") && doctable.value is null)
+			return
+
+		:beginParagraph()
+		:beginBold()
+		:beginMonospace()
+		:outputHeader(doctable, parentFQN, true)
+		:endMonospace()
+		:endBold()
+		:endParagraph()
+	}
+
+	function checkNotInTable()
+	{
+		if(:_inTable)
+			throw ValueException("Sorry, text structures inside tables are unsupported in Trac wiki markup")
+	}
+
+	function outputIndent()
+	{
+		if(#:_listType > 0)
+			:outputText(" ".repeat(#:_listType * 2 - 1))
+	}
+}
+
+/*
+function help(x, child: string = null)
+{
+	local d
+
+	if(isString(x))
+	{
+		local mt
+
+		try
+			mt = debug.getMetatable(x)
+		catch(e: Exception)
+			throw TypeException("Invalid type '{}'".format(x))
+
+		if(child in mt)
+			d = docsOf(mt.(child))
+	}
+	else
+	{
+		d = docsOf(x)
+
+		if(#d && child !is null)
+		{
+			if(d.children is null)
+				throw ValueException("No children")
+
+			local found = false
+
+			foreach outerLoop(c; d.children)
+			{
+				if(c.name == child)
+				{
+					found = true
+					d = c
+					break
+				}
+
+				if(c.dittos)
+				{
+					foreach(dit; c.dittos)
+					{
+						if(dit.name == child)
+						{
+							found = true
+							d = c
+							break outerLoop
+						}
+					}
+				}
+			}
+
+			if(!found)
+				throw ValueException("Not found")
+		}
+	}
+
+	if(#d == 0)
+	{
+		writeln("<no help available>")
+		return
+	}
+
+	function writeHeader(d)
+	{
+		if(d.protection)
+			write(d.protection, " ")
+
+		write(d.kind, " ", d.name)
+
+		if(d.params)
+		{
+			write("(")
+
+			foreach(i, p; d.params)
+			{
+				if(i > 0)
+					write(", ")
+
+				write(p.name)
+
+				if(p.type != "any" && p.type != "vararg")
+					write(": ", p.type)
+
+				if(p.value)
+					write(" = ", p.value)
+			}
+
+			write(")")
+		}
+
+		if(d.base)
+			write(" : ", d.base)
+
+		if(d.value)
+			write(" = ", d.value)
+
+		write(" (", d.file)
+		if(d.line != 0)
+			write(":  ", d.line)
+		writeln(")")
+	}
+
+	writeHeader(d)
+
+	if(d.dittos)
+		foreach(dit; d.dittos)
+			writeHeader(dit)
+
+	foreach(line; d.docs.splitLines())
+		writeln("  ", line.strip())
+
+	if(d.children && #d.children)
+	{
+		writeln()
+		writeln("Members:")
+
+		foreach(c; d.children)
+			writeln("   ", c.name)
+	}
+
+	writeln()
+} */`;
