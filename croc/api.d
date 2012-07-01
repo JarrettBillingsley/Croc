@@ -135,19 +135,17 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 
 	// Safe libs
 	initBaseLib(t);
-	initMemblockLib(t);
-	initStringLib(t); // depends on memblock
-	HashLib.init(t); // depends on string
-	initDocsLib(t); // depends on hash
+	initStringLib(t);
+	HashLib.init(t); // depends on string (needs StringBuffer for weak table toString methods)
+	initDocsLib(t); // depends on hash (needs weak table to hold docs)
 
-	// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later)
+	// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later.. OR IS IT)
 	version(CrocBuiltinDocs)
 	{
 		docModulesLib(t);
 		docExceptionsLib(t);
 		docGCLib(t);
 		docBaseLib(t);
-		docMemblockLib(t);
 		docStringLib(t);
 		// docHashLib(t);
 	}
@@ -161,6 +159,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	initEnvLib(t);
 	JSONLib.init(t); // depends on stream
 	MathLib.init(t);
+	initMemblockLib(t);
 	initPathLib(t);
 	RegexpLib.init(t);
 	SerializationLib.init(t); // depends on stream

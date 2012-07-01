@@ -60,8 +60,6 @@ void initStringLib(CrocThread* t)
 {
 	makeModule(t, "string", function uword(CrocThread* t)
 	{
-		importModuleNoNS(t, "memblock");
-
 		initStringBuffer(t);
 
 		newNamespace(t, "string");

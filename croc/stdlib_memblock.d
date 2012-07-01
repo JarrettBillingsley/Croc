@@ -66,24 +66,22 @@ void initMemblockLib(CrocThread* t)
 		return 0;
 	});
 
-	importModuleNoNS(t, "memblock");
-}
+	importModule(t, "memblock");
 
-version(CrocBuiltinDocs) void docMemblockLib(CrocThread* t)
-{
-	pushGlobal(t, "memblock");
+	version(CrocBuiltinDocs)
+	{
+		scope doc = new CrocDoc(t, __FILE__);
+		doc.push(Docs("module", "memblock",
+		`The memblock library provides built-in methods for the \tt{memblock} type, as well as the only means to actually create memblocks.`));
 
-	scope doc = new CrocDoc(t, __FILE__);
-	doc.push(Docs("module", "memblock",
-	`The memblock library provides built-in methods for the \tt{memblock} type, as well as the only means to actually create memblocks.`));
+		docFields(t, doc, _globalFuncDocs);
 
-	docFields(t, doc, _globalFuncDocs);
+		getTypeMT(t, CrocValue.Type.Memblock);
+			docFields(t, doc, _methodFuncDocs);
+		pop(t);
 
-	getTypeMT(t, CrocValue.Type.Memblock);
-		docFields(t, doc, _methodFuncDocs);
-	pop(t);
-
-	doc.pop(-1);
+		doc.pop(-1);
+	}
 
 	pop(t);
 }
