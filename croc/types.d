@@ -274,7 +274,7 @@ package:
 	bool isFalse()
 	{
 		return (type == Type.Null) || (type == Type.Bool && mBool == false) ||
-			(type == Type.Int && mInt == 0) || (type == Type.Float && mFloat == 0.0) || (type == Type.Char && mChar != 0);
+			(type == Type.Int && mInt == 0) || (type == Type.Float && mFloat == 0.0) || (type == Type.Char && mChar == 0);
 	}
 
 	void opAssign(bool src)
