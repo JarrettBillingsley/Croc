@@ -65,11 +65,8 @@ static:
 		checkParam(t, 1, CrocValue.Type.Function);
 		auto func = getFunction(t, 1);
 
-		version(CrocExtendedCoro) {} else
-		{
-			if(func.isNative)
-				throwStdException(t, "ValueException", "Native functions may not be used as the body of a coroutine");
-		}
+		if(func.isNative)
+			throwStdException(t, "ValueException", "Native functions may not be used as the body of a coroutine");
 
 		auto nt = thread.create(t.vm, func);
 		thread.setHookFunc(t.vm.alloc, nt, t.hookFunc);

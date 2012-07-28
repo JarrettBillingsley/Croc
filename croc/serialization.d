@@ -631,16 +631,7 @@ private:
 
 		tag(CrocValue.Type.Thread);
 
-		version(CrocExtendedCoro)
-		{
-			put(t, mOutput, true);
-		}
-		else
-		{
-			put(t, mOutput, false);
-			integer(v.savedCallDepth);
-		}
-
+		integer(v.savedCallDepth);
 		integer(v.arIndex);
 
 		foreach(ref rec; v.actRecs[0 .. v.arIndex])
@@ -1449,28 +1440,7 @@ private:
 		auto ret = t.vm.alloc.allocate!(CrocThread);
 		addObject(cast(CrocBaseObject*)ret);
 		ret.vm = t.vm;
-
-		bool isExtended;
-		get(t, mInput, isExtended);
-
-		version(CrocExtendedCoro)
-		{
-			if(!isExtended)
-				throwStdException(t, "ValueException", "Attempting to deserialize a non-extended coroutine, but extended coroutine support was compiled in");
-
-			// not sure how to handle deserialization of extended coros yet..
-			// the issue is that we have to somehow create a ThreadFiber object and have it resume from where
-			// it yielded...?  is that even possible?
-			throwStdException(t, "ValueException", "AGH I don't know how to deserialize extended coros");
-		}
-		else
-		{
-			if(isExtended)
-				throwStdException(t, "ValueException", "Attempting to deserialize an extended coroutine, but extended coroutine support was not compiled in");
-
-			integer(ret.savedCallDepth);
-		}
-
+		integer(ret.savedCallDepth);
 		integer(ret.arIndex);
 		t.vm.alloc.resizeArray(ret.actRecs, ret.arIndex < 10 ? 10 : ret.arIndex);
 

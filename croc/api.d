@@ -138,6 +138,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	initBaseLib(t);
 	initStringLib(t);
 	HashLib.init(t); // depends on string (needs StringBuffer for weak table toString methods)
+	
 	initDocsLib(t); // depends on hash (needs weak table to hold docs)
 
 	// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later.. OR IS IT)

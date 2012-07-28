@@ -25,9 +25,6 @@ subject to the following restrictions:
 
 module croc.types_thread;
 
-version(CrocExtendedCoro)
-	import tango.core.Thread;
-
 import croc.base_alloc;
 import croc.base_writebarrier;
 import croc.types;
@@ -71,27 +68,6 @@ package:
 	{
 		auto t = create(vm);
 		t.coroFunc = coroFunc;
-
-		version(CrocExtendedCoro)
-		{
-			version(CrocPoolFibers)
-			{
-				if(vm.fiberPool.length > 0)
-				{
-					Fiber f = void;
-
-					foreach(fiber, _; vm.fiberPool)
-					{
-						f = fiber;
-						break;
-					}
-
-					vm.fiberPool.remove(f);
-					t.coroFiber = nativeobj.create(vm, f);
-				}
-			}
-		}
-
 		*vm.allThreads.insert(vm.alloc, t) = true;
 		return t;
 	}
@@ -114,32 +90,11 @@ package:
 		}
 	}
 	
-	version(CrocExtendedCoro)
-	{
-		void setCoroFiber(ref Allocator alloc, CrocThread* t, CrocNativeObj* f)
-		{
-			if(t.coroFiber !is f)
-			{
-				mixin(writeBarrier!("alloc", "t"));
-				t.coroFiber = f;
-			}
-		}
-	}
-
 	// Free a thread object.
 	void free(CrocThread* t)
 	{
 		auto b = t.vm.allThreads.remove(t);
 		assert(b);
-
-		version(CrocExtendedCoro)
-		{
-			version(CrocPoolFibers)
-			{
-				if(t.coroFiber)
-					t.vm.fiberPool[t.getFiber()] = true;
-			}
-		}
 
 		for(auto uv = t.upvalHead; uv !is null; uv = t.upvalHead)
 		{
