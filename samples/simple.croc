@@ -18,6 +18,162 @@ function main()
 	// writeln$ t
 }
 
+import docs: docsOf
+
+class BaseLinkResolver
+{
+	// ItemDesc[string]
+	// struct ItemDesc { string name; ItemDesc[string] children; }
+	_modules
+	_enclosing
+
+	this()
+	{
+		:_modules = {}
+
+		if(local dt = docsOf(_G))
+			:_modules[""] = :_makeChildMap(dt)
+
+		:_enclosing = []
+	}
+
+	function addModule(name: string)
+	{
+		if(name in :_modules)
+			throw ValueException("Module '{}' has already been added".format(name))
+
+		local mod = :_lookupModule(name)
+		local dt = docsOf(m)
+
+		if(dt is null)
+			throw ValueException("Module '{}' has no documentation".format(name))
+		else if(dt.kind !is "module")
+			throw ValueException("'{}' does not name a module, it names a '{}'".format(name, dt.kind))
+
+		:_modules[name] = :_makeChildMap(dt)
+	}
+
+	function addModules(vararg)
+	{
+		for(i: 0 .. #vararg)
+		{
+			local m = vararg[i]
+
+			if(!isString(m))
+				throw TypeException("All parameters must be strings; parameter {} is a '{}'".format(i + 1, typeof(m)))
+
+			:addModule(m)
+		}
+	}
+
+	function addStdModules()
+	{
+		:addModules(
+			"docs",
+			"exceptions",
+			"gc",
+			"modules",
+			"array",
+			"ascii",
+			"compiler",
+			"console",
+			"env",
+			"hash",
+			"json",
+			"math",
+			"memblock",
+			"path",
+			"regexp",
+			"serialization",
+			"stream",
+			"string",
+			"text",
+			"thread",
+			"time")
+
+		foreach(mod; ["debug", "file", "os", "devil", "gl", "net", "pcre", "sdl"])
+		{
+			if(mod in _G)
+				:addModule(mod)
+		}
+	}
+
+	function enterItem(dt: table)
+	{
+		:_enclosing.append(:_makeChildMap(dt))
+	}
+
+	function leaveItem()
+	{
+		assert(#:_enclosing > 0, "item stack underflow")
+		:_enclosing.pop()
+	}
+
+	function resolveLink(link: string)
+	{
+		if("/" in link)
+		{
+			// URI; no further processing necessary. If someone writes something like "www.example.com" it's ambiguous and it's their
+			// fault when it doesn't resolve :P
+			return link
+		}
+		else if('.' in link)
+		{
+			// probably a FQN, but might be a QN in this namespace (Classname.field or similar)
+
+			// let's treat it like it's a local QN first
+
+			// that didn't work; treat it as an FQN
+		}
+		else
+		{
+			// relative name
+		}
+	}
+
+	function translateLink(mod: string, item: string)
+		throw NotImplementedException()
+
+	function _lookupModule(name: string)
+	{
+		local m = _G
+
+		foreach(namePart; name.split("."))
+		{
+			if(namePart in m)
+				m = m.(namePart)
+			else
+				throw ValueException("Module '{}' does not exist".format(name))
+
+			if(!isNamespace(m))
+				throw ValueException("'{}' does not name a module".format(name))
+		}
+
+		return m
+	}
+
+	function _makeChildMap(dt: table)
+	{
+		local ret = {}
+
+		foreach(child; dt.children)
+		{
+			local t = { name = child.name }
+
+			if(child.children)
+				t.children = :_makeChildMap(child)
+
+			ret[child.name] = t
+
+			if(local dit = child.dittos)
+				foreach(d; dit)
+					ret[d.name] = t
+		}
+
+		return ret
+	}
+}
+
 import exceptions: BoundsException, UnicodeException
 import string: StringBuffer
 
@@ -101,12 +257,6 @@ class AsciiCodec : TextCodec
 
 	function encodeInto(str: string, dest: memblock, errors: string = "strict")
 	{
-		switch(errors)
-		{
-			case "strict", "ignore", "replace": break
-			default: throw ValueException("Invalid error handling type '{}'".format(errors))
-		}
-
 		#dest = #str
 		local i = 0
 
@@ -120,8 +270,10 @@ class AsciiCodec : TextCodec
 					throw UnicodeException("Character {} cannot be encoded as ASCII as its codepoint (U+{:X5}) is above U+0007F".format(j, c))
 				else if(errors is "ignore")
 					continue
-				else // replace
+				else if(errors is "replace")
 					c = 63 // '?'
+				else
+					throw ValueException("Invalid error handling type '{}'".format(errors))
 			}
 
 			dest[i] = c
@@ -134,12 +286,6 @@ class AsciiCodec : TextCodec
 
 	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 	{
-		switch(errors)
-		{
-			case "strict", "ignore", "replace": break
-			default: throw ValueException("Invalid error handling type '{}'".format(errors))
-		}
-		
 		if(lo < 0) lo += #src
 		if(hi < 0) hi += #src
 		
@@ -158,8 +304,10 @@ class AsciiCodec : TextCodec
 					throw UnicodeException("Character at byte offset {} is invalid ASCII as its value (0x{:X2}) is above 0x7F".format(i, c))
 				else if(errors is "ignore")
 					continue
-				else
+				else if(errors is "replace")
 					c = 0xFFFD
+				else
+					throw ValueException("Invalid error handling type '{}'".format(errors))
 			}
 			
 			s.append(toChar(c))
