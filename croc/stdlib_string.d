@@ -108,6 +108,7 @@ const uword VSplitMax = 20;
 const RegisterFunc[] _methodFuncs =
 [
 	{"format",       &_format},
+	{"opCall",       &_format},
 	{"join",         &_join,         maxParams: 1},
 	{"vjoin",        &_vjoin},
 	{"toInt",        &_toInt,        maxParams: 1},
