@@ -292,7 +292,7 @@ uword _find(CrocThread* t)
 		throwStdException(t, "BoundsException", "Invalid start index {}", start);
 
 	// Search
-	pushInt(t, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start)));
+	pushInt(t, uniByteIdxToCP(src, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start))));
 	return 1;
 }
 
@@ -328,7 +328,7 @@ uword _rfind(CrocThread* t)
 		throwStdException(t, "BoundsException", "Invalid start index {}", start);
 
 	// Search
-	pushInt(t, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start)));
+	pushInt(t, uniByteIdxToCP(src, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start))));
 	return 1;
 }
 

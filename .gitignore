@@ -1,5 +1,7 @@
 *.dll
 !libpcre.dll
 *.exe
+*.sublime-workspace
+*.sublime-project
 docs/
 commitmsg.txt
