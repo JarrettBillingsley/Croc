@@ -25,6 +25,7 @@ subject to the following restrictions:
 
 module croc.stdlib_os;
 
+import tango.core.Thread;
 import tango.stdc.stdlib;
 import tango.stdc.stringz;
 import tango.sys.Process;
@@ -45,7 +46,8 @@ static:
 			importModuleNoNS(t, "stream");
 
 			ProcessObj.init(t);
-			newFunction(t, &system, "system"); newGlobal(t, "system");
+			newFunction(t,    &system, "system"); newGlobal(t, "system");
+			newFunction(t, 1, &sleep,  "sleep");  newGlobal(t, "sleep");
 
 			return 0;
 		});
@@ -80,6 +82,17 @@ static:
 		}
 
 		return 1;
+	}
+
+	uword sleep(CrocThread* t)
+	{
+		auto dur = checkNumParam(t, 1);
+		
+		if(dur < 0)
+			throwStdException(t, "RangeException", "Invalid sleep duration: {}", dur);
+
+		Thread.sleep(dur);
+		return 0;
 	}
 
 	struct ProcessObj

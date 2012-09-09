@@ -25,7 +25,6 @@ subject to the following restrictions:
 
 module croc.stdlib_time;
 
-import tango.core.Thread;
 import tango.time.chrono.Gregorian;
 import tango.time.Clock;
 import tango.time.StopWatch;
@@ -74,7 +73,6 @@ static:
 			newFunction(t, 2, &dateTime,   "dateTime");   newGlobal(t, "dateTime");
 			newFunction(t, 0, &timestamp,  "timestamp");  newGlobal(t, "timestamp");
 			newFunction(t,    &timex,      "timex");      newGlobal(t, "timex");
-			newFunction(t, 1, &sleep,      "sleep");      newGlobal(t, "sleep");
 			newFunction(t, 2, &compare,    "compare");    newGlobal(t, "compare");
 
 			return 0;
@@ -197,17 +195,6 @@ static:
 		pushFloat(t, w.stop());
 
 		return 1;
-	}
-
-	uword sleep(CrocThread* t)
-	{
-		auto dur = checkNumParam(t, 1);
-		
-		if(dur < 0)
-			throwStdException(t, "RangeException", "Invalid sleep duration: {}", dur);
-
-		Thread.sleep(dur);
-		return 0;
 	}
 
 	static struct Timer
