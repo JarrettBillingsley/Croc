@@ -447,6 +447,17 @@ private:
 			nextChar();
 	}
 
+	void eatLineBegin()
+	{
+		eatWhitespace();
+
+		if(mCharacter == '*' && lookaheadChar() != '/')
+		{
+			nextChar();
+			eatWhitespace();
+		}
+	}
+
 	char[] readWord()
 	{
 		auto begin = curPos();
@@ -527,13 +538,13 @@ private:
 					mNewlineSinceLastTok = true;
 
 					nextLine();
-					eatWhitespace();
+					eatLineBegin();
 
 					while(isNewline())
 					{
 						mTok.type = Token.NewParagraph;
 						nextLine();
-						eatWhitespace();
+						eatLineBegin();
 					}
 
 					if(isEOC())

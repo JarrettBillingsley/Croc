@@ -1087,7 +1087,6 @@ private:
 
 			scope buf = new List!(char)(mCompiler.alloc);
 			uint nesting = 1;
-			bool justWS = false;
 
 			void trimTrailingWS()
 			{
@@ -1125,18 +1124,12 @@ private:
 
 							buf ~= "*/";
 						}
-						else if(justWS)
-						{
-							justWS = false;
-							trimTrailingWS();
-						}
 						else
 							buf ~= '*';
 						continue;
 
 					case '\r', '\n':
 						nextLine(false);
-						justWS = true;
 						trimTrailingWS();
 						buf ~= '\n';
 						continue;
@@ -1145,9 +1138,6 @@ private:
 						mCompiler.eofException(mTok.loc, "Unterminated /* */ comment");
 
 					default:
-						if(mCharacter != ' ' && mCharacter != '\t')
-							justWS = false;
-
 						buf ~= mCharacter;
 						break;
 				}
