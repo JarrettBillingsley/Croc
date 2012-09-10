@@ -57,6 +57,7 @@ IdentifierStart:
 IdentifierChar:
 	IdentifierStart
 	DecimalDigit
+	!
 
 Keyword:
 	as | assert | break | case | catch | class | continue | default | do

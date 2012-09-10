@@ -1578,7 +1578,7 @@ private:
 						{
 							buf ~= Utf_encode(utfbuf, mCharacter);
 							nextChar();
-						} while(isAlpha() || isDecimalDigit() || mCharacter == '_');
+						} while(isAlpha() || isDecimalDigit() || mCharacter == '_' || mCharacter == '!');
 
 						auto arr = buf.toArray();
 						
