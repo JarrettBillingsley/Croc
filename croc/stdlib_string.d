@@ -319,7 +319,7 @@ uword _rfind(CrocThread* t)
 		paramTypeError(t, 1, "char|string");
 
 	// Start index
-	auto start = optIntParam(t, 2, 0);
+	auto start = optIntParam(t, 2, src.length - 1);
 
 	if(start < 0)
 		start += srcLen;
