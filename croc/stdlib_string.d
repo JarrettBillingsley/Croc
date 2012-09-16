@@ -260,7 +260,7 @@ uword _compare(CrocThread* t)
 	return 1;
 }
 
-uword _find(CrocThread* t)
+uword _commonFind(bool reverse)(CrocThread* t)
 {
 	// Source (search) string
 	auto src = checkStringParam(t, 0);
@@ -283,43 +283,10 @@ uword _find(CrocThread* t)
 		paramTypeError(t, 1, "char|string");
 
 	// Start index
-	auto start = optIntParam(t, 2, 0);
-
-	if(start < 0)
-		start += srcLen;
-
-	if(start < 0 || start >= srcLen)
-		throwStdException(t, "BoundsException", "Invalid start index {}", start);
-
-	// Search
-	pushInt(t, uniByteIdxToCP(src, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start))));
-	return 1;
-}
-
-uword _rfind(CrocThread* t)
-{
-	// Source (search) string
-	auto src = checkStringParam(t, 0);
-	auto srcLen = len(t, 0);
-
-	// Pattern (searched) string/char
-	checkAnyParam(t, 1);
-
-	char[6] buf = void;
-	char[] pat;
-
-	if(isString(t, 1))
-		pat = getString(t, 1);
-	else if(isChar(t, 1))
-	{
-		dchar[1] dc = getChar(t, 1);
-		pat = Utf_toString(dc[], buf);
-	}
+	static if(reverse)
+		auto start = optIntParam(t, 2, src.length - 1);
 	else
-		paramTypeError(t, 1, "char|string");
-
-	// Start index
-	auto start = optIntParam(t, 2, src.length - 1);
+		auto start = optIntParam(t, 2, 0);
 
 	if(start < 0)
 		start += srcLen;
@@ -328,9 +295,16 @@ uword _rfind(CrocThread* t)
 		throwStdException(t, "BoundsException", "Invalid start index {}", start);
 
 	// Search
-	pushInt(t, uniByteIdxToCP(src, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start))));
+	static if(reverse)
+		pushInt(t, uniByteIdxToCP(src, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start))));
+	else
+		pushInt(t, uniByteIdxToCP(src, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start))));
+	
 	return 1;
 }
+
+alias _commonFind!(false) _find;
+alias _commonFind!(true) _rfind;
 
 uword _repeat(CrocThread* t)
 {
@@ -606,13 +580,13 @@ uword _opApply(CrocThread* t)
 
 uword _startsWith(CrocThread* t)
 {
-	pushBool(t, .startsWith(checkStringParam(t, 0), checkStringParam(t, 1)));
+	pushBool(t, checkStringParam(t, 0).startsWith(checkStringParam(t, 1)));
 	return 1;
 }
 
 uword _endsWith(CrocThread* t)
 {
-	pushBool(t, .endsWith(checkStringParam(t, 0), checkStringParam(t, 1)));
+	pushBool(t, checkStringParam(t, 0).endsWith(checkStringParam(t, 1)));
 	return 1;
 }
 
