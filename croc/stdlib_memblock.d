@@ -119,6 +119,7 @@ const RegisterFunc[] _methodFuncs =
 	{"toString",     &_toString,           maxParams: 0},
 	{"dup",          &_dup,                maxParams: 0},
 	{"fill",         &_fill,               maxParams: 1},
+	{"fillSlice",    &_fillSlice,          maxParams: 3},
 	{"readInt8",     &_rawRead!(byte),     maxParams: 1},
 	{"readInt16",    &_rawRead!(short),    maxParams: 1},
 	{"readInt32",    &_rawRead!(int),      maxParams: 1},
@@ -140,6 +141,7 @@ const RegisterFunc[] _methodFuncs =
 	{"writeFloat32", &_rawWrite!(float),   maxParams: 1},
 	{"writeFloat64", &_rawWrite!(double),  maxParams: 1},
 	{"copy",         &_copy,               maxParams: 4},
+	{"compare",      &_compare,            maxParams: 4},
 	{"opEquals",     &_opEquals,           maxParams: 1},
 	{"opCmp",        &_opCmp,              maxParams: 1},
 	{"opCat",        &_opCat,              maxParams: 1},
@@ -185,6 +187,28 @@ uword _fill(CrocThread* t)
 	checkParam(t, 0, CrocValue.Type.Memblock);
 	auto mb = getMemblock(t, 0);
 	mb.data[] = cast(ubyte)checkIntParam(t, 1);
+	return 0;
+}
+
+uword _fillSlice(CrocThread* t)
+{
+	checkParam(t, 0, CrocValue.Type.Memblock);
+	auto mb = getMemblock(t, 0);
+
+	auto lo = optIntParam(t, 1, 0);
+	auto hi = optIntParam(t, 2, mb.data.length);
+	auto val = cast(ubyte)checkIntParam(t, 3);
+
+	if(lo < 0)
+		lo += mb.data.length;
+
+	if(hi < 0)
+		hi += mb.data.length;
+
+	if(lo < 0 || hi < lo || hi > mb.data.length)
+		throwStdException(t, "BoundsException", "Invalid slice indices {} .. {} (memblock length: {})", lo, hi, mb.data.length);
+
+	mb.data[cast(uword)lo .. cast(uword)hi] = val;
 	return 0;
 }
 
@@ -259,6 +283,29 @@ uword _copy(CrocThread* t)
 		memcpy(dstPtr, srcPtr, cast(uword)size);
 
 	return 0;
+}
+
+uword _compare(CrocThread* t)
+{
+	checkParam(t, 0, CrocValue.Type.Memblock);
+	auto lhs = getMemblock(t, 0);
+	auto lhsOffs = checkIntParam(t, 1);
+	checkParam(t, 2, CrocValue.Type.Memblock);
+	auto rhs = getMemblock(t, 2);
+	auto rhsOffs = checkIntParam(t, 3);
+	auto size = checkIntParam(t, 4);
+
+	if     (size < 0 || size > uword.max)             throwStdException(t, "RangeException",  "Invalid size: {}", size);
+	else if(lhsOffs < 0 || lhsOffs > lhs.data.length) throwStdException(t, "BoundsException", "Invalid left-hand-side offset {} (memblock length: {})", lhsOffs, lhs.data.length);
+	else if(rhsOffs < 0 || rhsOffs > rhs.data.length) throwStdException(t, "BoundsException", "Invalid right-hand-side offset {} (memblock length: {})", rhsOffs, rhs.data.length);
+	else if(lhsOffs + size > lhs.data.length)         throwStdException(t, "BoundsException", "Size exceeds size of left-hand-side memblock");
+	else if(rhsOffs + size > rhs.data.length)         throwStdException(t, "BoundsException", "Size exceeds size of right-hand-side memblock");
+
+	auto rhsPtr = rhs.data.ptr + rhsOffs;
+	auto lhsPtr = lhs.data.ptr + lhsOffs;
+
+	pushInt(t, memcmp(lhsPtr, rhsPtr, cast(uword)size));
+	return 1;
 }
 
 uword _opEquals(CrocThread* t)
