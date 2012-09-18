@@ -240,8 +240,6 @@ class Stream
 			offset += bytesRead
 			remaining -= bytesRead
 		}
-
-		return true
 	}
 
 	/**

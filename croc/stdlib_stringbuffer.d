@@ -29,6 +29,7 @@ module croc.stdlib_stringbuffer;
 import tango.math.Math;
 import tango.stdc.string;
 import tango.text.convert.Utf;
+import tango.text.Util;
 
 alias tango.text.convert.Utf.toString32 Utf_toString32;
 
@@ -57,6 +58,7 @@ void initStringBuffer(CrocThread* t)
 		c.allocator("allocator", &BasicClassAllocator!(NumFields, 0));
 
 		c.method("constructor",    1, &_constructor);
+		c.method("dup",            0, &_dup);
 		c.method("toString",       2, &_toString);
 
 		c.method("opEquals",       1, &_opEquals);
@@ -74,6 +76,32 @@ void initStringBuffer(CrocThread* t)
 		c.method("fillRange",      3, &_fillRange);
 		c.method("insert",         2, &_insert);
 		c.method("remove",         2, &_remove);
+
+		c.method("find",           2, &_find);
+		c.method("rfind",          2, &_rfind);
+		c.method("startsWith",     1, &_startsWith);
+		c.method("endsWith",       1, &_endsWith);
+
+		c.method("split",          1, &_split);
+		c.method("splitWS",        0, &_splitWS);
+		c.method("vsplit",         1, &_vsplit);
+		c.method("vsplitWS",       0, &_vsplitWS);
+		c.method("splitLines",     0, &_splitLines);
+		c.method("vsplitLines",    0, &_vsplitLines);
+
+		c.method("repeat!",        1, &_repeat_ip);
+		c.method("reverse!",       0, &_reverse_ip);
+		c.method("strip!",         0, &_strip_ip);
+		c.method("lstrip!",        0, &_lstrip_ip);
+		c.method("rstrip!",        0, &_rstrip_ip);
+		c.method("replace!",       2, &_replace_ip);
+
+		c.method("repeat",         1, &_repeat);
+		c.method("reverse",        0, &_reverse);
+		c.method("strip",          0, &_strip);
+		c.method("lstrip",         0, &_lstrip);
+		c.method("rstrip",         0, &_rstrip);
+		c.method("replace",        2, &_replace);
 
 		c.method("format",            &_format);
 		c.method("formatln",          &_formatln);
@@ -110,6 +138,9 @@ version(CrocBuiltinDocs) void docStringBuffer(CrocThread* t, CrocDoc doc)
 
 private:
 
+// =============================================================
+// Helpers
+
 enum
 {
 	Data,
@@ -118,20 +149,7 @@ enum
 	NumFields
 }
 
-CrocMemblock* _getThis(CrocThread* t)
-{
-	checkInstParam(t, 0, "StringBuffer");
-	getExtraVal(t, 0, Data);
-
-	if(!isMemblock(t, -1))
-		throwStdException(t, "ValueException", "Attempting to call a method on an uninitialized StringBuffer");
-
-	auto ret = getMemblock(t, -1);
-	pop(t);
-	return ret;
-}
-
-CrocMemblock* _getData(CrocThread* t, word idx)
+CrocMemblock* _getData(CrocThread* t, word idx = 0)
 {
 	getExtraVal(t, idx, Data);
 
@@ -185,6 +203,55 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 	}
 }
 
+dchar[] _stringBufferAsUtf32(CrocThread* t, word idx)
+{
+	auto mb = _getData(t, idx);
+	return (cast(dchar*)mb.data)[0 .. _getLength(t, idx)];
+}
+
+word _stringBufferFromUtf32(CrocThread* t, dchar[] text)
+{
+	auto ret = pushGlobal(t, "StringBuffer");
+	pushNull(t);
+	pushInt(t, text.length);
+	rawCall(t, ret, 1);
+	_setLength(t, text.length, ret);
+	_stringBufferAsUtf32(t, ret)[] = text[];
+	return ret;
+}
+
+dchar[] _checkStringOrStringBuffer(CrocThread* t, word idx, ref dchar[] tmp, char[] errMsg = "string|StringBuffer")
+{
+	checkAnyParam(t, idx);
+
+	if(isString(t, idx))
+	{
+		tmp = allocArray!(dchar)(t, cast(uword)len(t, idx));
+		uint ate = 0;
+		Utf_toString32(getString(t, idx), tmp, &ate);
+		return tmp;
+	}
+	else
+	{
+		pushGlobal(t, "StringBuffer");
+
+		if(as(t, idx, -1))
+		{
+			pop(t);
+			return _stringBufferAsUtf32(t, idx);
+		}
+		else
+			paramTypeError(t, idx, errMsg);
+	}
+
+	assert(false);
+}
+
+// =============================================================
+// Methods
+
+const uword VSplitMax = 20;
+
 uword _constructor(CrocThread* t)
 {
 	checkInstParam(t, 0, "StringBuffer");
@@ -232,9 +299,25 @@ uword _constructor(CrocThread* t)
 	return 0;
 }
 
+uword _dup(CrocThread* t)
+{
+	auto mb = _getData(t);
+	auto len = _getLength(t);
+
+	pushGlobal(t, "StringBuffer");
+	pushNull(t);
+	pushInt(t, len);
+	rawCall(t, -3, 1);
+
+	auto other = _getData(t, -1);
+	other.data[0 .. len << 2] = mb.data[0 .. len << 2];
+	_setLength(t, len, -1);
+	return 1;
+}
+
 uword _toString(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	auto lo = optIntParam(t, 1, 0);
 	auto hi = optIntParam(t, 2, len);
@@ -254,7 +337,7 @@ uword _toString(CrocThread* t)
 
 uword _opEquals(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	checkAnyParam(t, 1);
 
@@ -307,7 +390,7 @@ uword _opEquals(CrocThread* t)
 
 uword _opCmp(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	checkAnyParam(t, 1);
 
@@ -361,14 +444,14 @@ uword _opCmp(CrocThread* t)
 
 uword _opLength(CrocThread* t)
 {
-	_getThis(t);
+	_getData(t);
 	getExtraVal(t, 0, Length);
 	return 1;
 }
 
 uword _opLengthAssign(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto newLen = checkIntParam(t, 1);
 
 	if(newLen < 0 || newLen > uword.max)
@@ -390,7 +473,7 @@ uword _opLengthAssign(CrocThread* t)
 
 uword _opIndex(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	auto index = checkIntParam(t, 1);
 
@@ -406,7 +489,7 @@ uword _opIndex(CrocThread* t)
 
 uword _opIndexAssign(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	auto index = checkIntParam(t, 1);
 	auto ch = checkCharParam(t, 2);
@@ -423,7 +506,7 @@ uword _opIndexAssign(CrocThread* t)
 
 uword _opSlice(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	auto lo = optIntParam(t, 1, 0);
 	auto hi = optIntParam(t, 2, len);
@@ -450,7 +533,7 @@ uword _opSlice(CrocThread* t)
 
 uword _opCat(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	auto src = cast(dchar[])mb.data;
 
@@ -504,7 +587,7 @@ uword _opCat(CrocThread* t)
 
 uword _opCat_r(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	auto src = cast(dchar[])mb.data;
 
@@ -553,7 +636,7 @@ uword _opCat_r(CrocThread* t)
 uword _opCatAssign(CrocThread* t)
 {
 	auto numParams = stackSize(t) - 1;
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	auto oldLen = len;
 
@@ -614,7 +697,7 @@ uword _opCatAssign(CrocThread* t)
 
 uword _iterator(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto index = checkIntParam(t, 1) + 1;
 
 	if(index >= _getLength(t))
@@ -628,7 +711,7 @@ uword _iterator(CrocThread* t)
 
 uword _iteratorReverse(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto index = checkIntParam(t, 1) - 1;
 
 	if(index < 0)
@@ -642,7 +725,7 @@ uword _iteratorReverse(CrocThread* t)
 
 uword _opApply(CrocThread* t)
 {
-	_getThis(t);
+	_getData(t);
 
 	if(optStringParam(t, 1, "") == "reverse")
 	{
@@ -736,7 +819,7 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 
 uword _fill(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	checkAnyParam(t, 1);
 	fillImpl(t, mb, 1, 0, _getLength(t));
 	dup(t, 0);
@@ -745,7 +828,7 @@ uword _fill(CrocThread* t)
 
 uword _fillRange(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	auto lo = optIntParam(t, 1, 0);
 	auto hi = optIntParam(t, 2, len);
@@ -767,7 +850,7 @@ uword _fillRange(CrocThread* t)
 
 uword _insert(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 	auto idx = checkIntParam(t, 1);
 	checkAnyParam(t, 2);
@@ -828,7 +911,7 @@ uword _insert(CrocThread* t)
 			if(len != 0)
 			{
 				auto slice = doResize(len);
-				auto data = cast(dchar[])_getData(t, 0).data;
+				auto data = cast(dchar[])_getData(t).data;
 				slice[0 .. cast(uword)idx] = data[0 .. cast(uword)idx];
 				slice[cast(uword)idx .. $] = data[cast(uword)idx + len .. $];
 			}
@@ -865,7 +948,7 @@ uword _insert(CrocThread* t)
 
 uword _remove(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 
 	if(len == 0)
@@ -898,10 +981,410 @@ uword _remove(CrocThread* t)
 	return 1;
 }
 
+uword _commonFind(bool reverse)(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+
+	// Pattern (searched) string/char
+	dchar[1] buf;
+	dchar[] tmp = null;
+	dchar[] pat;
+	scope(exit) freeArray(t, tmp);
+
+	checkAnyParam(t, 1);
+
+	if(isChar(t, 1))
+	{
+		buf[0] = getChar(t, 1);
+		pat = buf[];
+	}
+	else 
+		pat = _checkStringOrStringBuffer(t, 1, tmp, "char|string|StringBuffer");
+
+	// Start index
+	static if(reverse)
+		auto start = optIntParam(t, 2, src.length - 1);
+	else
+		auto start = optIntParam(t, 2, 0);
+
+	if(start < 0)
+		start += src.length;
+
+	if(start < 0 || start >= src.length)
+		throwStdException(t, "BoundsException", "Invalid start index {}", start);
+
+	// Search
+
+	static if(reverse)
+		pushInt(t, src.locatePatternPrior(pat, cast(uword)start));
+	else
+		pushInt(t, src.locatePattern(pat, cast(uword)start));
+
+	return 1;
+}
+
+alias _commonFind!(false) _find;
+alias _commonFind!(true) _rfind;
+
+uword _commonStartEnd(bool starts)(CrocThread* t)
+{
+	auto self = _stringBufferAsUtf32(t, 0);
+
+	dchar[] tmp = null;
+	scope(exit) freeArray(t, tmp);
+
+	auto other = _checkStringOrStringBuffer(t, 1, tmp);
+
+	static if(starts)
+		pushBool(t, self.startsWith(other));
+	else
+		pushBool(t, self.endsWith(other));
+
+	return 1;
+}
+
+alias _commonStartEnd!(true) _startsWith;
+alias _commonStartEnd!(false) _endsWith;
+
+uword _split(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+
+	dchar[] tmp;
+	scope(exit) freeArray(t, tmp);
+
+	auto splitter = _checkStringOrStringBuffer(t, 1, tmp);
+	auto ret = newArray(t, 0);
+	uword num = 0;
+
+	foreach(piece; src.patterns(splitter))
+	{
+		_stringBufferFromUtf32(t, piece);
+		num++;
+		
+		if(num >= 50)
+		{
+			cateq(t, ret, num);
+			num = 0;
+		}
+	}
+
+	if(num > 0)
+		cateq(t, ret, num);
+
+	return 1;
+}
+
+uword _vsplit(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+
+	dchar[] tmp;
+	scope(exit) freeArray(t, tmp);
+
+	auto splitter = _checkStringOrStringBuffer(t, 1, tmp);
+	uword num = 0;
+
+	foreach(piece; src.patterns(splitter))
+	{
+		_stringBufferFromUtf32(t, piece);
+		num++;
+
+		if(num > VSplitMax)
+			throwStdException(t, "ValueException", "Too many (>{}) parts when splitting", VSplitMax);
+	}
+
+	return num;
+}
+
+uword _splitWS(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+	auto ret = newArray(t, 0);
+	uword num = 0;
+
+	foreach(piece; src.delimiters(" \t\v\r\n\f\u2028\u2029"d))
+	{
+		if(piece.length > 0)
+		{
+			_stringBufferFromUtf32(t, piece);
+			num++;
+
+			if(num >= 50)
+			{
+				cateq(t, ret, num);
+				num = 0;
+			}
+		}
+	}
+
+	if(num > 0)
+		cateq(t, ret, num);
+
+	return 1;
+}
+
+uword _vsplitWS(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+	uword num = 0;
+
+	foreach(piece; src.delimiters(" \t\v\r\n\f\u2028\u2029"d))
+	{
+		if(piece.length > 0)
+		{
+			_stringBufferFromUtf32(t, piece);
+			num++;
+
+			if(num > VSplitMax)
+				throwStdException(t, "ValueException", "Too many (>{}) parts when splitting string", VSplitMax);
+		}
+	}
+
+	return num;
+}
+
+uword _splitLines(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+	auto ret = newArray(t, 0);
+	uword num = 0;
+
+	foreach(line; src.lines())
+	{
+		_stringBufferFromUtf32(t, line);
+		num++;
+		
+		if(num >= 50)
+		{
+			cateq(t, ret, num);
+			num = 0;
+		}
+	}
+
+	if(num > 0)
+		cateq(t, ret, num);
+
+	return 1;
+}
+
+uword _vsplitLines(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+	uword num = 0;
+
+	foreach(line; src.lines())
+	{
+		_stringBufferFromUtf32(t, line);
+		num++;
+
+		if(num > VSplitMax)
+			throwStdException(t, "ValueException", "Too many (>{}) parts when splitting string", VSplitMax);
+	}
+
+	return num;
+}
+
+uword _repeat_ip(CrocThread* t)
+{
+	auto mb = _getData(t);
+	auto oldLen = _getLength(t);
+	auto numTimes = checkIntParam(t, 1);
+
+	if(numTimes < 0)
+		throwStdException(t, "RangeException", "Invalid number of repetitions: {}", numTimes);
+
+	auto newLen = cast(uword)numTimes * oldLen;
+
+	_ensureSize(t, mb, newLen);
+	_setLength(t, newLen);
+
+	if(numTimes > 1)
+	{
+		auto src = (cast(dchar*)mb.data)[0 .. oldLen];
+		auto dest = (cast(dchar*)mb.data) + oldLen;
+		auto end = (cast(dchar*)mb.data) + newLen;
+
+		for( ; dest < end; dest += oldLen)
+			dest[0 .. oldLen] = src[0 .. oldLen];
+	}
+
+	dup(t, 0);
+	return 1;
+}
+
+uword _reverse_ip(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+
+	if(src.length > 1)
+		src.reverse;
+
+	dup(t, 0);
+	return 1;
+}
+
+uword _strip_ip(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+
+	auto trimmed = src.trim();
+
+	if(src.length != trimmed.length)
+	{
+		if(src.ptr !is trimmed.ptr)
+			memmove(src.ptr, trimmed.ptr, trimmed.length * dchar.sizeof);
+
+		_setLength(t, trimmed.length);
+	}
+
+	dup(t, 0);
+	return 1;
+}
+
+uword _lstrip_ip(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+
+	auto trimmed = src.triml();
+
+	if(src.length != trimmed.length)
+	{
+		memmove(src.ptr, trimmed.ptr, trimmed.length * dchar.sizeof);
+		_setLength(t, trimmed.length);
+	}
+
+	dup(t, 0);
+	return 1;
+}
+
+uword _rstrip_ip(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+
+	auto trimmed = src.trimr();
+
+	if(src.length != trimmed.length)
+		_setLength(t, trimmed.length);
+
+	dup(t, 0);
+	return 1;
+}
+
+uword _replace_ip(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+
+	dchar[] tmp1, tmp2, buffer;
+
+	scope(exit)
+	{
+		freeArray(t, tmp1);
+		freeArray(t, tmp2);
+		freeArray(t, buffer);
+	}
+
+	auto from = _checkStringOrStringBuffer(t, 1, tmp1);
+	auto to = _checkStringOrStringBuffer(t, 2, tmp2);
+	buffer = allocArray!(dchar)(t, src.length);
+	bool shouldCheckSize = from.length < to.length; // only have to grow if the 'to' string is bigger than the 'from' string
+	uword destIdx = 0;
+
+	foreach(piece; src.patterns(from, to))
+	{
+		if(shouldCheckSize && destIdx + piece.length > buffer.length)
+			resizeArray(t, buffer, max(destIdx + piece.length, buffer.length * 2));
+
+		buffer[destIdx .. destIdx + piece.length] = piece[];
+		destIdx += piece.length;
+	}
+
+	auto mb = _getData(t, 0);
+	_ensureSize(t, mb, destIdx);
+	_setLength(t, destIdx);
+	src = _stringBufferAsUtf32(t, 0); // has been invalidated!
+	src[0 .. destIdx] = buffer[0 .. destIdx];
+
+	dup(t, 0);
+	return 1;
+}
+
+uword _repeat(CrocThread* t)
+{
+	_getData(t);
+	checkIntParam(t, 1);
+
+	dup(t, 0);
+	pushNull(t);
+	methodCall(t, -2, "dup", 1);
+	pushNull(t);
+	dup(t, 1);
+	return methodCall(t, -3, "repeat!", 1);
+}
+
+uword _commonNonInPlace(char[] method)(CrocThread* t)
+{
+	_getData(t);
+
+	dup(t, 0);
+	pushNull(t);
+	methodCall(t, -2, "dup", 1);
+	pushNull(t);
+	return methodCall(t, -2, method, 1);
+}
+
+alias _commonNonInPlace!("reverse!") _reverse;
+alias _commonNonInPlace!("strip!") _strip;
+alias _commonNonInPlace!("lstrip!") _lstrip;
+alias _commonNonInPlace!("rstrip!") _rstrip;
+
+uword _replace(CrocThread* t)
+{
+	auto src = _stringBufferAsUtf32(t, 0);
+
+	dchar[] tmp1, tmp2;
+
+	scope(exit)
+	{
+		freeArray(t, tmp1);
+		freeArray(t, tmp2);
+	}
+
+	auto from = _checkStringOrStringBuffer(t, 1, tmp1);
+	auto to = _checkStringOrStringBuffer(t, 2, tmp2);
+
+	auto ret = pushGlobal(t, "StringBuffer");
+	pushNull(t);
+	pushInt(t, src.length);
+	rawCall(t, -3, 1);
+
+	auto destmb = _getData(t, ret);
+	auto dest = cast(dchar[])destmb.data;
+	bool shouldCheckSize = from.length < to.length; // only have to grow if the 'to' string is bigger than the 'from' string
+	uword destIdx = 0;
+
+	foreach(piece; src.patterns(from, to))
+	{
+		if(shouldCheckSize && destIdx + piece.length > dest.length)
+		{
+			push(t, CrocValue(destmb));
+			lenai(t, -1, dchar.sizeof * max(destIdx + piece.length, dest.length * 2));
+			pop(t);
+			dest = cast(dchar[])destmb.data;
+		}
+
+		dest[destIdx .. destIdx + piece.length] = piece[];
+		destIdx += piece.length;
+	}
+
+	_setLength(t, destIdx, ret);
+	return 1;
+}
+
 uword _format(CrocThread* t)
 {
 	auto numParams = stackSize(t) - 1;
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 	auto len = _getLength(t);
 
 	uint sink(char[] data)
@@ -938,7 +1421,7 @@ uword _formatln(CrocThread* t)
 
 uword _opSerialize(CrocThread* t)
 {
-	auto mb = _getThis(t);
+	auto mb = _getData(t);
 
 	// don't know if this is possible, but can't hurt to check
 	if(!mb.ownData)
@@ -993,7 +1476,13 @@ version(CrocBuiltinDocs)
 	on large string data. \tt{StringBuffer} is a mutable string class that makes these sorts of things possible.
 	\tt{StringBuffer} is optimized for building up strings dynamically, and will overallocate space when the buffer
 	size is increased. It can also preallocate space so that operations on the buffer will not allocate memory. This
-	is particularly useful in situations where memory allocations or GC cycles need to be kept to a minimum.`};
+	is particularly useful in situations where memory allocations or GC cycles need to be kept to a minimum.
+
+	A note on some of the methods: as per the standard library convention, there are some methods which have two
+	versions, one of which operates in-place, and the other which returns a new object and leaves the original unchanged.
+	In this case, the in-place version's name has an exclamation point appended, while the non-modifying version has none.
+	For example, \link{reverse} will create a new \tt{StringBuffer}, whereas \link{reverse!} will modify the given one
+	in place.`};
 
 	const Docs[] _methodDocs =
 	[
@@ -1007,6 +1496,12 @@ version(CrocBuiltinDocs)
 
 		\throws[exceptions.RangeException] if \tt{init} is a negative integer or is an integer so large that the memory cannot
 		be allocated.`},
+
+		{kind: "function", name: "dup",
+		docs:
+		`Creates a new \tt{StringBuffer} that is a duplicate of this one. Its length and contents will be identical.
+
+		\returns the new \tt{StringBuffer}.`},
 
 		{kind: "function", name: "toString",
 		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")],
@@ -1137,6 +1632,114 @@ local s = StringBuffer()
 		docs:
 		`Removes characters from a \tt{StringBuffer}, shifting the data after them (if any) down. The indices work like slice indices.
 		The \tt{hi} index defaults to one more than the \tt{lo} index, so you can remove a single character by just passing the \tt{lo} index.`},
+
+		{kind: "function", name: "find",
+		params: [Param("sub", "string|char|StringBuffer"), Param("start", "int", "0")],
+		docs:
+		`Searches for an occurence of \tt{sub} in \tt{this}. \tt{sub} can be a string, a single character, or another \tt{StringBuffer}.
+		The search starts from \tt{start} (which defaults to the first character) and goes right. If \tt{sub} is found, this function returns
+		the integer index of the occurrence in the string, with 0 meaning the first character. Otherwise, if \tt{sub} cannot be found, \tt{#this}
+		is returned.
+
+		If \tt{start < 0} it is treated as an index from the end of \tt{this}. If \tt{start >= #this} then this function simply returns
+		\tt{#this} (that is, it didn't find anything).
+
+		\throws[exceptions.BoundsException] if \tt{start} is negative and out-of-bounds (that is, \tt{abs(start) > #this}).`},
+
+		{kind: "function", name: "rfind",
+		params: [Param("sub", "string|char|StringBuffer"), Param("start", "int", "#this")],
+		docs:
+		`Reverse find. Works similarly to \tt{find}, but the search starts with the character at \tt{start - 1} (which defaults to
+		the last character) and goes \em{left}. \tt{start} is not included in the search so you can use the result of this function
+		as the \tt{start} parameter to successive calls. If \tt{sub} is found, this function returns the integer index of the occurrence
+		in the string, with 0 meaning the first character. Otherwise, if \tt{sub} cannot be found, \tt{#this} is returned.
+
+		If \tt{start < 0} it is treated as an index from the end of \tt{this}.
+
+		\throws[exceptions.BoundsException] if \tt{start >= #this} or if \tt{start} is negative an out-of-bounds (that is, \tt{abs(start > #this}).`},
+
+		{kind: "function", name: "startsWith",
+		params: [Param("other", "string|StringBuffer")],
+		docs:
+		`\returns a bool of whether or not \tt{this} starts with the substring \tt{other}. This is case-sensitive.`},
+
+		{kind: "function", name: "endsWith",
+		params: [Param("other", "string|StringBuffer")],
+		docs:
+		`\returns a bool of whether or not \tt{this} ends with the substring \tt{other}. This is case-sensitive.`},
+
+		{kind: "function", name: "split",
+		params: [Param("delim", "string|StringBuffer")],
+		docs:
+		`Splits \tt{this} into pieces (each piece being a new \tt{StringBuffer}) and returns an array of the split pieces. 
+
+		\param[delim] specifies a delimiting string where \tt{this} will be split.`},
+
+		{kind: "function", name: "splitWS",
+		docs:
+		`Similar to \link{split}, but splits at whitespace (spaces, tabs, newlines etc.), and all the whitespace is stripped from the split
+		pieces.`},
+
+		{kind: "function", name: "vsplit",
+		params: [Param("delim", "string|StringBuffer", "null")],
+		docs:
+		`Similar to \link{split}, but instead of returning an array, returns the split pieces as multiple return values. If \tt{this} splits into more
+		than 20 pieces, an error will be thrown (as returning many values can be a memory problem). Otherwise the behavior is identical to \link{split}.`},
+
+		{kind: "function", name: "vsplitWS",
+		docs:
+		`Similar to \link{vsplit} in that it returns multiple values, but works like \link{splitWS} instead. If \tt{this} splits into more than 20 pieces,
+		an error will be thrown (as returning many values can be a memory problem). Otherwise the behavior is identical to \link{splitWS}.`},
+
+		{kind: "function", name: "splitLines",
+		docs:
+		`This will split \tt{this} at any newline characters (\tt{'\\n'}, \tt{'\\r'}, or \tt{'\\r\\n'}). Other whitespace is preserved, and empty
+		lines are preserved. This returns an array of \tt{StringBuffer}s, each of which holds one line of text.`},
+
+		{kind: "function", name: "vsplitLines",
+		docs:
+		`Similar to \link{splitLines}, but instead of returning an array, returns the split lines as multiple return values. If \tt{this}
+		splits into more than 20 lines, an error will be thrown. Otherwise the behavior is identical to \link{splitLines}.`},
+
+		{kind: "function", name: "repeat",
+		params: [Param("n", "int")],
+		docs:
+		`\returns a new \tt{StringBuffer} which is the concatenation of \tt{n} instances of \tt{this}. If \tt{n == 0}, returns an empty \tt{StringBuffer}.
+
+		\throws[exceptions.RangeException] if \tt{n < 0}.`},
+
+		{kind: "function", name: "s.reverse",
+		docs:
+		`Returns a new \tt{StringBuffer} whose contents are the reversal of \tt{this}.`},
+
+		{kind: "function", name: "strip",
+		docs:
+		`Returns a new \tt{StringBuffer} whose contents are the same as \tt{this} but with any whitespace stripped from the beginning and end.`},
+
+		{kind: "function", name: "lstrip",
+		docs:
+		`Returns a new \tt{StringBuffer} whose contents are the same as \tt{this} but with any whitespace stripped from just the beginning of the string.`},
+
+		{kind: "function", name: "s.rstrip",
+		docs:
+		`Returns a new \tt{StringBuffer} whose contents are the same as \tt{this} but with any whitespace stripped from just the end of the string.`},
+
+		{kind: "function", name: "s.replace",
+		params: [Param("from", "string|StringBuffer"), Param("to", "string|StringBuffer")],
+		docs:
+		`Returns a new \tt{StringBuffer} where any occurrences in \tt{s} of the string \tt{from} are replaced with the string \tt{to}.`},
+
+		{kind: "function", name: "repeat!",
+		params: [Param("n", "int")],
+		docs:
+		`These are all \em{in-place} versions of their corresponding methods. They work identically, except instead of returning a new \tt{StringBuffer}
+		object leaving \tt{this} unchanged, they replace the contents of \tt{this} with their output.`},
+
+		{kind: "function", name: "reverse!", docs: "ditto"},
+		{kind: "function", name: "strip!", docs: "ditto"},
+		{kind: "function", name: "lstrip!", docs: "ditto"},
+		{kind: "function", name: "rstrip!", docs: "ditto"},
+		{kind: "function", name: "replace!", params: [Param("from", "string|StringBuffer"), Param("to", "string|StringBuffer")], docs: "ditto"},
 
 		{kind: "function", name: "format",
 		params: [Param("fmt", "string"), Param("vararg", "vararg")],

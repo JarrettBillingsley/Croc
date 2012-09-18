@@ -22,43 +22,14 @@ version(CrocAllAddons)
 }
 
 /*
+- Expand StringBuffer
+- Finish text lib
+- Finish docs lib
+- Finish stream lib
+- Doc stdlibs
+
 <globals>
 	dumpVal
-
-	weakref
-	deref
-
-	allFieldsOf
-	fieldsOf
-	findField
-	hasField
-	hasMethod
-	rawGetField
-	rawSetField
-
-	isSet
-	findGlobal
-
-	typeof
-	isArray
-	isBool
-	isChar
-	isClass
-	isFloat
-	isFuncDef
-	isFunction
-	isInstance
-	isInt
-	isMemblock
-	isNamespace
-	isNativeObj
-	isNull
-	isString
-	isTable
-	isThread
-	isWeakRef
-
-	nameOf
 
 	rawToString
 	toBool
@@ -109,11 +80,11 @@ void main()
 
 		pop(t, 2);
 
-		if(e.info)
-		{
-			Stdout("\nD Traceback: ").newline;
-			e.info.writeOut((char[]s) { Stdout(s); });
-		}
+		// if(e.info)
+		// {
+		// 	Stdout("\nD Traceback: ").newline;
+		// 	e.info.writeOut((char[]s) { Stdout(s); });
+		// }
 	}
 	catch(CrocHaltException e)
 		Stdout.formatln("Thread halted");

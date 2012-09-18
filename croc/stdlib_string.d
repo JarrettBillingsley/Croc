@@ -706,19 +706,30 @@ version(CrocBuiltinDocs)
 		`Returns a string which is the reversal of \tt{s}.`},
 
 		{kind: "function", name: "s.split",
-		params: [Param("delim", "string", "null")],
+		params: [Param("delim", "string")],
 		docs:
-		`The inverse of the \link{join} method. Splits \tt{s} into pieces and returns an array of the split pieces. If no parameters are
-		given, the splitting occurs at whitespace (spaces, tabs, newlines etc.) and all the whitespace is stripped from the split
-		pieces. Thus \tt{"one\\t\\ttwo".split()} will return \tt{["one", "two"]}. If the \tt{delim} parameter is given, it specifies
-		a delimiting string where \tt{s} will be split. Thus \tt{"one--two--three".split("--")} will return \tt{["one", "two", "three"]}.`},
+		`The inverse of the \link{join} method. Splits \tt{s} into pieces and returns an array of the split pieces. 
+
+		\param[delim] specifies a delimiting string where \tt{s} will be split. Thus \tt{"one--two--three".split("--")} will return
+		\tt{["one", "two", "three"]}.`},
+
+		{kind: "function", name: "s.splitWS",
+		docs:
+		`Similar to \link{split}, but splits at whitespace (spaces, tabs, newlines etc.), and all the whitespace is stripped from the split
+		pieces. Thus \tt{"one\\t\\ttwo".split()} will return \tt{["one", "two"]}.`},
 
 		{kind: "function", name: "s.vsplit",
 		params: [Param("delim", "string", "null")],
 		docs:
 		`Similar to \link{split}, but instead of returning an array, returns the split pieces as multiple return values. It's the inverse
-		of \link{vjoin}. \tt{"one\\t\\ttwo".split()} will return \tt{"one", "two"}. If the string splits into more than 20 pieces, an error
+		of \link{vjoin}. \tt{"one--two".split("--")} will return \tt{"one", "two"}. If the string splits into more than 20 pieces, an error
 		will be thrown (as returning many values can be a memory problem). Otherwise the behavior is identical to \link{split}.`},
+
+		{kind: "function", name: "s.vsplitWS",
+		docs:
+		`Similar to \link{vsplit} in that it returns multiple values, but works like \link{splitWS} instead. \tt{"one\\t\\ttwo".split()} will
+		return \tt{"one", "two"}. If the string splits into more than 20 pieces, an error will be thrown (as returning many values can be a
+		memory problem). Otherwise the behavior is identical to \link{splitWS}.`},
 
 		{kind: "function", name: "s.splitLines",
 		docs:

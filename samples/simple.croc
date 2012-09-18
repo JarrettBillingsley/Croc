@@ -4,8 +4,12 @@ import streams
 
 function main()
 {
-	local t = docs.TracWikiDocOutput()
-	t.outputItem(docs.docsOf(docs.parseCommentText), "")
+	local sb = string.StringBuffer("aaaaaaaaaa")
+
+	writefln$ "'{}'", sb
+	local sb2 = sb.replace!("a", "1234")
+	writefln$ "'{}'", sb
+	writefln$ "'{}'", sb2
 
 	// registerCodec("ascii", AsciiCodec())
 
