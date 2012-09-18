@@ -1426,7 +1426,7 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 			}
 
 			if(!validIndices(loIndex, hiIndex, arr.length))
-				throwStdException(t, "RangeException", "Invalid slice indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
+				throwStdException(t, "BoundsException", "Invalid slice indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
 
 			return t.stack[dest] = array.slice(t.vm.alloc, arr, cast(uword)loIndex, cast(uword)hiIndex);
 
@@ -1447,7 +1447,7 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 			}
 
 			if(!validIndices(loIndex, hiIndex, mb.data.length))
-				throwStdException(t, "RangeException", "Invalid slice indices [{} .. {}] (memblock length = {})", loIndex, hiIndex, mb.data.length);
+				throwStdException(t, "BoundsException", "Invalid slice indices [{} .. {}] (memblock length = {})", loIndex, hiIndex, mb.data.length);
 				
 			return t.stack[dest] = memblock.slice(t.vm.alloc, mb, cast(uword)loIndex, cast(uword)hiIndex);
 
@@ -1468,7 +1468,7 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 			}
 
 			if(!validIndices(loIndex, hiIndex, str.cpLength))
-				throwStdException(t, "RangeException", "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.cpLength);
+				throwStdException(t, "BoundsException", "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.cpLength);
 
 			return t.stack[dest] = string.slice(t.vm, str, cast(uword)loIndex, cast(uword)hiIndex);
 
@@ -1499,7 +1499,7 @@ void sliceaImpl(CrocThread* t, CrocValue* container, CrocValue* lo, CrocValue* h
 			}
 
 			if(!validIndices(loIndex, hiIndex, arr.length))
-				throwStdException(t, "RangeException", "Invalid slice-assign indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
+				throwStdException(t, "BoundsException", "Invalid slice-assign indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
 
 			if(value.type == CrocValue.Type.Array)
 			{
