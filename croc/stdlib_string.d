@@ -118,7 +118,9 @@ const RegisterFunc[] _methodFuncs =
 	{"repeat",       &_repeat,       maxParams: 1},
 	{"reverse",      &_reverse,      maxParams: 0},
 	{"split",        &_split,        maxParams: 1},
+	{"splitWS",      &_splitWS,      maxParams: 0},
 	{"vsplit",       &_vsplit,       maxParams: 1},
+	{"vsplitWS",     &_vsplitWS,     maxParams: 0},
 	{"splitLines",   &_splitLines,   maxParams: 0},
 	{"vsplitLines",  &_vsplitLines,  maxParams: 0},
 	{"strip",        &_strip,        maxParams: 0},
@@ -355,40 +357,20 @@ uword _reverse(CrocThread* t)
 
 uword _split(CrocThread* t)
 {
-	auto numParams = stackSize(t) - 1;
 	auto src = checkStringParam(t, 0);
+	auto splitter = checkStringParam(t, 1);
 	auto ret = newArray(t, 0);
 	uword num = 0;
 
-	if(numParams > 0)
+	foreach(piece; src.patterns(splitter))
 	{
-		foreach(piece; src.patterns(checkStringParam(t, 1)))
+		pushString(t, piece);
+		num++;
+		
+		if(num >= 50)
 		{
-			pushString(t, piece);
-			num++;
-			
-			if(num >= 50)
-			{
-				cateq(t, ret, num);
-				num = 0;
-			}
-		}
-	}
-	else
-	{
-		foreach(piece; src.delimiters(" \t\v\r\n\f\u2028\u2029"))
-		{
-			if(piece.length > 0)
-			{
-				pushString(t, piece);
-				num++;
-
-				if(num >= 50)
-				{
-					cateq(t, ret, num);
-					num = 0;
-				}
-			}
+			cateq(t, ret, num);
+			num = 0;
 		}
 	}
 
@@ -400,33 +382,63 @@ uword _split(CrocThread* t)
 
 uword _vsplit(CrocThread* t)
 {
-	auto numParams = stackSize(t) - 1;
+	auto src = checkStringParam(t, 0);
+	auto splitter = checkStringParam(t, 1);
+	uword num = 0;
+
+	foreach(piece; src.patterns(splitter))
+	{
+		pushString(t, piece);
+		num++;
+
+		if(num > VSplitMax)
+			throwStdException(t, "ValueException", "Too many (>{}) parts when splitting string", VSplitMax);
+	}
+
+	return num;
+}
+
+uword _splitWS(CrocThread* t)
+{
+	auto src = checkStringParam(t, 0);
+	auto ret = newArray(t, 0);
+	uword num = 0;
+
+	foreach(piece; src.delimiters(" \t\v\r\n\f\u2028\u2029"))
+	{
+		if(piece.length > 0)
+		{
+			pushString(t, piece);
+			num++;
+
+			if(num >= 50)
+			{
+				cateq(t, ret, num);
+				num = 0;
+			}
+		}
+	}
+
+	if(num > 0)
+		cateq(t, ret, num);
+
+	return 1;
+}
+
+uword _vsplitWS(CrocThread* t)
+{
 	auto src = checkStringParam(t, 0);
 	uword num = 0;
 
-	if(numParams > 0)
+	foreach(piece; src.delimiters(" \t\v\r\n\f\u2028\u2029"))
 	{
-		foreach(piece; src.patterns(checkStringParam(t, 1)))
+		if(piece.length > 0)
 		{
 			pushString(t, piece);
 			num++;
 
 			if(num > VSplitMax)
 				throwStdException(t, "ValueException", "Too many (>{}) parts when splitting string", VSplitMax);
-		}
-	}
-	else
-	{
-		foreach(piece; src.delimiters(" \t\v\r\n\f\u2028\u2029"))
-		{
-			if(piece.length > 0)
-			{
-				pushString(t, piece);
-				num++;
-
-				if(num > VSplitMax)
-					throwStdException(t, "ValueException", "Too many (>{}) parts when splitting string", VSplitMax);
-			}
 		}
 	}
 
