@@ -4,23 +4,187 @@ import streams
 
 function main()
 {
-	local sb = string.StringBuffer("aaaaaaaaaa")
-
-	writefln$ "'{}'", sb
-	local sb2 = sb.replace!("a", "1234")
-	writefln$ "'{}'", sb
-	writefln$ "'{}'", sb2
-
-	// registerCodec("ascii", AsciiCodec())
-
-	// local s = "hello there!"
-	// local asc = getCodec("ascii")
-	// local m = asc.encode(s, "replace")
-	// writeln$ m
-	// m[0] = 188
-	// local t = asc.decode(m, "replace")
-	// writeln$ t
+	registerCodec("ascii", AsciiCodec())
+	
+	local s = "hello there!"
+	local asc = getCodec("ascii")
+	local m = asc.encode(s, "replace")
+	writeln$ m
+	m[0] = 188
+	local t = asc.decode(m, "replace")
+	writeln$ t
 }
+
+import exceptions:
+	BoundsException,
+	LookupException,
+	NotImplementedException,
+	ParamException,
+	TypeException,
+	UnicodeException,
+	ValueException
+	
+import string: StringBuffer
+
+local textCodecs = {}
+
+function registerCodec(name: string, codec: TextCodec)
+{
+	if(name in textCodecs)
+		throw LookupException("Already a codec for '{}' registered".format(name))
+
+	textCodecs[name] = codec
+}
+
+function aliasCodec(name: string, vararg)
+{
+	local c = getCodec(name)
+
+	if(#vararg == 0)
+		throw ParamException("Must have at least one variadic argument")
+
+	for(i: 0 .. #vararg)
+	{
+		local rename = vararg[i]
+
+		if(!isString(rename))
+			throw TypeException("All variadic arguments must be strings")
+
+		registerCodec(rename, c)
+	}
+}
+
+function getCodec(name: string)
+{
+	if(local ret = textCodecs[name])
+		return ret
+
+	throw LookupException("No codec registered for '{}'".format(name))
+}
+
+function hasCodec(name: string) =
+	name in textCodecs
+
+class TextCodec
+{
+	name = ""
+
+	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict")
+		throw NotImplementedException()
+
+	function encode(str: string, errors: string = "strict") =
+		:encodeInto(str, memblock.new(0), 0, errors)
+
+	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
+		throw NotImplementedException()
+		
+	function decode(src: memblock, errors: string = "strict") =
+		:decodeRange(src, 0, #src, errors)
+
+	function incrementalEncoder(errors: string = "strict")
+		throw NotImplementedException()
+
+	function incrementalDecoder(errors: string = "strict")
+		throw NotImplementedException()
+}
+
+class IncrementalEncoder
+{
+	this(errors: string = "strict")
+		throw NotImplementedException()
+
+	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
+		throw NotImplementedException()
+
+	function encode(str: string, final: bool = false) =
+		:encodeInto(str, memblock.new(0), 0, final)
+
+	function reset()
+		throw NotImplementedException()
+}
+
+class IncrementalDecoder
+{
+	this(errors: string = "strict")
+		throw NotImplementedException()
+
+	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
+		throw NotImplementedException()
+
+	function decode(src: memblock, final: bool = false) =
+		:decodeRange(src, 0, #src, final)
+
+	function reset()
+		throw NotImplementedException()
+}
+
+class AsciiCodec : TextCodec
+{
+	name = "ascii"
+
+	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict")
+	{
+		if(start < 0 || start > #dest)
+			throw BoundsException("Invalid start index {} for memblock of length {}".format(start, #dest))
+
+		local i = start
+		#dest = math.max(#dest, #str + start)
+
+		foreach(j, ch; str)
+		{
+			local c = toInt(ch)
+
+			if(c > 0x7f)
+			{
+				if(errors is "strict")
+					throw UnicodeException("Character {} cannot be encoded as ASCII as its codepoint (U+{:X5}) is above U+0007F".format(j, c))
+				else if(errors is "ignore")
+					continue
+				else if(errors is "replace")
+					c = 63 // '?'
+				else
+					throw ValueException("Invalid error handling type '{}'".format(errors))
+			}
+
+			dest[i] = c
+			i++;
+		}
+
+		#dest = start + i
+		return dest
+	}
+
+	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
+	{
+		if(lo < 0 || lo > hi || hi > #src)
+			throw BoundsException("Invalid slice indices ({} .. {}) for memblock of length {}".format(lo, hi, #src))
+			
+		local s = StringBuffer(#src)
+		
+		for(i: lo .. hi)
+		{
+			local c = src[i]
+			
+			if(c > 0x7f)
+			{
+				if(errors is "strict")
+					throw UnicodeException("Character at byte offset {} is invalid ASCII as its value (0x{:X2}) is above 0x7F".format(i, c))
+				else if(errors is "ignore")
+					continue
+				else if(errors is "replace")
+					c = 0xFFFD
+				else
+					throw ValueException("Invalid error handling type '{}'".format(errors))
+			}
+			
+			s.append(toChar(c))
+		}
+		
+		return s.toString()
+	}
+}
+
+// ==================================================================================================================================================
 
 import docs: docsOf
 
@@ -175,148 +339,5 @@ class BaseLinkResolver
 		}
 
 		return ret
-	}
-}
-
-import exceptions: BoundsException, UnicodeException
-import string: StringBuffer
-
-local textCodecs = {}
-
-function registerCodec(name: string, codec: TextCodec)
-{
-	if(name in textCodecs)
-		throw LookupException("Already a codec for '{}' registered".format(name))
-
-	textCodecs[name] = codec
-}
-
-function getCodec(name: string)
-{
-	if(local ret = textCodecs[name])
-		return ret
-
-	throw LookupException("No codec registered for '{}'".format(name))
-}
-
-function hasCodec(name: string) =
-	name in textCodecs
-
-class TextCodec
-{
-	name = ""
-
-	function encodeInto(str: string, dest: memblock, errors: string = "strict")
-		throw NotImplementedException()
-
-	function encode(str: string, errors: string = "strict") =
-		:encodeInto(str, memblock.new(0), errors)
-
-	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
-		throw NotImplementedException()
-		
-	function decode(src: memblock, errors: string = "strict") =
-		:decodeRange(src, 0, #src, errors)
-
-	function incrementalEncoder(errors: string = "strict")
-		throw NotImplementedException()
-
-	function incrementalDecoder(errors: string = "strict")
-		throw NotImplementedException()
-}
-
-class IncrementalEncoder
-{
-	this(errors: string = "strict")
-		throw NotImplementedException()
-
-	function encodeInto(str: string, dest: memblock, final: bool = false)
-		throw NotImplementedException()
-
-	function encode(str: string, final: bool = false) =
-		:encodeInto(str, memblock.new(0), final)
-
-	function reset()
-		throw NotImplementedException()
-}
-
-class IncrementalDecoder
-{
-	this(errors: string = "strict")
-		throw NotImplementedException()
-
-	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
-		throw NotImplementedException()
-
-	function decode(src: memblock, final: bool = false) =
-		:decodeRange(src, 0, #src, final)
-
-	function reset()
-		throw NotImplementedException()
-}
-
-class AsciiCodec : TextCodec
-{
-	name = "ascii"
-
-	function encodeInto(str: string, dest: memblock, errors: string = "strict")
-	{
-		#dest = #str
-		local i = 0
-
-		foreach(j, ch; str)
-		{
-			local c = toInt(ch)
-
-			if(c > 0x7f)
-			{
-				if(errors is "strict")
-					throw UnicodeException("Character {} cannot be encoded as ASCII as its codepoint (U+{:X5}) is above U+0007F".format(j, c))
-				else if(errors is "ignore")
-					continue
-				else if(errors is "replace")
-					c = 63 // '?'
-				else
-					throw ValueException("Invalid error handling type '{}'".format(errors))
-			}
-
-			dest[i] = c
-			i++;
-		}
-
-		#dest = i
-		return dest
-	}
-
-	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
-	{
-		if(lo < 0) lo += #src
-		if(hi < 0) hi += #src
-		
-		if(lo < 0 || lo > hi || hi > #src)
-			throw BoundsException("Invalid slice indices ({} .. {}) for memblock of length {}".format(lo, hi, #src))
-			
-		local s = StringBuffer(#src)
-		
-		for(i: lo .. hi)
-		{
-			local c = src[i]
-			
-			if(c > 0x7f)
-			{
-				if(errors is "strict")
-					throw UnicodeException("Character at byte offset {} is invalid ASCII as its value (0x{:X2}) is above 0x7F".format(i, c))
-				else if(errors is "ignore")
-					continue
-				else if(errors is "replace")
-					c = 0xFFFD
-				else
-					throw ValueException("Invalid error handling type '{}'".format(errors))
-			}
-			
-			s.append(toChar(c))
-		}
-		
-		return s.toString()
 	}
 }

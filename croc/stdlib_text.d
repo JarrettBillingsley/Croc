@@ -33,7 +33,7 @@ alias tango.text.convert.Utf.toString32 Utf_toString32;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
-import croc.stdlib_utils;
+import croc.ex_library;
 import croc.types;
 
 alias CrocDoc.Docs Docs;

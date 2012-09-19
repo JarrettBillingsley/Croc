@@ -58,6 +58,7 @@ alias tango.math.Math.trunc math_trunc;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
+import croc.ex_library;
 import croc.types;
 
 private void register(CrocThread* t, char[] name, NativeFunc func, uword numUpvals = 0)

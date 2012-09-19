@@ -27,7 +27,7 @@ module croc.stdlib_object;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
-import croc.stdlib_utils;
+import croc.ex_library;
 import croc.types;
 
 alias CrocDoc.Docs Docs;

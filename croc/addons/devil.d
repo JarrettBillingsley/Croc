@@ -39,7 +39,7 @@ import derelict.devil.il;
 import derelict.devil.ilu;
 
 import croc.api;
-import croc.stdlib_utils;
+import croc.ex_library;
 
 import croc.addons.devil_wrap;
 

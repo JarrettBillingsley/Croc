@@ -52,6 +52,7 @@ alias tango.io.Path.rename Path_rename;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
+import croc.ex_library;
 import croc.stdlib_stream;
 import croc.stdlib_time;
 import croc.types;

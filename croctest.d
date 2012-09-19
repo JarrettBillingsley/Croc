@@ -22,28 +22,10 @@ version(CrocAllAddons)
 }
 
 /*
-- Expand StringBuffer
 - Finish text lib
 - Finish docs lib
 - Finish stream lib
 - Doc stdlibs
-
-<globals>
-	dumpVal
-
-	rawToString
-	toBool
-	toChar
-	toFloat
-	toInt
-	toString
-
-stream
-text
-	TextCodec
-	registerCodec
-	getCodec
-	hasCodec
 */
 
 void main()

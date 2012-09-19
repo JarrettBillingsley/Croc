@@ -34,7 +34,7 @@ alias tango.stdc.ctype.toupper ctoupper;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
-import croc.stdlib_utils;
+import croc.ex_library;
 import croc.types;
 import croc.utils;
 

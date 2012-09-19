@@ -34,7 +34,7 @@ import croc.api_stack;
 import croc.base_alloc;
 import croc.base_gc;
 import croc.ex;
-import croc.stdlib_utils;
+import croc.ex_library;
 import croc.types;
 import croc.types_array;
 

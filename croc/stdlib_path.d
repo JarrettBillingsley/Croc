@@ -35,7 +35,7 @@ alias tango.io.Path.pop Path_pop;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
-import croc.stdlib_utils;
+import croc.ex_library;
 import croc.types;
 
 alias croc.api_stack.pop pop;

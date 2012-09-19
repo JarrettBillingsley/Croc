@@ -38,7 +38,7 @@ alias tango.text.convert.Integer.toLong Integer_toLong;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
-import croc.stdlib_utils;
+import croc.ex_library;
 import croc.stdlib_vector;
 import croc.types;
 import croc.types_class;

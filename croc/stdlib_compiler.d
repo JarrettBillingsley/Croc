@@ -30,6 +30,7 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.compiler;
 import croc.ex;
+import croc.ex_library;
 import croc.types;
 
 struct CompilerLib

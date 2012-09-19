@@ -33,6 +33,7 @@ import tango.io.stream.Format;
 import croc.api_interpreter;
 import croc.ex;
 import croc.ex_json;
+import croc.ex_library;
 import croc.stdlib_stream;
 import croc.types;
 

@@ -32,6 +32,7 @@ import croc.base_alloc;
 import croc.base_gc;
 import croc.base_writebarrier;
 import croc.ex;
+import croc.ex_library;
 import croc.types;
 import croc.types_function;
 import croc.utils;

@@ -36,6 +36,7 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.ex_format;
+import croc.ex_library;
 import croc.types;
 import croc.vm;
 
