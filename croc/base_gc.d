@@ -47,6 +47,7 @@ debug import tango.io.Stdout;
 // debug = PHASES;
 // debug = INCDEC;
 // debug = FREES;
+// debug = FINALIZE;
 
 // ================================================================================================================================================
 // Package
@@ -71,7 +72,7 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 
 	assert(!vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
-	
+
 	vm.inGCCycle = true;
 	scope(exit) vm.inGCCycle = false;
 
@@ -183,6 +184,8 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 			if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
 			{
 				obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
+				obj.refCount = 1;
+				debug(FINALIZE) Stdout.formatln("Putting {} on toFinalize", obj);
 				toFinalize.add(vm.alloc, cast(CrocInstance*)obj);
 			}
 			else
@@ -403,6 +406,8 @@ void cycleScan(CrocVM* vm, GCObject* obj)
 			cycleScanBlack(obj);
 		else if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
 		{
+			obj.refCount = 1;
+			debug(FINALIZE) Stdout.formatln("Putting {} on toFinalize", obj);
 			vm.toFinalize.add(vm.alloc, cast(CrocInstance*)obj);
 			cycleScanBlack(obj);
 		}

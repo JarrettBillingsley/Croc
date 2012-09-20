@@ -101,7 +101,7 @@ void runFinalizers(CrocThread* t)
 	// a decrement for it and put it on the modified buffer. It'll get deallocated the next time around.
 	foreach(i; t.vm.toFinalize)
 	{
-		i.refCount++;
+		// debug Stdout.formatln("Taking {} off toFinalize", i).flush;
 
 		auto size = stackSize(t);
 
@@ -580,7 +580,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 
 			// If we have too few params, the extra param slots will be nulled out.
 		}
-		
+
 		// Null out the stack frame after the parameters.
 		t.stack[ar.base + numParams .. ar.base + funcDef.stackSize] = CrocValue.nullValue;
 
@@ -600,7 +600,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		// Set the stack indices.
 		t.stackBase = ar.base;
 		t.stackIndex = ar.savedTop;
-		
+
 		// Call any hook.
 		mixin(
 		"if(t.hooks & CrocThread.Hook.Call)
@@ -609,7 +609,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 				callHook(t, CrocThread.Hook.Call);
 		" ~ wrapEH ~ "
 		}");
-		
+
 		return true;
 	}
 	else
@@ -636,7 +636,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		t.stackBase = ar.base;
 
 		uword actualReturns = void;
-		
+
 		mixin("try
 		{
 			if(t.hooks & CrocThread.Hook.Call)
@@ -652,7 +652,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 
 			actualReturns = func.nativeFunc(t);
 		}" ~ wrapEH);
-		
+
 		saveResults(t, t, t.stackIndex - actualReturns, actualReturns);
 		callEpilogue(t, true);
 		return false;
@@ -1034,7 +1034,7 @@ void idxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue* valu
 				typeString(t, value);
 				throwStdException(t, "TypeException", "Attempting to index-assign a value of type '{}' into a memblock", getString(t, -1));
 			}
-			
+
 			mb.data[cast(uword)index] = cast(ubyte)value.mInt;
 			return;
 
@@ -1139,7 +1139,7 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 
 		case CrocValue.Type.Instance:
 			auto i = t.stack[container].mInstance;
-			
+
 			// First try to update the field if it already exists
 			if(!instance.setFieldIfExists(t.vm.alloc, i, name, value))
 			{
@@ -1448,7 +1448,7 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 
 			if(!validIndices(loIndex, hiIndex, mb.data.length))
 				throwStdException(t, "BoundsException", "Invalid slice indices [{} .. {}] (memblock length = {})", loIndex, hiIndex, mb.data.length);
-				
+
 			return t.stack[dest] = memblock.slice(t.vm.alloc, mb, cast(uword)loIndex, cast(uword)hiIndex);
 
 		case CrocValue.Type.String:
@@ -2348,7 +2348,7 @@ CrocValue* getGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env)
 		if(auto glob = namespace.get(ns, name))
 			return glob;
 	}
-	
+
 	throwStdException(t, "NameException", "Attempting to get a nonexistent global '{}'", name.toString());
 	assert(false);
 }
