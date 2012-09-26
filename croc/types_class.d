@@ -96,7 +96,7 @@ package:
 
 	void setAllocator(ref Allocator alloc, CrocClass* c, CrocFunction* f)
 	{
-		if(c.finalizer !is f)
+		if(c.allocator !is f)
 			mixin(writeBarrier!("alloc", "c"));
 
 		c.allocator = f;
