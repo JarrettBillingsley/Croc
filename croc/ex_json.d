@@ -641,6 +641,8 @@ private:
 				// TODO:
 				throwStdException(t, "LexicalException", "({}:{}): Invalid string escape sequence '\\{}'", mLine, mCol, mCharacter);
 		}
+
+		assert(false);
 	}
 
 	void readStringLiteral()

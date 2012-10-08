@@ -642,12 +642,22 @@ class BaseLinkResolver
 }
 
 /**
-A link resolver that simply returns the empty string from its \tt{translateLink/URI} methods.
+A link resolver that does absolutely nothing.
+
+It never throws any errors or does anything, really  It's useful for when you don't want any link resolution behavior at
+all. Its \link{resolveLink} and \tt{translateLink/URI} methods return the empty string.
 */
 class NullLinkResolver : BaseLinkResolver
 {
+	this() {}
+	function enterModule(name: string) {}
+	function leaveModule() {}
+	function enterItem(name: string) {}
+	function leaveItem() {}
+	function resolveLink(link: string) = ""
 	function translateLink(mod: string, item: string) = ""
 	function translateURI(uri: string) = ""
+	function invalidLink(link: string) {}
 }
 
 local StdlibLookup =
