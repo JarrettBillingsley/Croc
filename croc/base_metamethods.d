@@ -28,8 +28,8 @@ module croc.base_metamethods;
 
 package:
 
-// The first several values of this enumeration are also the basis for the secondary
-// opcode for many multi-part instructions, so that the metamethods can be looked up
+// The first several values of this enumeration are the same as the opcodes for
+// their corresponding instructions, so that the metamethods can be looked up
 // quickly without needing an opcode-to-MM translation table.
 // LAST_OPCODE_MM is the last metamethod type which is like this.
 enum MM

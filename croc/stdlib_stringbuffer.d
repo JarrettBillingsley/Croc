@@ -907,7 +907,7 @@ uword _insert(CrocThread* t)
 		if(opis(t, 0, 2))
 		{
 			// special case for inserting a stringbuffer into itself
-			
+
 			if(len != 0)
 			{
 				auto slice = doResize(len);
@@ -998,7 +998,7 @@ uword _commonFind(bool reverse)(CrocThread* t)
 		buf[0] = getChar(t, 1);
 		pat = buf[];
 	}
-	else 
+	else
 		pat = _checkStringOrStringBuffer(t, 1, tmp, "char|string|StringBuffer");
 
 	// Start index
@@ -1061,7 +1061,7 @@ uword _split(CrocThread* t)
 	{
 		_stringBufferFromUtf32(t, piece);
 		num++;
-		
+
 		if(num >= 50)
 		{
 			cateq(t, ret, num);
@@ -1154,7 +1154,7 @@ uword _splitLines(CrocThread* t)
 	{
 		_stringBufferFromUtf32(t, line);
 		num++;
-		
+
 		if(num >= 50)
 		{
 			cateq(t, ret, num);
@@ -1447,7 +1447,7 @@ uword _opDeserialize(CrocThread* t)
 	dup(t, 2);
 	pushNull(t);
 	rawCall(t, -2, 1);
-	
+
 	if(!isInt(t, -1))
 		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'int' but found '{}' instead", type(t, -1));
 
@@ -1468,7 +1468,7 @@ uword _opDeserialize(CrocThread* t)
 version(CrocBuiltinDocs)
 {
 	const Docs _classDocs =
-	{kind: "class", name: "StringBuffer", 
+	{kind: "class", name: "StringBuffer",
 	extra: [Extra("protection", "global")],
 	docs:
 	`Croc's strings are immutable. While this makes dealing with strings much easier in most cases, it also
@@ -1530,7 +1530,7 @@ version(CrocBuiltinDocs)
 		{kind: "function", name: "opLengthAssign",
 		params: [Param("len", "int")],
 		docs:
-		`Sets the length of this \tt{StringBuffer}. If you increase the length, the new characters will be filled with U+0FFFF.
+		`Sets the length of this \tt{StringBuffer}. If you increase the length, the new characters will be filled with U+00FFFF.
 		If you decrease the length, characters will be truncated. Note that when you increase the length of the buffer, memory
 		may be overallocated to avoid allocations on every size increase. When you decrease the length of the buffer, that memory
 		is not deallocated, so you can reserve memory for a \tt{StringBuffer} by setting its length to the size you need and then
@@ -1671,7 +1671,7 @@ local s = StringBuffer()
 		{kind: "function", name: "split",
 		params: [Param("delim", "string|StringBuffer")],
 		docs:
-		`Splits \tt{this} into pieces (each piece being a new \tt{StringBuffer}) and returns an array of the split pieces. 
+		`Splits \tt{this} into pieces (each piece being a new \tt{StringBuffer}) and returns an array of the split pieces.
 
 		\param[delim] specifies a delimiting string where \tt{this} will be split.`},
 

@@ -69,7 +69,7 @@ void initAsciiLib(CrocThread* t)
 		multilingual string support is not needed.
 
 		Note that these functions (except for \link{isAscii}) will only work on ASCII strings. If passed strings or
-		characters which contain codepoints above U+0007F, they will throw an exception.`));
+		characters which contain codepoints above U+00007F, they will throw an exception.`));
 
 		docFields(t, doc, _globalFuncDocs);
 		doc.pop(-1);
@@ -211,7 +211,7 @@ uword _irfind(CrocThread* t)
 	}
 	else
 		paramTypeError(t, 2, "char|string");
-		
+
 	if(src.length < pat.length)
 	{
 		pushInt(t, src.length);
@@ -255,7 +255,7 @@ uword _irfind(CrocThread* t)
 uword _toLower(CrocThread* t)
 {
 	checkAnyParam(t, 1);
-	
+
 	if(isString(t, 1))
 	{
 		auto src = _checkAsciiString(t, 1);
@@ -282,7 +282,7 @@ uword _toUpper(CrocThread* t)
 	{
 		auto src = _checkAsciiString(t, 1);
 		auto buf = StrBuffer(t);
-		
+
 		foreach(c; src)
 			buf.addChar(ctoupper(c));
 
@@ -342,17 +342,17 @@ char[] _checkAsciiString(CrocThread* t, word idx)
 
 	if(obj.length != obj.cpLength)
 		throwStdException(t, "ValueException", "Parameter {} is not an ASCII string", idx);
-	
+
 	return ret;
 }
 
 char _checkAsciiChar(CrocThread* t, word idx)
 {
 	auto ret = checkCharParam(t, idx);
-	
+
 	if(ret > 0x7F)
 		throwStdException(t, "ValueException", "Parameter {} is not an ASCII character", idx);
-		
+
 	return ret;
 }
 
@@ -382,9 +382,9 @@ version(CrocBuiltinDocs)
 		docs:
 		`Checks to see if the given \tt{char} or \tt{string} is ASCII.
 
-		If \tt{val} is a \tt{char}, it is ASCII if it's below codepoint U+00080.
+		If \tt{val} is a \tt{char}, it is ASCII if it's below codepoint U+000080.
 
-		If \tt{val} is a \tt{string}, it is ASCII if all of its characters are below codepoint U+00080.`},
+		If \tt{val} is a \tt{string}, it is ASCII if all of its characters are below codepoint U+000080.`},
 
 		{kind: "function", name: "icompare",
 		params: [Param("str1", "string"), Param("str2", "string")],

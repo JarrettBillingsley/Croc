@@ -61,12 +61,12 @@ void initTextLib(CrocThread* t)
 		scope doc = new CrocDoc(t, __FILE__);
 		doc.push(Docs("module", "text",
 		`This library contains utilities for performing text encoding and formatting.
-		
+
 		Note that this is somewhat different from the purpose of the \tt{string} library, which concerns itself with simple
 		algorithmic operations on string objects. This module instead deals with the more "linguistic" aspects of handling text,
 		including encoding strings into and decoding strings from raw character encodings, and formatting program objects into
 		human-readable forms.
-		
+
 		This module exposes flexible interfaces, and the hope is that more text encodings and formatting options will be made
 		available by second- and third-party libraries.`));
 
@@ -157,7 +157,7 @@ uword _toRawAscii(CrocThread* t)
 
 	// Take advantage of the fact that in UTF-8, codepoint length == data length iff all codepoints <= 0x7f -- valid ASCII
 	if(str.length != str.cpLength)
-		throwStdException(t, "ValueException", "Cannot convert string with codepoints higher than U+0007F to ASCII");
+		throwStdException(t, "ValueException", "Cannot convert string with codepoints higher than U+00007F to ASCII");
 
 	CrocMemblock* ret;
 
@@ -264,7 +264,7 @@ version(CrocBuiltinDocs) const Docs[] _globalFuncDocs =
 	params: [Param("mb", "memblock"), Param("lo", "int", "0"), Param("hi", "int", "#mb")],
 	docs:
 	`Similar to \link{fromRawUnicode}, except converts a memblock containing ASCII data into a string. The memblock
-	must be of type \tt{u8}. Any bytes above U+0007F are turned into the Unicode replacement character, U+0001A.
+	must be of type \tt{u8}. Any bytes above U+00007F are turned into the Unicode replacement character, U+00001A.
 	Returns the converted string.
 
 	\throws[exceptions.BoundsException] if the given slice indices are invalid.
@@ -292,7 +292,7 @@ version(CrocBuiltinDocs) const Docs[] _globalFuncDocs =
 	{kind: "function", name: "toRawAscii",
 	params: [Param("mb", "memblock", "null")],
 	docs:
-	`Similar to \link{toRawUnicode}, except encodes \tt{s} as ASCII. \tt{s} must not contain any codepoints above U+0007F;
+	`Similar to \link{toRawUnicode}, except encodes \tt{s} as ASCII. \tt{s} must not contain any codepoints above U+00007F;
 	that is, \tt{s.isAscii()} must return true for this method to work.
 
 	Just like \link{toRawUnicode} you can pass a memblock as a destination buffer. Its type will be set to \tt{u8}.

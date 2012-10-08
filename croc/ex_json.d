@@ -350,12 +350,12 @@ public:
 	{
 		return &mTok;
 	}
-	
+
 	uword line()
 	{
 		return mLine;
 	}
-	
+
 	uword col()
 	{
 		return mCol;
@@ -466,24 +466,6 @@ private:
 		}
 	}
 
-	bool convertInt(dchar[] str, out crocint ret)
-	{
-		ret = 0;
-
-		foreach(c; str)
-		{
-			c -= '0';
-			auto newValue = ret * 10 + c;
-
-			if(newValue < ret)
-				return false;
-
-			ret = newValue;
-		}
-
-		return true;
-	}
-
 	bool readNumLiteral()
 	{
 		bool neg = false;
@@ -576,7 +558,7 @@ private:
 
 			fret = fret * pow(10, negExp? -exp : exp);
 		}
-		
+
 		pushFloat(t, neg? -fret : fret);
 		return false;
 	}
@@ -600,8 +582,6 @@ private:
 
 			return ret;
 		}
-
-		dchar ret;
 
 		assert(mCharacter == '\\', "escape seq - must start on backslash");
 
@@ -638,29 +618,29 @@ private:
 					if(mCharacter != 'u')
 						// TODO: different kinda exception?
 						throwStdException(t, "LexicalException", "({}:{}): second surrogate pair character expected", mLine, mCol);
-						
+
 					nextChar();
-					
+
 					auto x2 = readHexDigits(4);
+
+					if(x2 < 0xDC00 || x2 >= 0xE000)
+						// TODO: Different kinda exception
+						throwStdException(t, "LexicalException", "({}:{}): invalid surrogate pair sequence", mLine, mCol);
 
 					x &= ~0xD800;
 					x2 &= ~0xDC00;
-					ret = cast(dchar)(0x10000 + ((x << 10) | x2));
+					return cast(dchar)(0x10000 + ((x << 10) | x2));
 				}
 				else if(x >= 0xDC00 && x < 0xE000)
 					// TODO: Different kinda exception
 					throwStdException(t, "LexicalException", "({}:{}): invalid surrogate pair sequence", mLine, mCol);
 				else
-					ret = cast(dchar)x;
-
-				break;
+					return cast(dchar)x;
 
 			default:
 				// TODO:
 				throwStdException(t, "LexicalException", "({}:{}): Invalid string escape sequence '\\{}'", mLine, mCol, mCharacter);
 		}
-
-		return ret;
 	}
 
 	void readStringLiteral()
@@ -675,7 +655,7 @@ private:
 
 		while(true)
 		{
-			if(isEOF())	
+			if(isEOF())
 				// TODO:
 				throwStdException(t, "LexicalException", "({}:{}): Unterminated string literal", beginningLine, beginningCol);
 
@@ -749,7 +729,7 @@ private:
 				case dchar.init:
 					mTok.type = Token.EOF;
 					return;
-					
+
 				case 't':
 					if(!mSource[mPosition .. $].startsWith("rue"))
 						// TODO
@@ -837,7 +817,7 @@ word parseArray(CrocThread* t, ref Lexer l)
 	void parseItem()
 	{
 		parseValue(t, l);
-		
+
 		if(idx >= length)
 		{
 			length *= 2;
@@ -863,7 +843,7 @@ word parseArray(CrocThread* t, ref Lexer l)
 	}
 
 	l.expect(Token.RBracket);
-	
+
 	pushInt(t, idx);
 	lena(t, arr);
 	return arr;
