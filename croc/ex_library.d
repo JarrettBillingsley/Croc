@@ -51,7 +51,7 @@ private void _pushFunc(CrocThread* t, RegisterFunc f)
 		newFunction(t, f.maxParams, f.func, f.name, f.numUpvals);
 }
 
-void register(CrocThread* t, RegisterFunc f)
+void registerGlobal(CrocThread* t, RegisterFunc f)
 {
 	_pushFunc(t, f);
 	newGlobal(t, f.name);
@@ -70,7 +70,7 @@ void registerGlobals(CrocThread* t, RegisterFunc[] funcs...)
 		if(func.numUpvals > 0)
 			throwStdException(t, "Exception", "registerGlobals - can't register function '{}' as it has upvalues. Use register instead", func.name);
 
-		register(t, func);
+		registerGlobal(t, func);
 	}
 }
 
@@ -284,10 +284,10 @@ public:
 		newFunction(t, numParams, f, this.name ~ '.' ~ name, numUpvals);
 		fielda(t, idx, name);
 	}
-	
+
 	/**
 	Adds a field to the class. Expects the field's value to be on top of the stack.
-	
+
 	Params:
 		name = The name of the field.
 	*/
@@ -311,10 +311,10 @@ public:
 		newFunction(t, f, this.name ~ '.' ~ name, numUpvals);
 		setAllocator(t, idx);
 	}
-	
+
 	/**
 	Set this class's finalizer function.
-	
+
 	Params:
 		name = Function name. This will just be used for the name of the function object, and will be
 			prepended with the class's name, just like methods.

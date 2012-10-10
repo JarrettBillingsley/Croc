@@ -68,7 +68,7 @@ void initBaseLib(CrocThread* t)
 	registerGlobals(t, _convFuncs);
 
 		newTable(t);
-	register(t, _dumpValFunc);
+	registerGlobal(t, _dumpValFunc);
 
 	initVector(t);
 }
@@ -710,11 +710,11 @@ uword _dumpVal(CrocThread* t)
 				Stdout("{...}");
 				return;
 			}
-			
+
 			dup(t, tab);
 			pushBool(t, true);
 			idxa(t, shown);
-			
+
 			scope(exit)
 			{
 				dup(t, tab);
