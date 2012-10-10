@@ -119,7 +119,7 @@ version(CrocBuiltinDocs) void docExceptionsLib(CrocThread* t)
 	docFields(t, doc, Location_fields);
 	doc.pop(-1);
 	pop(t);
-	
+
 	pushGlobal(t, "Throwable");
 	doc.push(Throwable_docs);
 	docFields(t, doc, Throwable_fields);
@@ -390,6 +390,8 @@ private const ExDesc[] ExDescs =
 				value is out of a valid range of acceptible values. Typically used for mathematical functions, i.e.
 				square root only works on non-negative values. Note that if the error is because a value is out of the
 				range of valid indices for a container, you should use a \link{exceptions.BoundsException} instead.`),
+			Desc!("StateException", "ValueException", `A more specific kind of ValueException indicating that an object
+				is in an invalid state.`),
 			Desc!("UnicodeException", "ValueException", `Thrown when Croc is given malformed/invalid Unicode data
 				for a string, or when invalid Unicode data is encountered during transcoding.`),
 		Desc!("IOException", "Exception", `Thrown when an IO operation fails or is given invalid inputs.`),
@@ -432,7 +434,7 @@ private const ExDesc[] ExDescs =
 
 version(CrocBuiltinDocs)
 {
-	const Docs Location_docs = {kind: "class", name: "exceptions.Location", 
+	const Docs Location_docs = {kind: "class", name: "exceptions.Location",
 	extra: [Extra("protection", "global")],
 	docs:
 	`This class holds a source location, which is used in exception tracebacks. There two kinds of locations:
@@ -442,7 +444,7 @@ version(CrocBuiltinDocs)
 
 	const Docs[] Location_fields =
 	[
-		{kind: "field", name: "Unknown", 
+		{kind: "field", name: "Unknown",
 		extra: [Extra("value", `""`)],
 		docs:
 		`This is one of the types of locations that can be put in the \tt{col} field. It means that there isn't enough
@@ -465,13 +467,13 @@ version(CrocBuiltinDocs)
 		`This is a string containing the module and function where the error occurred, in the format "module.name.func".
 		If \tt{col} is \tt{Location.Unknown}, this field will be the empty string.`},
 
-		{kind: "field", name: "line", 
+		{kind: "field", name: "line",
 		extra: [Extra("value", "0")],
 		docs:
 		`This is the line on which the error occurred. If the location type is \tt{Location.Script}, this field can
 		be -1, which means that no line number could be determined.`},
 
-		{kind: "field", name: "col", 
+		{kind: "field", name: "col",
 	extra: [Extra("protection", "global")],
 		docs:
 		`This field serves double duty as either a column number for compilation errors or as a location "type".
@@ -503,18 +505,18 @@ version(CrocBuiltinDocs)
 
 	const Docs[] Throwable_fields =
 	[
-		{kind: "field", name: "location", 
+		{kind: "field", name: "location",
 		extra: [Extra("value", "Location()")],
 		docs:
 		`The location where this exception was thrown. See the \link{exceptions.Location} class documentation for more info. Defaults to
 		an unknown location.`},
 
-		{kind: "field", name: "msg", 
+		{kind: "field", name: "msg",
 		extra: [Extra("value", `""`)],
 		docs:
 		`The human-readable message associated with the exception. Defaults to the empty string.`},
 
-		{kind: "field", name: "cause", 
+		{kind: "field", name: "cause",
 		extra: [Extra("value", "null")],
 		docs:
 		`An optional field. Sometimes an exception can cause a cascade of other exceptions; for instance, an exception thrown
@@ -526,7 +528,7 @@ version(CrocBuiltinDocs)
 
 		The default value is null, which means this exception had no cause.`},
 
-		{kind: "field", name: "traceback", 
+		{kind: "field", name: "traceback",
 		extra: [Extra("value", "[]")],
 		docs:
 		`This is an array of Location instances that shows the call stack as it was when the exception was thrown, allowing you
