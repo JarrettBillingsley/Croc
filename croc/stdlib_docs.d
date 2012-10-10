@@ -303,13 +303,13 @@ class LinkResolver
 
 	This method is called automatically by the various doc outputters which take link resolvers.
 
-	\throws[exceptions.ValueException] if the current scope is not global scope.
+	\throws[exceptions.StateException] if the current scope is not global scope.
 	\throws[exceptions.ValueException] if there is no module of the given name.
 	*/
 	function enterModule(name: string)
 	{
 		if(:_item !is null || :_curModule !is null)
-			throw ValueException("Attempting to enter a module from {} scope".format(:currentScope()))
+			throw StateException("Attempting to enter a module from {} scope".format(:currentScope()))
 
 		if(local m = :_modules[name])
 			:_curModule = m
@@ -322,12 +322,12 @@ class LinkResolver
 
 	This method is called automatically by the various doc outputters which take link resolvers.
 
-	\throws[exceptions.ValueException] if the current scope is not module scope.
+	\throws[exceptions.StateException] if the current scope is not module scope.
 	*/
 	function leaveModule()
 	{
 		if(:_item !is null || :_curModule is null)
-			throw ValueException("Attempting to leave a module from {} scope".format(:currentScope()))
+			throw StateException("Attempting to leave a module from {} scope".format(:currentScope()))
 
 		:_curModule = null
 	}
@@ -338,13 +338,13 @@ class LinkResolver
 
 	This method is called automatically by the various doc outputters which take link resolvers.
 
-	\throws[exceptions.ValueException] if the current scope is not module scope.
+	\throws[exceptions.StateException] if the current scope is not module scope.
 	\throws[exceptions.ValueException] if there is no item of the given name in the current module.
 	*/
 	function enterItem(name: string)
 	{
 		if(:_item !is null || :_curModule is null)
-			throw ValueException("Attempting to enter an item from {} scope".format(:currentScope()))
+			throw StateException("Attempting to enter an item from {} scope".format(:currentScope()))
 
 		if(local i = :_curModule.children[name])
 			:_item = i
@@ -357,12 +357,12 @@ class LinkResolver
 
 	This method is called automatically by the various doc outputters which take link resolvers.
 
-	\throws[exceptions.ValueException] if the current scope is not item scope.
+	\throws[exceptions.StateException] if the current scope is not item scope.
 	*/
 	function leaveItem()
 	{
 		if(:_item is null || :_curModule is null)
-			throw ValueException("Attempting to leave an item from {} scope".format(:currentScope()))
+			throw StateException("Attempting to leave an item from {} scope".format(:currentScope()))
 
 		:_item = null
 	}

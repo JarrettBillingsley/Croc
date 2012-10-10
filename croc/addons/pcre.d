@@ -196,7 +196,7 @@ static:
 			(*pcre_free)(memb.re);
 			memb.re = null;
 		}
-		
+
 		return 0;
 	}
 
@@ -208,7 +208,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, 0, "Regex");
 
 		if(ret.re is null)
-			throwStdException(t, "ValueException", "Attempting to call method on an uninitialized Regex instance");
+			throwStdException(t, "StateException", "Attempting to call method on an uninitialized Regex instance");
 
 		return ret;
 	}
@@ -279,7 +279,7 @@ static:
 
 		return ret;
 	}
-	
+
 	word[] getGroupRange(CrocThread* t, Members* memb, word group)
 	{
 		if(memb.numGroups == 0)
@@ -334,7 +334,7 @@ static:
 		auto memb = checkInstParam!(Members)(t, 0, "Regex");
 
 		if(memb.re !is null)
-			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized Regex");
+			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Regex");
 
 		auto pat = checkStringParam(t, 1);
 		auto attrs = parseAttrs(optStringParam(t, 2, ""));

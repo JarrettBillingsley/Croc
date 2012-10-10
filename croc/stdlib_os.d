@@ -88,7 +88,7 @@ static:
 	uword sleep(CrocThread* t)
 	{
 		auto dur = checkNumParam(t, 1);
-		
+
 		if(dur < 0)
 			throwStdException(t, "RangeException", "Invalid sleep duration: {}", dur);
 
@@ -121,7 +121,7 @@ static:
 				c.method("wait",        &wait);
 				c.method("kill",        &kill);
 			});
-			
+
 			newFunction(t, &allocator, "Process.allocator");
 			setAllocator(t, -2);
 
@@ -137,11 +137,11 @@ static:
 			pop(t);
 			return ret;
 		}
-		
+
 		uword allocator(CrocThread* t)
 		{
 			newInstance(t, 0, Fields.max + 1);
-			
+
 			dup(t);
 			pushNull(t);
 			rotateAll(t, 3);
@@ -157,7 +157,7 @@ static:
 			getExtraVal(t, 0, Fields.process);
 
 			if(!isNull(t, -1))
-				throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized Process");
+				throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Process");
 
 			pop(t);
 
@@ -245,18 +245,18 @@ static:
 				p.args(cmd[0], cmd[1 .. $]);
 				safeCode(t, "exceptions.OSException", p.execute());
 			}
-			
+
 			clearStreams(t);
 
 			return 0;
 		}
-		
+
 		uword stdin(CrocThread* t)
 		{
 			auto p = getProcess(t);
-			
+
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
-				throwStdException(t, "ValueException", "Attempting to get stdin of process that isn't running");
+				throwStdException(t, "StateException", "Attempting to get stdin of process that isn't running");
 
 			getExtraVal(t, 0, Fields.stdin);
 
@@ -280,7 +280,7 @@ static:
 			auto p = getProcess(t);
 
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
-				throwStdException(t, "ValueException", "Attempting to get stdout of process that isn't running");
+				throwStdException(t, "StateException", "Attempting to get stdout of process that isn't running");
 
 			getExtraVal(t, 0, Fields.stdout);
 
@@ -304,7 +304,7 @@ static:
 			auto p = getProcess(t);
 
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
-				throwStdException(t, "ValueException", "Attempting to get stderr of process that isn't running");
+				throwStdException(t, "StateException", "Attempting to get stderr of process that isn't running");
 
 			getExtraVal(t, 0, Fields.stderr);
 
@@ -322,19 +322,19 @@ static:
 
 			return 1;
 		}
-		
+
 		uword wait(CrocThread* t)
 		{
 			auto p = getProcess(t);
-			
+
 			getExtraVal(t, 0, Fields.stdin);
-			
+
 			if(!isNull(t, -1))
 			{
 				dup(t, -1);
 				pushNull(t);
 				methodCall(t, -2, "isOpen", 1);
-				
+
 				if(getBool(t, -1))
 				{
 					pop(t);
@@ -358,7 +358,7 @@ static:
 				case Process.Result.Error:    pushString(t, "error");    break;
 				default: assert(false);
 			}
-			
+
 			clearStreams(t);
 			pushInt(t, res.status);
 			return 2;
@@ -371,7 +371,7 @@ static:
 			clearStreams(t);
 			return 0;
 		}
-		
+
 		void clearStreams(CrocThread* t)
 		{
 			pushNull(t);

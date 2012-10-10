@@ -88,7 +88,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, idx, "stream.InStream");
 
 		if(ret.closed)
-			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
+			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
 
 		return ret.stream;
 	}
@@ -122,7 +122,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, 0, "InStream");
 
 		if(ret.closed)
-			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
+			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
 
 		return ret;
 	}
@@ -157,7 +157,7 @@ static:
 		auto memb = getThis(t);
 
 		if(memb.stream !is null)
-			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized InStream");
+			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized InStream");
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
 		auto input = cast(InputStream)getNativeObj(t, 1);
@@ -207,7 +207,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, idx, "stream.OutStream");
 
 		if(ret.closed)
-			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
+			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
 
 		return ret.stream;
 	}
@@ -217,7 +217,7 @@ static:
 		CreateClass(t, "OutStream", (CreateClass* c)
 		{
 			c.method("constructor",   2, &constructor);
-			
+
 			mixin(WriteFuncDefs);
 			mixin(CommonFuncDefs);
 		});
@@ -241,7 +241,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, 0, "OutStream");
 
 		if(ret.closed)
-			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
+			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
 
 		return ret;
 	}
@@ -277,7 +277,7 @@ static:
 		auto memb = getThis(t);
 
 		if(memb.stream !is null)
-			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized OutStream");
+			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized OutStream");
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
 		auto output = cast(OutputStream)getNativeObj(t, 1);
@@ -330,7 +330,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, idx, "stream.InoutStream");
 
 		if(ret.closed)
-			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
+			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
 
 		return ret.stream;
 	}
@@ -365,7 +365,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, 0, "InoutStream");
 
 		if(ret.closed)
-			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
+			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
 
 		return ret;
 	}
@@ -407,7 +407,7 @@ static:
 		auto memb = getThis(t);
 
 		if(memb.stream !is null)
-			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized InoutStream");
+			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized InoutStream");
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
 		auto stream = cast(IConduit)getNativeObj(t, 1);
@@ -582,7 +582,7 @@ static:
 		auto memb = InStreamObj.getThis(t);
 
 		if(memb.stream !is null)
-			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized MemInStream");
+			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized MemInStream");
 
 		checkParam(t, 1, CrocValue.Type.Memblock);
 
@@ -632,7 +632,7 @@ static:
 		auto memb = OutStreamObj.getThis(t);
 
 		if(memb.stream !is null)
-			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized MemOutStream");
+			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized MemOutStream");
 
 		checkParam(t, 1, CrocValue.Type.Memblock);
 
@@ -682,7 +682,7 @@ static:
 		auto memb = InoutStreamObj.getThis(t);
 
 		if(memb.stream !is null)
-			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized MemInoutStream");
+			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized MemInoutStream");
 
 		checkParam(t, 1, CrocValue.Type.Memblock);
 
@@ -1171,7 +1171,7 @@ template CommonFuncs(bool isInout, bool isOut)
 		auto memb = getOpenThis(t);
 
 		if(!memb.closable)
-			throwStdException(t, "ValueException", "Attempting to close an unclosable stream");
+			throwStdException(t, "StateException", "Attempting to close an unclosable stream");
 
 		memb.closed = true;
 		static if(isInout || isOut) safeCode(t, "exceptions.IOException", memb.stream.flush());

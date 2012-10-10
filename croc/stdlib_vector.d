@@ -23,7 +23,7 @@ subject to the following restrictions:
 
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
-	
+
 module croc.stdlib_vector;
 
 import tango.math.Math;
@@ -335,9 +335,9 @@ TypeStruct* _typeCodeToKind(char[] typeCode)
 uword _constructor(CrocThread* t)
 {
 	auto self = checkInstParam!(Members)(t, 0, "Vector");
-	
+
 	if(self.m !is null)
-		throwStdException(t, "ValueException", "Attempting to call the constructor on an already-initialized Vector");
+		throwStdException(t, "StateException", "Attempting to call the constructor on an already-initialized Vector");
 
 	self.kind = _typeCodeToKind(checkStringParam(t, 1));
 
@@ -780,7 +780,7 @@ uword _insert(CrocThread* t)
 			auto numLeft = oldLen - idx;
 			memmove(&m.m.data[cast(uword)end * isize], &m.m.data[cast(uword)idx * isize], cast(uint)(numLeft * isize));
 		}
-		
+
 		return m.m.data[cast(uword)idx * isize.. cast(uword)(idx + otherLen) * isize];
 	}
 
@@ -1258,13 +1258,13 @@ uword _opLengthAssign(CrocThread* t)
 {
 	auto m = _getMembers(t);
 	auto len = checkIntParam(t, 1);
-	
+
 	if(!m.m.ownData)
 		throwStdException(t, "ValueException", "Attempting to change the length of a Vector which does not own its data");
 
 	if(len < 0 || len > uword.max)
 		throwStdException(t, "RangeException", "Invalid new length: {}", len);
-	
+
 	auto isize = cast(uword)len * m.kind.itemSize;
 	push(t, CrocValue(m.m));
 	lenai(t, -1, isize);
@@ -1449,7 +1449,7 @@ uword _opCat(CrocThread* t)
 
 		if(other.kind !is m.kind)
 			throwStdException(t, "ValueException", "Attempting to concatenate Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
-	
+
 		pushGlobal(t, "Vector");
 		pushNull(t);
 		pushString(t, m.kind.name);
@@ -1705,7 +1705,7 @@ char[] rev_func(char[] name, char[] op)
 	{
 		auto m = _getMembers(t);
 		checkAnyParam(t, 1);
-		
+
 		pushGlobal(t, "Vector");
 
 		if(as(t, 1, -1))
@@ -1850,7 +1850,7 @@ mixin(rev_func("Mod", "%"));
 version(CrocBuiltinDocs)
 {
 	const Docs _classDocs =
-	{kind: "class", name: "Vector", 
+	{kind: "class", name: "Vector",
 	extra: [Extra("protection", "global")],
 	docs:
 	`Croc's built-in array type is fine for most tasks, but they're not very well-suited to high-speed number crunching.
@@ -1888,7 +1888,7 @@ version(CrocBuiltinDocs)
 	A note on all types: for performance reasons, Vectors do not check the ranges of the values that are stored in them.
 	For instance, if you assign an integer into a \tt{"u8" Vector}, only the lowest 8 bits will be stored. Storing \tt{floats}
 	into \tt{"f32" Vectors} will similarly round the value to the nearest representable value.
-	
+
 	Finally, the underlying memblock can be retrieved and manipulated directly; however, changing its size must be done carefully.
 	If the size is set to a byte length that is not an even multiple of the item size of the Vector, an exception will be
 	thrown the next time a method is called on the Vector that uses that memblock.
@@ -1971,7 +1971,7 @@ version(CrocBuiltinDocs)
 		\returns the current type of the Vector if \tt{type} is \tt{null}, or nothing otherwise.
 		\throws[exceptions.ValueException] if \tt{type} is not a valid type code.
 		\throws[exceptions.ValueException] if the byte size is not an even multiple of the new type's item size.`},
-		
+
 		{kind: "function", name: "itemSize",
 		params: [],
 		docs:
@@ -2006,14 +2006,14 @@ version(CrocBuiltinDocs)
 		the memblock returned from this method. As explained in the class's documentation, though, setting the underlying
 		memblock's length to something that is not an even multiple of the Vector's item size will result in an exception
 		being thrown the next time a method is called on the Vector.`},
-		
+
 		{kind: "function", name: "dup",
 		params: [],
 		docs:
 		`Duplicates this Vector.
-		
+
 		Creates a new Vector with the same type and a copy of this Vector's data.
-		
+
 		\returns the new Vector.`},
 
 		{kind: "function", name: "reverse",
@@ -2101,7 +2101,7 @@ version(CrocBuiltinDocs)
 		params: [Param("idx", "int", "-1")],
 		docs:
 		`Removes one item from anywhere in this Vector (the last item by default) and returns its value, like
-		\link{array.pop}. 
+		\link{array.pop}.
 
 		\param[idx] is the index of the item to be removed, which defaults to the last item in this Vector.
 		\returns the value of the item that was removed.
@@ -2160,8 +2160,8 @@ version(CrocBuiltinDocs)
 		If \tt{this} is a floating-point Vector, \tt{val} can be an int or float, and all items in this Vector will be set to
 		the float representation of \tt{val}.
 
-		If \tt{val} is a function, it should take an integer that is the index of the element, and should return one value 
-		the appropriate type which will be the value placed in that index. This function is called once for each element 
+		If \tt{val} is a function, it should take an integer that is the index of the element, and should return one value
+		the appropriate type which will be the value placed in that index. This function is called once for each element
 		this Vector.
 
 		If \tt{val} is an array, it should be the same length as this Vector, be single-dimensional, and all elements must be
@@ -2343,10 +2343,10 @@ foreach(i, val; v, "reverse") write(val) // prints 54321
 		params: [Param("other", "int|float|Vector")],
 		docs:
 		`These allow you to perform in-place reflexive operations where this Vector will be used as the second operand instead
-		of as the first. 
+		of as the first.
 
 		For example, doing \tt{"v -= 5"} will subtract 5 from each element in \tt{v}, but doing \tt{"v.revSub(5)"} will instead
-		subtract each element in \tt{v} from 5. 
+		subtract each element in \tt{v} from 5.
 
 		The behavior is otherwise identical to the reflexive operator metamethods.
 

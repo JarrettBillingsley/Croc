@@ -294,7 +294,7 @@ static:
 
 		return 0;
 	}
-	
+
 	uword warpMouse(CrocThread* t)
 	{
 		auto x = cast(Uint16)checkIntParam(t, 1);
@@ -306,7 +306,7 @@ static:
 	uword caption(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		
+
 		if(numParams == 0)
 		{
 			char* cap;
@@ -584,7 +584,7 @@ static:
 	uword evtEnableUnicode(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		
+
 		if(numParams == 0)
 		{
 			pushInt(t, SDL_EnableUNICODE(-1));
@@ -604,17 +604,17 @@ static:
 		checkError(t, SDL_EnableKeyRepeat(cast(int)delay, cast(int)interval), "Could not set key repeat");
 		return 0;
 	}
-	
+
 	uword joyCount(CrocThread* t)
 	{
 		pushInt(t, SDL_NumJoysticks());
 		return 1;
 	}
-	
+
 	uword joyOpen(CrocThread* t)
 	{
 		auto idx = cast(int)checkIntParam(t, 1);
-		
+
 		if(SDL_JoystickOpened(idx))
 			return 0;
 
@@ -631,7 +631,7 @@ static:
 		if(SDL_JoystickOpened(idx))
 		{
 			auto j = SDL_JoystickOpen(idx);
-			
+
 			// Yes, twice. Why? Cause SDL seems to keep a ref count of how many times you've opened a joystick, and since we
 			// called open on this stick before, it's ref was already at 1, and now it's at 2. So we close it twice.
 			SDL_JoystickClose(j);
@@ -647,7 +647,7 @@ static:
 		pushBool(t, cast(bool)SDL_JoystickOpened(idx));
 		return 1;
 	}
-	
+
 	uword joyInfo(CrocThread* t)
 	{
 		auto idx = cast(int)checkIntParam(t, 1);
@@ -655,7 +655,7 @@ static:
 		if(auto ret = SDL_JoystickName(idx))
 		{
 			pushString(t, fromStringz(ret));
-			
+
 			auto j = SDL_JoystickOpen(idx);
 			pushInt(t, SDL_JoystickNumAxes(j));
 			pushInt(t, SDL_JoystickNumButtons(j));
@@ -751,7 +751,7 @@ static:
 		auto ret = *(cast(SDL_Surface**)getExtraBytes(t, 0).ptr);
 
 		if(ret is null)
-			throwStdException(t, "ValueException", "Attempting to call a method on a freed surface");
+			throwStdException(t, "StateException", "Attempting to call a method on a freed surface");
 
 		return ret;
 	}
@@ -826,14 +826,14 @@ static:
 		pushInt(t, cast(crocint)getThis(t).pixels);
 		return 1;
 	}
-	
+
 	uword lock(CrocThread* t)
 	{
 		auto s = getThis(t);
-		
+
 		if(SDL_LockSurface(s) < 0)
 			throwNamedException(t, "SdlException", "Could not lock surface: {}", fromStringz(SDL_GetError()));
-		
+
 		memblockViewDArray(t, (cast(ubyte*)s.pixels)[0 .. s.w * s.h * s.format.BytesPerPixel]);
 		return 1;
 	}
@@ -854,7 +854,7 @@ static:
 			SDL_FreeSurface(*psfc);
 			*psfc = null;
 		}
-		
+
 		return 0;
 	}
 }

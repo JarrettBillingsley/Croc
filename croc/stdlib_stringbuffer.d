@@ -154,7 +154,7 @@ CrocMemblock* _getData(CrocThread* t, word idx = 0)
 	getExtraVal(t, idx, Data);
 
 	if(!isMemblock(t, -1))
-		throwStdException(t, "ValueException", "Attempting to operate on an uninitialized StringBuffer");
+		throwStdException(t, "StateException", "Attempting to operate on an uninitialized StringBuffer");
 
 	auto ret = getMemblock(t, -1);
 	pop(t);

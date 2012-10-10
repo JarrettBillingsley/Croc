@@ -161,7 +161,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, 0, "Socket");
 
 		if(ret.base.closed)
-			throwStdException(t, "ValueException", "Attempting to perform operation on a closed socket");
+			throwStdException(t, "StateException", "Attempting to perform operation on a closed socket");
 
 		return ret;
 	}
@@ -199,7 +199,7 @@ static:
 		auto memb = getThis(t);
 
 		if(memb.socket !is null)
-			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized Socket");
+			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Socket");
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
 		auto socket = cast(Socket)getNativeObj(t, 1);

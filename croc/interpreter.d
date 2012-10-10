@@ -452,7 +452,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 				throwStdException(t, "RuntimeException", "Attempting to resume VM's main thread");
 
 			if(thread.state != CrocThread.State.Initial && thread.state != CrocThread.State.Suspended)
-				throwStdException(t, "ValueException", "Attempting to resume a {} coroutine", CrocThread.StateStrings[thread.state]);
+				throwStdException(t, "StateException", "Attempting to resume a {} coroutine", CrocThread.StateStrings[thread.state]);
 
 			auto ar = pushAR(t);
 
@@ -3020,7 +3020,7 @@ void execute(CrocThread* t, uword depth = 1)
 					}
 
 					if(src.type == CrocValue.Type.Thread && src.mThread.state != CrocThread.State.Initial)
-						throwStdException(t, "ValueException", "Attempting to iterate over a thread that is not in the 'initial' state");
+						throwStdException(t, "StateException", "Attempting to iterate over a thread that is not in the 'initial' state");
 
 					(*pc) += jump;
 					break;

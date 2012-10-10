@@ -357,7 +357,7 @@ private:
 			return;
 
 		if(!v.ownData)
-			throwStdException(t, "ValueException", "Attempting to persist a memblock which does not own its data");
+			throwStdException(t, "ValueException", "Attempting to serialize a memblock which does not own its data");
 
 		tag(CrocValue.Type.Memblock);
 		integer(v.data.length);
@@ -374,7 +374,7 @@ private:
 		if(v.isNative)
 		{
 			push(t, CrocValue(v));
-			throwStdException(t, "ValueException", "Attempting to persist a native function '{}'", funcName(t, -1));
+			throwStdException(t, "ValueException", "Attempting to serialize a native function '{}'", funcName(t, -1));
 		}
 
 		// we do this first so we can allocate it at the beginning of deserialization
@@ -423,9 +423,9 @@ private:
 			integer(mask);
 
 		integer(v.numUpvals);
-		
+
 		integer(v.upvals.length);
-		
+
 		foreach(ref uv; v.upvals)
 		{
 			put(t, mOutput, uv.isUpvalue);
@@ -965,7 +965,7 @@ private:
 		get(t, mInput, v);
 		pushBool(t, v);
 	}
-	
+
 	void deserializeInt()
 	{
 		checkTag(CrocValue.Type.Int);
@@ -976,7 +976,7 @@ private:
 	{
 		pushInt(t, integer());
 	}
-	
+
 	void deserializeFloat()
 	{
 		checkTag(CrocValue.Type.Float);
@@ -989,7 +989,7 @@ private:
 		get(t, mInput, v);
 		pushFloat(t, v);
 	}
-	
+
 	void deserializeChar()
 	{
 		checkTag(CrocValue.Type.Char);
@@ -1091,13 +1091,13 @@ private:
 			idxai(t, v, cast(crocint)i);
 		}
 	}
-	
+
 	void deserializeMemblock()
 	{
 		if(checkObjTag(CrocValue.Type.Memblock))
 			deserializeMemblockImpl();
 	}
-	
+
 	void deserializeMemblockImpl()
 	{
 		newMemblock(t, cast(uword)integer());
@@ -1195,9 +1195,9 @@ private:
 			integer(mask);
 
 		integer(def.numUpvals);
-		
+
 		t.vm.alloc.resizeArray(def.upvals, cast(uword)integer());
-		
+
 		foreach(ref uv; def.upvals)
 		{
 			get(t, mInput, uv.isUpvalue);
@@ -1583,10 +1583,10 @@ private:
 
 			auto uv = cast(CrocUpval*)getValue(t, -1).mBaseObj;
 			pop(t);
-			
+
 			uword diff;
 			integer(diff);
-			
+
 			uv.value = ret.stack.ptr + diff;
 			*next = uv;
 			next = &uv.nextuv;
@@ -1619,7 +1619,7 @@ private:
 			pop(t);
 			*t.vm.weakRefTab.insert(t.vm.alloc, wr.obj) = wr;
 		}
-		
+
 		push(t, CrocValue(wr));
 	}
 

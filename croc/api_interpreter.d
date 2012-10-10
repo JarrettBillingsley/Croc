@@ -119,7 +119,7 @@ void setTypeMT(CrocThread* t, CrocValue.Type type)
 		else
 			throwStdException(t, "ApiError", __FUNCTION__ ~ " - Invalid type '{}'", type);
 	}
-	
+
 	auto v = getValue(t, -1);
 
 	if(v.type == CrocValue.Type.Namespace)
@@ -292,7 +292,7 @@ word pushObjectClass(CrocThread* t)
 
 word pushLocationClass(CrocThread* t)
 {
-	return push(t, CrocValue(t.vm.location));	
+	return push(t, CrocValue(t.vm.location));
 }
 
 // ================================================================================================================================================
@@ -353,7 +353,7 @@ uword gc(CrocThread* t, bool fullCollect = false)
 
 	getRegistry(t);
 	field(t, -1, "gc.postGCCallbacks");
-	
+
 	foreach(word v; foreachLoop(t, 1))
 	{
 		dup(t, v);
@@ -634,7 +634,7 @@ own its data and the original array will not be referenced in any way.
 
 Params:
 	arr = The source data array.
-	
+
 Returns:
 	The stack index of the newly-created memblock.
 */
@@ -930,7 +930,7 @@ Params:
 word newInstance(CrocThread* t, word base, uword numValues = 0, uword extraBytes = 0)
 {
 	mixin(FuncNameMix);
-	
+
 	auto b = getClass(t, base);
 
 	if(b is null)
@@ -1028,7 +1028,7 @@ Returns:
 word newThread(CrocThread* t, word func)
 {
 	mixin(FuncNameMix);
-	
+
 	auto f = getFunction(t, func);
 
 	if(f is null)
@@ -1576,7 +1576,7 @@ public:
 		}
 
 		if(isThread(t, src) && state(getThread(t, src)) != CrocThread.State.Initial)
-			throwStdException(t, "ValueException", "Attempting to iterate over a thread that is not in the 'initial' state");
+			throwStdException(t, "StateException", "Attempting to iterate over a thread that is not in the 'initial' state");
 
 		// Set up the indices tuple
 		Indices idx;
@@ -1851,7 +1851,7 @@ word getGlobal(CrocThread* t)
 		pushTypeString(t, -1);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
-	
+
 	*v = *getGlobalImpl(t, v.mString, getEnv(t));
 	return stackSize(t) - 1;
 }
@@ -2288,7 +2288,7 @@ void setFinalizer(CrocThread* t, word cls)
 	}
 
 	if(c.finalizerSet)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to change the finalizer of class {} whose finalizer was already set", className(t, cls));
+		throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to change the finalizer of class {} whose finalizer was already set", className(t, cls));
 
 	classobj.setFinalizer(t.vm.alloc, c, getFunction(t, -1));
 	pop(t);
@@ -2394,7 +2394,7 @@ void setAllocator(CrocThread* t, word cls)
 	}
 
 	if(c.allocatorSet)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to change the allocator of class {} whose allocator was already set", className(t, cls));
+		throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to change the allocator of class {} whose allocator was already set", className(t, cls));
 
 	classobj.setAllocator(t.vm.alloc, c, getFunction(t, -1));
 	pop(t);
@@ -2732,12 +2732,12 @@ void resetThread(CrocThread* t, word slot, bool newFunction = false)
 		pushTypeString(t, slot);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Object at 'slot' must be a 'thread', not a '{}'", getString(t, -1));
 	}
-	
+
 	if(t.vm !is other.vm)
 		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to reset a coroutine that belongs to a different VM");
 
 	if(state(other) != CrocThread.State.Dead)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to reset a {} coroutine (must be dead)", stateString(other));
+		throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to reset a {} coroutine (must be dead)", stateString(other));
 
 	if(newFunction)
 	{
