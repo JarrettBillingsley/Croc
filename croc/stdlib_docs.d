@@ -100,7 +100,13 @@ uword _parseCommentText(CrocThread* t)
 */
 
 const char[] docsSource =
-`module docs
+`/**
+This module contains the runtime interface to Croc's built-in documentation system. It defines the decorator function
+which the compiler can translate doc comments into, as well as the actual documentation processing functions. It also
+contains a basic doc outputting scaffold, so that you can output documentation in a human-readable format without much
+extra work.
+*/
+module docs
 
 import exceptions:
 	TypeException,
@@ -115,28 +121,27 @@ local docTables = WeakKeyTable()
 // defined before the decorator is called. So _doc_ can be used on itself!
 
 /**
-This is a decorator function used to attach documentation tables to objects. The compiler can attach
-calls to this decorator to declarations in your code automatically by extracting documentation comments
-and information about the declarations from the code.
+This is a decorator function used to attach documentation tables to objects. The compiler can attach calls to this
+decorator to declarations in your code automatically by extracting documentation comments and information about the
+declarations from the code.
 
-Once the documentation table has been set for an object, you can retrieve it with docsOf, which can then
-be further processed and output in a human-readable form (for instance, by using the various DocOutput
-classes).
+Once the documentation table has been set for an object, you can retrieve it with docsOf, which can then be further
+processed and output in a human-readable form (for instance, by using the various doc output classes).
 
-This function is also exported in the global namespace so that you can access it unqualified (that is,
-both \tt{_doc_} and \tt{docs._doc_} refer to this function.
+This function is also exported in the global namespace so that you can access it unqualified (that is, both \tt{_doc_}
+and \tt{docs._doc_} refer to this function.
 
 \param[val] is the decorated object and can be any reference type.
 \param[doctable] is a table, presumably one which matches the specifications for doc tables.
-\param[vararg] should all be integers and are used to extract the correct sub-table from the root
-documentation table (the \tt{doctable} parameter). So, for instance, using "\tt{@_doc_(someTable, 0, 2)}"
-on a declaration would mean that the table \tt{someTable.children[0].children[2]} would be used as the
-documentation for the decorated declaration. If no variadic arguments are given, the table itself is set
-as the documentation table of the object.
+\param[vararg] should all be integers and are used to extract the correct sub-table from the root documentation table
+(the \tt{doctable} parameter). So, for instance, using "\tt{@_doc_(someTable, 0, 2)}" on a declaration would mean that
+the table \tt{someTable.children[0].children[2]} would be used as the documentation for the decorated declaration. If no
+variadic arguments are given, the table itself is set as the documentation table of the object.
 
 \returns \tt{val} as per the decorator protocol.
-\throws[exceptions.TypeException] if any of the \tt{varargs} are not ints, or if the value that will be
-set as the doctable for \tt{val} is not a table.
+
+\throws[exceptions.TypeException] if any of the \tt{varargs} are not ints, or if the value that will be set as the
+doctable for \tt{val} is not a table.
 */
 function _doc_(
 	val: table|namespace|array|memblock|function|funcdef|class|instance|thread,
@@ -166,10 +171,10 @@ function _doc_(
 _G._doc_ = _doc_
 
 /**
-This retrieves the documentation table, if any, associated with an object. 
+This retrieves the documentation table, if any, associated with an object.
 
-\param[val] is the object whose docs are to be retrieved. Any type is allowed, but only reference types
-can have documentation tables associated with them. 
+\param[val] is the object whose docs are to be retrieved. Any type is allowed, but only reference types can have
+documentation tables associated with them.
 
 \returns the doc table for \tt{val} if one has been set, or \tt{null} if none has been set (or if \tt{val} is
 a value type).
@@ -198,13 +203,390 @@ function processComment(comment: string, doctable: table) {} // Dummy function w
 Takes a string containing Croc doc comment markup, and parses it into a paragraph list.
 
 This doesn't parse the whole text of a doc comment; rather it just parses one or more paragraphs of text. Section
-commands are not allowed to appear in the text. Span and text structure commands, however, are valid. 
+commands are not allowed to appear in the text. Span and text structure commands, however, are valid.
 
 \param[comment] is the raw markup to be parsed.
 \returns an array which is a paragraph list as defined in the doc comment spec.
 \throws[exceptions.SyntaxException] if parsing failed.
 */
 function parseCommentText(comment: string) {} // Dummy function which will be replaced after loading
+
+/**
+This class defines a default behavior for mapping documentation links (made with the \tt{\\link} command) to the things
+they refer to. It uses a \link{LinkTranslator} which you define in order to turn the mapped links into outputtable link
+text.
+
+For URIs (such as with \tt{\\link{http://www.example.com}}), no attempt is made to ensure the correctness or well-
+formedness of the link.
+
+All other links are considered links to other documentable items. The way it does this is by taking a snapshot of the
+global namespace and all currenly-loaded modules. This means that any modules imported after instantiating this class
+are unknown to that instance, and links into them will not resolve. Most of the time this won't be a problem since
+you'll likely have imported them beforehand so that you can output their docs!
+
+Once a link has been processed, it is then passed to one of the methods that its \link{LinkTranslator} instance defines.
+The results of those methods are returned from \link{resolveLink}.
+
+This class is used automatically by the default doc outputters, but you are free to use it if you write one of your own.
+*/
+class LinkResolver
+{
+	// struct ItemDesc { string name, fqn; DocTable docTable; ItemDesc[string] children; }
+	_modules // ItemDesc[string]
+	_globals // ItemDesc[string]
+	_curModule = null // ItemDesc
+	_item = null // ItemDesc
+	_trans
+
+	/**
+	Constructs a resolver with the given link translator.
+
+	The constructor takes a snapshot of the global namespace and all loaded modules, so if there are any modules that
+	you want links to resolve to, you must have imported them before instantiating this class.
+
+	When you create a link resolver, any links will be evaluated within the global scope. You can change the scope in
+	which links are resolved by using the \tt{enter/leaveItem/Module} methods.
+
+	\param[trans] is the link translator object whose methods will be called by \link{resolveLink}.
+	*/
+	this(trans: LinkTranslator)
+	{
+		:_trans = trans
+
+		// Setup modules
+		:_modules = {}
+
+		foreach(name, m; modules.loaded)
+		{
+			if(local dt = docsOf(m))
+				:_modules[name] = :_makeMapRec(dt)
+		}
+
+		// Setup globals
+		if(local dt = docsOf(_G))
+			:_globals = :_makeMapRec(dt).children
+		else
+			:_globals = {}
+
+		// Might be some globals added by user code that aren't in docsOf(_G).children
+		foreach(name, val; _G)
+		{
+			if(name !is "_G" && name !in :_globals && name !in modules.loaded)
+			{
+				if(local dt = docsOf(val))
+					:_globals[name] = :_makeMapRec(dt)
+			}
+		}
+	}
+
+	/**
+	Returns a string saying what scope this resolver is currently operating in.
+
+	\returns one of \tt{"global"} (the default), \tt{"module"} (when you have entered a module), or \tt{"item"} (when
+	you have entered an item within a module).
+	*/
+	function currentScope()
+	{
+		if(:_item is null)
+		{
+			if(:_module is null)
+				return "global"
+			else
+				return "module"
+		}
+		else
+			return "item"
+	}
+
+	/**
+	Switches from global scope to module scope, so that links will be resolved in the context of the given module.
+
+	This method is called automatically by the various doc outputters which take link resolvers.
+
+	\throws[exceptions.ValueException] if the current scope is not global scope.
+	\throws[exceptions.ValueException] if there is no module of the given name.
+	*/
+	function enterModule(name: string)
+	{
+		if(:_item !is null || :_curModule !is null)
+			throw ValueException("Attempting to enter a module from {} scope".format(:currentScope()))
+
+		if(local m = :_modules[name])
+			:_curModule = m
+		else
+			throw ValueException("No module named '{}' (did you import it after creating this resolver?)".format(name))
+	}
+
+	/**
+	Switches from module scope back to global scope.
+
+	This method is called automatically by the various doc outputters which take link resolvers.
+
+	\throws[exceptions.ValueException] if the current scope is not module scope.
+	*/
+	function leaveModule()
+	{
+		if(:_item !is null || :_curModule is null)
+			throw ValueException("Attempting to leave a module from {} scope".format(:currentScope()))
+
+		:_curModule = null
+	}
+
+	/**
+	Switches from module scope to item scope, so that links will be resolved in the context of the given item (class or
+	namespace declaration).
+
+	This method is called automatically by the various doc outputters which take link resolvers.
+
+	\throws[exceptions.ValueException] if the current scope is not module scope.
+	\throws[exceptions.ValueException] if there is no item of the given name in the current module.
+	*/
+	function enterItem(name: string)
+	{
+		if(:_item !is null || :_curModule is null)
+			throw ValueException("Attempting to enter an item from {} scope".format(:currentScope()))
+
+		if(local i = :_curModule.children[name])
+			:_item = i
+		else
+			throw ValueException("No item named '{}' in {}".format(name, _curModule.name))
+	}
+
+	/**
+	Switches from item scope back to module scope.
+
+	This method is called automatically by the various doc outputters which take link resolvers.
+
+	\throws[exceptions.ValueException] if the current scope is not item scope.
+	*/
+	function leaveItem()
+	{
+		if(:_item is null || :_curModule is null)
+			throw ValueException("Attempting to leave an item from {} scope".format(:currentScope()))
+
+		:_item = null
+	}
+
+	/**
+	Given a raw, unprocessed link, turns it into a link string suitable for output.
+
+	It does this by analyzing the link, determining whether it's a URI or a code link, ensuring it's a valid link if
+	it's a code link, and then calling one of \link{LinkTranslator}'s methods as appropriate to turn the raw link into
+	something suitable for output. It does not process the outputs of those methods; whatever they return is what this
+	method returns.
+	*/
+	function resolveLink(link: string)
+	{
+		if("/" in link)
+		{
+			// URI; no further processing necessary. If someone writes something like "www.example.com" it's ambiguous
+			// and it's their fault when it doesn't resolve :P
+			return :_trans.translateURI(link)
+		}
+		else
+		{
+			// Okay, so: names aren't really all that specific. Name lookup works more or less like in Croc itself, with
+			// one exception: names can refer to other members within classes and namespaces.
+			// In any case, a dotted name can resolve to one of two locations (qualified name within current module, or
+			// fully-qualified name), and a name without dots can resolve to one of FOUR locations (those two, plus
+			// global, or another name within the current class/NS).
+			// Also, names shadow one another. If you write a link to \tt{toString} within a class that defines it, the
+			// link will resolve to this class's method, rather than the function declared at global scope.
+
+			local isDotted = "." in link
+
+			if(!isDotted && :_inItem(link)) // not dotted, could be item name
+				return :_trans.translateLink(:_curModule.name, :_item.name ~ "." ~ link)
+			else if(:_inCurModule(link)) // maybe it's something in the current module
+				return :_trans.translateLink(:_curModule.name, link)
+			else
+			{
+				// tryyyy all the modules!
+				local isFQN, modName, itemName = :_inModules(link)
+
+				if(isFQN)
+					return :_trans.translateLink(modName, itemName)
+
+				// um. um. global?!
+				// it might be a member of a global class or something, or just a plain old global
+				if(:_inGlobalItem(link) || :_inGlobals(link))
+					return :_trans.translateLink("", link)
+			}
+		}
+
+		// noooooo nothing matched :(
+		return :_trans.invalidLink(link)
+	}
+
+	// =================================================================================================================
+	// Private
+
+	function _inGlobalItem(link: string)
+	{
+		local dot = link.find(".")
+
+		if(dot is #link)
+			return false
+
+		local n = link[0 .. dot]
+		local f = link[dot + 1 ..]
+		local i = :_globals[n]
+
+		return i !is null && i.children && f in i.children
+	}
+
+	function _inItem(link: string) =
+		:_item !is null && link in :_item.children
+
+	function _inCurModule(link: string) =
+		:_curModule !is null && :_inModule(:_curModule, link)
+
+	function _inGlobals(link: string) =
+		link in :_globals
+
+	function _inModules(link: string)
+	{
+		if(link in :_modules)
+			return true, link, ""
+
+		// What we're doing here is trying every possible prefix as a module name. So for the name "a.b.c.d" we try
+		// "a.b.c", "a.b", and "a" as module names, and see if the rest of the string is an item inside it.
+		local lastDot
+
+		for(local dot = link.rfind("."); dot != #link; dot = link.rfind(".", lastDot - 1))
+		{
+			lastDot = dot
+			local modName = link[0 .. dot]
+
+			if(local m = :_modules[modName])
+			{
+				// There can only be ONE match to the module name. Once you find it, there can't be any other modules
+				// with names that are a prefix, since that's enforced by the module system. So if the item doesn't
+				// exist in this module, it doesn't exist at all
+
+				local itemName = link[dot + 1 ..]
+
+				if(:_inModule(m, itemName))
+					return true, modName, itemName
+				else
+					return false
+			}
+		}
+
+		return false
+	}
+
+	function _inModule(mod: table, item: string)
+	{
+		local t = mod
+
+		foreach(piece; item.split("."))
+		{
+			if(t.children is null)
+				return false
+
+			t = t.children[piece]
+
+			if(t is null)
+				return false
+		}
+
+		return true
+	}
+
+	function _makeMapRec(dt: table)
+	{
+		local ret = { name = dt.name }
+
+		if(dt.children)
+		{
+			ret.children = {}
+
+			foreach(child; dt.children)
+			{
+				local c = :_makeMapRec(child)
+				ret.children[child.name] = c
+
+				if(local dit = child.dittos)
+				{
+					foreach(d; dit)
+						ret.children[d.name] = c
+				}
+			}
+		}
+
+		return ret
+	}
+}
+
+/**
+A link resolver that does absolutely nothing and resolves all links to empty strings.
+
+It never throws any errors or does anything, really. It's useful for when you don't want any link resolution behavior at
+all.
+*/
+class NullLinkResolver : LinkResolver
+{
+	this() {}
+	function enterModule(name: string) {}
+	function leaveModule() {}
+	function enterItem(name: string) {}
+	function leaveItem() {}
+	function resolveLink(link: string) = ""
+}
+
+/**
+This class defines an interface for mapping links from their raw form to their outputtable form. Since the structure of
+the output docs is unknown to the library, how this translation happens is left up to the user.
+
+You create a subclass of this class, override the appropriate methods, and then pass an instance of it to the
+constructor of a \link{LinkResolver} class.
+*/
+class LinkTranslator
+{
+	/**
+	Given a module name and a sub-item name (which may or may not be dotted, since it might be something like a class
+	field), translates them into a suitable link string.
+
+	This, and \link{translateURI}, are the only methods you have to override in a subclass.
+
+	\param[mod] is the name of the module that contains the linked item, or the empty string if the linked item is in
+		the global namespace.
+	\param[item] is the name of the item that is being linked, or the empty string if the link points at the given
+		module itself.
+
+	\returns the link translated into a form that makes sense to whatever output format you're using.
+	*/
+	function translateLink(mod: string, item: string)
+		throw NotImplementedException()
+
+	/**
+	Given a URI, translates it into a suitable link string.
+
+	This, and \link{translateLink}, are the only methods you have to override in a subclass.
+
+	\param[uri] is the URI to translate.
+
+	\returns the link translated into a form that makes sense to whatever output format you're using.
+	*/
+	function translateURI(uri: string)
+		throw NotImplementedException()
+
+	/**
+	This method is called when the given link fails to resolve.
+
+	\link{LinkResolver.resolveLink} will call this method if it fails to find a valid target for the given link. This
+	method can return a string which will then be returned by \link{LinkResolver.resolveLink}. By default, this method
+	throws a \link{exceptions.ValueException} saying which link failed, but you can override it so that it does
+	something else (such as returning a dummy link and logging the error to stderr).
+
+	\param[link] is the link that failed to resolve.
+
+	\returns a replacement string, optionally.
+	*/
+	function invalidLink(link: string)
+		throw ValueException("No target found for link '{}'".format(link))
+}
 
 local stdSections =
 [
@@ -281,14 +663,17 @@ class BaseDocOutput
     	u = "handleSpan_u"
 	}
 
+	_linkResolver
+
 	// =================================================================================================
 	// Constructor
 
-	this()
+	this(lr: LinkResolver)
 	{
 		:_sectionOrder = :_sectionOrder.dup()
 		:_sectionHandlers = hash.dup(:_sectionHandlers)
 		:_spanHandlers = hash.dup(:_spanHandlers)
+		:_linkResolver = lr
 	}
 
 	// =================================================================================================
@@ -375,7 +760,7 @@ class BaseDocOutput
 	{
 		:beginParagraph()
 		:beginBold()
-		
+
 		if(name.startsWith("_"))
 			:outputText(ascii.toUpper(name[1]), name[2..], ": ")
 		else
@@ -444,9 +829,9 @@ class BaseDocOutput
 		foreach(ex; contents)
 		{
 			:beginDefTerm()
-			:beginBold()
+			:beginLink(:resolveLink(ex[0]))
 			:outputText(ex[0])
-			:endBold()
+			:endLink()
 			:endDefTerm()
 
 			:beginDefDef()
@@ -645,7 +1030,8 @@ class BaseDocOutput
 	// =================================================================================================
 	// Link handling
 
-	function resolveLink(link: string) throw NotImplementedException()
+	function resolveLink(link: string) =
+		:_linkResolver.resolveLink(link)
 
 	// =================================================================================================
 	// Element-level output functions
@@ -748,7 +1134,10 @@ class BaseDocOutput
 		switch(doctable.kind)
 		{
 			case "module":
-				:outputText("module ", doctable.name)
+				if(full)
+					:outputText("module ")
+
+				:outputText(doctable.name)
 				return
 
 			case "function":
@@ -780,7 +1169,8 @@ class BaseDocOutput
 				break
 
 			case "class", "namespace":
-				:outputText(doctable.kind, " ")
+				if(full)
+					:outputText(doctable.kind, " ")
 
 				if(parentFQN !is "")
 					:outputText(parentFQN, ".")
@@ -808,7 +1198,8 @@ class BaseDocOutput
 				break
 
 			case "variable":
-				write(doctable.protection, " ")
+				if(full)
+					write(doctable.protection, " ")
 
 				if(parentFQN !is "")
 					:outputText(parentFQN, ".")
@@ -839,7 +1230,7 @@ class BaseDocOutput
 	function outputModule(doctable: table, parentFQN: string)
 	{
 		assert(doctable.kind is "module")
-		:outputChildren(doctable, doctable.name)
+		:outputChildren(doctable, "")
 	}
 
 	function outputFunction(doctable: table, parentFQN: string)
@@ -851,13 +1242,13 @@ class BaseDocOutput
 	function outputClass(doctable: table, parentFQN: string)
 	{
 		assert(doctable.kind is "class")
-		:outputChildren(doctable, "")
+		:outputChildren(doctable, doctable.name)
 	}
 
 	function outputNamespace(doctable: table, parentFQN: string)
 	{
 		assert(doctable.kind is "namespace")
-		:outputChildren(doctable, "")
+		:outputChildren(doctable, doctable.name)
 	}
 
 	function outputField(doctable: table, parentFQN: string)
@@ -875,6 +1266,11 @@ class BaseDocOutput
 	function outputItem(doctable: table, parentFQN: string)
 	{
 		:beginItem(doctable, parentFQN)
+
+		if(doctable.kind is "module")
+			:_linkResolver.enterModule(doctable.name)
+		else if(doctable.kind is "class" || doctable.kind is "namespace")
+			:_linkResolver.enterItem(doctable.name)
 
 		if(doctable.dittos)
 		{
@@ -903,6 +1299,11 @@ class BaseDocOutput
 				throw ValueException("Malformed documentation")
 		}
 
+		if(doctable.kind is "module")
+			:_linkResolver.leaveModule()
+		else if(doctable.kind is "class" || doctable.kind is "namespace")
+			:_linkResolver.leaveItem()
+
 		:endItem()
 	}
 
@@ -916,14 +1317,13 @@ class TracWikiDocOutput : BaseDocOutput
 	_inTable = false
 	_itemDepth = 0
 
-	function resolveLink(link: string) = link
-
 	function beginBold() :outputText("'''")
 	function endBold()  :outputText("'''")
 	function beginEmphasis() :outputText("''")
 	function endEmphasis() :outputText("''")
-	function beginLink(link: string) :beginMonospace()
-	function endLink() :endMonospace()
+
+	function beginLink(link: string) :outputText("[",  link, " ")
+	function endLink() :outputText("]")
 	function beginMonospace() :outputText("` "`" `")
 	function endMonospace() :outputText("` "`" `")
 	function beginSubscript() :outputText(",,")

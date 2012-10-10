@@ -1,0 +1,109 @@
+module stdlibdocs
+
+import docs:
+	LinkResolver,
+	LinkTranslator,
+	docsOf,
+	TracWikiDocOutput
+
+function main()
+{
+	local t = CrocWikiLinkTranslator()
+	local r = LinkResolver(t)
+	local o = TracWikiDocOutput(r)
+
+	o.outputItem(docsOf(docs), "")
+
+	t.printErrors()
+}
+
+local StdlibLookup =
+{
+	array         = "StdLib/ArrayLib"
+	ascii         = "StdLib/AsciiLib"
+	compiler      = "StdLib/CompilerLib"
+	console       = "StdLib/ConsoleLib"
+	debug         = "StdLib/DebugLib"
+	docs          = "StdLib/DocsLib"
+	env           = "StdLib/EnvLib"
+	exceptions    = "StdLib/ExceptionsLib"
+	file          = "StdLib/FileLib"
+	gc            = "StdLib/GCLib"
+	hash          = "StdLib/HashLib"
+	json          = "StdLib/JsonLib"
+	math          = "StdLib/MathLib"
+	memblock      = "StdLib/MemblockLib"
+	modules       = "StdLib/ModulesLib"
+	os            = "StdLib/OSLib"
+	path          = "StdLib/PathLib"
+	regexp        = "StdLib/RegexpLib"
+	serialization = "StdLib/SerializationLib"
+	stream        = "StdLib/StreamLib"
+	string        = "StdLib/StringLib"
+	text          = "StdLib/TextLib"
+	thread        = "StdLib/ThreadLib"
+	time          = "StdLib/TimeLib"
+
+	devil         = "Addons/DevilLib"
+	gl            = "Addons/GlLib"
+	net           = "Addons/NetLib"
+	pcre          = "Addons/PCRE"
+	sdl           = "Addons/SdlLib"
+}
+
+class CrocWikiLinkTranslator : LinkTranslator
+{
+	_errors
+
+	this()
+		:_errors = []
+
+	function translateLink(mod: string, item: string)
+	{
+		if(mod is "")
+		{
+			if(item is "")
+				return "StdLib/BaseLib"
+			else switch(item)
+			{
+				case "Object":    return "StdLib/Object"
+				case "Throwable": return "StdLib/Throwable"
+				default:          return "StdLib/BaseLib#" ~ item
+			}
+		}
+		else
+		{
+			local ret = StdlibLookup[mod]
+
+			if(ret is null)
+				throw ValueException("Unknown stdlib module '{}'".format(mod))
+
+			if(item is "")
+				return ret
+			else
+				return ret ~ "#" ~ item
+		}
+	}
+
+	function translateURI(uri: string) =
+		uri
+
+	function invalidLink(link: string)
+	{
+		:_errors.append(link)
+
+		return ""
+	}
+
+	function printErrors()
+	{
+		if(#:_errors == 0)
+			return
+
+		writeln()
+		writeln("!!!!!!! Link resolution failures !!!!!!!")
+
+		foreach(err; :_errors)
+			writeln("   ", err)
+	}
+}
