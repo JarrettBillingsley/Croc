@@ -68,7 +68,7 @@ void registerGlobals(CrocThread* t, RegisterFunc[] funcs...)
 	foreach(ref func; funcs)
 	{
 		if(func.numUpvals > 0)
-			throwStdException(t, "Exception", "registerGlobals - can't register function '{}' as it has upvalues. Use register instead", func.name);
+			throwStdException(t, "Exception", "registerGlobals - can't register function '{}' as it has upvalues. Use registerGlobal instead", func.name);
 
 		registerGlobal(t, func);
 	}

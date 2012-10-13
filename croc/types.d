@@ -262,8 +262,12 @@ package:
 
 	bool isFalse()
 	{
-		return (type == Type.Null) || (type == Type.Bool && mBool == false) ||
-			(type == Type.Int && mInt == 0) || (type == Type.Float && mFloat == 0.0) || (type == Type.Char && mChar == 0);
+		return
+			(type == Type.Null) ||
+			(type == Type.Bool && mBool == false) ||
+			(type == Type.Int && mInt == 0) ||
+			(type == Type.Float && mFloat == 0.0) ||
+			(type == Type.Char && mChar == 0);
 	}
 
 	void opAssign(bool src)
@@ -367,7 +371,7 @@ package:
 		type = src.mType;
 		mBaseObj = src;
 	}
-	
+
 	bool isValType()
 	{
 		return type < Type.FirstRefType;
@@ -515,7 +519,7 @@ package:
 	{
 		CrocFuncDef* scriptFunc;
 		NativeFunc nativeFunc;
-		
+
 		static assert((CrocFuncDef*).sizeof == NativeFunc.sizeof);
 	}
 
@@ -682,7 +686,7 @@ struct CrocWeakRef
 {
 	mixin CrocObjectMixin!(CrocValue.Type.WeakRef);
 package:
-	CrocBaseObject* obj;	
+	CrocBaseObject* obj;
 	static const bool ACYCLIC = true;
 }
 
