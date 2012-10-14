@@ -114,7 +114,7 @@ package:
 	{
 		if(size <= mNodes.length)
 			return;
-		else if(size > 4)
+		else
 			resizeArray(alloc, largerPow2(size));
 	}
 

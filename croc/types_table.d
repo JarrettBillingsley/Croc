@@ -47,6 +47,30 @@ package:
 		return t;
 	}
 
+	// Duplicate an existing table efficiently.
+	CrocTable* dup(ref Allocator alloc, CrocTable* src)
+	{
+		auto t = alloc.allocate!(CrocTable);
+		t.data.prealloc(alloc, src.data.capacity());
+
+		assert(t.data.capacity() == src.data.capacity());
+		src.data.dupInto(t.data);
+
+		// At this point we've basically done the equivalent of inserting every key-value pair from src into t,
+		// so we have to do run through the new table and do the "insert" write barrier stuff.
+
+		foreach(ref node; &t.data.allNodes)
+		{
+			if(node.key.isGCObject() || node.value.isGCObject())
+			{
+				mixin(containerWriteBarrier!("alloc", "t"));
+				node.modified |= (node.key.isGCObject() ? KeyModified : 0) | (node.value.isGCObject() ? ValModified : 0);
+			}
+		}
+
+		return t;
+	}
+
 	// Free a table object.
 	void free(ref Allocator alloc, CrocTable* t)
 	{
@@ -59,7 +83,7 @@ package:
 	{
 		return t.data.lookup(key);
 	}
-	
+
 	void idxa(ref Allocator alloc, CrocTable* t, ref CrocValue key, ref CrocValue val)
 	{
 		auto node = t.data.lookupNode(key);

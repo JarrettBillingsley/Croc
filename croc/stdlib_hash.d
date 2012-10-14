@@ -74,17 +74,7 @@ static:
 	uword _dup(CrocThread* t)
 	{
 		checkParam(t, 1, CrocValue.Type.Table);
-		auto tab = getTable(t, 1);
-
-		newTable(t, table.length(tab));
-
-		foreach(ref k, ref v; tab.data)
-		{
-			push(t, k);
-			push(t, v);
-			idxa(t, -3);
-		}
-
+		push(t, CrocValue(table.dup(t.vm.alloc, getTable(t, 1))));
 		return 1;
 	}
 
