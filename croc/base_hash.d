@@ -66,7 +66,7 @@ private:
 	{
 		K key;
 		V value;
-		Node* next;
+		uword next; // index into mNodes, or mNodes.length for "null"
 
 		static if(UseHash)
 			uint hash;
@@ -83,6 +83,33 @@ private:
 	uword mSize;
 
 package:
+	uword capacity()
+	{
+		return mNodes.length;
+	}
+
+	uword dataSize()
+	{
+		return mNodes.length * Node.sizeof;
+	}
+
+	void dupInto(ref Hash!(K, V, modifiedBit) other)
+	{
+		other.mNodes[] = mNodes[];
+		other.mHashMask = mHashMask;
+		other.mColBucket = other.mNodes.ptr + (mColBucket - mNodes.ptr);
+		other.mSize = mSize;
+	}
+
+	void dupInto(ref Hash!(K, V, modifiedBit) other, Node[] otherNodes)
+	{
+		otherNodes[] = mNodes[];
+		other.mNodes = otherNodes;
+		other.mHashMask = mHashMask;
+		other.mColBucket = otherNodes.ptr + (mColBucket - mNodes.ptr);
+		other.mSize = mSize;
+	}
+
 	void prealloc(ref Allocator alloc, uword size)
 	{
 		if(size <= mNodes.length)
@@ -103,48 +130,50 @@ package:
 		if(auto node = lookupNode(key, hash))
 			return node;
 
+		auto nodes = mNodes;
 		auto colBucket = getColBucket();
 
 		if(colBucket is null)
 		{
 			rehash(alloc);
+			nodes = mNodes;
 			colBucket = getColBucket();
 			assert(colBucket !is null);
 		}
 
-		auto mainPosNode = &mNodes[hash & mHashMask];
+		auto mainPosNodeIdx = hash & mHashMask;
+		auto mainPosNode = &nodes[mainPosNodeIdx];
 
 		if(mainPosNode.used)
 		{
-			auto otherNode = &mNodes[mixin(HashMethod!("mainPosNode.key")) & mHashMask];
+			auto otherNode = &nodes[mixin(HashMethod!("mainPosNode.key")) & mHashMask];
 
 			if(otherNode is mainPosNode)
 			{
 				// other node is the head of its list, defer to it.
 				colBucket.next = mainPosNode.next;
-				mainPosNode.next = colBucket;
+				mainPosNode.next = colBucket - mNodes.ptr;
 				mainPosNode = colBucket;
 			}
 			else
 			{
 				// other node is in the middle of a list, push it out.
-				while(otherNode.next !is mainPosNode)
-					otherNode = otherNode.next;
+				while(otherNode.next !is mainPosNodeIdx)
+					otherNode = &nodes[otherNode.next];
 
-				otherNode.next = colBucket;
+				otherNode.next = colBucket - mNodes.ptr;
 				*colBucket = *mainPosNode;
-				mainPosNode.next = null;
+				mainPosNode.next = nodes.length;
 			}
 		}
 		else
-			mainPosNode.next = null;
+			mainPosNode.next = nodes.length;
 
 		static if(UseHash)
 			mainPosNode.hash = hash;
 
 		mainPosNode.key = key;
 		mainPosNode.used = true;
-// 		mainPosNode.value = V.init;
 
 		static if(modifiedBit)
 			mainPosNode.modified = 0;
@@ -156,7 +185,8 @@ package:
 	bool remove(K key)
 	{
 		uint hash = mixin(HashMethod!("key"));
-		auto n = &mNodes[hash & mHashMask];
+		auto nodes = mNodes;
+		auto n = &nodes[hash & mHashMask];
 
 		if(!n.used)
 			return false;
@@ -164,13 +194,13 @@ package:
 		if(mixin(UseHash ? "n.hash == hash && n.key == key" : "n.key == key"))
 		{
 			// Removing head of list.
-			if(n.next is null)
+			if(n.next is nodes.length)
 				// Only item in the list.
 				markUnused(n);
 			else
 			{
 				// Other items. Have to move the next item into where the head used to be.
-				auto next = n.next;
+				auto next = &nodes[n.next];
 				*n = *next;
 				markUnused(next);
 			}
@@ -179,15 +209,19 @@ package:
 		}
 		else
 		{
-			for(; n.next !is null && n.next.used; n = n.next)
+			while(n.next !is nodes.length && nodes[n.next].used)
 			{
-				if(mixin(UseHash ? "n.next.hash == hash && n.next.key == key" : "n.next.key == key"))
+				auto next = &nodes[n.next];
+
+				if(mixin(UseHash ? "next.hash == hash && next.key == key" : "next.key == key"))
 				{
 					// Removing from the middle or end of the list.
-					markUnused(n.next);
-					n.next = n.next.next;
+					markUnused(next);
+					n.next = next.next;
 					return true;
 				}
+
+				n = next;
 			}
 
 			// Nonexistent key.
@@ -221,21 +255,30 @@ package:
 		if(mNodes.length == 0)
 			return null;
 
-		for(auto n = &mNodes[hash & mHashMask]; n !is null && n.used; n = n.next)
+		auto nodes = mNodes;
+
+		for(auto n = &nodes[hash & mHashMask]; n.used; n = &nodes[n.next])
+		{
 			if(mixin(UseHash ? "n.hash == hash && n.key == key" : "n.key == key"))
 				return n;
+
+			if(n.next is nodes.length)
+				break;
+		}
 
 		return null;
 	}
 
 	bool next(ref uword idx, ref K* key, ref V* val)
 	{
-		for(; idx < mNodes.length; idx++)
+		auto nodes = mNodes;
+
+		for(; idx < nodes.length; idx++)
 		{
-			if(mNodes[idx].used)
+			if(nodes[idx].used)
 			{
-				key = &mNodes[idx].key;
-				val = &mNodes[idx].value;
+				key = &nodes[idx].key;
+				val = &nodes[idx].value;
 				idx++;
 				return true;
 			}
@@ -378,11 +421,11 @@ private:
 			{
 				auto newNode = insertNode(alloc, node.key);
 				newNode.value = node.value;
-				
+
 				static if(modifiedBit)
 					newNode.modified = node.modified;
 			}
-		}		
+		}
 
 		alloc.freeArray(oldNodes);
 	}
