@@ -501,7 +501,7 @@ version(CrocBuiltinDocs)
 	docs:
 	`This is the base class of the entire exception hierarchy. This class is "blessed" in that it is treated specially by
 	the language runtime. Whenever you throw an exception, it must be an instance of a class derived from Throwable. This class
-	is actually a global variable like Object, but is documented here for convenience.`};
+	is actually a global variable, but is documented here for convenience.`};
 
 	const Docs[] Throwable_fields =
 	[

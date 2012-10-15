@@ -437,8 +437,7 @@ class ClassDef : AstNode
 	Identifier name;
 
 	/**
-	The base class from which this class derives. Optional. If it is null, it means the class
-	derives from Object.
+	The base class from which this class derives. Optional.
 	*/
 	Expression baseClass;
 

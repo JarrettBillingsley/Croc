@@ -66,7 +66,6 @@ class CrocWikiLinkTranslator : LinkTranslator
 				return "StdLib/BaseLib"
 			else switch(item)
 			{
-				case "Object":    return "StdLib/Object"
 				case "Throwable": return "StdLib/Throwable"
 				default:          return "StdLib/BaseLib#" ~ item
 			}

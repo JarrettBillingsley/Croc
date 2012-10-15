@@ -340,7 +340,7 @@ THREE SHORTS:
 	idx:    rd = rs[rt]
 	idxa:   rd[rs] = rt
 	in:     rd = rs in rt
-	class:  rd = class rs : rt {} // if rt is a CONST null, inherit from Object; otherwise error
+	class:  rd = class rs : rt {}
 	as:     rd = rs as rt
 	field:  rd = rs.(rt)
 	fielda: rd.(rs) = rt

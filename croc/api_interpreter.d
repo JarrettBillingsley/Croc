@@ -285,11 +285,6 @@ word pushThrowableClass(CrocThread* t)
 	return push(t, CrocValue(t.vm.throwable));
 }
 
-word pushObjectClass(CrocThread* t)
-{
-	return push(t, CrocValue(t.vm.object));
-}
-
 word pushLocationClass(CrocThread* t)
 {
 	return push(t, CrocValue(t.vm.location));
@@ -843,9 +838,8 @@ Creates a new class and pushes it onto the stack.
 After creating the class, you can then fill it with members by using fielda.
 
 Params:
-	base = The stack index of the _base class. The _base can be `null`, in which case Object (defined
-		in the _base library and which lives in the global namespace) will be used. Otherwise it must
-		be a class.
+	base = The stack index of the _base class. The _base can be `null`, in which case the new class will have no base
+		class. Otherwise it must be a class.
 
 	name = The _name of the class. Remember that you still have to store the class object somewhere,
 		though, like in a global.
@@ -860,7 +854,7 @@ word newClass(CrocThread* t, word base, char[] name)
 	CrocClass* b = void;
 
 	if(isNull(t, base))
-		b = t.vm.object;
+		b = null;
 	else if(auto c = getClass(t, base))
 		b = c;
 	else
@@ -874,14 +868,13 @@ word newClass(CrocThread* t, word base, char[] name)
 }
 
 /**
-Same as above, except it uses the global Object as the base. The new class is left on the
-top of the stack.
+Same as above, except it uses null as the base. The new class is left on the top of the stack.
 */
 word newClass(CrocThread* t, char[] name)
 {
 	mixin(FuncNameMix);
 	maybeGC(t);
-	return push(t, CrocValue(classobj.create(t.vm.alloc, createString(t, name), t.vm.object)));
+	return push(t, CrocValue(classobj.create(t.vm.alloc, createString(t, name), null)));
 }
 
 /**

@@ -79,7 +79,7 @@ public:
 
 		foreach(ref s; b.statements)
 			s = visitS(s);
-			
+
 		if(c.docDecorators)
 		{
 			// create a "local __doctable = { ... }" as the first statement
@@ -211,9 +211,7 @@ public:
 
 		pushDocTable(d.location, d.docsLoc, "class", d.name.name, d.docs);
 
-		auto base = d.baseClass is null ? null : d.baseClass.as!(IdentExp);
-
-		if(base && base.name.name != "Object")
+		if(d.baseClass)
 		{
 			pushString(t, d.baseClass.sourceStr);
 			fielda(t, mDocTable, "base");
@@ -310,7 +308,7 @@ private:
 	void addComments(ref CompileLoc docsLoc, char[] docs)
 	{
 		auto size = stackSize(t);
-		
+
 		try
 			processComment(t, docs);
 		catch(CrocException e)

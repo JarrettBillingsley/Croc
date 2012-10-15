@@ -771,7 +771,6 @@ package:
 	Hash!(ulong, CrocBaseObject*) refTab;
 
 	// These point to "special" runtime classes
-	CrocClass* object;
 	CrocClass* throwable;
 	CrocClass* location;
 	Hash!(CrocString*, CrocClass*) stdExceptions;

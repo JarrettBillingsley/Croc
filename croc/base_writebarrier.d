@@ -114,7 +114,6 @@ void visitRoots(CrocVM* vm, void delegate(GCObject*) callback)
 	foreach(ref val; vm.refTab)
 		callback(cast(GCObject*)val);
 
-	callback(cast(GCObject*)vm.object);
 	callback(cast(GCObject*)vm.throwable);
 	callback(cast(GCObject*)vm.location);
 

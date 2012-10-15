@@ -58,7 +58,6 @@ import croc.stdlib_hash;
 import croc.stdlib_math;
 import croc.stdlib_memblock;
 import croc.stdlib_modules;
-import croc.stdlib_object;
 // import croc.stdlib_os;
 import croc.stdlib_path;
 // import croc.stdlib_regexp;
@@ -152,7 +151,6 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	}
 
 	// Finish up the safe libs.
-	initObjectClass(t);
 	// StreamLib.init(t);
 	initArrayLib(t);
 	initAsciiLib(t);
