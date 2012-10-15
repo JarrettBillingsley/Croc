@@ -4,6 +4,7 @@ module samples.simple
 
 function main()
 {
+
 // 	registerCodec("ascii", AsciiCodec())
 
 // 	local s = "hello there!"

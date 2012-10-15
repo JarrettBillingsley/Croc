@@ -200,12 +200,8 @@ const RegisterFunc[] _reflFuncs =
 	{"isSet",       &_isSet,       maxParams: 1},
 	{"typeof",      &_typeof,      maxParams: 1},
 	{"nameOf",      &_nameOf,      maxParams: 1},
-	// {"allFieldsOf", &_allFieldsOf, maxParams: 1},
 	{"hasField",    &_hasField,    maxParams: 2},
 	{"hasMethod",   &_hasMethod,   maxParams: 2},
-	// {"findField",   &_findField,   maxParams: 2},
-	{"rawSetField", &_rawSetField, maxParams: 3},
-	{"rawGetField", &_rawGetField, maxParams: 2},
 
 	{"isNull",      &_isNull,      maxParams: 1},
 	{"isBool",      &_isBool,      maxParams: 1},
@@ -224,8 +220,6 @@ const RegisterFunc[] _reflFuncs =
 	{"isNativeObj", &_isNativeObj, maxParams: 1},
 	{"isWeakRef",   &_isWeakRef,   maxParams: 1},
 	{"isFuncDef",   &_isFuncDef,   maxParams: 1},
-
-	{"Finalizable", &_Finalizable, maxParams: 1}
 ];
 
 uword _findGlobal(CrocThread* t)
@@ -273,121 +267,6 @@ uword _nameOf(CrocThread* t)
 	return 1;
 }
 
-/*
-uword _allFieldsOf(CrocThread* t)
-{
-	// Upvalue 0 is the current object
-	// Upvalue 1 is the current index into the namespace
-	// Upvalue 2 is the duplicates table
-	static uword iter(CrocThread* t)
-	{
-		CrocInstance* i;
-		CrocClass* c;
-		CrocNamespace* n;
-		CrocString** key = void;
-		CrocValue* value = void;
-		uword index = 0;
-
-		while(true)
-		{
-			// Get the next field
-			getUpval(t, 0);
-
-			getUpval(t, 1);
-			index = cast(uword)getInt(t, -1);
-			pop(t);
-
-			bool haveField = void;
-
-			if(isInstance(t, -1))
-			{
-				i = getInstance(t, -1);
-				c = null;
-				n = null;
-				haveField = instance.next(i, index, key, value);
-			}
-			else if(isClass(t, -1))
-			{
-				c = getClass(t, -1);
-				i = null;
-				n = null;
-				haveField = classobj.next(c, index, key, value);
-			}
-			else
-			{
-				n = getNamespace(t, -1);
-				i = null;
-				c = null;
-				haveField = namespace.next(n, index, key, value);
-			}
-
-			if(!haveField)
-			{
-				superOf(t, -1);
-
-				if(isNull(t, -1))
-					return 0;
-
-				setUpval(t, 0);
-				pushInt(t, 0);
-				setUpval(t, 1);
-				pop(t);
-
-				// try again
-				continue;
-			}
-
-			// See if we've already seen this field
-			getUpval(t, 2);
-			push(t, CrocValue(*key));
-
-			if(opin(t, -1, -2))
-			{
-				pushInt(t, index);
-				setUpval(t, 1);
-				pop(t, 3);
-
-				// We have, try again
-				continue;
-			}
-
-			// Mark the field as seen
-			pushBool(t, true);
-			idxa(t, -3);
-			pop(t, 3);
-
-			break;
-		}
-
-		pushInt(t, index);
-		setUpval(t, 1);
-
-		push(t, CrocValue(*key));
-		push(t, *value);
-
-		if(c)
-			push(t, CrocValue(c));
-		else if(i)
-			push(t, CrocValue(i));
-		else
-			push(t, CrocValue(n));
-
-		return 3;
-	}
-
-	checkAnyParam(t, 1);
-
-	if(!isClass(t, 1) && !isInstance(t, 1) && !isNamespace(t, 1))
-		paramTypeError(t, 1, "class|instance|namespace");
-
-	dup(t, 1);
-	pushInt(t, 0);
-	newTable(t);
-	newFunction(t, &iter, "allFieldsOfIter", 3);
-	return 1;
-}
-*/
-
 uword _hasField(CrocThread* t)
 {
 	checkAnyParam(t, 1);
@@ -401,59 +280,6 @@ uword _hasMethod(CrocThread* t)
 	checkAnyParam(t, 1);
 	auto n = checkStringParam(t, 2);
 	pushBool(t, hasMethod(t, 1, n));
-	return 1;
-}
-
-/* uword _findField(CrocThread* t)
-{
-	checkAnyParam(t, 1);
-
-	if(!isInstance(t, 1) && !isClass(t, 1) && !isNamespace(t, 1))
-		paramTypeError(t, 1, "class|instance|namespace");
-
-	checkStringParam(t, 2);
-
-	while(!isNull(t, 1))
-	{
-		word fields;
-
-		if(!isNamespace(t, 1))
-			fields = fieldsOf(t, 1);
-		else
-			fields = dup(t, 1);
-
-		if(opin(t, 2, fields))
-		{
-			dup(t, 1);
-			return 1;
-		}
-
-		superOf(t, 1);
-		swap(t, 1);
-		pop(t, 2);
-	}
-
-	pushNull(t);
-	return 1;
-} */
-
-uword _rawSetField(CrocThread* t)
-{
-	checkInstParam(t, 1);
-	checkStringParam(t, 2);
-	checkAnyParam(t, 3);
-	dup(t, 2);
-	dup(t, 3);
-	fielda(t, 1, true);
-	return 0;
-}
-
-uword _rawGetField(CrocThread* t)
-{
-	checkInstParam(t, 1);
-	checkStringParam(t, 2);
-	dup(t, 2);
-	field(t, 1, true);
 	return 1;
 }
 
@@ -481,26 +307,6 @@ alias _isParam!(CrocValue.Type.Thread)    _isThread;
 alias _isParam!(CrocValue.Type.NativeObj) _isNativeObj;
 alias _isParam!(CrocValue.Type.WeakRef)   _isWeakRef;
 alias _isParam!(CrocValue.Type.FuncDef)   _isFuncDef;
-
-uword _Finalizable(CrocThread* t)
-{
-	checkParam(t, 1, CrocValue.Type.Class);
-
-	if(!hasField(t, 1, "finalizer"))
-		throwStdException(t, "ValueException", "Class {} does not have a 'finalizer' field", className(t, 1));
-
-	field(t, 1, "finalizer");
-
-	if(!isFunction(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", "{}.finalizer is a '{}', not a function", className(t, 1), getString(t, -1));
-	}
-
-	setFinalizer(t, 1);
-	dup(t, 1);
-	return 1;
-}
 
 // ===================================================================================================================================
 // Conversions
@@ -900,41 +706,6 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	`Returns the name of the given value as a string. This is the name that the class, function, namespace, or funcdef was
 	declared with, or an autogenerated one if it wasn't declared with a name (such as anonymous function literals).`},
 
-/* 	{kind: "function", name: "allFieldsOf",
-	params: [Param("value", "class|instance|namespace")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
-	docs:
-	`Returns an iterator function that will iterate through all fields accessible from the given class, instance,
-	or namespace, traversing the base class/parent namespace links up to the root. This iterator actually gives up
-	to three indices: the first is the name of the field, the second its value, and the third the class, instance,
-	or namespace that owns it. Example use:
-
-\code
-class A
-{
-	x = 5
-	function foo() {}
-}
-
-class B : A
-{
-	x = 10
-}
-
-// prints "x: 5" and "foo: script function foo"
-foreach(k, v; allFieldsOf(A))
-	writefln("{}: {}", k, v)
-
-writeln()
-
-// this time prints 10 for x, and the owner is B; foo's owner is A
-foreach(k, v, o; allFieldsOf(B))
-	writefln("{}: {} (owned by {})", k, v, o)
-\endcode
-
-	Note in the second example that both B and its base class A have a field 'x', but only the 'x' accessible from
-	B with value 10 is printed.`},
- */
 	{kind: "function", name: "hasField",
 	params: [Param("value"), Param("name", "string")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
@@ -948,26 +719,6 @@ foreach(k, v, o; allFieldsOf(B))
 	docs:
 	`Sees if the method named \tt{name} can be called on \tt{value}. Looks in metatables as well, for i.e. strings
 	and arrays. Works for all types. Does not take opMethod metamethods into account.`},
-
-/* 	{kind: "function", name: "findField",
-	params: [Param("value", "class|instance|namespace"), Param("name", "string")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
-	docs:
-	`Searches the given class, instance, or namespace's inheritance/parent chain for the class/instance/namespace
-	that holds the field with the given name. Returns the class/instance/namespace that holds the field, or
-	\tt{null} if the given field name was not found. Does not take opField metamethods into account.`},
- */
-	{kind: "function", name: "rawSetField",
-	params: [Param("o", "instance"), Param("name", "string"), Param("value")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
-	docs:
-	`Sets a field into an instance bypassing any \b{\tt{opFieldAssign}} metamethods.`},
-
-	{kind: "function", name: "rawGetField",
-	params: [Param("o", "instance"), Param("name", "string")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
-	docs:
-	`Gets a field from an instance bypassing any \b{\tt{opField}} metamethods.`},
 
 	{kind: "function", name: "isNull",
 	params: [Param("o")],
@@ -992,14 +743,6 @@ foreach(k, v, o; allFieldsOf(B))
 	{kind: "function", name: "isNativeObj", docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 	{kind: "function", name: "isWeakRef",   docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 	{kind: "function", name: "isFuncDef",   docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
-
-	{kind: "function", name: "Finalizable",
-	params: [Param("cls", "class")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
-	docs:
-	`Used as a class decorator. You can use this decorator to make script classes have finalizers. The class should
-	have a method called "finalizer". This method will be set as the class finalizer, and will be called on instances
-	of this class when they are about to be collected.`},
 
 	{kind: "function", name: "toString",
 	params: [Param("value"), Param("style", "char", "'d'")],

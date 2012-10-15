@@ -2306,7 +2306,9 @@ bool asImpl(CrocThread* t, CrocValue* o, CrocValue* p)
 		throwStdException(t, "TypeException", "Attempting to use 'as' with a '{}' instead of a 'class' as the type", getString(t, -1));
 	}
 
-	return o.type == CrocValue.Type.Instance && instance.derivesFrom(o.mInstance, p.mClass);
+	return
+		o.type == CrocValue.Type.Instance && instance.derivesFrom(o.mInstance, p.mClass) ||
+		o.type == CrocValue.Type.Class && classobj.derivesFrom(o.mClass, p.mClass);
 }
 
 CrocValue superOfImpl(CrocThread* t, CrocValue* v)

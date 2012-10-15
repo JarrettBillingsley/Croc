@@ -2430,6 +2430,147 @@ private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
 	pop(t, 2);
 }
 
+/**
+
+*/
+void removeMember(CrocThread* t, word cls, char[] name)
+{
+	auto c = absIndex(t, cls);
+	pushString(t, name);
+	removeMember(t, c);
+}
+
+/**
+
+*/
+void removeMember(CrocThread* t, word cls)
+{
+	mixin(apiCheckNumParams!("1"));
+
+	if(!isClass(t, cls))
+	{
+		pushTypeString(t, cls);
+		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+	}
+
+	if(!isString(t, -1))
+	{
+		pushTypeString(t, -1);
+		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Member name must be a string, not a '{}'", getString(t, -1));
+	}
+
+	auto c = getClass(t, cls);
+
+	if(c.isFrozen)
+		throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to remove a member from class '{}' which is frozen", c.name.toString());
+
+	auto name = getStringObj(t, -1);
+	auto nameStr = name.toString();
+
+	if(nameStr.length >= 2 && nameStr[0] == '_' && nameStr[1] != '_')
+	{
+		push(t, CrocValue(c.name));
+		push(t, CrocValue(name));
+		cat(t, 2);
+		swap(t, -3);
+		pop(t);
+		name = getStringObj(t, -2);
+	}
+
+	if(!classobj.removeMember(t.vm.alloc, c, name))
+		throwStdException(t, "FieldException", __FUNCTION__ ~ " - No member named '{}' exists in class '{}'", name.toString(), c.name.toString());
+
+	pop(t);
+}
+
+/**
+
+*/
+void freezeClass(CrocThread* t, word cls)
+{
+	mixin(FuncNameMix);
+
+	if(auto c = getClass(t, cls))
+		classobj.freeze(c);
+	else
+	{
+		pushTypeString(t, cls);
+		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+	}
+}
+
+/**
+
+*/
+bool isClassFrozen(CrocThread* t, word cls)
+{
+	mixin(FuncNameMix);
+
+	if(auto c = getClass(t, cls))
+		return c.isFrozen;
+	else
+	{
+		pushTypeString(t, cls);
+		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+		assert(false);
+	}
+}
+
+/**
+
+*/
+word getMemberOwner(CrocThread* t, word cls, char[] name)
+{
+	auto c = absIndex(t, cls);
+	pushString(t, name);
+	return getMemberOwner(t, c);
+}
+
+/**
+
+*/
+word getMemberOwner(CrocThread* t, word cls)
+{
+	mixin(apiCheckNumParams!("1"));
+
+	if(!isClass(t, cls))
+	{
+		pushTypeString(t, cls);
+		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+	}
+
+	if(!isString(t, -1))
+	{
+		pushTypeString(t, -1);
+		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Member name must be a string, not a '{}'", getString(t, -1));
+	}
+
+	auto c = getClass(t, cls);
+	auto name = getStringObj(t, -1);
+	auto nameStr = name.toString();
+
+	if(nameStr.length >= 2 && nameStr[0] == '_' && nameStr[1] != '_')
+	{
+		push(t, CrocValue(c.name));
+		push(t, CrocValue(name));
+		cat(t, 2);
+		swap(t, -3);
+		pop(t);
+		name = getStringObj(t, -2);
+	}
+
+	if(auto slot = classobj.getField(c, name))
+		push(t, CrocValue(slot.value.proto));
+	else if(auto slot = classobj.getMethod(c, name))
+		push(t, CrocValue(slot.value.proto));
+	else
+		throwStdException(t, "FieldException", __FUNCTION__ ~ " - No member named '{}' exists in class '{}'", name.toString(), c.name.toString());
+
+	swap(t);
+	pop(t);
+	return stackSize(t) - 1;
+}
+
 // ================================================================================================================================================
 // Instance-related functions
 

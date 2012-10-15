@@ -58,6 +58,7 @@ import croc.stdlib_hash;
 import croc.stdlib_math;
 import croc.stdlib_memblock;
 import croc.stdlib_modules;
+import croc.stdlib_object;
 // import croc.stdlib_os;
 import croc.stdlib_path;
 // import croc.stdlib_regexp;
@@ -160,6 +161,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	// JSONLib.init(t); // depends on stream
 	MathLib.init(t);
 	initMemblockLib(t);
+	initObjectLib(t);
 	initPathLib(t);
 	// RegexpLib.init(t);
 	// SerializationLib.init(t); // depends on stream

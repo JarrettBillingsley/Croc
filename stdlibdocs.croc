@@ -34,6 +34,7 @@ local StdlibLookup =
 	math          = "StdLib/MathLib"
 	memblock      = "StdLib/MemblockLib"
 	modules       = "StdLib/ModulesLib"
+	object        = "StdLib/ObjectLib"
 	os            = "StdLib/OSLib"
 	path          = "StdLib/PathLib"
 	regexp        = "StdLib/RegexpLib"

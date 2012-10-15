@@ -192,7 +192,7 @@ package:
 	alias commonAddField!("fields") addField;
 	alias commonAddField!("methods") addMethod;
 
-	bool removeFieldOrMethod(ref Allocator alloc, CrocClass* c, CrocString* name)
+	bool removeMember(ref Allocator alloc, CrocClass* c, CrocString* name)
 	{
 		assert(!c.isFrozen);
 

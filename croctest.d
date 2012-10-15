@@ -41,6 +41,23 @@ void main()
 		t = openVM(&vm);
 		loadUnsafeLibs(t, CrocUnsafeLib.ReallyAll);
 
+		newFunction(t, function uword(CrocThread* t)
+		{
+			auto numParams = stackSize(t) - 1;
+
+			for(uword i = 1; i <= numParams; i++)
+			{
+				pushToString(t, i);
+				Stdout(getString(t, -1));
+				pop(t);
+			}
+
+			Stdout.newline;
+
+			return 0;
+		}, "writeln");
+		newGlobal(t, "writeln");
+
 		version(CrocPcreAddon) PcreLib.init(t);
 		version(CrocSdlAddon) SdlLib.init(t);
 		version(CrocGlAddon) GlLib.init(t);
