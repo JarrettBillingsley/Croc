@@ -310,8 +310,8 @@ void free(CrocVM* vm, GCObject* o)
 		case CrocValue.Type.NativeObj: nativeobj.free(vm, cast(CrocNativeObj*)o); return;
 		case CrocValue.Type.WeakRef:   weakref.free(vm, cast(CrocWeakRef*)o); return;
 		case CrocValue.Type.FuncDef:   funcdef.free(vm.alloc, cast(CrocFuncDef*)o); return;
+		case CrocValue.Type.Class:     classobj.free(vm.alloc, cast(CrocClass*)o); return;
 		case CrocValue.Type.Function:
-		case CrocValue.Type.Class:
 		case CrocValue.Type.Instance:
 		case CrocValue.Type.Upvalue:   vm.alloc.free(o); return;
 

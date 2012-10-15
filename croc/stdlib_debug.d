@@ -67,11 +67,6 @@ static:
 			newFunction(t, 1, &getMetatable,   "getMetatable");   newGlobal(t, "getMetatable");
 			newFunction(t, 2, &setMetatable,   "setMetatable");   newGlobal(t, "setMetatable");
 			newFunction(t, 0, &getRegistry,    "getRegistry");    newGlobal(t, "getRegistry");
-			newFunction(t, 1, &getExtraBytes,  "getExtraBytes");  newGlobal(t, "getExtraBytes");
-			newFunction(t, 2, &setExtraBytes,  "setExtraBytes");  newGlobal(t, "setExtraBytes");
-			newFunction(t, 1, &numExtraFields, "numExtraFields"); newGlobal(t, "numExtraFields");
-			newFunction(t, 2, &getExtraField,  "getExtraField");  newGlobal(t, "getExtraField");
-			newFunction(t, 3, &setExtraField,  "setExtraField");  newGlobal(t, "setExtraField");
 
 			return 0;
 		});
@@ -598,7 +593,7 @@ static:
 
 		if(func is null)
 			throwStdException(t, "ValueException", "invalid function");
-			
+
 		if(!func.isNative)
 			throwStdException(t, "ValueException", "can only set the environment of native functions");
 
@@ -732,74 +727,10 @@ static:
 
 		return 0;
 	}
-	
+
 	uword getRegistry(CrocThread* t)
 	{
 		.getRegistry(t);
 		return 1;
-	}
-
-	uword getExtraBytes(CrocThread* t)
-	{
-		checkInstParam(t, 1);
-		// TODO:
-		assert(false);
-// 		memblockFromDArray(t, cast(ubyte[]).getExtraBytes(t, 1));
-// 		return 1;
-	}
-
-	uword setExtraBytes(CrocThread* t)
-	{
-		checkInstParam(t, 1);
-		auto instData = cast(ubyte[]).getExtraBytes(t, 1);
-		checkParam(t, 2, CrocValue.Type.Memblock);
-		auto mb = getMemblock(t, 2);
-
-		if(mb.data.length != instData.length)
-			throwStdException(t, "ValueException", "Memblock size ({}) does not match number of extra bytes ({})", mb.data.length, instData.length);
-
-		instData[] = mb.data[];
-		return 0;
-	}
-
-	uword numExtraFields(CrocThread* t)
-	{
-		checkInstParam(t, 1);
-		pushInt(t, numExtraVals(t, 1));
-		return 1;
-	}
-
-	uword getExtraField(CrocThread* t)
-	{
-		checkInstParam(t, 1);
-		auto idx = checkIntParam(t, 2);
-		auto num = numExtraVals(t, 1);
-
-		if(idx < 0)
-			idx += num;
-
-		if(idx < 0 || idx >= num)
-			throwStdException(t, "BoundsException", "Invalid field index '{}'", idx);
-
-		getExtraVal(t, 1, cast(uword)idx);
-		return 1;
-	}
-
-	uword setExtraField(CrocThread* t)
-	{
-		checkInstParam(t, 1);
-		auto idx = checkIntParam(t, 2);
-		checkAnyParam(t, 3);
-		setStackSize(t, 4);
-		auto num = numExtraVals(t, 1);
-
-		if(idx < 0)
-			idx += num;
-
-		if(idx < 0 || idx >= num)
-			throwStdException(t, "BoundsException", "Invalid field index '{}'", idx);
-
-		setExtraVal(t, 1, cast(uword)idx);
-		return 0;
 	}
 }

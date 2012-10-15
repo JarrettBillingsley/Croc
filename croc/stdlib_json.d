@@ -49,7 +49,7 @@ static:
 			newFunction(t, 1, &fromJSON, "fromJSON");   newGlobal(t, "fromJSON");
 			newFunction(t, 2, &toJSON, "toJSON");       newGlobal(t, "toJSON");
 			newFunction(t, 3, &writeJSON, "writeJSON"); newGlobal(t, "writeJSON");
-			
+
 			return 0;
 		});
 
@@ -113,7 +113,7 @@ static:
 		pushString(t, safeCode(t, "exceptions.RuntimeException", cast(char[])buf.slice()));
 		return 1;
 	}
-	
+
 	uword writeJSON(CrocThread* t)
 	{
 		checkParam(t, 1, CrocValue.Type.Instance);

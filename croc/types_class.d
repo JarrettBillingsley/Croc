@@ -26,9 +26,9 @@ subject to the following restrictions:
 module croc.types_class;
 
 import croc.base_alloc;
+import croc.base_hash;
 import croc.base_writebarrier;
 import croc.types;
-import croc.types_namespace;
 import croc.types_string;
 
 struct classobj
@@ -48,67 +48,176 @@ package:
 
 		if(parent)
 		{
-			c.allocator = parent.allocator;
+			freeze(parent);
 			c.finalizer = parent.finalizer;
-			c.fields = namespace.create(alloc, name, parent.fields);
-		}
-		else
-			c.fields = namespace.create(alloc, name);
 
-		// Note that even if this class has a finalizer copied from its parent, we can still change it -- once
-		c.finalizerSet = false;
+			if(parent.fields.length)
+			{
+				mixin(containerWriteBarrier!("alloc", "c"));
+
+				c.fields.prealloc(alloc, parent.fields.capacity());
+				assert(c.fields.capacity() == parent.fields.capacity());
+				parent.fields.dupInto(c.fields);
+
+				foreach(ref node; &c.fields.allNodes)
+					node.modified |= KeyModified | (node.value.value.isGCObject() ? ValModified : 0);
+			}
+
+			if(parent.methods.length)
+			{
+				mixin(containerWriteBarrier!("alloc", "c"));
+
+				c.methods.prealloc(alloc, parent.methods.capacity());
+				assert(c.methods.capacity() == parent.methods.capacity());
+				parent.methods.dupInto(c.methods);
+
+				foreach(ref node; &c.methods.allNodes)
+					node.modified |= KeyModified | (node.value.value.isGCObject() ? ValModified : 0);
+			}
+		}
 
 		return c;
 	}
 
-	CrocValue* getField(CrocClass* c, CrocString* name)
+	void free(ref Allocator alloc, CrocClass* c)
 	{
-		CrocClass* dummy = void;
-		return getField(c, name, dummy);
+		c.fields.clear(alloc);
+		c.methods.clear(alloc);
+		alloc.free(c);
 	}
 
-	CrocValue* getField(CrocClass* c, CrocString* name, out CrocClass* owner)
+	void freeze(CrocClass* c)
 	{
-		for(auto obj = c; obj !is null; obj = obj.parent)
-		{
-			if(auto ret = namespace.get(obj.fields, name))
-			{
-				owner = obj;
-				return ret;
-			}
-		}
-
-		return null;
-	}
-
-	void setField(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value)
-	{
-		namespace.set(alloc, c.fields, name, value);
+		c.isFrozen = true;
 	}
 
 	void setFinalizer(ref Allocator alloc, CrocClass* c, CrocFunction* f)
 	{
+		assert(!c.isFrozen);
+
 		if(c.finalizer !is f)
+		{
 			mixin(writeBarrier!("alloc", "c"));
-
-		c.finalizer = f;
+			c.finalizer = f;
+		}
 	}
 
-	void setAllocator(ref Allocator alloc, CrocClass* c, CrocFunction* f)
+	bool derivesFrom(CrocClass* c, CrocClass* other)
 	{
-		if(c.allocator !is f)
-			mixin(writeBarrier!("alloc", "c"));
+		for(auto o = c.parent; o !is null; o = o.parent)
+			if(o is other)
+				return true;
 
-		c.allocator = f;
+		return false;
 	}
 
-	CrocNamespace* fieldsOf(CrocClass* c)
+	// =================================================================================================================
+	// Common stuff
+
+	typeof(CrocClass.fields).Node* commonGetField(char[] member)(CrocClass* c, CrocString* name)
 	{
-		return c.fields;
+		return mixin("c." ~ member).lookupNode(name);
 	}
 
-	bool next(CrocClass* c, ref uword idx, ref CrocString** key, ref CrocValue* val)
+	void commonSetField(ref Allocator alloc, CrocClass* c, typeof(CrocClass.fields).Node* slot, CrocValue* value)
 	{
-		return c.fields.data.next(idx, key, val);
+		if(slot.value.value != *value)
+		{
+			mixin(removeValueRef!("alloc", "slot"));
+			slot.value.value = *value;
+			slot.value.proto = c;
+
+			if(value.isGCObject())
+			{
+				mixin(containerWriteBarrier!("alloc", "c"));
+				slot.modified |= ValModified;
+			}
+			else
+				slot.modified &= ~ValModified;
+		}
+	}
+
+	bool commonAddField(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value, bool isPublic)
+	{
+		assert(!c.isFrozen);
+
+		if(auto val = c.fields.lookup(name))
+		{
+			if(val.proto is c)
+				return false;
+		}
+		else if(auto val = c.methods.lookup(name))
+		{
+			if(val.proto is c)
+				return false;
+		}
+
+		mixin(containerWriteBarrier!("alloc", "c"));
+		auto slot = mixin("c." ~ member).insertNode(alloc, name);
+		slot.value.value = *value;
+		slot.value.proto = c;
+		slot.value.isPublic = isPublic;
+		slot.modified |= KeyModified | (value.isGCObject() ? ValModified : 0);
+
+		return true;
+	}
+
+	bool commonRemoveField(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name)
+	{
+		if(auto slot = mixin("c." ~ member).lookupNode(name))
+		{
+			mixin(removeKeyRef!("alloc", "slot"));
+			mixin(removeValueRef!("alloc", "slot"));
+			(mixin("c." ~ member)).remove(name);
+			return true;
+		}
+		else
+			return false;
+	}
+
+	bool commonNextField(char[] member)(CrocClass* c, ref uword idx, ref CrocString** key, ref FieldValue* val)
+	{
+		return mixin("c." ~ member).next(idx, key, val);
+	}
+
+	// =================================================================================================================
+	// Blerf
+
+	alias commonGetField!("fields") getField;
+	alias commonGetField!("methods") getMethod;
+
+	alias commonSetField setField;
+	alias setField setMethod;
+
+	alias commonAddField!("fields") addField;
+	alias commonAddField!("methods") addMethod;
+
+	bool removeFieldOrMethod(ref Allocator alloc, CrocClass* c, CrocString* name)
+	{
+		assert(!c.isFrozen);
+
+		return
+			commonRemoveField!("fields")(alloc, c, name) ||
+			commonRemoveField!("methods")(alloc, c, name);
+	}
+
+	alias commonNextField!("fields") nextField;
+	alias commonNextField!("methods") nextMethod;
+
+	// =================================================================================================================
+	// Helpers
+
+	template removeKeyRef(char[] alloc, char[] slot)
+	{
+		const char[] removeKeyRef =
+		"if(!(" ~ slot  ~ ".modified & KeyModified)) "
+			~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", cast(GCObject*)" ~ slot  ~ ".key);";
+	}
+
+	template removeValueRef(char[] alloc, char[] slot)
+	{
+		const char[] removeValueRef =
+		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.value.isGCObject()) "
+			~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.value.toGCObject());";
 	}
 }

@@ -68,17 +68,17 @@ void initExceptionsLib(CrocThread* t)
 			pushGlobal(t, "Location");
 			pushNull(t);
 			rawCall(t, -2, 1);
-			fielda(t, -2, "location");
+			addField(t, -2, "location");
 
-			pushString(t, ""); fielda(t, -2, "msg");
-			pushNull(t);       fielda(t, -2, "cause");
-			newArray(t, 0);    fielda(t, -2, "traceback");
+			pushString(t, ""); addField(t, -2, "msg");
+			pushNull(t);       addField(t, -2, "cause");
+			newArray(t, 0);    addField(t, -2, "traceback");
 
-			newFunction(t, 2, &throwableConstructor,     "Throwable.constructor");     fielda(t, -2, "constructor");
-			newFunction(t, 0, &throwableToString,        "Throwable.toString");        fielda(t, -2, "toString");
-			newFunction(t, 1, &throwableSetLocation,     "Throwable.setLocation");     fielda(t, -2, "setLocation");
-			newFunction(t, 1, &throwableSetCause,        "Throwable.setCause");        fielda(t, -2, "setCause");
-			newFunction(t, 0, &throwableTracebackString, "Throwable.tracebackString"); fielda(t, -2, "tracebackString");
+			newFunction(t, 2, &throwableConstructor,     "Throwable.constructor");     addMethod(t, -2, "constructor");
+			newFunction(t, 0, &throwableToString,        "Throwable.toString");        addMethod(t, -2, "toString");
+			newFunction(t, 1, &throwableSetLocation,     "Throwable.setLocation");     addMethod(t, -2, "setLocation");
+			newFunction(t, 1, &throwableSetCause,        "Throwable.setCause");        addMethod(t, -2, "setCause");
+			newFunction(t, 0, &throwableTracebackString, "Throwable.tracebackString"); addMethod(t, -2, "tracebackString");
 		pop(t);
 
 		foreach(desc; ExDescs)

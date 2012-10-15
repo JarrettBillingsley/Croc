@@ -42,7 +42,7 @@ import croc.api_stack;
 import croc.ex;
 import croc.ex_format;
 import croc.ex_library;
-import croc.stdlib_stringbuffer;
+// import croc.stdlib_stringbuffer;
 import croc.types;
 import croc.utils;
 
@@ -60,7 +60,7 @@ void initStringLib(CrocThread* t)
 {
 	makeModule(t, "string", function uword(CrocThread* t)
 	{
-		initStringBuffer(t);
+		// initStringBuffer(t);
 
 		newNamespace(t, "string");
 			registerFields(t, _methodFuncs);
@@ -84,7 +84,7 @@ version(CrocBuiltinDocs) void docStringLib(CrocThread* t)
 	Remember that strings in Croc are immutable. Therefore these functions never operate on the object on which they were
 	called. They will always return new strings distinct from the original string.`));
 
-	docStringBuffer(t, doc);
+	// docStringBuffer(t, doc);
 
 	getTypeMT(t, CrocValue.Type.String);
 		docFields(t, doc, _methodFuncDocs);
@@ -213,7 +213,7 @@ uword _vjoin(CrocThread* t)
 	for(uword i = 1; i <= numParams; i++)
 		if(!isString(t, i) && !isChar(t, i))
 			paramTypeError(t, i, "char|string");
-			
+
 	if(numParams == 1)
 	{
 		pushToString(t, 1);
@@ -225,7 +225,7 @@ uword _vjoin(CrocThread* t)
 		cat(t, numParams);
 		return 1;
 	}
-	
+
 	for(uword i = 1; i < numParams; i++)
 	{
 		dup(t, 0);
@@ -301,7 +301,7 @@ uword _commonFind(bool reverse)(CrocThread* t)
 		pushInt(t, uniByteIdxToCP(src, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start))));
 	else
 		pushInt(t, uniByteIdxToCP(src, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start))));
-	
+
 	return 1;
 }
 
@@ -346,7 +346,7 @@ uword _reverse(CrocThread* t)
 	{
 		auto tmp = t.vm.alloc.allocArray!(char)(src.length);
 		scope(exit) t.vm.alloc.freeArray(tmp);
-		
+
 		tmp[] = src[];
 		tmp.reverse;
 		pushString(t, tmp);
@@ -366,7 +366,7 @@ uword _split(CrocThread* t)
 	{
 		pushString(t, piece);
 		num++;
-		
+
 		if(num >= 50)
 		{
 			cateq(t, ret, num);
@@ -455,7 +455,7 @@ uword _splitLines(CrocThread* t)
 	{
 		pushString(t, line);
 		num++;
-		
+
 		if(num >= 50)
 		{
 			cateq(t, ret, num);
@@ -560,7 +560,7 @@ uword _iteratorReverse(CrocThread* t)
 	uint ate = void;
 	auto c = Utf_decode(s.toString()[tmp.length .. $], ate);
 
-	pushInt(t, tmp.length);		
+	pushInt(t, tmp.length);
 	setUpval(t, 0);
 
 	pushInt(t, fakeIdx);
@@ -708,7 +708,7 @@ version(CrocBuiltinDocs)
 		{kind: "function", name: "s.split",
 		params: [Param("delim", "string")],
 		docs:
-		`The inverse of the \link{join} method. Splits \tt{s} into pieces and returns an array of the split pieces. 
+		`The inverse of the \link{join} method. Splits \tt{s} into pieces and returns an array of the split pieces.
 
 		\param[delim] specifies a delimiting string where \tt{s} will be split. Thus \tt{"one--two--three".split("--")} will return
 		\tt{["one", "two", "three"]}.`},

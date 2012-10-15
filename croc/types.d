@@ -534,17 +534,24 @@ package:
 	}
 }
 
+struct FieldValue
+{
+	CrocValue value;
+	CrocClass* proto;
+	bool isPublic;
+}
+
 struct CrocClass
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Class);
 package:
 	CrocString* name;
 	CrocClass* parent;
-	CrocNamespace* fields;
-	CrocFunction* allocator;
+	bool isFrozen;
+	bool visitedOnce;
+	Hash!(CrocString*, FieldValue, true) methods;
+	Hash!(CrocString*, FieldValue, true) fields;
 	CrocFunction* finalizer;
-	bool allocatorSet;
-	bool finalizerSet;
 }
 
 struct CrocInstance
@@ -552,19 +559,8 @@ struct CrocInstance
 	mixin CrocObjectMixin!(CrocValue.Type.Instance);
 package:
 	CrocClass* parent;
-	CrocNamespace* fields;
-	uword numValues;
-	uword extraBytes;
-
-	CrocValue[] extraValues()
-	{
-		return (cast(CrocValue*)(this + 1))[0 .. numValues];
-	}
-
-	void[] extraData()
-	{
-		return ((cast(void*)(this + 1)) + (numValues * CrocValue.sizeof))[0 .. extraBytes];
-	}
+	bool visitedOnce;
+	Hash!(CrocString*, FieldValue, true) fields;
 }
 
 struct CrocNamespace

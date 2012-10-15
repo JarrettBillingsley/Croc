@@ -485,7 +485,7 @@ void runString(CrocThread* t, char[] code, bool customEnv = false, char[] name =
 
 /**
 Similar to the _eval function in the Croc base library, this compiles an expression, evaluates it,
-and leaves the result(s) on the stack. 
+and leaves the result(s) on the stack.
 
 Params:
 	code = The source _code of the expression.
@@ -494,7 +494,7 @@ Params:
 	customEnv = If true, expects the value on top of the stack to be a namespace which will be
 		used as the environment of the expression. The namespace will be replaced. Defaults
 		to false, in which case the current function's environment will be used.
-		
+
 Returns:
 	If numReturns >= 0, returns numReturns. If numReturns == -1, returns how many values the expression
 	returned.
@@ -554,7 +554,7 @@ runFile(t, "foo/bar/baz.croc");
 void runFile(CrocThread* t, char[] filename, uword numParams = 0)
 {
 	mixin(apiCheckNumParams!("numParams"));
-	
+
 	char[] modName;
 
 	if(filename.endsWith(".croc"))
@@ -665,7 +665,7 @@ T safeCode(T)(CrocThread* t, char[] exName, lazy T code)
 
 /**
 This function abstracts away some of the boilerplate code that is usually associated with try-catch blocks
-that handle Croc exceptions in D code. 
+that handle Croc exceptions in D code.
 
 This function will store the stack size of the given thread when it is called, before the try code is executed.
 If an exception occurs, the stack will be restored to that size, the Croc exception will be caught (with
@@ -794,7 +794,7 @@ The array returned by this function should not have its length set or be appende
 
 Params:
 	length = The length, in items, of the array to allocate.
-	
+
 Returns:
 	The new array.
 */
@@ -901,7 +901,7 @@ class RefManager
 		{
 			remove();
 		}
-		
+
 	public:
 
 		/**
@@ -1061,7 +1061,7 @@ crocfloat checkNumParam(CrocThread* t, word index)
 /**
 Checks that the parameter at the given index is an instance.
 */
-void checkInstParam()(CrocThread* t, word index)
+void checkInstParam(CrocThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -1077,7 +1077,7 @@ Params:
 	index = The stack index of the parameter to check.
 	name = The name of the class from which the given parameter must be derived.
 */
-void checkInstParam()(CrocThread* t, word index, char[] name)
+void checkInstParam(CrocThread* t, word index, char[] name)
 {
 	index = absIndex(t, index);
 	checkInstParam(t, index);
@@ -1095,34 +1095,6 @@ void checkInstParam()(CrocThread* t, word index, char[] name)
 	}
 
 	pop(t);
-}
-
-/**
-Same as above, but also takes a template type parameter that should be a struct the same size as the
-given instance's extra bytes. Returns the extra bytes cast to a pointer to that struct type.
-*/
-T* checkInstParam(T)(CrocThread* t, word index, char[] name)
-{
-	checkInstParam(t, index, name);
-	return getMembers!(T)(t, index);
-}
-
-/**
-For the instance at the given index, gets the extra bytes and returns them cast to a pointer to the
-given type. Checks that the number of extra bytes is at least the size of the given type, but
-this should not be used as a foolproof way of identifying the type of instances.
-*/
-T* getMembers(T)(CrocThread* t, word index)
-{
-	auto ret = getExtraBytes(t, index);
-
-	if(ret.length < T.sizeof)
-	{
-		pushTypeString(t, index);
-		throwStdException(t, "ApiError", "'{}' does not have enough extra bytes (expected at least {}, has {})", getString(t, -1), T.sizeof, ret.length);
-	}
-
-	return cast(T*)ret.ptr;
 }
 
 /**

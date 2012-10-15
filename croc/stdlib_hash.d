@@ -507,9 +507,7 @@ static:
 }
 
 private const char[] WeakTableCode =
-`import string: StringBuffer
-
-local weakref, deref = weakref, deref
+`local weakref, deref = weakref, deref
 local allWeakTables = {}
 
 gc.postCallback$ function postGC()
@@ -527,44 +525,26 @@ gc.postCallback$ function postGC()
 
 local class WeakTableBase
 {
-	_data
-
 	this()
 	{
-		:_data = {}
 		allWeakTables[weakref(this)] = true
-	}
-
-	function opLength() = #:_data
-
-	function toString()
-	{
-		local s = StringBuffer()
-
-		s ~= '{'
-		local first = true
-
-		foreach(k, v; this)
-		{
-			if(first)
-				first = false
-			else
-				s ~= ", "
-
-			s ~= '[' ~ k ~ "] = " ~ v
-		}
-
-		s ~= '}'
-
-		return s.toString()
 	}
 }
 
 class WeakKeyTable : WeakTableBase
 {
+	_data
+
+	this()
+	{
+		:_data = {}
+		super()
+	}
+
 	function opIn(k) = weakref(k) in :_data
 	function opIndex(k) = :_data[weakref(k)]
 	function opIndexAssign(k, v) :_data[weakref(k)] = v
+	function opLength() = #:_data
 
 	function opApply(_) // can modify with this implementation too
 	{
@@ -600,9 +580,18 @@ class WeakKeyTable : WeakTableBase
 
 class WeakValTable : WeakTableBase
 {
+	_data
+
+	this()
+	{
+		:_data = {}
+		super()
+	}
+
 	function opIn(k) = k in :_data
 	function opIndex(k) = deref(:_data[k])
 	function opIndexAssign(k, v) :_data[k] = weakref(v)
+	function opLength() = #:_data
 
 	function opApply(_) // can modify with this implementation too
 	{
@@ -638,9 +627,18 @@ class WeakValTable : WeakTableBase
 
 class WeakKeyValTable : WeakTableBase
 {
+	_data
+
+	this()
+	{
+		:_data = {}
+		super()
+	}
+
 	function opIn(k) = weakref(k) in :_data
 	function opIndex(k) = deref(:_data[weakref(k)])
 	function opIndexAssign(k, v) :_data[weakref(k)] = weakref(v)
+	function opLength() = #:_data
 
 	function opApply(_) // can modify with this implementation too
 	{

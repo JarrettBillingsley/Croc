@@ -137,8 +137,8 @@ void visitObj(bool isModifyPhase = false)(GCObject* o, void delegate(GCObject*) 
 		case CrocValue.Type.Table:     return visitTable(cast(CrocTable*)o,         callback, isModifyPhase);
 		case CrocValue.Type.Array:     return visitArray(cast(CrocArray*)o,         callback, isModifyPhase);
 		case CrocValue.Type.Function:  return visitFunction(cast(CrocFunction*)o,   callback);
-		case CrocValue.Type.Class:     return visitClass(cast(CrocClass*)o,         callback);
-		case CrocValue.Type.Instance:  return visitInstance(cast(CrocInstance*)o,   callback);
+		case CrocValue.Type.Class:     return visitClass(cast(CrocClass*)o,         callback, isModifyPhase);
+		case CrocValue.Type.Instance:  return visitInstance(cast(CrocInstance*)o,   callback, isModifyPhase);
 		case CrocValue.Type.Namespace: return visitNamespace(cast(CrocNamespace*)o, callback, isModifyPhase);
 		case CrocValue.Type.Thread:    return visitThread(cast(CrocThread*)o,       callback, false);
 		case CrocValue.Type.FuncDef:   return visitFuncDef(cast(CrocFuncDef*)o,     callback);
@@ -148,9 +148,9 @@ void visitObj(bool isModifyPhase = false)(GCObject* o, void delegate(GCObject*) 
 }
 
 // Visit a table.
-void visitTable(CrocTable* o, void delegate(GCObject*) callback, bool modifyPhase)
+void visitTable(CrocTable* o, void delegate(GCObject*) callback, bool isModifyPhase)
 {
-	if(modifyPhase)
+	if(isModifyPhase)
 	{
 		foreach(ref key, ref val; &o.data.modifiedSlots)
 		{
@@ -169,9 +169,9 @@ void visitTable(CrocTable* o, void delegate(GCObject*) callback, bool modifyPhas
 }
 
 // Visit an array.
-void visitArray(CrocArray* o, void delegate(GCObject*) callback, bool modifyPhase)
+void visitArray(CrocArray* o, void delegate(GCObject*) callback, bool isModifyPhase)
 {
-	if(modifyPhase)
+	if(isModifyPhase)
 	{
 		foreach(ref slot; o.toArray())
 		{
@@ -210,23 +210,77 @@ void visitFunction(CrocFunction* o, void delegate(GCObject*) callback)
 }
 
 // Visit a class.
-void visitClass(CrocClass* o, void delegate(GCObject*) callback)
+void visitClass(CrocClass* o, void delegate(GCObject*) callback, bool isModifyPhase)
 {
-	mixin(CondCallback!("o.name"));
-	mixin(CondCallback!("o.parent"));
-	mixin(CondCallback!("o.fields"));
-	mixin(CondCallback!("o.allocator"));
+	if(isModifyPhase)
+	{
+		if(o.visitedOnce == false)
+		{
+			o.visitedOnce = true;
+			mixin(CondCallback!("o.name"));
+			mixin(CondCallback!("o.parent"));
+		}
+
+		foreach(ref key, ref val; &o.fields.modifiedSlots)
+		{
+			mixin(CondCallback!("key"));
+			mixin(ValueCallback!("val.value"));
+		}
+
+		foreach(ref key, ref val; &o.methods.modifiedSlots)
+		{
+			mixin(CondCallback!("key"));
+			mixin(ValueCallback!("val.value"));
+		}
+	}
+	else
+	{
+		mixin(CondCallback!("o.name"));
+		mixin(CondCallback!("o.parent"));
+
+		foreach(ref key, ref val; o.fields)
+		{
+			mixin(CondCallback!("key"));
+			mixin(ValueCallback!("val.value"));
+		}
+
+		foreach(ref key, ref val; o.methods)
+		{
+			mixin(CondCallback!("key"));
+			mixin(ValueCallback!("val.value"));
+		}
+	}
+
 	mixin(CondCallback!("o.finalizer"));
 }
 
 // Visit an instance.
-void visitInstance(CrocInstance* o, void delegate(GCObject*) callback)
+void visitInstance(CrocInstance* o, void delegate(GCObject*) callback, bool isModifyPhase)
 {
-	mixin(CondCallback!("o.parent"));
-	mixin(CondCallback!("o.fields"));
+	if(isModifyPhase)
+	{
+		if(o.visitedOnce == false)
+		{
+			o.visitedOnce = true;
+			mixin(CondCallback!("o.parent"));
+		}
 
-	foreach(ref val; o.extraValues())
-		mixin(ValueCallback!("val"));
+		foreach(ref key, ref val; &o.fields.modifiedSlots)
+		{
+			mixin(CondCallback!("key"));
+			mixin(ValueCallback!("val.value"));
+		}
+	}
+	else
+	{
+		mixin(CondCallback!("o.parent"));
+
+		foreach(ref key, ref val; o.fields)
+		{
+			mixin(CondCallback!("key"));
+			mixin(ValueCallback!("val.value"));
+		}
+	}
 }
 
 // Visit a namespace.
@@ -250,14 +304,14 @@ void visitNamespace(CrocNamespace* o, void delegate(GCObject*) callback, bool is
 	}
 	else
 	{
+		mixin(CondCallback!("o.parent"));
+		mixin(CondCallback!("o.name"));
+
 		foreach(ref key, ref val; o.data)
 		{
 			callback(cast(GCObject*)key);
 			mixin(ValueCallback!("val"));
 		}
-
-		mixin(CondCallback!("o.parent"));
-		mixin(CondCallback!("o.name"));
 	}
 }
 

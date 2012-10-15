@@ -1028,6 +1028,44 @@ package:
 		pop(numRets);
 	}
 
+	// [Local Const src] => []
+	void addClassField(ref CompileLoc loc, bool isPublic)
+	{
+		auto cls = getExp(-3);
+		auto name = getExp(-2);
+		auto src = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(cls.type == ExpType.Local);
+		debug(EXPSTACKCHECK) assert(name.type == ExpType.Const);
+		debug(EXPSTACKCHECK) assert(src.isSource());
+
+		codeRD(loc, Op.AddField, cls);
+		codeRC(name);
+		codeRC(src);
+		codeUImm(isPublic ? 1 : 0);
+
+		pop(3);
+	}
+
+	// [Local Const src] => []
+	void addClassMethod(ref CompileLoc loc, bool isPublic)
+	{
+		auto cls = getExp(-3);
+		auto name = getExp(-2);
+		auto src = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(cls.type == ExpType.Local);
+		debug(EXPSTACKCHECK) assert(name.type == ExpType.Const);
+		debug(EXPSTACKCHECK) assert(src.isSource());
+
+		codeRD(loc, Op.AddMethod, cls);
+		codeRC(name);
+		codeRC(src);
+		codeUImm(isPublic ? 1 : 0);
+
+		pop(3);
+	}
+
 	// ---------------------------------------------------------------------------
 	// Other codegen funcs
 
@@ -2595,6 +2633,11 @@ package:
 			// (rd, rt, uimm, uimm)
 			case Op.SuperMethod:     Stdout("smethod"); rd(i); rc(); uimm(); uimm(); break;
 			case Op.TailSuperMethod: Stdout("tsmethod"); rd(i); rc(); uimm(); nextIns(); break;
+
+			// (rd, rs, rt, uimm)
+			case Op.AddField: Stdout("addfield"); goto _12;
+			case Op.AddMethod: Stdout("addmethod"); goto _12;
+			_12: rd(i); rc(); rc(); uimm(); break;
 
 			// (rd, rs, rt, uimm, uimm)
 			case Op.Method:     Stdout("method"); rd(i); rc(); rc(); uimm(); uimm(); break;

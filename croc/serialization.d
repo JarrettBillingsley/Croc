@@ -500,11 +500,11 @@ private:
 		if(alreadyWritten(cast(CrocBaseObject*)v))
 			return;
 
-		if(v.allocator || v.finalizer)
+		if(v.finalizer)
 		{
 			push(t, CrocValue(v));
 			pushToString(t, -1);
-			throwStdException(t, "ValueException", "Attempting to serialize '{}', which has an allocator or finalizer", getString(t, -1));
+			throwStdException(t, "ValueException", "Attempting to serialize '{}', which has a finalizer", getString(t, -1));
 		}
 
 		tag(CrocValue.Type.Class);
@@ -518,8 +518,8 @@ private:
 		else
 			put(t, mOutput, false);
 
-		assert(v.fields !is null);
-		serialize(CrocValue(v.fields));
+		// TODO: this
+		assert(false);
 	}
 
 	void serializeInstance(CrocInstance* v)
@@ -528,8 +528,6 @@ private:
 			return;
 
 		tag(CrocValue.Type.Instance);
-		integer(v.numValues);
-		integer(v.extraBytes);
 		serialize(CrocValue(v.parent));
 
 		push(t, CrocValue(v));
@@ -570,27 +568,15 @@ private:
 		pop(t);
 		put(t, mOutput, false);
 
-		if(v.numValues || v.extraBytes)
+		if(v.parent.finalizer)
 		{
 			push(t, CrocValue(v));
 			pushToString(t, -1, true);
-			throwStdException(t, "ValueException", "Attempting to serialize '{}', which has extra values or extra bytes", getString(t, -1));
+			throwStdException(t, "ValueException", "Attempting to serialize '{}', whose class has a finalizer", getString(t, -1));
 		}
 
-		if(v.parent.allocator || v.parent.finalizer)
-		{
-			push(t, CrocValue(v));
-			pushToString(t, -1, true);
-			throwStdException(t, "ValueException", "Attempting to serialize '{}', whose class has an allocator or finalizer", getString(t, -1));
-		}
-
-		if(v.fields)
-		{
-			put(t, mOutput, true);
-			serialize(CrocValue(v.fields));
-		}
-		else
-			put(t, mOutput, false);
+		// TODO: this
+		assert(false);
 	}
 
 	void serializeNamespace(CrocNamespace* v)
@@ -1321,12 +1307,14 @@ private:
 			cls.parent = null;
 
 		deserializeNamespace();
-		cls.fields = getNamespace(t, -1);
-		pop(t);
+		// TODO: this
+		assert(false);
+
+		/* pop(t);
 
 		assert(!cls.parent || cls.fields.parent);
 
-		push(t, CrocValue(cls));
+		push(t, CrocValue(cls)); */
 	}
 
 	void deserializeInstance()
@@ -1337,23 +1325,11 @@ private:
 
 	void deserializeInstanceImpl()
 	{
-		auto numValues = cast(uword)integer();
-		auto extraBytes = cast(uword)integer();
-
-		// if it was custom-allocated, we can't necessarily do this.
-		// well, can we?  I mean technically, a custom allocator can't do anything *terribly* weird,
-		// like using malloc.. and besides, we wouldn't know what params to call it with.
-		// I suppose we can assume that if a class writer is providing an opDeserialize method, they're
-		// going to expect this.
-		auto inst = t.vm.alloc.allocate!(CrocInstance)(instance.InstanceSize(numValues, extraBytes));
-		inst.numValues = numValues;
-		inst.extraBytes = extraBytes;
-		inst.extraValues()[] = CrocValue.nullValue;
-		addObject(cast(CrocBaseObject*)inst);
-
 		deserializeClass();
-		inst.parent = getClass(t, -1);
+		auto parent = getClass(t, -1);
+		auto inst = t.vm.alloc.allocate!(CrocInstance)(instance.InstanceSize(parent));
 		pop(t);
+		addObject(cast(CrocBaseObject*)inst);
 
 		bool isSpecial;
 		get(t, mInput, isSpecial);
@@ -1375,17 +1351,8 @@ private:
 		}
 		else
 		{
-			assert(numValues == 0 && extraBytes == 0);
-
-			bool haveFields;
-			get(t, mInput, haveFields);
-
-			if(haveFields)
-			{
-				deserializeNamespace();
-				inst.fields = getNamespace(t, -1);
-				pop(t);
-			}
+			// TODO: this
+			assert(false);
 		}
 
 		push(t, CrocValue(inst));

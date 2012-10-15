@@ -28,6 +28,7 @@ module croc.types_instance;
 import tango.math.Math;
 
 import croc.base_alloc;
+import croc.base_hash;
 import croc.base_writebarrier;
 import croc.types;
 import croc.types_class;
@@ -43,77 +44,67 @@ static:
 
 package:
 
-	CrocInstance* create(CrocVM* vm, CrocClass* parent, uword numValues = 0, uword extraBytes = 0)
+	CrocInstance* create(CrocVM* vm, CrocClass* parent)
 	{
+		if(!parent.isFrozen)
+			classobj.freeze(parent);
+
 		CrocInstance* i;
 
 		if(parent.finalizer)
-			i = vm.alloc.allocateFinalizable!(CrocInstance)(InstanceSize(numValues, extraBytes));
+			i = vm.alloc.allocateFinalizable!(CrocInstance)(InstanceSize(parent));
 		else
-			i = vm.alloc.allocate!(CrocInstance)(InstanceSize(numValues, extraBytes));
+			i = vm.alloc.allocate!(CrocInstance)(InstanceSize(parent));
 
 		i.parent = parent;
-		i.numValues = numValues;
-		i.extraBytes = extraBytes;
-		i.extraValues()[] = CrocValue.nullValue;
+
+		if(parent.fields.length > 0)
+		{
+			mixin(containerWriteBarrier!("vm.alloc", "i"));
+
+			auto instNodes = (cast(typeof(i.fields).Node*)(i + 1))[0 .. parent.fields.capacity()];
+			parent.fields.dupInto(i.fields, instNodes);
+
+			foreach(ref node; &i.fields.allNodes)
+				node.modified |= KeyModified | (node.value.value.isGCObject() ? ValModified : 0);
+		}
 
 		return i;
 	}
 
-	CrocValue* getField(CrocInstance* i, CrocString* name)
+	typeof(CrocInstance.fields).Node* getField(CrocInstance* i, CrocString* name)
 	{
-		CrocValue dummy;
-		return getField(i, name, dummy);
+		return i.fields.lookupNode(name);
 	}
 
-	CrocValue* getField(CrocInstance* i, CrocString* name, out CrocValue owner)
+	FieldValue* getMethod(CrocInstance* i, CrocString* name)
 	{
-		if(i.fields !is null)
+		if(auto ret = classobj.getMethod(i.parent, name))
+			return &ret.value;
+		else
+			return null;
+	}
+
+	void setField(ref Allocator alloc, CrocInstance* i, typeof(CrocInstance.fields).Node* slot, CrocValue* value)
+	{
+		if(slot.value.value != *value)
 		{
-			if(auto ret = namespace.get(i.fields, name))
+			mixin(removeValueRef!("alloc", "slot"));
+			slot.value.value = *value;
+
+			if(value.isGCObject())
 			{
-				owner = i;
-				return ret;
+				mixin(containerWriteBarrier!("alloc", "i"));
+				slot.modified |= ValModified;
 			}
+			else
+				slot.modified &= ~ValModified;
 		}
-
-		CrocClass* dummy;
-		auto ret = classobj.getField(i.parent, name, dummy);
-
-		if(dummy !is null)
-			owner = dummy;
-
-		return ret;
 	}
 
-	void setField(ref Allocator alloc, CrocInstance* i, CrocString* name, CrocValue* value)
+	bool nextField(CrocInstance* i, ref uword idx, ref CrocString** key, ref FieldValue* val)
 	{
-		if(i.fields is null)
-		{
-			mixin(writeBarrier!("alloc", "i"));
-			i.fields = namespace.create(alloc, i.parent.name);
-		}
-
-		namespace.set(alloc, i.fields, name, value);
-	}
-
-	bool setFieldIfExists(ref Allocator alloc, CrocInstance* i, CrocString* name, CrocValue* value)
-	{
-		if(i.fields is null)
-			return false;
-
-		return namespace.setIfExists(alloc, i.fields, name, value);
-	}
-
-	void setExtraVal(ref Allocator alloc, CrocInstance* i, uword idx, CrocValue* value)
-	{
-		auto dest = &i.extraValues()[idx];
-		
-		if(*dest != *value)
-		{
-			mixin(writeBarrier!("alloc", "i"));
-			*dest = *value;
-		}
+		return i.fields.next(idx, key, val);
 	}
 
 	bool derivesFrom(CrocInstance* i, CrocClass* c)
@@ -125,27 +116,25 @@ package:
 		return false;
 	}
 
-	CrocNamespace* fieldsOf(ref Allocator alloc, CrocInstance* i)
+	uword InstanceSize(CrocClass* parent)
 	{
-		if(i.fields is null)
-		{
-			mixin(writeBarrier!("alloc", "i"));
-			i.fields = namespace.create(alloc, i.parent.name);
-		}
-
-		return i.fields;
+		return CrocInstance.sizeof + parent.fields.dataSize();
 	}
 
-	bool next(CrocInstance* i, ref uword idx, ref CrocString** key, ref CrocValue* val)
-	{
-		if(i.fields is null)
-			return false;
+	// =================================================================================================================
+	// Helpers
 
-		return i.fields.data.next(idx, key, val);
-	}
-	
-	uword InstanceSize(uword numValues, uword extraBytes)
+	template removeKeyRef(char[] alloc, char[] slot)
 	{
-		return CrocInstance.sizeof + (numValues * CrocValue.sizeof) + extraBytes;
+		const char[] removeKeyRef =
+		"if(!(" ~ slot  ~ ".modified & KeyModified)) "
+			~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", cast(GCObject*)" ~ slot  ~ ".key);";
+	}
+
+	template removeValueRef(char[] alloc, char[] slot)
+	{
+		const char[] removeValueRef =
+		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.value.isGCObject()) "
+			~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.value.toGCObject());";
 	}
 }

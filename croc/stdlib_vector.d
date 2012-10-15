@@ -50,7 +50,9 @@ void initVector(CrocThread* t)
 {
 	CreateClass(t, "Vector", (CreateClass* c)
 	{
-		c.allocator("allocator", &BasicClassAllocator!(NumFields, Members));
+		pushNull(t);   c.field("_m");
+		pushInt(t, 0); c.field("_kind");
+		pushInt(t, 0); c.field("_itemLength");
 
 		c.method("constructor",    3, &_constructor);
 		c.method("fromArray",      2, &_fromArray);
@@ -174,12 +176,6 @@ const TypeStruct[] _typeStructs =
 	TypeCode.f64: { TypeCode.f64, 8, 3, "f64" }
 ];
 
-enum
-{
-	Data,
-	NumFields
-}
-
 struct Members
 {
 	CrocMemblock* m; // redundantly stored here for convenience
@@ -229,17 +225,28 @@ void _rawIndexAssign(Members* m, uword idx, CrocValue val)
 	}
 }
 
-Members* _getMembers(CrocThread* t, uword slot = 0)
+Members _getMembers(CrocThread* t, uword slot = 0)
 {
-	auto ret = checkInstParam!(Members)(t, slot, "Vector");
-	assert(ret.m !is null);
+	Members ret = void;
+
+	field(t, slot, "Vector_m");
+	assert(!isNull(t, -1));
+	ret.m = getMemblock(t, -1);
+	pop(t);
+
+	field(t, slot, "Vector_kind");
+	ret.kind = cast(TypeStruct*)getInt(t, -1);
+	pop(t);
 
 	uword len = ret.m.data.length >> ret.kind.sizeShift;
 
 	if(len << ret.kind.sizeShift != ret.m.data.length)
 		throwStdException(t, "ValueException", "Vector's underlying memblock length is not an even multiple of its item size");
 
+	pushInt(t, len);
+	fielda(t, slot, "Vector_itemLength");
 	ret.itemLength = len;
+
 	return ret;
 }
 
@@ -334,14 +341,18 @@ TypeStruct* _typeCodeToKind(char[] typeCode)
 
 uword _constructor(CrocThread* t)
 {
-	auto self = checkInstParam!(Members)(t, 0, "Vector");
+	checkInstParam(t, 0, "Vector");
 
-	if(self.m !is null)
+	field(t, 0, "Vector_m");
+
+	if(isNull(t, -1))
 		throwStdException(t, "StateException", "Attempting to call the constructor on an already-initialized Vector");
 
-	self.kind = _typeCodeToKind(checkStringParam(t, 1));
+	pop(t);
 
-	if(self.kind is null)
+	auto kind = _typeCodeToKind(checkStringParam(t, 1));
+
+	if(kind is null)
 		throwStdException(t, "ValueException", "Invalid type code '{}'", getString(t, 1));
 
 	auto size = checkIntParam(t, 2);

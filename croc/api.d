@@ -51,23 +51,23 @@ import croc.stdlib_debug;
 import croc.stdlib_docs;
 import croc.stdlib_env;
 import croc.stdlib_exceptions;
-import croc.stdlib_file;
+// import croc.stdlib_file;
 import croc.stdlib_gc;
 import croc.stdlib_hash;
-import croc.stdlib_json;
+// import croc.stdlib_json;
 import croc.stdlib_math;
 import croc.stdlib_memblock;
 import croc.stdlib_modules;
 import croc.stdlib_object;
-import croc.stdlib_os;
+// import croc.stdlib_os;
 import croc.stdlib_path;
-import croc.stdlib_regexp;
-import croc.stdlib_serialization;
-import croc.stdlib_stream;
+// import croc.stdlib_regexp;
+// import croc.stdlib_serialization;
+// import croc.stdlib_stream;
 import croc.stdlib_string;
 import croc.stdlib_text;
 import croc.stdlib_thread;
-import croc.stdlib_time;
+// import croc.stdlib_time;
 
 // ================================================================================================================================================
 // Public
@@ -137,8 +137,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	// Safe libs
 	initBaseLib(t);
 	initStringLib(t);
-	HashLib.init(t); // depends on string (needs StringBuffer for weak table toString methods)
-	
+	HashLib.init(t);
 	initDocsLib(t); // depends on hash (needs weak table to hold docs)
 
 	// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later.. OR IS IT)
@@ -154,21 +153,21 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 
 	// Finish up the safe libs.
 	initObjectClass(t);
-	StreamLib.init(t);
+	// StreamLib.init(t);
 	initArrayLib(t);
 	initAsciiLib(t);
 	CompilerLib.init(t);
-	initConsoleLib(t); // depends on stream
+	// initConsoleLib(t); // depends on stream
 	initEnvLib(t);
-	JSONLib.init(t); // depends on stream
+	// JSONLib.init(t); // depends on stream
 	MathLib.init(t);
 	initMemblockLib(t);
 	initPathLib(t);
-	RegexpLib.init(t);
-	SerializationLib.init(t); // depends on stream
+	// RegexpLib.init(t);
+	// SerializationLib.init(t); // depends on stream
 	initTextLib(t);
 	ThreadLib.init(t);
-	TimeLib.init(t);
+	// TimeLib.init(t);
 
 	version(CrocBuiltinDocs)
 		Compiler.setDefaultFlags(t, Compiler.All);
@@ -223,7 +222,7 @@ Params:
 */
 void loadUnsafeLibs(CrocThread* t, uint libs = CrocUnsafeLib.All)
 {
-	if(libs & CrocUnsafeLib.File)  FileLib.init(t);
-	if(libs & CrocUnsafeLib.OS)    OSLib.init(t);
+	// if(libs & CrocUnsafeLib.File)  FileLib.init(t);
+	// if(libs & CrocUnsafeLib.OS)    OSLib.init(t);
 	if(libs & CrocUnsafeLib.Debug) DebugLib.init(t);
 }

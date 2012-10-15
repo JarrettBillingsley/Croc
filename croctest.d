@@ -34,6 +34,7 @@ void main()
 
 	CrocVM vm;
 	CrocThread* t;
+	bool shouldClose = true;
 
 	try
 	{
@@ -51,7 +52,13 @@ void main()
 	}
 	catch(CrocException e)
 	{
-		t = t ? t : mainThread(&vm); // in case, while fucking around, we manage to throw an exception from openVM
+		if(t is null)
+		{
+			// in case, while fucking around, we manage to throw an exception from openVM
+			shouldClose = false;
+			t = mainThread(&vm);
+		}
+
 		catchException(t);
 		Stdout.formatln("{}", e);
 
@@ -77,5 +84,6 @@ void main()
 		return;
 	}
 
-	closeVM(&vm);
+	if(shouldClose)
+		closeVM(&vm);
 }

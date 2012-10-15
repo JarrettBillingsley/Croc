@@ -927,7 +927,7 @@ Params:
 	numValues = How many extra Croc values will be associated with the instance. See above.
 	extraBytes = How many extra bytes to attach to the instance. See above.
 */
-word newInstance(CrocThread* t, word base, uword numValues = 0, uword extraBytes = 0)
+word newInstance(CrocThread* t, word base)
 {
 	mixin(FuncNameMix);
 
@@ -940,7 +940,7 @@ word newInstance(CrocThread* t, word base, uword numValues = 0, uword extraBytes
 	}
 
 	maybeGC(t);
-	return push(t, CrocValue(instance.create(t.vm, b, numValues, extraBytes)));
+	return push(t, CrocValue(instance.create(t.vm, b)));
 }
 
 /**
@@ -2287,8 +2287,8 @@ void setFinalizer(CrocThread* t, word cls)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
-	if(c.finalizerSet)
-		throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to change the finalizer of class {} whose finalizer was already set", className(t, cls));
+	if(c.isFrozen)
+		throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to change the finalizer of class {} which has been frozen", className(t, cls));
 
 	classobj.setFinalizer(t.vm.alloc, c, getFunction(t, -1));
 	pop(t);
@@ -2323,112 +2323,6 @@ word getFinalizer(CrocThread* t, word cls)
 }
 
 /**
-Normally when you instantiate a Croc class, by doing something like "A(5)" (or similarly, by
-calling it as if it were a function using the native API), the following happens: the interpreter
-calls newInstance on the class to allocate a new instance, then calls any constructor defined for
-the class on the new instance with the given parameters, and finally it returns that new instance.
-
-You can override this behavior using class allocators. A class allocator takes any number of
-parameters and must return a class instance. The 'this' parameter passed to a class allocator is
-the class which is being instantiated. Class allocators reserve the right to call or not
-call any constructor defined for the class. In fact, they can do just about anything as long as
-they return an instance.
-
-Here is an example class allocator which performs the default behavior.
-
------
-uword allocator(CrocThread* t, uword numParams)
-{
-	// new instance of the class held in 'this'
-	newInstance(t, 0);
-
-	// duplicate it so it can be used as a return value
-	dup(t);
-
-	// push a null for the 'this' slot of the impending method call
-	pushNull(t);
-
-	// rotate the stack so that we have
-	// [inst] [inst] [null] [params...]
-	rotateAll(t, 3);
-
-	// call the constructor on the instance, ignoring any returns
-	methodCall(t, 2, "constructor", 0);
-
-	// now all that's left on the stack is the instance; return it
-	return 1;
-}
------
-
-Why would a class use an allocator?  Simple: if it needs to allocate extra values or bytes for
-its instances. Most of the native objects defined in the standard libraries use allocators to
-do just this.
-
-You can also imagine a case where the number of extra values or bytes is dependent upon the
-parameters passed to the constructor, which is why class allocators get all the parameters.
-
-You can only set a class's allocator once. Once it has been set, it cannot be unset or changed.
-
-This function expects the allocator function to be on the top of the stack. The function is popped
-from the stack.
-
-Params:
-	cls = The stack index of the class object whose allocator is to be set.
-*/
-void setAllocator(CrocThread* t, word cls)
-{
-	mixin(apiCheckNumParams!("1"));
-
-	if(!isFunction(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function' for allocator, not '{}'", getString(t, -1));
-	}
-
-	auto c = getClass(t, cls);
-
-	if(c is null)
-	{
-		pushTypeString(t, cls);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
-	}
-
-	if(c.allocatorSet)
-		throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to change the allocator of class {} whose allocator was already set", className(t, cls));
-
-	classobj.setAllocator(t.vm.alloc, c, getFunction(t, -1));
-	pop(t);
-}
-
-/**
-Pushes the allocator associated with the given class, or null if no allocator is set for
-that class.
-
-Params:
-	cls = The class whose allocator is to be retrieved.
-
-Returns:
-	The stack index of the newly-pushed allocator function (or null if the class has none).
-*/
-word getAllocator(CrocThread* t, word cls)
-{
-	mixin(FuncNameMix);
-
-	if(auto c = getClass(t, cls))
-	{
-		if(c.allocator)
-			return push(t, CrocValue(c.allocator));
-		else
-			return pushNull(t);
-	}
-
-	pushTypeString(t, cls);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
-
-	assert(false);
-}
-
-/**
 Gets the name of the class at the given stack index.
 */
 char[] className(CrocThread* t, word cls)
@@ -2444,125 +2338,107 @@ char[] className(CrocThread* t, word cls)
 	assert(false);
 }
 
-// ================================================================================================================================================
-// Instance-related functions
-
 /**
-Finds out how many extra values an instance has (see newInstance for info on that). Throws an error
-if the value at the given _slot isn'_t an instance.
 
-Params:
-	slot = The stack index of the instance whose number of values is to be retrieved.
-
-Returns:
-	The number of extra values associated with the given instance.
 */
-uword numExtraVals(CrocThread* t, word slot)
-{
-	mixin(FuncNameMix);
-
-	if(auto i = getInstance(t, slot))
-		return i.numValues;
-	else
-	{
-		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
-	}
-
-	assert(false);
-}
-
-/**
-Pushes the idx th extra value from the instance at the given _slot. Throws an error if the value at
-the given _slot isn'_t an instance, or if the index is out of bounds.
-
-Params:
-	slot = The instance whose value is to be retrieved.
-	idx = The index of the extra value to get.
-
-Returns:
-	The stack index of the newly-pushed value.
-*/
-word getExtraVal(CrocThread* t, word slot, uword idx)
-{
-	mixin(FuncNameMix);
-
-	if(auto i = getInstance(t, slot))
-	{
-		if(idx >= i.numValues)
-			throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Value index out of bounds ({}, but only have {})", idx, i.numValues);
-
-		return push(t, i.extraValues()[idx]);
-	}
-	else
-	{
-		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
-	}
-
-	assert(false);
-}
-
-/**
-Pops the value off the top of the stack and places it in the idx th extra value in the instance at the
-given _slot. Throws an error if the value at the given _slot isn'_t an instance, or if the index is out
-of bounds.
-
-Params:
-	slot = The instance whose value is to be set.
-	idx = The index of the extra value to set.
-*/
-void setExtraVal(CrocThread* t, word slot, uword idx)
+void addField(CrocThread* t, word cls, char[] name)
 {
 	mixin(apiCheckNumParams!("1"));
-
-	if(auto i = getInstance(t, slot))
-	{
-		if(idx >= i.numValues)
-			throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Value index out of bounds ({}, but only have {})", idx, i.numValues);
-
-		instance.setExtraVal(t.vm.alloc, i, idx, &t.stack[t.stackIndex - 1]);
-		pop(t);
-	}
-	else
-	{
-		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
-	}
+	auto c = absIndex(t, cls);
+	pushString(t, name);
+	swap(t);
+	_addFieldOrMethod(t, c, false);
 }
 
 /**
-Gets a void array of the extra bytes associated with the instance at the given _slot. If the instance has
-no extra bytes, returns null. Throws an error if the value at the given _slot isn'_t an instance.
 
-The returned void array points into the Croc heap, so you should not store the returned reference
-anywhere.
-
-Params:
-	slot = The instance whose data is to be retrieved.
-
-Returns:
-	A void array of the data, or null if the instance has none.
 */
-void[] getExtraBytes(CrocThread* t, word slot)
+void addField(CrocThread* t, word cls)
 {
-	mixin(FuncNameMix);
+	_addFieldOrMethod(t, cls, false);
+}
 
-	if(auto i = getInstance(t, slot))
+/**
+
+*/
+void addMethod(CrocThread* t, word cls, char[] name, bool isPublic = true)
+{
+	mixin(apiCheckNumParams!("1"));
+	auto c = absIndex(t, cls);
+	pushString(t, name);
+	swap(t);
+	_addFieldOrMethod(t, c, true);
+}
+
+/**
+
+*/
+void addMethod(CrocThread* t, word cls)
+{
+	_addFieldOrMethod(t, cls, true);
+}
+
+private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
+{
+	mixin(apiCheckNumParams!("2"));
+
+	if(!isClass(t, cls))
 	{
-		if(i.extraBytes == 0)
-			return null;
+		pushTypeString(t, cls);
+		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+	}
 
-		return i.extraData();
+	if(!isString(t, -2))
+	{
+		pushTypeString(t, -2);
+
+		if(isMethod)
+			throwStdException(t, "TypeException", __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
+		else
+			throwStdException(t, "TypeException", __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
+	}
+
+	auto c = getClass(t, cls);
+
+	if(c.isFrozen)
+	{
+		if(isMethod)
+			throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to add a method to class '{}' which is frozen", c.name.toString());
+		else
+			throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to add a field to class '{}' which is frozen", c.name.toString());
+	}
+
+	auto name = getStringObj(t, -2);
+	auto nameStr = name.toString();
+	bool isPublic = true;
+
+	if(nameStr.length >= 2 && nameStr[0] == '_' && nameStr[1] != '_')
+	{
+		isPublic = false;
+		push(t, CrocValue(c.name));
+		push(t, CrocValue(name));
+		cat(t, 2);
+		swap(t, -3);
+		pop(t);
+		name = getStringObj(t, -2);
+	}
+
+	if(isMethod)
+	{
+		if(!classobj.addMethod(t.vm.alloc, c, name, getValue(t, -1), isPublic))
+			throwStdException(t, "FieldException", __FUNCTION__ ~ " - Attempting to add a method '{}' which already exists to class '{}'", name.toString(), c.name.toString());
 	}
 	else
 	{
-		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
+		if(!classobj.addField(t.vm.alloc, c, name, getValue(t, -1), isPublic))
+			throwStdException(t, "FieldException", __FUNCTION__ ~ " - Attempting to add a field '{}' which already exists to class '{}'", name.toString(), c.name.toString());
 	}
 
-	assert(false);
+	pop(t, 2);
 }
+
+// ================================================================================================================================================
+// Instance-related functions
 
 // ================================================================================================================================================
 // Namespace-related functions
@@ -3944,31 +3820,6 @@ char[] nameOf(CrocThread* t, word obj)
 			pushTypeString(t, obj);
 			throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected function, class, namespace, or funcdef, not '{}'", getString(t, -1));
 	}
-
-	assert(false);
-}
-
-/**
-Gets the fields namespace of the class or instance at the given slot. Throws an exception if
-the value at the given slot is not a class or instance.
-
-Params:
-	obj = The stack index of the value whose fields are to be retrieved.
-
-Returns:
-	The stack index of the newly-pushed fields namespace.
-*/
-word fieldsOf(CrocThread* t, word obj)
-{
-	mixin(FuncNameMix);
-
-	if(auto c = getClass(t, obj))
-		return push(t, CrocValue(classobj.fieldsOf(c)));
-	else if(auto i = getInstance(t, obj))
-		return push(t, CrocValue(instance.fieldsOf(t.vm.alloc, i)));
-
-	pushTypeString(t, obj);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class' or 'instance', not '{}'", getString(t, -1));
 
 	assert(false);
 }

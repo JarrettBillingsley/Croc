@@ -12,15 +12,15 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
-    1. The origin of this software must not be misrepresented; you must not
+	1. The origin of this software must not be misrepresented; you must not
 	claim that you wrote the original software. If you use this software in a
 	product, an acknowledgment in the product documentation would be
 	appreciated but is not required.
 
-    2. Altered source versions must be plainly marked as such, and must not
+	2. Altered source versions must be plainly marked as such, and must not
 	be misrepresented as being the original software.
 
-    3. This notice may not be removed or altered from any source distribution.
+	3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
 module croc.interpreter;
@@ -220,19 +220,19 @@ CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocCl
 	switch(v.type)
 	{
 		case CrocValue.Type.Class:
-			if(auto ret = classobj.getField(v.mClass, name, proto))
-				return *ret;
+			if(auto ret = classobj.getMethod(v.mClass, name))
+			{
+				if(!ret.value.isPublic && ret.value.proto !is t.currentAR.proto)
+					throwStdException(t, "MethodException", "Attempting to call private method '{}' from outside class '{}'", name.toString(), ret.value.proto.name.toString());
 
-			goto default;
+				proto = ret.value.proto;
+				return ret.value.value;
+			}
+			else
+				return CrocValue.nullValue;
 
 		case CrocValue.Type.Instance:
-			return getInstanceMethod(v.mInstance, name, proto);
-
-		case CrocValue.Type.Table:
-			if(auto ret = table.get(v.mTable, CrocValue(name)))
-				return *ret;
-
-			goto default;
+			return getInstanceMethod(t, v.mInstance, name, proto);
 
 		case CrocValue.Type.Namespace:
 			if(auto ret = namespace.get(v.mNamespace, name))
@@ -240,26 +240,24 @@ CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocCl
 			else
 				return CrocValue.nullValue;
 
+		case CrocValue.Type.Table:
+			if(auto ret = table.get(v.mTable, CrocValue(name)))
+				return *ret;
+			// fall through
 		default:
 			return getGlobalMetamethod(t, v.type, name);
 	}
 }
 
-CrocValue getInstanceMethod(CrocInstance* inst, CrocString* name, out CrocClass* proto)
+CrocValue getInstanceMethod(CrocThread* t, CrocInstance* inst, CrocString* name, out CrocClass* proto)
 {
-	CrocValue owner;
-
-	if(auto ret = instance.getField(inst, name, owner))
+	if(auto ret = instance.getMethod(inst, name))
 	{
-		if(owner == CrocValue(inst))
-			proto = inst.parent;
-		else
-		{
-			assert(owner.type == CrocValue.Type.Class);
-			proto = owner.mClass;
-		}
+		if(!ret.isPublic && ret.proto !is t.currentAR.proto)
+			throwStdException(t, "MethodException", "Attempting to call private method '{}' from outside class '{}'", name.toString(), ret.proto.name.toString());
 
-		return *ret;
+		proto = ret.proto;
+		return ret.value;
 	}
 	else
 		return CrocValue.nullValue;
@@ -288,7 +286,7 @@ CrocFunction* getMM(CrocThread* t, CrocValue* obj, MM method, out CrocClass* pro
 	CrocValue ret = void;
 
 	if(obj.type == CrocValue.Type.Instance)
-		ret = getInstanceMethod(obj.mInstance, name, proto);
+		ret = getInstanceMethod(t, obj.mInstance, name, proto);
 	else
 		ret = getGlobalMetamethod(t, obj.type, name);
 
@@ -377,46 +375,30 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 
 		case CrocValue.Type.Class:
 			auto cls = func.mClass;
+			auto inst = instance.create(t.vm, cls);
 
-			if(cls.allocator)
+			// call any constructor
+			auto ctor = classobj.getMethod(cls, t.vm.ctorString);
+
+			if(ctor !is null)
 			{
-				t.stack[slot] = cls.allocator;
-				t.stack[slot + 1] = cls;
-				commonCall(t, slot, 1, callPrologue(t, slot, 1, numParams, null));
-
-				if(t.stack[slot].type != CrocValue.Type.Instance)
+				if(ctor.value.value.type != CrocValue.Type.Function)
 				{
-					typeString(t, &t.stack[slot]);
-					throwStdException(t, "TypeException", "class allocator expected to return an 'instance', not a '{}'", getString(t, -1));
-				}
-			}
-			else
-			{
-				auto inst = instance.create(t.vm, cls);
-
-				// call any constructor
-				auto ctor = classobj.getField(cls, t.vm.ctorString);
-
-				if(ctor !is null)
-				{
-					if(ctor.type != CrocValue.Type.Function)
-					{
-						typeString(t, ctor);
-						throwStdException(t, "TypeException", "class constructor expected to be a 'function', not '{}'", getString(t, -1));
-					}
-
-					t.nativeCallDepth++;
-					scope(exit) t.nativeCallDepth--;
-					t.stack[slot] = ctor.mFunction;
-					t.stack[slot + 1] = inst;
-
-					// do this instead of rawCall so the proto is set correctly
-					if(callPrologue(t, slot, 0, numParams, cls))
-						execute(t);
+					typeString(t, &ctor.value.value);
+					throwStdException(t, "TypeException", "class constructor expected to be a 'function', not '{}'", getString(t, -1));
 				}
 
-				t.stack[slot] = inst;
+				t.nativeCallDepth++;
+				scope(exit) t.nativeCallDepth--;
+				t.stack[slot] = ctor.value.value.mFunction;
+				t.stack[slot + 1] = inst;
+
+				// do this instead of rawCall so the proto is set correctly
+				if(callPrologue(t, slot, 0, numParams, cls))
+					execute(t);
 			}
+
+			t.stack[slot] = inst;
 
 			if(numReturns == -1)
 				t.stackIndex = slot + 1;
@@ -591,7 +573,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		ar.numReturns = numReturns;
 		ar.firstResult = 0;
 		ar.numResults = 0;
-		ar.proto = proto is null ? null : proto.parent;
+		ar.proto = proto is null ? null : proto;
 		ar.numTailcalls = 0;
 		ar.savedTop = ar.base + funcDef.stackSize;
 		ar.unwindCounter = 0;
@@ -628,7 +610,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		ar.firstResult = 0;
 		ar.numResults = 0;
 		ar.savedTop = t.stackIndex;
-		ar.proto = proto is null ? null : proto.parent;
+		ar.proto = proto is null ? null : proto;
 		ar.numTailcalls = 0;
 		ar.unwindCounter = 0;
 		ar.unwindReturn = null;
@@ -1081,30 +1063,36 @@ void fieldImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocString* n
 			return tableIdxImpl(t, dest, container, &CrocValue(name));
 
 		case CrocValue.Type.Class:
-			auto v = classobj.getField(container.mClass, name);
+			auto c = container.mClass;
+			auto v = classobj.getField(c, name);
 
 			if(v is null)
 			{
-				typeString(t, container);
-				throwStdException(t, "FieldException", "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
+				v = classobj.getMethod(c, name);
+
+				if(v is null)
+					throwStdException(t, "FieldException", "Attempting to access nonexistent field '{}' from class '{}'", name.toString(), c.name.toString());
 			}
 
-			return t.stack[dest] = *v;
+			if(!v.value.isPublic && t.currentAR.proto !is v.value.proto)
+				throwStdException(t, "FieldException", "Attempting to access private field '{}' from outside class '{}'", name.toString(), v.value.proto.name.toString());
+
+			return t.stack[dest] = v.value.value;
 
 		case CrocValue.Type.Instance:
-			auto v = instance.getField(container.mInstance, name);
+			auto i = container.mInstance;
 
-			if(v is null)
+			if(auto v = instance.getField(i, name))
 			{
-				if(!raw && tryMM!(2, true)(t, MM.Field, &t.stack[dest], container, &CrocValue(name)))
-					return;
+				if(!v.value.isPublic && t.currentAR.proto !is v.value.proto)
+					throwStdException(t, "FieldException", "Attempting to access private field '{}' from outside class '{}'", name.toString(), v.value.proto.name.toString());
 
-				typeString(t, container);
-				throwStdException(t, "FieldException", "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
+				return t.stack[dest] = v.value.value;
 			}
-
-			return t.stack[dest] = *v;
-
+			else if(!raw && tryMM!(2, true)(t, MM.Field, &t.stack[dest], container, &CrocValue(name)))
+				return;
+			else
+				throwStdException(t, "FieldException", "Attempting to access nonexistent field '{}' from instance of class '{}'", name.toString(), i.parent.name.toString());
 
 		case CrocValue.Type.Namespace:
 			auto v = namespace.get(container.mNamespace, name);
@@ -1135,28 +1123,44 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 			return tableIdxaImpl(t, container, &CrocValue(name), value);
 
 		case CrocValue.Type.Class:
-			return classobj.setField(t.vm.alloc, t.stack[container].mClass, name, value);
+			auto c = t.stack[container].mClass;
+
+			if(auto slot = classobj.getField(c, name))
+			{
+				if(!slot.value.isPublic && t.currentAR.proto !is slot.value.proto)
+					throwStdException(t, "FieldException", "Attempting to access private field '{}' from outside class '{}'", name.toString(), slot.value.proto.name.toString());
+
+				classobj.setField(t.vm.alloc, c, slot, value);
+			}
+			else if(auto slot = classobj.getMethod(c, name))
+			{
+				if(!slot.value.isPublic && t.currentAR.proto !is slot.value.proto)
+					throwStdException(t, "FieldException", "Attempting to access private method '{}' from outside class '{}'", name.toString(), slot.value.proto.name.toString());
+
+				if(c.isFrozen)
+					throwStdException(t, "FieldException", "Attempting to change method '{}' in class '{}' after it has been frozen", name.toString(), c.name.toString());
+
+				classobj.setMethod(t.vm.alloc, c, slot, value);
+			}
+			else
+				throwStdException(t, "FieldException", "Attempting to assign to nonexistent field '{}' in class '{}'", name.toString(), c.name.toString());
+
+			return;
 
 		case CrocValue.Type.Instance:
 			auto i = t.stack[container].mInstance;
 
-			// First try to update the field if it already exists
-			if(!instance.setFieldIfExists(t.vm.alloc, i, name, value))
+			if(auto slot = instance.getField(i, name))
 			{
-				// Doesn't exist in the instance.. look it up
-				CrocValue owner;
-				auto field = instance.getField(i, name, owner);
+				if(!slot.value.isPublic && t.currentAR.proto !is slot.value.proto)
+					throwStdException(t, "FieldException", "Attempting to access private field '{}' from outside class '{}'", name.toString(), slot.value.proto.name.toString());
 
-				if(field is null)
-				{
-					// Doesn't exist anywhere in the instance's inheritance hierarchy; first try opFieldAssign
-					if(!raw && tryMM!(3, false)(t, MM.FieldAssign, &t.stack[container], &CrocValue(name), value))
-						return;
-				}
-
-				// Fallback: create field in instance
-				instance.setField(t.vm.alloc, i, name, value);
+				instance.setField(t.vm.alloc, i, slot, value);
 			}
+			else if(!raw && tryMM!(3, false)(t, MM.FieldAssign, &t.stack[container], &CrocValue(name), value))
+				return;
+			else
+				throwStdException(t, "FieldException", "Attempting to assign to nonexistent field '{}' in instance of class '{}'", name.toString(), i.parent.name.toString());
 			return;
 
 		case CrocValue.Type.Namespace:
@@ -3127,11 +3131,11 @@ void execute(CrocThread* t, uword depth = 1)
 					}
 					else
 					{
-						if(t.currentAR.proto is null)
+						if(t.currentAR.proto is null || t.currentAR.proto.parent is null)
 							throwStdException(t, "CallException", "Attempting to perform a supercall in a function where there is no super class");
 
 						self = &t.stack[stackBase];
-						lookup = CrocValue(t.currentAR.proto);
+						lookup = CrocValue(t.currentAR.proto.parent);
 
 						if(self.type != CrocValue.Type.Instance && self.type != CrocValue.Type.Class)
 						{
@@ -3653,8 +3657,42 @@ void execute(CrocThread* t, uword depth = 1)
 					t.stack[stackBase + rd] = superOfImpl(t, RS);
 					break;
 
+				case Op.AddField:
+					auto cls = &t.stack[stackBase + rd];
+					mixin(GetRS);
+					mixin(GetRT);
+					auto isPublic = cast(bool)mixin(GetUImm);
+
+					// should be guaranteed this by codegen
+					assert(cls.type == CrocValue.Type.Class && RS.type == CrocValue.Type.String);
+
+					if(!classobj.addField(t.vm.alloc, cls.mClass, RS.mString, RT, isPublic))
+					{
+						auto name = RS.mString.toString();
+						auto clsName = cls.mClass.name.toString();
+						throwStdException(t, "FieldException", "Attempting to add a field '{}' which already exists to class '{}'", name, clsName);
+					}
+					break;
+
+				case Op.AddMethod:
+					auto cls = &t.stack[stackBase + rd];
+					mixin(GetRS);
+					mixin(GetRT);
+					auto isPublic = cast(bool)mixin(GetUImm);
+
+					// should be guaranteed this by codegen
+					assert(cls.type == CrocValue.Type.Class && RS.type == CrocValue.Type.String);
+
+					if(!classobj.addMethod(t.vm.alloc, cls.mClass, RS.mString, RT, isPublic))
+					{
+						auto name = RS.mString.toString();
+						auto clsName = cls.mClass.name.toString();
+						throwStdException(t, "FieldException", "Attempting to add a method '{}' which already exists to class '{}'", name, clsName);
+					}
+					break;
+
 				default:
-					throwStdException(t, "VMError", "Unimplemented opcode {}", *i);
+					throwStdException(t, "VMError", "Unimplemented opcode {}", OpNames[cast(uword)opcode]);
 			}
 		}
 	}

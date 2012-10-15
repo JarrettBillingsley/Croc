@@ -359,7 +359,7 @@ abstract class AstNode : IAstNode
 
 		return null;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		// nothing.
@@ -410,18 +410,21 @@ class ClassDef : AstNode
 		the name of a method.
 		*/
 		char[] name;
-		
+
 		/**
 		The initializer of the field. This will never be null. If a field is declared in
 		a class but not given a value, a NullExp will be inserted into this field.
 		*/
 		Expression initializer;
 
+		bool isPublic;
+		bool isMethod;
+
 		/**
 		Document comments for the field.
 		*/
 		char[] docs;
-		
+
 		/**
 		The location of the doc comments for the field.
 		*/
@@ -448,7 +451,7 @@ class ClassDef : AstNode
 	Document comments for the declaration.
 	*/
 	char[] docs;
-	
+
 	/**
 	The location of the doc comments for the declaration.
 	*/
@@ -524,7 +527,7 @@ class FuncDef : AstNode
 		list. If typeMask does not allow instances, this should be empty.
 		*/
 		Expression[] classTypes;
-		
+
 		/**
 		If this parameter has a custom constraint instead of a normal type constraint, the
 		name after the @ will be turned into an expression and placed here. After the semantic
@@ -538,7 +541,7 @@ class FuncDef : AstNode
 		no default value.
 		*/
 		Expression defValue;
-		
+
 		/**
 		The slice of the source code that corresponds to this parameter's typemask. Can be null
 		if no typemask is given (implies "any"). Used for documentation generation.
@@ -581,7 +584,7 @@ class FuncDef : AstNode
 	Document comments for the declaration.
 	*/
 	char[] docs;
-	
+
 	/**
 	The location of the doc comments for the declaration.
 	*/
@@ -629,7 +632,7 @@ class NamespaceDef : AstNode
 		the name of a function.
 		*/
 		char[] name;
-		
+
 		/**
 		The initializer of the field. This will never be null. If a field is declared in
 		a namespace but not given a value, a NullExp will be inserted into this field.
@@ -640,7 +643,7 @@ class NamespaceDef : AstNode
 		Document comments for the field.
 		*/
 		char[] docs;
-		
+
 		/**
 		The location of the doc comments for the field.
 		*/
@@ -667,7 +670,7 @@ class NamespaceDef : AstNode
 	Document comments for the declaration.
 	*/
 	char[] docs;
-	
+
 	/**
 	The location of the doc comments for the declaration.
 	*/
@@ -709,12 +712,12 @@ class Module : AstNode
 	/**
 	*/
 	Decorator decorator;
-	
+
 	/**
 	Document comments for the module.
 	*/
 	char[] docs;
-	
+
 	/**
 	The location of the doc comments for the module.
 	*/
@@ -729,7 +732,7 @@ class Module : AstNode
 		this.statements = statements;
 		this.decorator = decorator;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(names);
@@ -763,7 +766,7 @@ enum Protection
 	This forces local protection.
 	*/
 	Local,
-	
+
 	/**
 	This forces global protection.
 	*/
@@ -795,7 +798,7 @@ class VarDecl : Statement
 	Document comments for the declaration.
 	*/
 	char[] docs;
-	
+
 	/**
 	The location of the doc comments for the declaration.
 	*/
@@ -825,7 +828,7 @@ class Decorator : AstNode
 	/**
 	*/
 	Expression func;
-	
+
 	/**
 	*/
 	Expression context;
@@ -902,7 +905,7 @@ class ClassDecl : Statement
 	The actual "guts" of the class.
 	*/
 	ClassDef def;
-	
+
 	/**
 	*/
 	Decorator decorator;
@@ -933,7 +936,7 @@ class NamespaceDecl : Statement
 	The "guts" of the namespace.
 	*/
 	NamespaceDef def;
-	
+
 	/**
 	*/
 	Decorator decorator;
@@ -966,7 +969,7 @@ class AssertStmt : Statement
 	based on its location. If it's not null, it must evaluate to a string.
 	*/
 	Expression msg;
-	
+
 	/**
 	*/
 	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression cond, Expression msg = null)
@@ -1019,7 +1022,7 @@ class ImportStmt : Statement
 		this.symbols = symbols;
 		this.symbolNames = symbolNames;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(symbols);
@@ -1044,7 +1047,7 @@ class BlockStmt : Statement
 		super(c, location, endLocation, AstTag.BlockStmt);
 		this.statements = statements;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(statements);
@@ -1100,7 +1103,7 @@ class ExpressionStmt : Statement
 		super(c, location, endLocation, AstTag.ExpressionStmt);
 		this.expr = expr;
 	}
-	
+
 	/**
 	*/
 	this(ICompiler c, Expression expr)
@@ -1126,7 +1129,7 @@ class IfStmt : Statement
 	The condition to test.
 	*/
 	Expression condition;
-	
+
 	/**
 	The code to execute if the condition evaluates to true.
 	*/
@@ -1471,7 +1474,7 @@ class CaseStmt : Statement
 	long.
 	*/
 	CaseCond[] conditions;
-	
+
 	/**
 	If this member is null, this is a "normal" case statement. If this member is non-null, this
 	is a ranged case statement like "case 1 .. 10:". In that case, the 'conditions' member will
@@ -1493,7 +1496,7 @@ class CaseStmt : Statement
 		this.highRange = highRange;
 		this.code = code;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(conditions);
@@ -1574,7 +1577,7 @@ class ReturnStmt : Statement
 		super(c, location, endLocation, AstTag.ReturnStmt);
 		this.exprs = exprs;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(exprs);
@@ -1617,7 +1620,7 @@ class TryCatchStmt : Statement
 	An array of one or more catch clauses that follow the try block.
 	*/
 	CatchClause[] catches;
-	
+
 	/**
 	Filled in during semantic analysis. This is the hidden variable used to actually catch the exception,
 	and its type is switched on by the transformedCatch statement.
@@ -1685,7 +1688,7 @@ class ThrowStmt : Statement
 	The value that should be thrown.
 	*/
 	Expression exp;
-	
+
 	/**
 	True if this throw is rethrowing a caught exception. This is only set when the throw is
 	auto-generated by scope(success) and scope(failure), and is used to control whether a traceback
@@ -1722,12 +1725,12 @@ class ScopeActionStmt : Statement
 	One of the above constants, indicates which kind of scope statement this is.
 	*/
 	ubyte type;
-	
+
 	/**
 	The statement which will be executed if this scope statement is run.
 	*/
 	Statement stmt;
-	
+
 	/**
 	*/
 	this(ICompiler c, CompileLoc location, ubyte type, Statement stmt)
@@ -1852,7 +1855,7 @@ class CatAssignStmt : Statement
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(operands);
@@ -2241,7 +2244,7 @@ class CondExp : Expression
 	The first expression, which comes before the question mark.
 	*/
 	Expression cond;
-	
+
 	/**
 	The second expression, which comes between the question mark and the colon.
 	*/
@@ -2278,7 +2281,7 @@ abstract class BinaryExp : Expression
 	The left-hand operand.
 	*/
 	Expression op1;
-	
+
 	/**
 	The right-hand operand.
 	*/
@@ -2518,7 +2521,7 @@ class CatExp : BinaryExp
 	bool collapsed = false;
 
 	mixin(BinExpMixin);
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(operands);
@@ -2605,7 +2608,7 @@ This node represents a length expression (#a).
 class LenExp : UnExp
 {
 	mixin(UnExpMixin);
-	
+
 	override bool isLHS()
 	{
 		return true;
@@ -2647,7 +2650,7 @@ class DotExp : PostfixExp
 		super(c, operand.location, name.endLocation, AstTag.DotExp, operand);
 		this.name = name;
 	}
-	
+
 	override bool isLHS()
 	{
 		return true;
@@ -2699,7 +2702,7 @@ class SliceExp : PostfixExp
 	This member will therefore never be null.
 	*/
 	Expression loIndex;
-	
+
 	/**
 	The high index of the slice. If no high index is given, this will be a NullExp.
 	This member will therefore never be null.
@@ -2732,7 +2735,7 @@ class CallExp : PostfixExp
 	be passed to the function.
 	*/
 	Expression context;
-	
+
 	/**
 	The list of arguments to be passed to the function. This can be 0 or more elements.
 	*/
@@ -2756,7 +2759,7 @@ class CallExp : PostfixExp
 	{
 		return true;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(args);
@@ -2791,7 +2794,7 @@ class MethodCallExp : PostfixExp
 		this.args = args;
 		this.isSuperCall = isSuperCall;
 	}
-	
+
 	override bool hasSideEffects()
 	{
 		return true;
@@ -2801,7 +2804,7 @@ class MethodCallExp : PostfixExp
 	{
 		return true;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(args);
@@ -2877,7 +2880,7 @@ class NullExp : PrimaryExp
 	{
 		super(c, location, AstTag.NullExp);
 	}
-	
+
 	override bool isConstant()
 	{
 		return true;
@@ -2998,7 +3001,7 @@ class VargSliceExp : PrimaryExp
 	The low index of the slice.
 	*/
 	Expression loIndex;
-	
+
 	/**
 	The high index of the slice.
 	*/
@@ -3263,7 +3266,7 @@ class TableCtorExp : PrimaryExp
 		super(c, location, endLocation, AstTag.TableCtorExp);
 		this.fields = fields;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(fields);
@@ -3289,7 +3292,7 @@ class ArrayCtorExp : PrimaryExp
 		super(c, location, endLocation, AstTag.ArrayCtorExp);
 		this.values = values;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(values);
@@ -3342,7 +3345,7 @@ class YieldExp : PrimaryExp
 	{
 		return true;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(args);
@@ -3383,7 +3386,7 @@ class ForeachComprehension : ForComprehension
 	These members are the same as for a ForeachStmt.
 	*/
 	Identifier[] indices;
-	
+
 	/// ditto
 	Expression[] container;
 
@@ -3408,7 +3411,7 @@ class ForeachComprehension : ForComprehension
 		this.ifComp = ifComp;
 		this.forComp = forComp;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(indices);
@@ -3426,18 +3429,18 @@ class ForNumComprehension : ForComprehension
 	These members are the same as for a ForNumStmt.
 	*/
 	Identifier index;
-	
+
 	/// ditto
 	Expression lo;
-	
+
 	/// ditto
 	Expression hi;
-	
+
 	/// ditto
 	Expression step;
 
 	/**
-	*/	
+	*/
 	this(ICompiler c, CompileLoc location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
@@ -3525,12 +3528,12 @@ class TableComprehension : PrimaryExp
 	The value expression. This is the thing after the equals sign at the beginning.
 	*/
 	Expression value;
-	
+
 	/**
 	The root of the comprehension tree.
 	*/
 	ForComprehension forComp;
-	
+
 	/**
 	*/
 	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression key, Expression value, ForComprehension forComp)

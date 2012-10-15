@@ -148,7 +148,9 @@ enum Op
 	NamespaceNP,
 
 	As,
-	SuperOf
+	SuperOf,
+	AddField,
+	AddMethod
 }
 
 static assert(Op.Add == MM.Add && Op.LAST_MM_OPCODE == MM.LAST_OPCODE_MM, "MMs and opcodes are out of sync!");
@@ -251,7 +253,9 @@ const char[][] OpNames =
 	Op.Namespace: "Namespace",
 	Op.NamespaceNP: "NamespaceNP",
 	Op.As: "As",
-	Op.SuperOf: "SuperOf"
+	Op.SuperOf: "SuperOf",
+	Op.AddField: "AddField",
+	Op.AddMethod: "AddMethod"
 ];
 
 /*
@@ -370,6 +374,9 @@ FOUR SHORTS:
 (rd, rt, uimm1, uimm2)
 	smethod:  method supercall. works same as method, but lookup is based on the proto instead of a value.
 	tsmethod: same as above, but does a tailcall. uimm2 is unused, but this makes codegen easier
+(rd, rs, rt, uimm)
+	addfield: add field named rs to class in rd with value rt. last uimm is 0 for private, nonzero for public.
+	addmethod: add method named rs to class in rd with value rt. last uimm is 0 for private, nonzero for public.
 
 FIVE SHORTS:
 

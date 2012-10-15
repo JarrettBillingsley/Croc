@@ -159,10 +159,13 @@ public:
 		{
 			fs.dup();
 			fs.pushString(field.name);
-			fs.toSource(field.initializer.location);
-			fs.field();
 			visit(field.initializer);
-			fs.assign(field.initializer.location, 1, 1);
+			fs.toSource(field.initializer.location);
+
+			if(field.isMethod)
+				fs.addClassMethod(field.initializer.location, field.isPublic);
+			else
+				fs.addClassField(field.initializer.location, field.isPublic);
 		}
 	}
 
