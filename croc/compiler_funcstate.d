@@ -143,12 +143,6 @@ private:
 			|| type == ExpType.Index || type == ExpType.Field || type == ExpType.Slice || type == ExpType.VarargIndex || type == ExpType.Length;
 	}
 
-	bool hasSideEffects()
-	{
-		return type == ExpType.Index || type == ExpType.Field || type == ExpType.Slice || type == ExpType.VarargIndex || type == ExpType.VarargSlice
-			|| type == ExpType.Length || type == ExpType.Call || type == ExpType.Yield || type == ExpType.NeedsDest;
-	}
-
 	debug private char[] toString()
 	{
 		static const char[][] typeNames =
@@ -205,7 +199,7 @@ private:
 struct NamespaceDesc
 {
 private:
-	uint prevReg;	
+	uint prevReg;
 }
 
 struct SwitchDesc
@@ -258,7 +252,6 @@ src = Local|Const
 multret = Call|Yield|Vararg|VarargSlice
 args = ((n-1)*Temp Temp|multret)?
 dst = anything but Const, Vararg, VarargSlice, Call, Yield, NeedsDest, or Conflict
-sideeffect = Index|Field|Slice|VarargIndex|VarargSlice|Length|Call|Yield
 */
 
 final class FuncState
@@ -488,7 +481,7 @@ package:
 		}
 
 		mScope.firstFreeReg = mLocVars[mLocVars.length - 1].reg + 1;
-		
+
 		if(mExpSP > 0 && getExp(-1).regAfter < mScope.firstFreeReg)
 			getExp(-1).regAfter = mScope.firstFreeReg;
 	}
@@ -935,7 +928,7 @@ package:
 
 		pop();
 	}
-		
+
 	// [src] => []
 	void assertFail(ref CompileLoc loc)
 	{
@@ -1133,16 +1126,6 @@ package:
 
 		if(numTemps > 0)
 			pushExp(ExpType.Conflict);
-	}
-
-	// [sideeffect] => [Local|Const]
-	// [any] => [any] (no effect)
-	void flushSideEffects(ref CompileLoc loc)
-	{
-		auto e = getExp(-1);
-
-		if(e.hasSideEffects())
-			toSource(loc);
 	}
 
 	// [any] => [Local|Const]
@@ -2000,7 +1983,7 @@ private:
 			default: assert(false);
 		}
 	}
-	
+
 	void patchJumpTo(uint src, uint dest)
 	{
 		setJumpOffset(src, jumpDiff(src, dest));
@@ -2177,7 +2160,7 @@ private:
 	{
 		assert(opcode <= Op.max);
 		assert(dest <= Instruction.rdMax);
-		
+
 		debug(WRITECODE) Stdout.newline.format("({}:{})[{}] {} RD {}", loc.line, loc.col, mCode.length, OpNames[opcode], dest);
 
 		Instruction i = void;

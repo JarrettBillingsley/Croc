@@ -515,7 +515,7 @@ public:
 	override AssertStmt visit(AssertStmt s)
 	{
 		assert(c.asserts()); // can't have made it here unless asserts are enabled
-		
+
 		InstRef i = codeCondition(s.cond);
 		fs.patchFalseToHere(i);
 		visit(s.msg);
@@ -767,7 +767,7 @@ public:
 	override ForeachStmt visit(ForeachStmt s)
 	{
 		visitForeach(s.location, s.endLocation, s.name, s.indices, s.container, { visit(s.code); });
-		
+
 		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
@@ -1053,7 +1053,7 @@ public:
 		fs.toSource(s.lhs.endLocation);
 
 		codeGenList(s.operands, false);
-		
+
 		fs.concatEq(s.endLocation, s.operands.length);
 		fs.assign(s.endLocation, 1, 1);
 
@@ -1620,10 +1620,10 @@ public:
 		if(exprs.length == 0)
 			return;
 
-		foreach(i, e; exprs[0 .. $ - 1])
+		foreach(e; exprs[0 .. $ - 1])
 		{
 			visit(e);
-			fs.flushSideEffects(e.endLocation);
+			fs.toTemporary(e.endLocation);
 		}
 
 		visit(exprs[$ - 1]);
