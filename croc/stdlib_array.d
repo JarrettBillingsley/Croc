@@ -79,9 +79,9 @@ void initArrayLib(CrocThread* t)
 		`The array library provides functionality for creating and manipulating arrays. Most of these
 		functions are accessed as methods of array objects. There are a few functions which are called
 		through the "\tt{array}" namespace.`));
-		
+
 		docFields(t, doc, _globalFuncDocs);
-		
+
 		getTypeMT(t, CrocValue.Type.Array);
 			docFields(t, doc, _methodFuncDocs);
 		pop(t);
@@ -726,6 +726,7 @@ uword _pop(CrocThread* t)
 	for(uword i = cast(uword)index; i < data.length - 1; i++)
 		data[i] = data[i + 1];
 
+	data[$ - 1].value = CrocValue.nullValue;
 	array.resize(t.vm.alloc, getArray(t, 0), data.length - 1);
 	return 1;
 }
@@ -743,7 +744,7 @@ uword _insert(CrocThread* t)
 
 	if(index < 0 || index > data.length)
 		throwStdException(t, "BoundsException", "Invalid array index: {}", index);
-		
+
 	array.resize(t.vm.alloc, getArray(t, 0), data.length + 1);
 	data = a.toArray();
 
@@ -913,7 +914,7 @@ uword _any(CrocThread* t)
 	if(numParams > 0)
 	{
 		checkParam(t, 1, CrocValue.Type.Function);
-		
+
 		foreach(ref v; getArray(t, 0).toArray())
 		{
 			dup(t, 1);
@@ -1305,7 +1306,7 @@ foreach(i, v; a, "reverse")
 		the last element of the array and return it. Called with an index (which can be negative to mean from
 		the end of the array), it will remove that element and shift all the other elements after it down a
 		slot. In either case, if the array's length is 0, an error will be thrown.`},
-		
+
 		{kind: "function", name: "insert",
 		params: [Param("index", "int"), Param("value")],
 		extra: [Extra("section", "Methods")],
@@ -1354,7 +1355,7 @@ foreach(i, v; a, "reverse")
 		If the array only has one value, returns that value.
 
 		\throws[exceptions.ValueException] if the array is empty.`},
-		
+
 		{kind: "function", name: "all",
 		params: [Param("pred", "function", "null")],
 		extra: [Extra("section", "Methods")],
@@ -1368,7 +1369,7 @@ foreach(i, v; a, "reverse")
 		in the array, and \tt{false} otherwise.
 
 		Returns \tt{true} if called on an empty array.`},
-		
+
 		{kind: "function", name: "any",
 		params: [Param("pred", "function", "null")],
 		extra: [Extra("section", "Methods")],
