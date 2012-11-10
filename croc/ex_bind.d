@@ -6,7 +6,7 @@ This binding library is not supposed to be the most flexible or capable. For
 example, its class wrapping is meant to be usable with classes to whose source
 code you don't necessarily have access to, or whose code you can't change (like
 in third-party libraries). This library has to sacrifice some efficiency and
-capabilities to be able to do this. 
+capabilities to be able to do this.
 
 However, if you're really only concerned with integrating your $(I own) code with
 Croc, something like $(LINK2 xpose http://team0xf.com:8080/xf/file/37d8e57b1c4d/xpose/)
@@ -187,7 +187,7 @@ Template Params:
 	name = The name that will be given to the type in Croc.
 
 	Members = The members of the type.
-	
+
 Bugs:
 	Abstract classes cannot be wrapped. D1 does not provide enough reflective information to do so reliably.
 */
@@ -212,7 +212,7 @@ private:
 			throwStdException(t, "Exception", "Native type " ~ NameOfType!(Type) ~ " cannot be wrapped more than once");
 
 		pop(t);
-		
+
 		// Wrap it
 		static if(is(Type == class))
 			WrappedClass!(Type, name, moduleName, Members).init(t);
@@ -544,7 +544,7 @@ word getWrappedInstance(CrocThread* t, Object o)
 
 /**
 For a given D object instance, sets the Croc instance at the given stack index to be
-its corresponding object. 
+its corresponding object.
 
 $(B You probably won't have to call this function under normal circumstances.)
 
@@ -776,9 +776,9 @@ Type superGet(Type)(CrocThread* t, word idx)
 		auto data = getArray(t, idx).data;
 		auto ret = new T(data.length);
 
-		foreach(i, ref elem; data)
+		foreach(i, ref slot; data)
 		{
-			auto elemIdx = push(t, elem);
+			auto elemIdx = push(t, slot.value);
 
 			if(!canCastTo!(ElemType)(t, elemIdx))
 			{
@@ -1373,7 +1373,7 @@ class WrappedClass(Type, char[] _classname_, char[] moduleName, Members...) : Ty
 class StructWrapper(Type)
 {
 	Type inst;
-	
+
 	this(Type t)
 	{
 		inst = t;
@@ -1595,7 +1595,7 @@ template ClassCrocMethods(Type, char[] TypeName, alias X, T...)
 	"		numParams = maxArgs;\n"
 
 	"	auto self = checkClassSelf!(Type, TypeName)(t);\n"
-	
+
 	"	assert(self !is null, `Invalid 'this' parameter passed to method ` ~ Type.stringof ~ `.` ~ X.Name);\n"
 
 	"	if(auto wrappedSelf = cast(typeof(this))self)\n"
@@ -1763,7 +1763,7 @@ template WrappedFunc(alias func, char[] name, funcType, bool explicitType)
 	static uword WrappedFunc(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		
+
 		static if(explicitType)
 			const minArgs = NumParams!(funcType);
 		else
@@ -1886,14 +1886,14 @@ template WrappedNativeMethod(alias func, funcType, bool explicitType)
 					}
 				}
 			}
-	
+
 			foreach(i, arg; args)
 			{
 				const argNum = i + 1;
-	
+
 				if(i < numParams)
 					args[i] = superGet!(typeof(args[i]))(t, argNum);
-	
+
 				static if(argNum >= minArgs && argNum <= maxArgs)
 				{
 					if(argNum == numParams)
@@ -1912,7 +1912,7 @@ template WrappedNativeMethod(alias func, funcType, bool explicitType)
 				}
 			}
 		}
-	
+
 		assert(false, "WrappedNativeMethod (" ~ name ~ ") should never ever get here.");
 	}
 }
@@ -1963,7 +1963,7 @@ template WrappedMethod(alias func, funcType, Type, char[] FullName, bool explici
 					}
 				}
 			}
-			
+
 			foreach(i, arg; args)
 			{
 				const argNum = i + 1;
