@@ -130,16 +130,16 @@ const RegisterFunc[] _methodFuncs =
 	{"readUInt64",   &_rawRead!(ulong),    maxParams: 1},
 	{"readFloat32",  &_rawRead!(float),    maxParams: 1},
 	{"readFloat64",  &_rawRead!(double),   maxParams: 1},
-	{"writeInt8",    &_rawWrite!(byte),    maxParams: 1},
-	{"writeInt16",   &_rawWrite!(short),   maxParams: 1},
-	{"writeInt32",   &_rawWrite!(int),     maxParams: 1},
-	{"writeInt64",   &_rawWrite!(long),    maxParams: 1},
-	{"writeUInt8",   &_rawWrite!(ubyte),   maxParams: 1},
-	{"writeUInt16",  &_rawWrite!(ushort),  maxParams: 1},
-	{"writeUInt32",  &_rawWrite!(uint),    maxParams: 1},
-	{"writeUInt64",  &_rawWrite!(ulong),   maxParams: 1},
-	{"writeFloat32", &_rawWrite!(float),   maxParams: 1},
-	{"writeFloat64", &_rawWrite!(double),  maxParams: 1},
+	{"writeInt8",    &_rawWrite!(byte),    maxParams: 2},
+	{"writeInt16",   &_rawWrite!(short),   maxParams: 2},
+	{"writeInt32",   &_rawWrite!(int),     maxParams: 2},
+	{"writeInt64",   &_rawWrite!(long),    maxParams: 2},
+	{"writeUInt8",   &_rawWrite!(ubyte),   maxParams: 2},
+	{"writeUInt16",  &_rawWrite!(ushort),  maxParams: 2},
+	{"writeUInt32",  &_rawWrite!(uint),    maxParams: 2},
+	{"writeUInt64",  &_rawWrite!(ulong),   maxParams: 2},
+	{"writeFloat32", &_rawWrite!(float),   maxParams: 2},
+	{"writeFloat64", &_rawWrite!(double),  maxParams: 2},
 	{"copy",         &_copy,               maxParams: 4},
 	{"compare",      &_compare,            maxParams: 4},
 	{"opEquals",     &_opEquals,           maxParams: 1},
@@ -162,7 +162,7 @@ uword _toString(CrocThread* t)
 	{
 		if(i > 0)
 			b.addString(", ");
-			
+
 		pushFormat(t, "{}", val);
 		b.addTop();
 	}
@@ -454,7 +454,7 @@ uword _opCatAssign(CrocThread* t)
 
 version(CrocBuiltinDocs)
 {
-	Docs[] _globalFuncDocs = 
+	Docs[] _globalFuncDocs =
 	[
 		{kind: "function", name: "new",
 		params: [Param("size", "int"), Param("fill", "int", "0")],
