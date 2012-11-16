@@ -56,18 +56,19 @@ local checkRWParams = checkRWParams
 /**
 The base class for stream-based IO.
 
-This class defines the interface that all streams must implement, as well as some helper functions which are implemented in
-terms of the user-defined methods. This interface is fairly low-level and is meant to be wrapped by higher-level stream
-wrappers and filters.
+This class defines the interface that all streams must implement, as well as some helper functions which are implemented
+in terms of the user-defined methods. This interface is fairly low-level and is meant to be wrapped by higher-level
+stream wrappers and filters.
 
-There are a relatively small number of functions which must be implemented to satisfy the stream interface. Detailed descriptions
-of these methods and their behavior is given inside this class, but a quick overview is as follows:
+There are a relatively small number of functions which must be implemented to satisfy the stream interface. Detailed
+descriptions of these methods and their behavior is given inside this class, but a quick overview is as follows:
 
 \blist
-	\li \b{\tt{readable, writable, seekable}} - These simply return bools which indicate whether this stream can be read from,
-		written to, and seeked.
-	\li \b{\tt{read, write, seek}} - The real workhorse functions which actually perform the reading, writing, and seeking of the
-		stream. Each of these only needs to be implemented if the corresponding \tt{-able} method returns \tt{true}.
+	\li \b{\tt{readable, writable, seekable}} - These simply return bools which indicate whether this stream can be read
+		from, written to, and seeked.
+	\li \b{\tt{read, write, seek}} - The real workhorse functions which actually perform the reading, writing, and
+		seeking of the stream. Each of these only needs to be implemented if the corresponding \tt{-able} method returns
+		\tt{true}.
 	\li \b{\tt{flush, close, isOpen}} - Miscellaneous optional methods.
 \endlist
 
@@ -131,10 +132,10 @@ class Stream
 
 	\blist
 		\li If \tt{size} is 0, this function is a no-op, and the return value is 0.
-		\li If \tt{size} is nonzero and the write is successful, the return value is an integer in the range \tt{[1, size]}
-			and indicates the number of bytes actually written. Fewer than \tt{size} bytes can be written in a number of
-			non-error situations. If you need to write a whole buffer, make repeated calls to \tt{write} until the desired
-			number of bytes has been written. The \link{writeExact} method does this for you.
+		\li If \tt{size} is nonzero and the write is successful, the return value is an integer in the range
+			\tt{[1, size]} and indicates the number of bytes actually written. Fewer than \tt{size} bytes can be written
+			in a number of non-error situations. If you need to write a whole buffer, make repeated calls to \tt{write}
+			until the desired number of bytes has been written. The \link{writeExact} method does this for you.
 	\endlist
 
 	\throws[exceptions.BoundsException] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
@@ -153,13 +154,13 @@ class Stream
 
 	\param[this] must be seekable.
 	\param[offset] is the position offset, whose meaning depends upon the \tt{where} parameter.
-	\param[where] is a character indicating the position in the stream from which the new stream position will be calculated.
-	It can be one of the three following values:
+	\param[where] is a character indicating the position in the stream from which the new stream position will be
+		calculated. It can be one of the three following values:
 
 	\dlist
 		\li{\b{\tt{'b'}}} The \tt{offset} is treated as an absolute offset from the beginning of the stream.
-		\li{\b{\tt{'c'}}} The \tt{offset} is treated as a relative offset from the current read/write position. This means that
-			negative \tt{offset} values move the read/write position backwards.
+		\li{\b{\tt{'c'}}} The \tt{offset} is treated as a relative offset from the current read/write position. This
+			means that negative \tt{offset} values move the read/write position backwards.
 		\li{\b{\tt{'e'}}} The \tt{offset} is treated as a relative offset from the end of the stream.
 	\endlist
 
@@ -191,15 +192,17 @@ class Stream
 	/**
 	An optional method used to flush cached data to the stream.
 
-	Often buffering schemes are used to improve IO performance, but such schemes mean that the stream and its backing store are
-	often incoherent. This method is called to force coherency by flushing any buffered data and writing it into the backing store.
+	Often buffering schemes are used to improve IO performance, but such schemes mean that the stream and its backing
+	store are often incoherent. This method is called to force coherency by flushing any buffered data and writing it
+	into the backing store.
 
 	The default implementation is simply to do nothing.
 	*/
 	function flush() {}
 
 	/**
-	An optional method used to close a stream by releasing any system resources associated with it and preventing any further use.
+	An optional method used to close a stream by releasing any system resources associated with it and preventing any
+	further use.
 
 	This method should be allowed to be called more than once, but calls beyond the first should be no-ops.
 
@@ -210,17 +213,20 @@ class Stream
 	/**
 	An optional method used to check whether or not this stream has been closed.
 
-	This goes along with the \link{close} method; once \link{close} has been called, this method should return \tt{false}.
+	This goes along with the \link{close} method; once \link{close} has been called, this method should return
+	\tt{false}.
 
-	\returns a bool indicating whether or not this stream is still open. The default implementation simply returns \tt{true}.
+	\returns a bool indicating whether or not this stream is still open. The default implementation simply returns
+	\tt{true}.
 	*/
 	function isOpen() = true
 
 	/**
 	A helper method which attempts to read a block of data fully, making multiple calls to \link{read} as needed.
 
-	Since \link{read} may not read all the data for a block in one call, this method exists to automatically make as many calls
-	to \link{read} as needed to fill the requested block of data. The parameters are identical to those of \link{read}.
+	Since \link{read} may not read all the data for a block in one call, this method exists to automatically make as
+	many calls to \link{read} as needed to fill the requested block of data. The parameters are identical to those of
+	\link{read}.
 
 	\throws[exceptions.IOException] or a derived class if some error occurred.
 	\throws[EOFException] if end-of-file was reached.
@@ -245,8 +251,9 @@ class Stream
 	/**
 	A helper method which attempts to write a block of data fully, making multiple calls to \link{write} as needed.
 
-	Since \link{write} may not write all the data for a block in one call, this method exists to automatically make as many calls
-	to \link{write} as needed to write the requested block of data. The parameters are identical to those of \link{write}.
+	Since \link{write} may not write all the data for a block in one call, this method exists to automatically make as
+	many calls to \link{write} as needed to write the requested block of data. The parameters are identical to those of
+	\link{write}.
 
 	\throws[exceptions.IOException] or a derived class if some error occurred.
 	\throws[EOFException] if end-of-file was reached.
@@ -267,9 +274,9 @@ class Stream
 	/**
 	Skips forward a given number of bytes.
 
-	The stream need not be seekable in order to skip forward. If it is not seekable, data will simply be read into a scratch buffer
-	and discarded until the desired number of bytes have been skipped. If it is seekable, this will simply call \link{seek} to seek
-	forward \tt{dist} bytes.
+	The stream need not be seekable in order to skip forward. If it is not seekable, data will simply be read into a
+	scratch buffer and discarded until the desired number of bytes have been skipped. If it is seekable, this will
+	simply call \link{seek} to seek forward \tt{dist} bytes.
 
 	\param[this] must be readable, and may optionally be seekable.
 	\param[dist] is the number of bytes to skip. Can be 0.
@@ -313,8 +320,8 @@ class Stream
 	This will call \link{read} as many times as needed until it indicates that the end of file has been reached.
 
 	\param[this] must be readable.
-	\param[m] is an optional memblock to use as the buffer to hold the read data. If one is given, it will be resized to hold the
-		read data. If it is not given, a new memblock will be used instead.
+	\param[m] is an optional memblock to use as the buffer to hold the read data. If one is given, it will be resized to
+		hold the read data. If it is not given, a new memblock will be used instead.
 
 	\returns the memblock holding the read data.
 	*/
@@ -429,11 +436,12 @@ class Stream
 }
 
 /**
-These are meant to be used as custom parameter type constraints, to ensure that a stream parameter supports certain operations.
+These are meant to be used as custom parameter type constraints, to ensure that a stream parameter supports certain
+operations.
 
-All of these ensure that \tt{s} is derived from \link{Stream}. The \tt{in} functions ensure that \tt{s.readable()} returns true;
-the \tt{out} functions ensure that \tt{s.writable()} returns true; and the \tt{seek} functions ensure that \tt{s.seekable()}
-returns true. An example of use:
+All of these ensure that \tt{s} is derived from \link{Stream}. The \tt{in} functions ensure that \tt{s.readable()}
+returns true; the \tt{out} functions ensure that \tt{s.writable()} returns true; and the \tt{seek} functions ensure that
+\tt{s.seekable()} returns true. An example of use:
 
 \code
 // Expects the dest stream to be writable and the src stream to be readable
@@ -443,8 +451,8 @@ function copyBlock(dest: @OutStream, src: @InStream) { ... }
 function readZIPDirectory(s: @InSeekStream) { ... }
 \endcode
 
-It's a good idea to use only what you need and not over-request features; for instance, if you're never going to write to the
-stream, don't use an \tt{out} function.
+It's a good idea to use only what you need and not over-request features; for instance, if you're never going to write
+to the stream, don't use an \tt{out} function.
 
 \param[s] the stream object to test.
 \returns a bool telling whether or not it satisfies the constraints.
@@ -460,12 +468,12 @@ function InoutSeekStream(s) = s as Stream && s.readable() && s.writable() && s.s
 /**
 Implements a readable, writable, seekable stream that uses a memblock as its data backing store.
 
-This is a very useful kind of stream. With it you can redirect stream operations that would normally go to a file to memory
-instead. It can often be much faster to read in a large chunk of a file, or a file in its entirety, and then do processing
-in memory. This is also useful for building up data to be sent over networks or such.
+This is a very useful kind of stream. With it you can redirect stream operations that would normally go to a file to
+memory instead. It can often be much faster to read in a large chunk of a file, or a file in its entirety, and then do
+processing in memory. This is also useful for building up data to be sent over networks or such.
 
-The backing memblock can be one you provide, or it can use its own. The memblock will be grown automatically when data is
-written past its end.
+The backing memblock can be one you provide, or it can use its own. The memblock will be grown automatically when data
+is written past its end.
 */
 class MemblockStream : Stream
 {
@@ -475,7 +483,8 @@ class MemblockStream : Stream
 	/**
 	Constructor.
 
-	\param[mb] is the memblock to use as the backing store. If none is given, a new zero-size memblock will be used instead.
+	\param[mb] is the memblock to use as the backing store. If none is given, a new zero-size memblock will be used
+	instead.
 	*/
 	this(mb: memblock = memblock.new(0))
 	{
@@ -505,7 +514,8 @@ class MemblockStream : Stream
 	/**
 	Implmentation of \link{Stream.write}.
 
-	If there is not enough space in the memblock to hold the new data, the memblock's size will be expanded to accommodate.
+	If there is not enough space in the memblock to hold the new data, the memblock's size will be expanded to
+	accommodate.
 	*/
 	function write(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
@@ -527,8 +537,8 @@ class MemblockStream : Stream
 	/**
 	Implmentation of \link{Stream.seek}.
 
-	If you seek past the end of the memblock, the memblock will be resized to the new offset. This is to match the behavior
-	of seeking on files.
+	If you seek past the end of the memblock, the memblock will be resized to the new offset. This is to match the
+	behavior of seeking on files.
 
 	\throws[exceptions.ValueException] if \tt{where} is invalid.
 	\throws[exceptions.IOException] if the resulting offset is negative.
@@ -722,11 +732,11 @@ class UTF8Stream
 }
 
 /**
-A base class for types of streams which expand the capabilities of another stream without obscuring the underlying stream
-interface.
+A base class for types of streams which expand the capabilities of another stream without obscuring the underlying
+stream interface.
 
-It takes a stream object and implements all of the \link{Stream} interface methods as simply passthroughs to the underlying
-stream object. Subclasses can then add methods and possibly override just those which they need to.
+It takes a stream object and implements all of the \link{Stream} interface methods as simply passthroughs to the
+underlying stream object. Subclasses can then add methods and possibly override just those which they need to.
 */
 class StreamWrapper : Stream
 {
@@ -767,8 +777,8 @@ class StreamWrapper : Stream
 /**
 A kind of stream wrapper class that adds a simple interface for reading and writing binary data.
 
-Because it's a stream wrapper, the basic stream interface can still be used on it and the functionality will be passed through
-to the wrapped stream.
+Because it's a stream wrapper, the basic stream interface can still be used on it and the functionality will be passed
+through to the wrapped stream.
 */
 class BinaryStream : StreamWrapper
 {
@@ -790,8 +800,8 @@ class BinaryStream : StreamWrapper
 	/**
 	These all read a single integer or floating-point value of the given type and size.
 
-	Note that because Croc's \tt{int} type is a signed 64-bit integer, \tt{readUInt64} will return negative numbers for those
-	that exceed 2\sup{63} - 1. It exists for completeness.
+	Note that because Croc's \tt{int} type is a signed 64-bit integer, \tt{readUInt64} will return negative numbers for
+	those that exceed 2\sup{63} - 1. It exists for completeness.
 
 	\returns an \tt{int} or \tt{float} representing the value read.
 	\throws[EOFException] if end-of-file was reached.
@@ -824,7 +834,8 @@ class BinaryStream : StreamWrapper
 	/**
 	Reads a given number of \b{ASCII} characters and returns them as a string.
 
-	This is particularly useful for chunk identifiers in RIFF-type files and "magic numbers", though it can have other uses as well.
+	This is particularly useful for chunk identifiers in RIFF-type files and "magic numbers", though it can have other
+	uses as well.
 
 	\param[n] is the number of bytes to read.
 
@@ -862,7 +873,9 @@ class BinaryStream : StreamWrapper
 	function writeFloat64(x: float) { :_rwbuf.writeFloat64(0, x); :_stream.writeExact(:_rwBuf, 0, 8); return this }
 
 	/**
-	Writes a binary representation of the given string. To read this binary representation back again, use \link{readString}.
+	Writes a binary representation of the given string. To read this binary representation back again, use
+	\link{readString}. The representation is a 64-bit unsigned integer indicating the length, in bytes, of the string
+	data encoded in UTF-8, followed by the string data encoded in UTF-8.
 
 	\param[x] is the string to write.
 	\returns \tt{this}.
@@ -879,8 +892,8 @@ class BinaryStream : StreamWrapper
 	/**
 	Writes the given string, which must be ASCII only, as a raw sequence of byte-sized characters.
 
-	This is particularly useful for chunk identifiers in RIFF-type files and "magic numbers", though it can have other uses
-	as well.
+	This is particularly useful for chunk identifiers in RIFF-type files and "magic numbers", though it can have other
+	uses as well.
 
 	\param[x] is the string containing the characters to be written. It must be ASCII.
 	\returns \tt{this}.
@@ -899,7 +912,8 @@ class BinaryStream : StreamWrapper
 }
 
 /**
-A stream wrapper that adds input buffering. Note that this class only allows reading and seeking; writing is unsupported.
+A stream wrapper that adds input buffering. Note that this class only allows reading and seeking; writing is
+unsupported.
 
 This stream adds a transparent buffering scheme when reading data. Seeking is also allowed and will work correctly even
 if data is buffered.
@@ -914,8 +928,8 @@ class BufferedInStream : StreamWrapper
 	Constructor.
 
 	\param[s] is the stream to be wrapped.
-	\param[bufSize] is the size of the memory buffer. Defaults to 4KB. Its size is clamped to a minimum of 128 bytes, and
-	there is no upper limit.
+	\param[bufSize] is the size of the memory buffer. Defaults to 4KB. Its size is clamped to a minimum of 128 bytes,
+	and there is no upper limit.
 	*/
 	this(s: @InStream, bufSize: int = 4096)
 	{
@@ -924,8 +938,8 @@ class BufferedInStream : StreamWrapper
 	}
 
 	/**
-	Regardless of whether or not the underlying stream is writable, this class is not. Erratic behavior can result if you try
-	to write to a stream that is wrapped by this class.
+	Regardless of whether or not the underlying stream is writable, this class is not. Erratic behavior can result if
+	you try to write to a stream that is wrapped by this class.
 
 	\returns false.
 	*/
@@ -933,7 +947,8 @@ class BufferedInStream : StreamWrapper
 		false
 
 	/**
-	Implementation of the \tt{read} method. It works exactly like the normal \tt{read} method, performing buffering transparently.
+	Implementation of the \tt{read} method. It works exactly like the normal \tt{read} method, performing buffering
+	transparently.
 
 	The call signature and return values are the same as \link{Stream.read}.
 	*/
@@ -965,8 +980,8 @@ class BufferedInStream : StreamWrapper
 	}
 
 	/**
-	Implementation of the \tt{seek} method. It works exactly like the normal \tt{seek} method, and will seek properly even if
-	data has been buffered.
+	Implementation of the \tt{seek} method. It works exactly like the normal \tt{seek} method, and will seek properly
+	even if data has been buffered.
 
 	Seeking will clear the data buffer. The call signature and return values are the same as \link{Stream.seek}.
 	*/
@@ -989,7 +1004,8 @@ class BufferedInStream : StreamWrapper
 }
 
 /**
-A stream wrapper that adds output buffering. Note that this class only allows writing and seeking; reading is unsupported.
+A stream wrapper that adds output buffering. Note that this class only allows writing and seeking; reading is
+unsupported.
 
 This stream adds a transparent buffering scheme when writing data. Seeking is also allowed and will work correctly even
 if data is buffered.
@@ -1003,8 +1019,8 @@ class BufferedOutStream : StreamWrapper
 	Constructor.
 
 	\param[s] is the stream to be wrapped.
-	\param[bufSize] is the size of the memory buffer. Defaults to 4KB. Its size is clamped to a minimum of 128 bytes, and
-	there is no upper limit.
+	\param[bufSize] is the size of the memory buffer. Defaults to 4KB. Its size is clamped to a minimum of 128 bytes,
+	and there is no upper limit.
 	*/
 	this(s: @OutStream, bufSize: int = 4096)
 	{
@@ -1013,8 +1029,8 @@ class BufferedOutStream : StreamWrapper
 	}
 
 	/**
-	Regardless of whether or not the underlying stream is readable, this class is not. Erratic behavior can result if you try
-	to read from a stream that is wrapped by this class.
+	Regardless of whether or not the underlying stream is readable, this class is not. Erratic behavior can result if
+	you try to read from a stream that is wrapped by this class.
 
 	\returns false.
 	*/
@@ -1022,7 +1038,8 @@ class BufferedOutStream : StreamWrapper
 		false
 
 	/**
-	Implementation of the \tt{write} method. It works exactly like the normal \tt{write} method, performing buffering transparently.
+	Implementation of the \tt{write} method. It works exactly like the normal \tt{write} method, performing buffering
+	transparently.
 
 	The call signature and return values are the same as \link{Stream.write}.
 	*/
@@ -1052,8 +1069,8 @@ class BufferedOutStream : StreamWrapper
 	}
 
 	/**
-	Implementation of the \tt{seek} method. It works exactly like the normal \tt{seek} method, and will seek properly even if
-	data has been buffered.
+	Implementation of the \tt{seek} method. It works exactly like the normal \tt{seek} method, and will seek properly
+	even if data has been buffered.
 
 	Seeking will flush the data buffer. The call signature and return values are the same as \link{Stream.seek}.
 	*/
@@ -1069,8 +1086,9 @@ class BufferedOutStream : StreamWrapper
 	}
 
 	/**
-	Implementation of the \tt{flush} method. This writes any buffered data to the stream. If no data is buffered, does nothing.
-	
+	Implementation of the \tt{flush} method. This writes any buffered data to the stream. If no data is buffered, does
+	nothing.
+
 	\throws[EOFException] if end-of-file is reached.
 	*/
 	function flush()
@@ -1084,7 +1102,8 @@ class BufferedOutStream : StreamWrapper
 	}
 
 	/**
-	Implementation of the \tt{close} method. Simply flushes the buffer and then calls \tt{close} on the underlying stream.
+	Implementation of the \tt{close} method. Simply flushes the buffer and then calls \tt{close} on the underlying
+	stream.
 	*/
 	function close()
 	{

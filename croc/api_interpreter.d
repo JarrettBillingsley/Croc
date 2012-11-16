@@ -53,6 +53,7 @@ import croc.types_string;
 import croc.types_table;
 import croc.types_thread;
 import croc.types_weakref;
+import croc.utf;
 import croc.utils;
 
 private
@@ -4022,9 +4023,7 @@ CrocString* createString(CrocThread* t, char[] data)
 
 	uword cpLen = void;
 
-	try
-		cpLen = verify(data);
-	catch(UnicodeException e)
+	if(!verifyUTF8(data, cpLen))
 		throwStdException(t, "UnicodeException", "Invalid UTF-8 sequence");
 
 	return string.create(t.vm, data, h, cpLen);

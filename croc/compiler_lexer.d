@@ -27,18 +27,14 @@ module croc.compiler_lexer;
 
 import tango.core.Exception;
 import tango.text.convert.Float;
-import tango.text.convert.Utf;
 import tango.text.Unicode;
 import tango.text.Util;
 
 alias tango.text.convert.Float.toFloat Float_toFloat;
-alias tango.text.convert.Utf.decode Utf_decode;
-alias tango.text.convert.Utf.encode Utf_encode;
-alias tango.text.convert.Utf.isValid Utf_isValid;
-alias tango.text.Unicode.isUpper Uni_isUpper;
 
 import croc.compiler_types;
 import croc.types;
+import croc.utf;
 import croc.utils;
 
 struct Token
@@ -56,7 +52,7 @@ struct Token
 	CompileLoc loc;
 	char[] preComment, postComment;
 	CompileLoc preCommentLoc, postCommentLoc;
-	uword startChar;
+	char* startChar;
 
 	enum
 	{
@@ -310,16 +306,18 @@ private:
 	ICompiler mCompiler;
 	CompileLoc mLoc;
 	char[] mSource;
+	char* mSourcePtr;
+	char* mSourceEnd;
+	char* mCharPos;
+	char* mLookaheadCharPos;
 
-	uword mPosition;
 	dchar mCharacter;
 	dchar mLookaheadCharacter;
 	bool mHaveLookahead;
 	bool mNewlineSinceLastTok;
 	bool mTokSinceLastNewline;
 
-	uword mCaptureStart;
-	uword mCaptureEnd;
+	char* mCaptureEnd;
 
 	Token mTok;
 	Token mPeekTok;
@@ -343,7 +341,8 @@ public:
 	{
 		mLoc = CompileLoc(name, 1, 0);
 		mSource = source;
-		mPosition = 0;
+		mSourceEnd = source.ptr + source.length;
+		mSourcePtr = source.ptr;
 
 		mHaveLookahead = false;
 		mNewlineSinceLastTok = false;
@@ -439,15 +438,15 @@ public:
 			nextToken();
 	}
 
-	uword beginCapture()
+	char* beginCapture()
 	{
 		mCaptureEnd = mTok.startChar;
 		return mCaptureEnd;
 	}
 
-	char[] endCapture(uword captureStart)
+	char[] endCapture(char* captureStart)
 	{
-		return mCompiler.newString(mSource[captureStart .. mCaptureEnd].trim());
+		return mCompiler.newString(captureStart[0 .. mCaptureEnd - captureStart].trim());
 	}
 
 // ================================================================================================================================================
@@ -504,22 +503,27 @@ private:
 
 		if(c >= '0' && c <= '9')
 			return cast(ubyte)(c - '0');
-
-		if(Uni_isUpper(c))
+		else if(c >= 'A' && c <= 'F')
 			return cast(ubyte)(c - 'A' + 10);
 		else
 			return cast(ubyte)(c - 'a' + 10);
 	}
 
-	dchar readChar()
+	dchar readChar(ref char* pos)
 	{
-		if(mPosition >= mSource.length)
+		if(mSourcePtr >= mSourceEnd)
+		{
+			pos = mSourceEnd;
 			return dchar.init;
+		}
 		else
 		{
-			uint ate = 0;
-			auto ret = Utf_decode(mSource[mPosition .. $], ate);
-			mPosition += ate;
+			pos = mSourcePtr;
+			dchar ret = void;
+
+			if(!decodeUTF8Char(mSourcePtr, mSourceEnd, ret))
+				mCompiler.lexException(mLoc, "Source is not valid UTF-8");
+
 			return ret;
 		}
 	}
@@ -528,7 +532,7 @@ private:
 	{
 		assert(!mHaveLookahead, "looking ahead too far");
 
-		mLookaheadCharacter = readChar();
+		mLookaheadCharacter = readChar(mLookaheadCharPos);
 		mHaveLookahead = true;
 		return mLookaheadCharacter;
 	}
@@ -540,11 +544,12 @@ private:
 		if(mHaveLookahead)
 		{
 			mCharacter = mLookaheadCharacter;
+			mCharPos = mLookaheadCharPos;
 			mHaveLookahead = false;
 		}
 		else
 		{
-			mCharacter = readChar();
+			mCharacter = readChar(mCharPos);
 		}
 	}
 
@@ -678,7 +683,7 @@ private:
 
 							nextChar();
 						}
-						
+
 						if(!convertUInt(buf[0 .. i], iret, 2))
 							mCompiler.lexException(beginning, "Binary integer literal overflow");
 
@@ -726,7 +731,7 @@ private:
 					hasPoint = true;
 					add(mCharacter);
 					nextChar();
-					
+
 					if(isDecimalDigit())
 					{
 						add(mCharacter);
@@ -881,7 +886,7 @@ private:
 				if(x == 0xFFFE || x == 0xFFFF)
 					mCompiler.lexException(mLoc, "Unicode escape '\\U{:x8}' is illegal", x);
 
-				if(!Utf_isValid(cast(dchar)x))
+				if(!isValidChar(cast(dchar)x))
 					mCompiler.lexException(mLoc, "Unicode escape '\\U{:x8}' too large", x);
 
 				ret = cast(dchar)x;
@@ -920,6 +925,7 @@ private:
 
 		// to be safe..
 		char[6] utfbuf = void;
+		char[] tmp = void;
 
 		// Skip opening quote
 		nextChar();
@@ -940,7 +946,12 @@ private:
 					if(!escape)
 						goto default;
 
-					buf ~= Utf_encode(utfbuf, readEscapeSequence(beginning));
+					auto loc = mLoc;
+
+					if(!encodeUTF8Char(utfbuf, readEscapeSequence(beginning), tmp))
+						mCompiler.lexException(loc, "Invalid escape sequence");
+
+					buf ~= tmp;
 					continue;
 
 				default:
@@ -948,7 +959,8 @@ private:
 					{
 						if(lookaheadChar() == delimiter)
 						{
-							buf ~= Utf_encode(utfbuf, delimiter);
+							encodeUTF8Char(utfbuf, delimiter, tmp);
+							buf ~= tmp;
 							nextChar();
 							nextChar();
 						}
@@ -959,8 +971,13 @@ private:
 					{
 						if(escape && mCharacter == delimiter)
 							break;
-						
-						buf ~= Utf_encode(utfbuf, mCharacter);
+
+						auto loc = mLoc;
+
+						if(!encodeUTF8Char(utfbuf, mCharacter, tmp))
+							mCompiler.lexException(loc, "Invalid escape sequence");
+
+						buf ~= tmp;
 						nextChar();
 					}
 					continue;
@@ -973,9 +990,14 @@ private:
 		nextChar();
 
 		auto arr = buf.toArray();
-		
+
 		scope(exit)
 			mCompiler.alloc.freeArray(arr);
+
+		uword cpLen;
+
+		if(!verifyUTF8(arr, cpLen))
+			mCompiler.lexException(beginning, "Invalid UTF-8 {}", cast(ubyte[])arr);
 
 		return mCompiler.newString(arr);
 	}
@@ -1010,7 +1032,7 @@ private:
 
 		return ret;
 	}
-	
+
 	void addComment(char[] str, CompileLoc location)
 	{
 		void derp(ref char[] existing)
@@ -1166,28 +1188,28 @@ private:
 				{
 					case '/':
 						nextChar();
-	
+
 						if(mCharacter == '*')
 						{
 							nextChar();
 							nesting++;
 						}
-	
+
 						continue;
-						
+
 					case '*':
 						nextChar();
-	
+
 						if(mCharacter == '/')
 						{
 							nextChar();
 							nesting--;
-	
+
 							if(nesting == 0)
 								break _commentLoop2;
 						}
 						continue;
-	
+
 					case '\r', '\n':
 						nextLine();
 						continue;
@@ -1211,7 +1233,7 @@ private:
 		mTok.postComment = null;
 		mTok.preCommentLoc = CompileLoc.init;
 		mTok.postCommentLoc = CompileLoc.init;
-		mTok.startChar = mPosition - 1;
+		mTok.startChar = mCharPos;
 		mCaptureEnd = mTok.startChar;
 
 		scope(exit)
@@ -1227,7 +1249,7 @@ private:
 					nextLine();
 					mNewlineSinceLastTok = true;
 					mTokSinceLastNewline = false;
-					mTok.startChar = mPosition - 1;
+					mTok.startChar = mCharPos;
 					continue;
 
 				case '+':
@@ -1501,7 +1523,7 @@ private:
 						mTok.type = Token.Not;
 
 					return;
-					
+
 				case '?':
 					nextChar();
 
@@ -1546,7 +1568,7 @@ private:
 					if(isWhitespace())
 					{
 						nextChar();
-						mTok.startChar = mPosition - 1;
+						mTok.startChar = mCharPos;
 						continue;
 					}
 					else if(isDecimalDigit())
@@ -1576,12 +1598,14 @@ private:
 
 						do
 						{
-							buf ~= Utf_encode(utfbuf, mCharacter);
+							char[] tmp = void;
+							encodeUTF8Char(utfbuf, mCharacter, tmp); // always succeeds.
+							buf ~= tmp;
 							nextChar();
 						} while(isAlpha() || isDecimalDigit() || mCharacter == '_' || mCharacter == '!');
 
 						auto arr = buf.toArray();
-						
+
 						scope(exit)
 							mCompiler.alloc.freeArray(arr);
 

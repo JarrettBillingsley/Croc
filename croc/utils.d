@@ -30,7 +30,6 @@ module croc.utils;
 import tango.core.Array : find;
 import tango.core.Traits;
 import tango.core.Tuple;
-import tango.text.convert.Utf;
 import tango.text.Util;
 
 public:
@@ -134,106 +133,6 @@ int scmp(char[] s1, char[] s2)
 }
 
 /**
-Verifies that the given UTF-8 string is well-formed and returns the length in codepoints.
-*/
-size_t verify(char[] s)
-{
-	size_t ret = 0;
-
-	foreach(dchar c; s)
-		ret++;
-
-	return ret;
-}
-
-/**
-Slice a UTF-8 string using codepoint indices.
-*/
-char[] uniSlice(char[] s, size_t lo, size_t hi)
-{
-	if(lo == hi)
-		return null;
-
-	auto tmp = s;
-	uint realLo = 0;
-
-	for(size_t i = 0; i < lo; i++)
-	{
-		uint ate = 0;
-		decode(tmp, ate);
-		tmp = tmp[ate .. $];
-		realLo += ate;
-	}
-
-	uint realHi = realLo;
-
-	for(size_t i = lo; i < hi; i++)
-	{
-		uint ate = 0;
-		decode(tmp, ate);
-		tmp = tmp[ate .. $];
-		realHi += ate;
-	}
-
-	return s[realLo .. realHi];
-}
-
-/**
-Get the character in a UTF-8 string at the given codepoint index.
-*/
-dchar uniCharAt(char[] s, size_t idx)
-{
-	auto tmp = s;
-	uint ate = 0;
-
-	for(size_t i = 0; i < idx; i++)
-	{
-		decode(tmp, ate);
-		tmp = tmp[ate .. $];
-	}
-
-	return decode(tmp, ate);
-}
-
-/**
-Convert a codepoint index into a UTF-8 string into a byte index.
-*/
-size_t uniCPIdxToByte(char[] s, size_t fake)
-{
-	auto tmp = s;
-	uint ate = 0;
-
-	for(size_t i = 0; i < fake; i++)
-	{
-		decode(tmp, ate);
-		tmp = tmp[ate .. $];
-	}
-
-	return tmp.ptr - s.ptr;
-}
-
-/**
-Convert a byte index into a UTF-8 string into a codepoint index.
-*/
-size_t uniByteIdxToCP(char[] s, size_t fake)
-{
-	auto tmp = s;
-	uint ate = 0;
-	size_t byteIdx = 0;
-	size_t i = 0;
-
-	while(byteIdx < fake)
-	{
-		decode(tmp, ate);
-		tmp = tmp[ate .. $];
-		byteIdx += ate;
-		i++;
-	}
-	
-	return i;
-}
-
-/**
 Metafunction to see if a given type is one of char[], wchar[] or dchar[].
 */
 template isStringType(T)
@@ -289,7 +188,7 @@ unittest
 
 	typedef int X;
 	typedef X Y;
-	
+
 	assert(is(realType!(X) == int));
 	assert(is(realType!(Y) == int));
 }

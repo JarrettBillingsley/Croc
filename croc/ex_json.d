@@ -28,12 +28,8 @@ module croc.ex_json;
 
 import tango.io.stream.Format;
 import tango.math.Math;
-import tango.text.convert.Utf;
-import tango.text.Unicode;
 import tango.text.Util;
 
-alias tango.text.convert.Utf.decode Utf_decode;
-alias tango.text.Unicode.isUpper Uni_isUpper;
 alias tango.text.Util.contains contains;
 
 import croc.api_interpreter;
@@ -327,8 +323,9 @@ private:
 	uword mLine;
 	uword mCol;
 	char[] mSource;
-
-	uword mPosition;
+	char* mSourcePtr;
+	char* mSourceEnd
+	char* mCharPos;
 	dchar mCharacter;
 
 	Token mTok;
@@ -424,30 +421,25 @@ private:
 
 		if(c >= '0' && c <= '9')
 			return cast(ubyte)(c - '0');
-
-		if(Uni_isUpper(c))
+		else if(c >= 'A' && c <= 'F')
 			return cast(ubyte)(c - 'A' + 10);
 		else
 			return cast(ubyte)(c - 'a' + 10);
 	}
 
-	dchar readChar()
-	{
-		if(mPosition >= mSource.length)
-			return dchar.init;
-		else
-		{
-			uint ate = 0;
-			auto ret = Utf_decode(mSource[mPosition .. $], ate);
-			mPosition += ate;
-			return ret;
-		}
-	}
-
 	void nextChar()
 	{
 		mCol++;
-		mCharacter = readChar();
+
+		if(mSourcePtr >= mSourceEnd)
+			mCharacter = dchar.init;
+		else
+		{
+			mCharPos = mSourcePtr;
+
+			if(!decodeUTF8Char(mSourcePtr, mSourceEnd, mCharacter))
+				throwStdException(t, "LexicalException", "({}:{}): source is not valid UTF-8", mLine, mCol - 1);
+		}
 	}
 
 	void nextLine()
@@ -733,7 +725,7 @@ private:
 					return;
 
 				case 't':
-					if(!mSource[mPosition .. $].startsWith("rue"))
+					if(!mCharPos[0 .. mSourceEnd - mCharPos].startsWith("rue"))
 						// TODO
 						throwStdException(t, "LexicalException", "({}:{}): true expected", mLine, mCol);
 
@@ -746,7 +738,7 @@ private:
 					return;
 
 				case 'f':
-					if(!mSource[mPosition .. $].startsWith("alse"))
+					if(!mCharPos[0 .. mSourceEnd - mCharPos].startsWith("alse"))
 						// TODO:
 						throwStdException(t, "LexicalException", "({}:{}): false expected", mLine, mCol);
 
@@ -760,7 +752,7 @@ private:
 					return;
 
 				case 'n':
-					if(!mSource[mPosition .. $].startsWith("ull"))
+					if(!mCharPos[0 .. mSourceEnd - mCharPos].startsWith("ull"))
 						// TODO:
 						throwStdException(t, "LexicalException", "({}:{}): null expected", mLine, mCol);
 
@@ -772,7 +764,7 @@ private:
 					pushNull(t);
 					return;
 
-				case '-', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+				case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 					if(readNumLiteral())
 						mTok.type = Token.Int;
 					else

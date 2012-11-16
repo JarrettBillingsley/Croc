@@ -29,10 +29,7 @@ module croc.ex;
 import tango.core.Tuple;
 import tango.io.device.File;
 import tango.stdc.ctype;
-import tango.text.convert.Utf;
 import tango.text.Util;
-
-alias tango.text.convert.Utf.toString Utf_toString;
 
 import croc.api_checks;
 import croc.api_debug;
@@ -41,6 +38,7 @@ import croc.api_stack;
 import croc.compiler;
 import croc.serialization;
 import croc.types;
+import croc.utf;
 import croc.utils;
 import croc.vm;
 
@@ -212,9 +210,11 @@ public:
 	*/
 	void addChar(dchar c)
 	{
-		char[4] outbuf = void;
-		uint ate = 0;
-		auto s = Utf_toString((&c)[0 .. 1], outbuf, &ate);
+		char[6] outbuf = void;
+		char[] s = void;
+
+		if(!encodeUTF8Char(outbuf, c, s))
+			throwStdException(t, "UnicodeException", "Invalid character U+{:X6}", cast(uint)c);
 
 		if(pos + s.length - 1 >= data.length)
 			flush();

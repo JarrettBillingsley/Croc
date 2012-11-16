@@ -27,14 +27,10 @@ module croc.stdlib_string;
 
 import tango.text.convert.Float;
 import tango.text.convert.Integer;
-import tango.text.convert.Utf;
 import tango.text.Util;
 
 alias tango.text.convert.Float.toFloat Float_toFloat;
 alias tango.text.convert.Integer.toInt Integer_toInt;
-alias tango.text.convert.Utf.cropRight Utf_cropRight;
-alias tango.text.convert.Utf.decode Utf_decode;
-alias tango.text.convert.Utf.toString Utf_toString;
 alias tango.text.Util.trim trim;
 
 import croc.api_interpreter;
@@ -44,6 +40,7 @@ import croc.ex_format;
 import croc.ex_library;
 // import croc.stdlib_stringbuffer;
 import croc.types;
+import croc.utf;
 import croc.utils;
 
 alias CrocDoc.Docs Docs;
@@ -278,8 +275,10 @@ uword _commonFind(bool reverse)(CrocThread* t)
 		pat = getString(t, 1);
 	else if(isChar(t, 1))
 	{
-		dchar[1] dc = getChar(t, 1);
-		pat = Utf_toString(dc[], buf);
+		auto ch = getChar(t, 1);
+
+		if(!encodeUTF8Char(buf, ch, pat))
+			throwStdException(t, "UnicodeException", "Invalid Unicode character U+{:X6}", cast(uint)ch);
 	}
 	else
 		paramTypeError(t, 1, "char|string");
@@ -298,9 +297,9 @@ uword _commonFind(bool reverse)(CrocThread* t)
 
 	// Search
 	static if(reverse)
-		pushInt(t, uniByteIdxToCP(src, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start))));
+		pushInt(t, UTF8ByteIdxToCP(src, src.locatePatternPrior(pat, UTF8CPIdxToByte(src, cast(uword)start))));
 	else
-		pushInt(t, uniByteIdxToCP(src, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start))));
+		pushInt(t, UTF8ByteIdxToCP(src, src.locatePattern(pat, UTF8CPIdxToByte(src, cast(uword)start))));
 
 	return 1;
 }
@@ -521,21 +520,20 @@ uword _replace(CrocThread* t)
 uword _iterator(CrocThread* t)
 {
 	checkStringParam(t, 0);
-	auto s = getStringObj(t, 0);
+	auto str = getStringObj(t, 0).toString();
 	auto fakeIdx = checkIntParam(t, 1) + 1;
 
 	getUpval(t, 0);
 	auto realIdx = getInt(t, -1);
 	pop(t);
 
-	if(realIdx >= s.length)
+	if(realIdx >= str.length)
 		return 0;
 
-	uint ate = void;
-	auto c = Utf_decode(s.toString()[cast(uword)realIdx .. $], ate);
-	realIdx += ate;
+	char* ptr = str.ptr + realIdx;
+	auto c = fastDecodeUTF8Char(ptr);
 
-	pushInt(t, realIdx);
+	pushInt(t, ptr - str.ptr);
 	setUpval(t, 0);
 
 	pushInt(t, fakeIdx);
@@ -546,7 +544,7 @@ uword _iterator(CrocThread* t)
 uword _iteratorReverse(CrocThread* t)
 {
 	checkStringParam(t, 0);
-	auto s = getStringObj(t, 0);
+	auto str = getStringObj(t, 0).toString();
 	auto fakeIdx = checkIntParam(t, 1) - 1;
 
 	getUpval(t, 0);
@@ -556,11 +554,10 @@ uword _iteratorReverse(CrocThread* t)
 	if(realIdx <= 0)
 		return 0;
 
-	auto tmp = Utf_cropRight(s.toString[0 .. cast(uword)realIdx - 1]);
-	uint ate = void;
-	auto c = Utf_decode(s.toString()[tmp.length .. $], ate);
+	char* ptr = str.ptr + realIdx;
+	auto c = fastReverseUTF8Char(ptr);
 
-	pushInt(t, tmp.length);
+	pushInt(t, ptr - str.ptr);
 	setUpval(t, 0);
 
 	pushInt(t, fakeIdx);

@@ -45,6 +45,7 @@ import tango.text.Util;
 alias tango.text.convert.Integer.parse Int_parse;
 
 import croc.api;
+import croc.utf;
 
 struct PcreLib
 {
@@ -605,7 +606,7 @@ static:
 		methodCall(t, -3, "test", 1);
 
 		if(getBool(t, -1))
-			pos = uniByteIdxToCP(memb.subject, memb.groupIdx[0]);
+			pos = UTF8ByteIdxToCP(memb.subject, memb.groupIdx[0]);
 
 		pushInt(t, pos);
 		return 1;

@@ -28,6 +28,7 @@ module croc.types_string;
 import tango.text.Util;
 
 import croc.types;
+import croc.utf;
 import croc.utils;
 
 struct string
@@ -51,7 +52,7 @@ package:
 
 		return null;
 	}
-	
+
 	// Create a new string object. String objects with the same data are reused. Thus,
 	// if two string objects are identical, they are also equal.
 	CrocString* create(CrocVM* vm, char[] data, uword h, uword cpLen)
@@ -103,20 +104,20 @@ package:
 	// And these indices better be good.
 	CrocString* slice(CrocVM* vm, CrocString* s, uword lo, uword hi)
 	{
-		auto str = uniSlice(s.toString(), lo, hi);
+		auto str = UTF8Slice(s.toString(), lo, hi);
 		uword h = void;
 
 		if(auto s = lookup(vm, str, h))
 			return s;
 
 		// don't have to verify since we're slicing from a string we know is good
-		return create(vm, uniSlice(s.toString(), lo, hi), h, hi - lo);
+		return create(vm, UTF8Slice(s.toString(), lo, hi), h, hi - lo);
 	}
 
 	// Like slice, the index is in codepoints, not byte indices.
 	dchar charAt(CrocString* s, uword idx)
 	{
-		return uniCharAt(s.toString(), idx);
+		return UTF8CharAt(s.toString(), idx);
 	}
 
 	// ================================================================================================================================================

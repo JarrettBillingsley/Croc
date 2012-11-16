@@ -27,14 +27,12 @@ subject to the following restrictions:
 module croc.ex_doccomments;
 
 import tango.core.Vararg;
-import tango.text.convert.Utf;
 import tango.text.Util;
-
-alias tango.text.convert.Utf.decode Utf_decode;
 
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.types;
+import croc.utf;
 import croc.utils;
 
 // ================================================================================================================================================
@@ -309,9 +307,12 @@ struct CommentLexer
 private:
 	CommentParser* parser;
 	char[] mCommentSource;
+	char* mSourcePtr;
+	char* mSourceEnd;
+	char* mCharPos;
+	char* mLookaheadCharPos;
 	uword mLine;
 	uword mCol;
-	uword mPosition;
 	dchar mCharacter;
 	dchar mLookaheadCharacter;
 	bool mHaveLookahead;
@@ -322,9 +323,10 @@ private:
 	void begin(char[] source)
 	{
 		mCommentSource = source;
+		mSourcePtr = source.ptr;
+		mSourceEnd = source.ptr + source.length;
 		mLine = 1;
 		mCol = 0;
-		mPosition = 0;
 		mCharacter = dchar.init;
 		mHaveLookahead = false;
 		mTok = Token.init;
@@ -332,7 +334,7 @@ private:
 		nextChar();
 		next();
 		nextNonNewlineToken();
-		
+
 		mNewlineSinceLastTok = true; // set it to true so the very first token is flagged as being at the beginning of a line
 	}
 
@@ -374,19 +376,23 @@ private:
 		return mCharacter == '_' || isAlpha();
 	}
 
-	dchar readChar()
+	dchar readChar(ref char* pos)
 	{
-		if(mPosition >= mCommentSource.length)
+		if(mSourcePtr >= mSourceEnd)
 		{
 			// Useful for avoiding edge cases at the ends of comments
-			mPosition++;
+			mSourcePtr++;
+			pos = mSourceEnd;
 			return dchar.init;
 		}
 		else
 		{
-			uint ate = 0;
-			auto ret = Utf_decode(mCommentSource[mPosition .. $], ate);
-			mPosition += ate;
+			pos = mSourcePtr;
+			dchar ret = void;
+
+			if(!decodeUTF8Char(mSourcePtr, mSourceEnd, ret))
+				errorHere("Comment source is not valid UTF-8");
+
 			return ret;
 		}
 	}
@@ -395,7 +401,7 @@ private:
 	{
 		if(!mHaveLookahead)
 		{
-			mLookaheadCharacter = readChar();
+			mLookaheadCharacter = readChar(mLookaheadCharPos);
 			mHaveLookahead = true;
 		}
 
@@ -409,11 +415,12 @@ private:
 		if(mHaveLookahead)
 		{
 			mCharacter = mLookaheadCharacter;
+			mCharPos = mLookaheadCharPos;
 			mHaveLookahead = false;
 		}
 		else
 		{
-			mCharacter = readChar();
+			mCharacter = readChar(mCharPos);
 		}
 	}
 
@@ -432,13 +439,10 @@ private:
 			mCol = 1;
 		}
 	}
-	
+
 	uword curPos()
 	{
-		if(mHaveLookahead)
-			return mPosition - 2;
-		else
-			return mPosition - 1;
+		return mCharPos - mCommentSource.ptr;
 	}
 
 	void eatWhitespace()
@@ -490,9 +494,9 @@ private:
 
 		while(!isEOC())
 		{
-			if(mCharacter == '\\' && mCommentSource[mPosition .. $].startsWith(endCommand))
+			if(mCharacter == '\\' && mCommentSource[curPos() + 1 .. $].startsWith(endCommand))
 			{
-				mPosition += endCommand.length; // since mPosition is one ahead, it's already past the backslash
+				mSourcePtr += endCommand.length; // since mSourcePtr is one ahead, it's already past the backslash
 				nextChar();
 
 				if(!isEOC() && mCharacter != '\n')
@@ -721,7 +725,7 @@ private:
 	{
 		return mTok.type == Token.NewParagraph || mTok.type == Token.EOC || mTok.type == Token.SectionBegin;
 	}
-	
+
 	bool isFirstOnLine()
 	{
 		return mNewlineSinceLastTok;
@@ -845,7 +849,7 @@ private:
 		field(t, -1, "docs");
 		insertAndPop(t, docTable);
 
-		return stackSize(t) - 1;		
+		return stackSize(t) - 1;
 	}
 
 	void checkForSectionChange()
@@ -1003,7 +1007,7 @@ private:
 	void readCodeBlock()
 	{
 		assert(l.type == Token.Code);
-		
+
 		if(!l.isFirstOnLine())
 			error("Code command must come at the beginning of a line");
 
@@ -1026,7 +1030,7 @@ private:
 	void readVerbatimBlock()
 	{
 		assert(l.type == Token.Verbatim);
-		
+
 		if(!l.isFirstOnLine())
 			error("Verbatim command must come at the beginning of a line");
 
@@ -1539,9 +1543,9 @@ private:
 		}
 		else
 			trimFinalText(span);
-		
+
 		idxi(t, span, 0);
-		
+
 		if(getString(t, -1) == "link" && len(t, span) == 2)
 		{
 			idxi(t, span, -1);
@@ -1624,7 +1628,7 @@ private:
 
 			pop(t);
 		}
-		
+
 		pop(t);
 	}
 
