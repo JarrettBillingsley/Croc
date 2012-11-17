@@ -30,6 +30,7 @@ import tango.stdc.string;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
+import croc.ex_library;
 import croc.stdlib_text_codec;
 import croc.types;
 import croc.utf;
@@ -42,20 +43,22 @@ package:
 
 void initAsciiCodec(CrocThread* t)
 {
-	registerCodec(t, _asciiCodec);
-	pop(t);
+	pushGlobal(t, "text");
+	loadString(t, _code, true, "text_ascii.croc");
+	pushNull(t);
+	newTable(t);
+		registerFields(t, _funcs);
+
+	rawCall(t, -3, 0);
 }
 
 // Rest of this has to be package as well since templated functions can't access private alias params..
 
-RegisterCodec _asciiCodec =
-{
-	"AsciiCodec", "ascii", [],
-	&_encodeInto!(_asciiEncodeInternal),
-	&_decodeRange!(_asciiDecodeInternal),
-	null,
-	null
-};
+const RegisterFunc[] _funcs =
+[
+	{ "asciiEncodeInternal", &_encodeInto!(_asciiEncodeInternal),  maxParams: 4 },
+	{ "asciiDecodeInternal", &_decodeRange!(_asciiDecodeInternal), maxParams: 4 }
+];
 
 void _asciiEncodeInternal(CrocThread* t, word destSlot, uword start, char[] str, uword strlen, char[] errors)
 {
@@ -103,13 +106,20 @@ void _asciiDecodeInternal(CrocThread* t, ref StrBuffer s, ubyte[] mb, char[] err
 {
 	auto src = mb.ptr;
 	auto end = mb.ptr + mb.length;
+	auto last = src;
 
 	while(src < end)
 	{
 		if(*src < 0x80)
-			s.addChar(cast(dchar)*src++);
+			src++;
 		else
 		{
+			if(src !is last)
+			{
+				s.addString(cast(char[])last[0 .. src - last]);
+				last = src;
+			}
+
 			auto c = *src++;
 
 			if(errors == "strict")
@@ -122,4 +132,55 @@ void _asciiDecodeInternal(CrocThread* t, ref StrBuffer s, ubyte[] mb, char[] err
 				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
 		}
 	}
+
+	if(src !is last)
+		s.addString(cast(char[])last[0 .. src - last]);
 }
+
+const char[] _code =
+`
+local _internal = vararg
+local _encodeInto, _decodeRange = _internal.asciiEncodeInternal, _internal.asciiDecodeInternal
+
+local class AsciiIncrementalEncoder : IncrementalEncoder
+{
+	_errors
+
+	this(errors: string = "strict")
+		:_errors = errors
+
+	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
+		_encodeInto(str, dest, start, :_errors)
+
+	function reset() {}
+}
+
+local class AsciiIncrementalDecoder : IncrementalDecoder
+{
+	_errors
+
+	this(errors: string = "strict")
+		:_errors = errors
+
+	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false) =
+		_decodeRange(src, lo, hi, :_errors)
+
+	function reset() {}
+}
+
+class AsciiCodec : TextCodec
+{
+	name = "ascii"
+
+	function incrementalEncoder(errors: string = "strict") =
+		AsciiIncrementalEncoder(errors)
+
+	function incrementalDecoder(errors: string = "strict") =
+		AsciiIncrementalDecoder(errors)
+}
+
+object.addMethod(AsciiCodec, "encodeInto", _encodeInto)
+object.addMethod(AsciiCodec, "decodeRange", _decodeRange)
+
+registerCodec("ascii", AsciiCodec())
+`;

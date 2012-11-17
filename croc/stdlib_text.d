@@ -61,6 +61,24 @@ program objects into human-readable forms.
 
 This module exposes flexible interfaces, and the hope is that more text encodings and formatting options will be
 made available by second- and third-party libraries.
+
+\b{Error Handling}
+
+The text codecs' encoding and decoding functions all take an optional argument to control the behavior of encoding and
+decoding when erroneous input is encountered. There are three error behaviors: \tt{"strict"}, \tt{"ignore"}, and
+\tt{"replace"}. The default behavior is \tt{"strict"}.
+
+For encoding, the input text is always well-formed, since Croc strings are always valid sequences of Unicode codepoints.
+However, many text encodings only support a subset of all available Unicode codepoints, so the error handling mechanism
+is used when an unencodable character is encountered. If the error behavior is \tt{"strict"}, a \tt{UnicodeException} is
+thrown. If the error behavior is \tt{"ignore"}, the unencodable character is simply skipped. If the error behavior is
+\tt{"replace"}, the unencodable character is skipped, and a codec-defined replacement character is encoded in its place.
+Usually this will be a question mark character, but not necessarily.
+
+For decoding, the input data may or may nor be well-formed; thus the error handling mechanism is used when malformed or
+invalid input is encountered. If the error behavior is \tt{"strict"}, a \tt{UnicodeException} is thrown. If the error
+behavior is \tt{"ignore"}, the invalid input is skipped. If the error behavior is \tt{"replace"}, the invalid input is
+skipped, and the Unicode Replacement Character (U+00FFFD) is used in its place.
 */
 
 module text
@@ -138,10 +156,17 @@ function getCodec(name: string)
 }
 
 /**
-Gets an alphabetically sorted list of all available codecs (including aliases).
+Gets an alphabetically sorted array of the names of all available codecs (including aliases).
+*/
+function getAllCodecNames() =
+	hash.keys(textCodecs).sort()
+
+/**
+Gets an alphabetically sorted array of arrays. Each sub-array has the name of the codec as the first element and the
+codec itself as the second.
 */
 function getAllCodecs() =
-	hash.keys(textCodecs).sort()
+	[[k, v] foreach k, v; textCodecs].sort(\a, b -> a[0] <=> b[0])
 
 /**
 Returns whether or not a codec of the given name has been registered.
@@ -149,6 +174,10 @@ Returns whether or not a codec of the given name has been registered.
 function hasCodec(name: string) =
 	name in textCodecs
 
+/**
+The base class for all text codecs which are registered with this module. This class defines an interface which all
+codecs must implement.
+*/
 class TextCodec
 {
 	/**
@@ -157,9 +186,16 @@ class TextCodec
 	name = ""
 
 	/**
-	Takes a string to encode, a memblock into which the encoded data is placed, and an index into the memblock where
-	encoding should begin. The length of the memblock will be set to exactly long enough to contain the encoded data.
-	The same memblock is returned.
+	Encodes a string object into a string encoding, placing the encoded data into a memblock.
+
+	\param[str] is the string to be encoded.
+	\param[dest] is the memblock that will hold the encoded data. The memblock will be resized so that the end of the
+		memblock coincides with the end of the encoded data. The beginning of the encoded data is specified by..
+	\param[start] ..this parameter. This is the byte offset into \tt{dest} where the first byte of encoded data will be
+		placed. This can be equal to \tt{#dest}, which means the encoded data will be appended to the end of \tt{dest}.
+	\param[errors] controls the error handling behavior of the encoder; see this module's docs for more info.
+
+	\returns \tt{dest}.
 	*/
 	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict")
 		throw NotImplementedException()
@@ -171,9 +207,18 @@ class TextCodec
 		:encodeInto(str, memblock.new(0), 0, errors)
 
 	/**
-	Takes a memblock and a range of characters to decode. Decodes the given range into a string, which is returned. If
-	the given range is not consumed in its entirety, it is an error. If you need that behavior -- and about the only
-	time that you would is in a "stream decoding" situation -- that's what \link{incrementalDecoder} is for.
+	Decodes an encoded string from a memblock into a string.
+
+	\param[src] is the memblock that holds the encoded string data.
+	\param[lo] and
+	\param[hi] are slice indices into \tt{src}; this slice is the data to be decoded.
+	\param[errors] controls the error handling behavior of the decoder; see this module's docs for more info.
+
+	\returns the decoded text as a string.
+
+	\throws[exceptions.ValueException] if the given slice of data cannot be consumed in its entirety, such as if there
+		is an incomplete character encoding at the end of the data. If you need to be able to decode data piecemeal,
+		such as in a stream decoding situation, this is what \link{incrementalDecoder} is for.
 	*/
 	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 		throw NotImplementedException()
@@ -186,37 +231,48 @@ class TextCodec
 
 	/**
 	Returns a new instance of a class derived from \link{IncrementalEncoder} that allows you to encode a stream of text
-	incrementally -- that is, when the end of a string is reached, the encoder preserves any state that it needs so that
-	another string can be encoded after it and treated as a continuation.
+	incrementally. See that class's docs for more info.
 	*/
 	function incrementalEncoder(errors: string = "strict")
 		throw NotImplementedException()
 
 	/**
 	Returns a new instance of a class derived from \link{IncrementalDecoder} that allows you to decode a stream of text
-	incrementally -- that is, when the end of the memblock range is reached, the decoder preserves any state that it
-	needs so that another piece of memblock can be decoded after it and treated as a continuation.
+	incrementally. See that class's docs for more info.
 	*/
 	function incrementalDecoder(errors: string = "strict")
 		throw NotImplementedException()
 }
 
+/**
+The base class for incremental text encoders, which are returned from \link{TextCodec.incrementalEncoder} methods.
+
+An incremental encoder does the same thing as \link{TextCodec.encodeInto} except its operation can be split up over
+multiple calls instead of being done all at once. This way large pieces of data can be encoded without having to have
+either the source or the output entirely in memory.
+*/
 class IncrementalEncoder
 {
 	/**
-	The error behavior of an incremental encoder is specified only once, when it's first constructed.
+	Instead of specifying the error behavior on each call, incremental encoders have it specified once in the
+	constructor.
 	*/
 	this(errors: string = "strict")
 		throw NotImplementedException()
 
 	/**
-	Like \link{TextCodec.encodeInto}, but works a bit differently. The \tt{final} parameter tells the function whether
-	or not this is the last piece of string to be encoded. This way the encoder can throw an error if there's
-	insufficient input or whatever.
+	Similar to \link{TextCodec.encodeInto}.
 
-	Returns three things: \tt{dest}, the number of characters consumed from \tt{str}, and the index in \tt{dest} after
-	the last encoded character (that is, you could then pass that index as the \tt{start} of another call to this
-	function).
+	The \tt{final} parameter tells the function whether or not this is the last piece of string to be encoded. This way
+	the encoder can throw an error if there's insufficient input or whatever. Also, if the \tt{final} parameter is true,
+	the encoder is expected to be reset to its initial state after this method returns.
+
+	\param[str] same as in \link{TextCodec.encodeInto}.
+	\param[dest] same as in \link{TextCodec.encodeInto}.
+	\param[start] same as in \link{TextCodec.encodeInto}.
+	\param[final] is explained above.
+
+	\returns \tt{dest}.
 	*/
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
 		throw NotImplementedException()
@@ -228,27 +284,46 @@ class IncrementalEncoder
 		:encodeInto(str, memblock.new(0), 0, final)
 
 	/**
-	Resets any internal state to its initial state so that this encoder object can be used to encode a new string.
+	Resets any internal state to its initial state so that this encoder object can be used to encode a new string. This
+	will be called automatically by \link{encodeInto} if its \tt{final} param was \tt{true}.
 	*/
 	function reset()
 		throw NotImplementedException()
 }
 
+/**
+The base class for incremental text decoders, which are returned from \link{TextCodec.incrementalDecoder} methods.
+
+An incremental decoder does the same thing as \link{TextCodec.decodeRange} except its operation can be split up over
+multiple calls instead of being done all at once. This way large pieces of data can be decoded without having to have
+either the source or the output entirely in memory.
+*/
 class IncrementalDecoder
 {
 	/**
-	The error behacior of an incremental decoder is specified only once, when it's first constructed.
+	Instead of specifying the error behavior on each call, incremental decoders have it specified once in the
+	constructor.
 	*/
 	this(errors: string = "strict")
 		throw NotImplementedException()
 
 	/**
-	Like \link{TextCodec.decodeRange}, but works a bit differently. The \tt{final} parameter tells the function whether
-	or not this is the last piece of data to be decoded. This way the decoder can throw an error if there's insufficient
-	input or whatever.
+	Similar to \link{TextCodec.decodeRange}.
 
-	Returns two things: a string representing the portion of \tt{src} that was decoded, and the index in \tt{src} after
-	the last decoded byte (that is, you could then pass that index as the \tt{lo} of another call to this function).
+	The \tt{final} parameter tells the function whether or not this is the last piece of string to be decoded. This way
+	the decoder can throw an error if there's insufficient input or whatever. Also, if the \tt{final} parameter is true,
+	the decoder is expected to be reset to its initial state after this method returns.
+
+	If the given slice of data ends with an incomplete character encoding, it is the decoder's responsibility to keep
+	this data around for the next call to this method. Then it can resume decoding by using the stored data as the
+	beginning of the next character.
+
+	\param[src] same as in \link{TextCodec.decodeRange}.
+	\param[lo] same as in \link{TextCodec.decodeRange}.
+	\param[hi] same as in \link{TextCodec.decodeRange}.
+	\param[final] is explained above.
+
+	\returns as much of the data as could be decoded as a string.
 	*/
 	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
 		throw NotImplementedException()
@@ -260,7 +335,8 @@ class IncrementalDecoder
 		:decodeRange(src, 0, #src, final)
 
 	/**
-	Resets any internal state to its initial state so that this decoder object can be used to decode a new string.
+	Resets any internal state to its initial state so that this encoder object can be used to encode a new string. This
+	will be called automatically by \link{decodeRange} if its \tt{final} param was \tt{true}.
 	*/
 	function reset()
 		throw NotImplementedException()

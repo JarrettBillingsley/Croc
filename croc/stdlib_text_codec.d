@@ -37,58 +37,6 @@ public:
 
 /**
 */
-struct RegisterCodec
-{
-	char[] className;
-	char[] name;
-	char[][] aliases;
-	NativeFunc encodeInto;
-	NativeFunc decodeRange;
-	NativeFunc incrementalEncoder;
-	NativeFunc incrementalDecoder;
-}
-
-/**
-*/
-word registerCodec(CrocThread* t, ref RegisterCodec codec)
-{
-	auto c = lookup(t, "text.TextCodec");
-	newClass(t, -1, codec.className);
-	insertAndPop(t, -2);
-
-	pushString(t, codec.name);                                         addField(t, c, "name");
-	newFunction(t, 4, codec.encodeInto, "encodeInto");                 addMethod(t, c, "encodeInto");
-	newFunction(t, 4, codec.decodeRange, "decodeRange");               addMethod(t, c, "decodeRange");
-	// newFunction(t, 4, codec.incrementalEncoder, "incrementalEncoder"); addMethod(t, c, "incrementalEncoder");
-	// newFunction(t, 4, codec.incrementalDecoder, "incrementalDecoder"); addMethod(t, c, "incrementalDecoder");
-
-	// text.registerCodec(name, text.CodecName())
-	auto f = lookup(t, "text.registerCodec");
-	pushNull(t);
-	pushString(t, codec.name);
-	dup(t, c);
-	pushNull(t);
-	rawCall(t, -2, 1);
-	rawCall(t, f, 0);
-
-	if(codec.aliases.length > 0)
-	{
-		// text.aliasCodec(name, aliases...)
-		f = lookup(t, "text.aliasCodec");
-		pushNull(t);
-		pushString(t, codec.name);
-
-		foreach(a; codec.aliases)
-			pushString(t, a);
-
-		rawCall(t, f, 0);
-	}
-
-	return stackSize(t) - 1;
-}
-
-/**
-*/
 uword _encodeInto(alias encodeFunc)(CrocThread* t)
 {
 	auto str = checkStringParam(t, 1);
