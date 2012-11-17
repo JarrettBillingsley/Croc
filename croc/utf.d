@@ -177,10 +177,7 @@ bool decodeUTF16Char(ref wchar* s, wchar* end, ref dchar outch)
 
 	// Second code unit must be a trailing surrogate
 	if(!mixin(IN_RANGE!("c2", "0xDC00", "0xDFFF")))
-	{
-		s++;
 		return false;
-	}
 
 	c = 0x10000 + (((c & 0x3FF) << 10) | (c2 & 0x3FF));
 
@@ -280,10 +277,9 @@ bool _toUTF8(T)(T[] str, char[] buf, ref T[] remaining, ref char[] output)
 
 	while(src < end && dest < destEnd)
 	{
-		while(src < end && dest < destEnd && *src < 0x80)
+		if(*src < 0x80)
 			*dest++ = *src++;
-
-		if(src < end && dest < destEnd)
+		else
 		{
 			auto srcSave = src;
 			dchar c = void;
@@ -478,7 +474,6 @@ dchar fastReverseUTF8Char(ref char* s)
 	}
 
 	assert(len == UTF8CharLengths[*s]);
-
 	return c - UTF8MagicSubtraction[len];
 }
 
@@ -528,10 +523,9 @@ wchar[] UTF8ToUTF16(char[] str, wchar[] buf, ref char[] remaining)
 
 	while(src < end && dest < destEnd)
 	{
-		while(src < end && dest < destEnd && *src < 0x80)
+		if(*src < 0x80)
 			*dest++ = *src++;
-
-		if(src < end && dest < destEnd)
+		else
 		{
 			auto srcSave = src;
 			auto c = fastDecodeUTF8Char(src);
@@ -568,10 +562,9 @@ dchar[] UTF8ToUTF32(char[] str, dchar[] buf, ref char[] remaining)
 
 	while(src < end && dest < destEnd)
 	{
-		while(src < end && dest < destEnd && *src < 0x80)
+		if(*src < 0x80)
 			*dest++ = *src++;
-
-		if(src < end && dest < destEnd)
+		else
 			*dest++ = fastDecodeUTF8Char(src);
 	}
 

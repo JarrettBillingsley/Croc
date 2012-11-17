@@ -25,18 +25,12 @@ subject to the following restrictions:
 
 module croc.stdlib_text;
 
-import tango.math.Math;
-
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
-import croc.ex_library;
 import croc.types;
-import croc.utf;
 
-alias CrocDoc.Docs Docs;
-alias CrocDoc.Param Param;
-alias CrocDoc.Extra Extra;
+import croc.stdlib_text_ascii;
 
 // =====================================================================================================================
 // Public
@@ -46,52 +40,8 @@ public:
 
 void initTextLib(CrocThread* t)
 {
-	auto text = importModuleFromString(t, "text", textSource, "text.croc");
-
-	foreach(ref codec; _codecs)
-	{
-		registerCodec(t, codec);
-		fielda(t, text, codec.className);
-	}
-
-	pop(t);
-}
-
-word registerCodec(CrocThread* t, ref RegisterCodec codec)
-{
-	auto c = lookup(t, "text.TextCodec");
-	newClass(t, -1, codec.className);
-	insertAndPop(t, -2);
-
-	pushString(t, codec.name);                                         addField(t, c, "name");
-	newFunction(t, 4, codec.encodeInto, "encodeInto");                 addMethod(t, c, "encodeInto");
-	newFunction(t, 4, codec.decodeRange, "decodeRange");               addMethod(t, c, "decodeRange");
-	// newFunction(t, 4, codec.incrementalEncoder, "incrementalEncoder"); addMethod(t, c, "incrementalEncoder");
-	// newFunction(t, 4, codec.incrementalDecoder, "incrementalDecoder"); addMethod(t, c, "incrementalDecoder");
-
-	// text.registerCodec(name, text.CodecName())
-	auto f = lookup(t, "text.registerCodec");
-	pushNull(t);
-	pushString(t, codec.name);
-	dup(t, c);
-	pushNull(t);
-	rawCall(t, -2, 1);
-	rawCall(t, f, 0);
-
-	if(codec.aliases.length > 0)
-	{
-		// text.aliasCodec(name, aliases...)
-		f = lookup(t, "text.aliasCodec");
-		pushNull(t);
-		pushString(t, codec.name);
-
-		foreach(a; codec.aliases)
-			pushString(t, a);
-
-		rawCall(t, f, 0);
-	}
-
-	return stackSize(t) - 1;
+	importModuleFromStringNoNS(t, "text", textSource, "text.croc");
+	initAsciiCodec(t);
 }
 
 // =====================================================================================================================
@@ -99,125 +49,6 @@ word registerCodec(CrocThread* t, ref RegisterCodec codec)
 // =====================================================================================================================
 
 private:
-
-struct RegisterCodec
-{
-	char[] className;
-	char[] name;
-	char[][] aliases;
-	NativeFunc encodeInto;
-	NativeFunc decodeRange;
-	NativeFunc incrementalEncoder;
-	NativeFunc incrementalDecoder;
-}
-
-const RegisterCodec[] _codecs =
-[
-	{
-		"AsciiCodec", "ascii", [],
-		&_encodeInto!(_asciiEncodeInternal),
-		&_AsciiCodec_decodeRange,
-		null,
-		null
-	}
-];
-
-void _asciiEncodeInternal(CrocThread* t, word destSlot, uword start, char[] str, char[] errors)
-{
-	// Conservatively over-allocate -- gonna need at most str.length characters
-	lenai(t, destSlot, max(len(t, destSlot), start + str.length));
-
-	auto destBase = getMemblockData(t, destSlot).ptr;
-	auto dest = destBase + start;
-	auto src = str.ptr;
-	auto end = src + str.length;
-	uint num;
-
-	while(src < end)
-	{
-		auto c = fastDecodeUTF8Char(src);
-
-		if(c <= 0x7f)
-			*(dest++) = c;
-		else
-		{
-			if(errors == "strict")
-			{
-				throwStdException(t, "UnicodeException",
-					"Character cannot be encoded as ASCII as its codepoint (U+{:X6}) is above U+00007F", cast(uint)c);
-			}
-			else if(errors == "ignore")
-				continue;
-  			else if(errors == "replace")
-				*(dest++) = '?';
-			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
-		}
-	}
-
-	lenai(t, destSlot, dest - destBase);
-}
-
-uword _encodeInto(alias encodeFunc)(CrocThread* t)
-{
-	auto str = checkStringParam(t, 1);
-	auto strlen = len(t, 1);
-	checkParam(t, 2, CrocValue.Type.Memblock);
-	auto destlen = len(t, 2);
-	auto start = checkIntParam(t, 3);
-	auto errors = optStringParam(t, 4, "strict");
-
-	if(start < 0) start += destlen;
-	if(start < 0 || start > destlen)
-		throwStdException(t, "BoundsException", "Invalid start index {} for memblock of length {}", start, destlen);
-
-	encodeFunc(t, 2, cast(uword)start, str, errors);
-	dup(t, 2);
-	return 1;
-}
-
-uword _AsciiCodec_decodeRange(CrocThread* t)
-{
-	checkParam(t, 1, CrocValue.Type.Memblock);
-	auto src = getMemblockData(t, 1);
-	auto lo = checkIntParam(t, 2);
-	auto hi = checkIntParam(t, 3);
-	auto errors = optStringParam(t, 4, "strict");
-
-	if(lo < 0) lo += src.length;
-	if(hi < 0) hi += src.length;
-
-	if(lo < 0 || lo > hi || hi > src.length)
-	{
-		throwStdException(t, "BoundsException",
-			"Invalid slice indices({} .. {}) for memblock of length {}", lo, hi, src.length);
-	}
-
-	auto s = StrBuffer(t);
-
-	foreach(i, c; src[cast(uword)lo .. cast(uword)hi])
-	{
-		if(c <= 0x7f)
-			s.addChar(cast(dchar)c);
-		else
-		{
-			if(errors == "strict")
-			{
-				throwStdException(t, "UnicodeException",
-					"Character at byte offset {} is invalid ASCII as its value (0x{:X2}) is above 0x7F", i + lo, c);
-			}
-			else if(errors == "ignore")
-				continue;
-			else if(errors == "replace")
-				s.addChar('\uFFFD');
-			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
-		}
-	}
-
-	s.finish();
-	return 1;
-}
 
 const char[] textSource =
 `/**
@@ -305,6 +136,12 @@ function getCodec(name: string)
 
 	throw LookupException("No codec registered for '{}'".format(name))
 }
+
+/**
+Gets an alphabetically sorted list of all available codecs (including aliases).
+*/
+function getAllCodecs() =
+	hash.keys(textCodecs).sort()
 
 /**
 Returns whether or not a codec of the given name has been registered.
@@ -506,33 +343,6 @@ class IncrementalDecoder
 
 // 	push(t, CrocValue(ret));
 // 	lenai(t, -1, len);
-// 	return 1;
-// }
-
-// uword _toRawAscii(CrocThread* t)
-// {
-// 	checkStringParam(t, 1);
-// 	auto str = getStringObj(t, 1);
-
-// 	// Take advantage of the fact that in UTF-8, codepoint length == data length iff all codepoints <= 0x7f
-// 	if(str.length != str.cpLength)
-// 		throwStdException(t, "ValueException", "Cannot convert string with codepoints higher than U+00007F to ASCII");
-
-// 	CrocMemblock* ret;
-
-// 	if(optParam(t, 2, CrocValue.Type.Memblock))
-// 	{
-// 		ret = getMemblock(t, 2);
-// 		lenai(t, 2, str.length);
-// 	}
-// 	else
-// 	{
-// 		newMemblock(t, str.length);
-// 		ret = getMemblock(t, -1);
-// 	}
-
-// 	(cast(char*)ret.data.ptr)[0 .. str.length] = str.toString()[];
-// 	push(t, CrocValue(ret));
 // 	return 1;
 // }
 

@@ -4,16 +4,15 @@ module samples.simple
 
 function main()
 {
+	foreach(c; text.getAllCodecs())
+		writeln(c)
+	writeln()
+
 	local s = "\u00feello there!"
+	writeln$ s
 	local asc = text.getCodec("ascii")
-
-	local mb = memblock.new(10)
-	mb.fill(32)
-
-	local m = asc.encodeInto(s, mb, 5, "replace")
-	writeln$ m
-	m[0] = 188
-	local t = asc.decode(m, "replace")
+	local m = asc.encode(s, "ignore")
+	local t = asc.decode(m)
 	writeln$ t
 
 /*
