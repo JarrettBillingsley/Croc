@@ -463,7 +463,7 @@ class IncrementalDecoder
 A base class for incremental decoders which share a common behavior: needing to save partial character encodings from
 the end of a data block for use in the next call.
 
-Subclasses need only implement the constructor and the \link{bufferedDecode_} method.
+Subclasses need only implement the \link{bufferedDecode_} method.
 */
 class BufferedIncrementalDecoder : IncrementalDecoder
 {
@@ -472,9 +472,6 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 	_have = 0
 	_needed = 0
 
-	/**
-	Constructor. Subclasses must override this and use \tt{super()} to call this, as it accesses private fields.
-	*/
 	this(errors: string = "strict")
 	{
 		:_errors = errors

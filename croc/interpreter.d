@@ -392,7 +392,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 				t.stack[slot + 1] = inst;
 
 				// do this instead of rawCall so the proto is set correctly
-				if(callPrologue(t, slot, 0, numParams, cls))
+				if(callPrologue(t, slot, 0, numParams, ctor.value.proto))
 					execute(t);
 			}
 
