@@ -437,7 +437,7 @@ private:
 		{
 			mCharPos = mSourcePtr;
 
-			if(!decodeUTF8Char(mSourcePtr, mSourceEnd, mCharacter))
+			if(decodeUTF8Char(mSourcePtr, mSourceEnd, mCharacter) != UTFError.OK)
 				throwStdException(t, "LexicalException", "({}:{}): source is not valid UTF-8", mLine, mCol - 1);
 		}
 	}

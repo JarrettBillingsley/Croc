@@ -213,7 +213,7 @@ public:
 		char[6] outbuf = void;
 		char[] s = void;
 
-		if(!encodeUTF8Char(outbuf, c, s))
+		if(encodeUTF8Char(outbuf, c, s) != UTFError.OK)
 			throwStdException(t, "UnicodeException", "Invalid character U+{:X6}", cast(uint)c);
 
 		if(pos + s.length - 1 >= data.length)

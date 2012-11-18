@@ -4023,7 +4023,7 @@ CrocString* createString(CrocThread* t, char[] data)
 
 	uword cpLen = void;
 
-	if(!verifyUTF8(data, cpLen))
+	if(verifyUTF8(data, cpLen) != UTFError.OK)
 		throwStdException(t, "UnicodeException", "Invalid UTF-8 sequence");
 
 	return string.create(t.vm, data, h, cpLen);

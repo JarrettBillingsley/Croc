@@ -52,20 +52,26 @@ void initLatin1Codec(CrocThread* t)
 	rawCall(t, -3, 0);
 }
 
-// Rest of this has to be package as well since templated functions can't access private alias params..
+// =====================================================================================================================
+// Private
+// =====================================================================================================================
+
+private:
 
 const RegisterFunc[] _funcs =
 [
-	{ "latin1EncodeInternal", &_encodeInto!(_latin1EncodeInternal),  maxParams: 4 },
-	{ "latin1DecodeInternal", &_decodeRange!(_latin1DecodeInternal), maxParams: 4 }
+	{ "latin1EncodeInternal", &_latin1EncodeInternal, maxParams: 4 },
+	{ "latin1DecodeInternal", &_latin1DecodeInternal, maxParams: 4 }
 ];
 
-void _latin1EncodeInternal(CrocThread* t, word destSlot, uword start, char[] str, uword strlen, char[] errors)
+uword _latin1EncodeInternal(CrocThread* t)
 {
-	// Gonna need at most str.length characters, if all goes well
-	lenai(t, destSlot, max(len(t, destSlot), start + str.length));
+	mixin(encodeIntoHeader);
 
-	auto destBase = getMemblockData(t, destSlot).ptr;
+	// Gonna need at most str.length characters, if all goes well
+	lenai(t, 2, max(len(t, 2), start + str.length));
+
+	auto destBase = getMemblockData(t, 2).ptr;
 	auto dest = destBase + start;
 	auto src = str.ptr;
 
@@ -73,7 +79,8 @@ void _latin1EncodeInternal(CrocThread* t, word destSlot, uword start, char[] str
 	{
 		// It's plain ASCII, just shortcut copying it over.
 		memcpy(dest, src, strlen * char.sizeof);
-		return;
+		dup(t, 2);
+		return 1;
 	}
 
 	auto end = src + str.length;
@@ -114,14 +121,20 @@ void _latin1EncodeInternal(CrocThread* t, word destSlot, uword start, char[] str
 	}
 
 	// "ignore" may have resulted in fewer characters being encoded than we allocated for
-	lenai(t, destSlot, dest - destBase);
+	lenai(t, 2, dest - destBase);
+	dup(t, 2);
+	return 1;
 }
 
-void _latin1DecodeInternal(CrocThread* t, ref StrBuffer s, ubyte[] mb, char[] errors)
+uword _latin1DecodeInternal(CrocThread* t)
 {
+	mixin(decodeRangeHeader);
+
 	auto src = mb.ptr;
 	auto end = mb.ptr + mb.length;
 	auto last = src;
+
+	auto s = StrBuffer(t);
 
 	while(src < end)
 	{
@@ -139,6 +152,9 @@ void _latin1DecodeInternal(CrocThread* t, ref StrBuffer s, ubyte[] mb, char[] er
 
 	if(src !is last)
 		s.addString(cast(char[])last[0 .. src - last]);
+
+	s.finish();
+	return 1;
 }
 
 const char[] _code =

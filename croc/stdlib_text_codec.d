@@ -37,9 +37,8 @@ public:
 
 /**
 */
-uword _encodeInto(alias encodeFunc)(CrocThread* t)
-{
-	auto str = checkStringParam(t, 1);
+const char[] encodeIntoHeader =
+`	auto str = checkStringParam(t, 1);
 	auto strlen = cast(uword)len(t, 1);
 	checkParam(t, 2, CrocValue.Type.Memblock);
 	auto destlen = len(t, 2);
@@ -48,34 +47,24 @@ uword _encodeInto(alias encodeFunc)(CrocThread* t)
 
 	if(start < 0) start += destlen;
 	if(start < 0 || start > destlen)
-		throwStdException(t, "BoundsException", "Invalid start index {} for memblock of length {}", start, destlen);
-
-	encodeFunc(t, 2, cast(uword)start, str, strlen, errors);
-	dup(t, 2);
-	return 1;
-}
+		throwStdException(t, "BoundsException", "Invalid start index {} for memblock of length {}", start, destlen);`;
 
 /**
 */
-uword _decodeRange(alias decodeFunc)(CrocThread* t)
-{
-	checkParam(t, 1, CrocValue.Type.Memblock);
-	auto src = getMemblockData(t, 1);
+const char[] decodeRangeHeader =
+`	checkParam(t, 1, CrocValue.Type.Memblock);
+	auto data = getMemblockData(t, 1);
 	auto lo = checkIntParam(t, 2);
 	auto hi = checkIntParam(t, 3);
 	auto errors = optStringParam(t, 4, "strict");
 
-	if(lo < 0) lo += src.length;
-	if(hi < 0) hi += src.length;
+	if(lo < 0) lo += data.length;
+	if(hi < 0) hi += data.length;
 
-	if(lo < 0 || lo > hi || hi > src.length)
+	if(lo < 0 || lo > hi || hi > data.length)
 	{
 		throwStdException(t, "BoundsException",
-			"Invalid slice indices({} .. {}) for memblock of length {}", lo, hi, src.length);
+			"Invalid slice indices({} .. {}) for memblock of length {}", lo, hi, data.length);
 	}
 
-	auto s = StrBuffer(t);
-	decodeFunc(t, s, src[cast(uword)lo .. cast(uword)hi], errors);
-	s.finish();
-	return 1;
-}
+	auto mb = data[cast(uword)lo .. cast(uword)hi];`;

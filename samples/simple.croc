@@ -4,18 +4,31 @@ module samples.simple
 
 function main()
 {
-	foreach(c; text.getAllCodecs())
-		writeln(c)
-	writeln()
+	// foreach(c; text.getAllCodecs())
+	// 	writeln(c)
+	// writeln()
 
-	local s = "oh \u00feello there!"
-	writeln$ s
-	local asc = text.getCodec("ascii")
-	local m = asc.encode(s, "replace")
-	m[3] = 188
-	local t = asc.decode(m, "replace")
-	writeln$ t
+	local s = "oh \u00feello there!\uFEFF"
 
+	foreach(codec; ["ascii", "latin-1", "utf-8"])
+	{
+		writeln(codec)
+		writeln$ s
+		local c = text.getCodec(codec)
+		local m = c.encode(s, "replace")
+		local d = c.incrementalDecoder()
+
+		local t = ""
+
+		for(i: 0 .. #m, 3)
+			t ~= d.decodeRange(m, i, i + 3 > #m ? i + 2 > #m ? i + 1 : i + 2 : i + 3)
+
+		writeln(t, " ", s == t)
+
+		// local t = c.decode(m)
+		// writeln$ t, " ", s == t
+		writeln()
+	}
 /*
 	Process      (4 fields, 0 bytes)
 	Regexp       (2 fields, 0 bytes)

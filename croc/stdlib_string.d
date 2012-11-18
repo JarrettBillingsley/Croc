@@ -277,7 +277,7 @@ uword _commonFind(bool reverse)(CrocThread* t)
 	{
 		auto ch = getChar(t, 1);
 
-		if(!encodeUTF8Char(buf, ch, pat))
+		if(encodeUTF8Char(buf, ch, pat) != UTFError.OK)
 			throwStdException(t, "UnicodeException", "Invalid Unicode character U+{:X6}", cast(uint)ch);
 	}
 	else

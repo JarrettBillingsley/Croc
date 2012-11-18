@@ -32,6 +32,7 @@ import croc.types;
 
 import croc.stdlib_text_ascii;
 import croc.stdlib_text_latin1;
+import croc.stdlib_text_utf8;
 
 // =====================================================================================================================
 // Public
@@ -44,6 +45,7 @@ void initTextLib(CrocThread* t)
 	importModuleFromStringNoNS(t, "text", textSource, "text.croc");
 	initAsciiCodec(t);
 	initLatin1Codec(t);
+	initUtf8Codec(t);
 }
 
 // =====================================================================================================================
@@ -90,6 +92,7 @@ import exceptions:
 	LookupException,
 	NotImplementedException,
 	ParamException,
+	RangeException,
 	TypeException,
 	UnicodeException,
 	ValueException
@@ -175,6 +178,60 @@ Returns whether or not a codec of the given name has been registered.
 */
 function hasCodec(name: string) =
 	name in textCodecs
+
+/**
+Returns the number of bytes needed to encode the given codepoint in UTF-8, or 0 if the codepoint is out of the valid
+range of Unicode.
+*/
+function charUTF8Length(c: char)
+{
+	local i = toInt(c)
+
+	if(i < 0x80)
+		return 1
+	else if(i < 0x800)
+		return 2
+	else if(i < 0x10000)
+		return 3
+	else if(c <= 0x10FFFF)
+		return 4
+	else
+		return 0
+}
+
+local UTF8StartCharLengths =
+[
+	1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+	1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+	1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+	1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+	1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+	1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+	1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+	1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+	2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+	2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+	3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+	4 4 4 4 4 4 4 4 0 0 0 0 0 0 0 0
+];
+
+/**
+Given the value of an initial UTF-8 code unit, returns how many bytes long this character is, or 0 if this is an invalid
+initial code unit.
+
+\throws[exceptions.RangeException] if \tt{firstByte} is not in the range \tt{[0 .. 255]}.
+*/
+function utf8SequenceLength(firstByte: int)
+{
+	if(firstByte < 0 || firstByte > 255)
+		throw RangeException("{} is not in the range 0 to 255 inclusive".format(firstByte))
+
+	return UTF8StartCharLengths[firstByte]
+}
 
 /**
 The base class for all text codecs which are registered with this module. This class defines an interface which all

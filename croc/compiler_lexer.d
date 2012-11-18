@@ -521,7 +521,7 @@ private:
 			pos = mSourcePtr;
 			dchar ret = void;
 
-			if(!decodeUTF8Char(mSourcePtr, mSourceEnd, ret))
+			if(decodeUTF8Char(mSourcePtr, mSourceEnd, ret) != UTFError.OK)
 				mCompiler.lexException(mLoc, "Source is not valid UTF-8");
 
 			return ret;
@@ -948,7 +948,7 @@ private:
 
 					auto loc = mLoc;
 
-					if(!encodeUTF8Char(utfbuf, readEscapeSequence(beginning), tmp))
+					if(encodeUTF8Char(utfbuf, readEscapeSequence(beginning), tmp) != UTFError.OK)
 						mCompiler.lexException(loc, "Invalid escape sequence");
 
 					buf ~= tmp;
@@ -959,7 +959,7 @@ private:
 					{
 						if(lookaheadChar() == delimiter)
 						{
-							encodeUTF8Char(utfbuf, delimiter, tmp);
+							encodeUTF8Char(utfbuf, delimiter, tmp); // always succeeds.
 							buf ~= tmp;
 							nextChar();
 							nextChar();
@@ -974,7 +974,7 @@ private:
 
 						auto loc = mLoc;
 
-						if(!encodeUTF8Char(utfbuf, mCharacter, tmp))
+						if(encodeUTF8Char(utfbuf, mCharacter, tmp) != UTFError.OK)
 							mCompiler.lexException(loc, "Invalid escape sequence");
 
 						buf ~= tmp;
@@ -996,8 +996,8 @@ private:
 
 		uword cpLen;
 
-		if(!verifyUTF8(arr, cpLen))
-			mCompiler.lexException(beginning, "Invalid UTF-8 {}", cast(ubyte[])arr);
+		if(verifyUTF8(arr, cpLen) != UTFError.OK)
+			mCompiler.lexException(beginning, "Invalid UTF-8");
 
 		return mCompiler.newString(arr);
 	}

@@ -390,7 +390,7 @@ private:
 			pos = mSourcePtr;
 			dchar ret = void;
 
-			if(!decodeUTF8Char(mSourcePtr, mSourceEnd, ret))
+			if(decodeUTF8Char(mSourcePtr, mSourceEnd, ret) != UTFError.OK)
 				errorHere("Comment source is not valid UTF-8");
 
 			return ret;

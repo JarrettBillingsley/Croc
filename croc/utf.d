@@ -95,12 +95,26 @@ size_t charUTF8Length(dchar c)
 }
 
 /**
+Enumeration of possible return values from certain UTF decoding functions.
+*/
+enum UTFError
+{
+	OK = 0,          /// Success.
+	BadEncoding = 1, /// The data is incorrectly encoded. It may or may not be possible to progress past this.
+	BadChar = 2,     /// The data was encoded properly, but encodes an invalid character.
+	Truncated = 3,   /// The end of the data comes before the character can be completely decoded.
+}
+
+/**
 Attempts to decode a single codepoint from the given UTF-8 encoded text.
 
 If the encoding is invalid, returns false. s will be unchanged.
 
-If decoding completed successfully, returns true. s will be pointing to the next code unit in the string, and outch will
-be set to the decoded codepoint.
+If decoding completed successfully, returns UTFError.OK. s will be pointing to the next code unit in the string, and
+outch will be set to the decoded codepoint.
+
+Overlong encodings (characters which were encoded with more bytes than necessary) are treated as "bad encoding" rather
+than "bad character".
 
 This code (and the accompanying tables) borrowed, in a slightly modified form, from
 http://floodyberry.wordpress.com/2007/04/14/utf-8-conversion-tricks/ ; thanks Andrew!
@@ -111,9 +125,10 @@ Params:
 	outch = the decoded character.
 
 Returns:
-	true if decoding was successful, false if not.
+	One of the members of UTFError. If it is UTFError.BadChar, outch will be set to the (invalid) character that was
+	decoded.
 */
-bool decodeUTF8Char(ref char* s, char* end, ref dchar outch)
+UTFError decodeUTF8Char(ref char* s, char* end, ref dchar outch)
 {
 	dchar c = *s;
 
@@ -121,13 +136,15 @@ bool decodeUTF8Char(ref char* s, char* end, ref dchar outch)
 	{
 		s++;
 		outch = c;
-		return true;
+		return UTFError.OK;
 	}
 
 	size_t len = UTF8CharLengths[c];
 
-	if(len == 1 || (s + len) > end)
-		return false;
+	if(len == 1)
+		return UTFError.BadEncoding;
+	else if((s + len) > end)
+		return UTFError.Truncated;
 
 	size_t mask = 0;
 
@@ -139,22 +156,27 @@ bool decodeUTF8Char(ref char* s, char* end, ref dchar outch)
 	}
 
 	if(mask)
-		return false;
+		return UTFError.BadEncoding;
 
 	c -= UTF8MagicSubtraction[len];
 
-	if(c < UTF8OverlongMinimum[len] || mixin(IS_INVALID_BMP!("c")))
-		return false;
+	if(c < UTF8OverlongMinimum[len])
+		return UTFError.BadEncoding;
+	else if(mixin(IS_INVALID_BMP!("c")))
+	{
+		outch = c;
+		return UTFError.BadChar;
+	}
 
 	s += len;
 	outch = c;
-	return true;
+	return UTFError.OK;
 }
 
 /**
 Same as above, but for UTF-16 encoded text.
 */
-bool decodeUTF16Char(bool swap = false)(ref wchar* s, wchar* end, ref dchar outch)
+UTFError decodeUTF16Char(bool swap = false)(ref wchar* s, wchar* end, ref dchar outch)
 {
 	dchar c = *s;
 
@@ -165,16 +187,21 @@ bool decodeUTF16Char(bool swap = false)(ref wchar* s, wchar* end, ref dchar outc
 	if(c <= 0xD7FF || c >= 0xE000)
 	{
 		if(mixin(IS_NONCHARACTER!("c")) || mixin(IS_RESERVED!("c")))
-			return false;
+		{
+			outch = c;
+			return UTFError.BadChar;
+		}
 
 		s++;
 		outch = c;
-		return true;
+		return UTFError.OK;
 	}
 
 	// First code unit must be a leading surrogate, and there better be another code unit after this
-	if(!mixin(IN_RANGE!("c", "0xD800", "0xDBFF")) || (s + 2) > end)
-		return false;
+	if(!mixin(IN_RANGE!("c", "0xD800", "0xDBFF")))
+		return  UTFError.BadEncoding;
+	else if((s + 2) > end)
+		return UTFError.Truncated;
 
 	dchar c2 = s[1];
 
@@ -183,22 +210,51 @@ bool decodeUTF16Char(bool swap = false)(ref wchar* s, wchar* end, ref dchar outc
 
 	// Second code unit must be a trailing surrogate
 	if(!mixin(IN_RANGE!("c2", "0xDC00", "0xDFFF")))
-		return false;
+		return UTFError.BadEncoding;
 
 	c = 0x10000 + (((c & 0x3FF) << 10) | (c2 & 0x3FF));
 
 	if(mixin(IS_RESERVED!("c")) || mixin(IS_OUT_OF_RANGE!("c")))
-		return false;
+	{
+		outch = c;
+		return UTFError.BadChar;
+	}
 
 	s += 2;
 	outch = c;
-	return true;
+	return UTFError.OK;
 }
 
 /**
 Same as above, but byteswaps the code units when reading them.
 */
 alias decodeUTF16Char!(true) decodeUTF16CharBS;
+
+/**
+Same as above, but for UTF-32 encoded text.
+*/
+UTFError decodeUTF32Char(bool swap = false)(ref dchar* s, dchar* end, ref dchar outch)
+{
+	dchar c = *s;
+
+	static if(swap)
+		c = ((c & 0xFF) << 24) | ((c & 0xFF00) << 8) | ((c & 0xFF0000) >> 8) | (c >> 24);
+
+	outch = c;
+
+	if(mixin(IS_INVALID_BMP!("c")))
+		return UTFError.BadChar;
+	else
+	{
+		s++;
+		return UTFError.OK;
+	}
+}
+
+/**
+Same as above, but byteswaps the code units when reading them.
+*/
+alias decodeUTF32Char!(true) decodeUTF32CharBS;
 
 /**
 Verifies whether or not the given string is valid encoded UTF-8.
@@ -210,7 +266,7 @@ Params:
 Returns:
 	true if the given string is valid UTF-8, false, otherwise.
 */
-bool verifyUTF8(char[] str, ref size_t cpLen)
+UTFError verifyUTF8(char[] str, ref size_t cpLen)
 {
 	cpLen = 0;
 	dchar c = void;
@@ -223,11 +279,16 @@ bool verifyUTF8(char[] str, ref size_t cpLen)
 
 		if(*s < 0x80)
 			s++;
-		else if(!decodeUTF8Char(s, end, c))
-			return false;
+		else
+		{
+			auto ok = decodeUTF8Char(s, end, c);
+
+			if(ok != UTFError.OK)
+				return ok;
+		}
 	}
 
-	return true;
+	return UTFError.OK;
 }
 
 /**
@@ -238,15 +299,15 @@ This function is templated but the only two valid type parameters are wchar and 
 This function expects you to provide it with an output buffer that you have allocated. This buffer is not required to
 be large enough to hold the entire output.
 
-If the entire input was successfully transcoded, returns true, remaining will be set to an empty string, and output will
-be set to the slice of buf that contains the output UTF-8.
+If the entire input was successfully transcoded, returns UTFError.OK, remaining will be set to an empty string, and
+output will be set to the slice of buf that contains the output UTF-8.
 
-If only some of the input was successfully transcoded (because the output buffer was not big enough), returns true,
-remaining will be set to the slice of str that has yet to be transcoded, and output will be set to the slice of buf that
-contains what UTF-8 was transcoded so far.
+If only some of the input was successfully transcoded (because the output buffer was not big enough), returns
+UTFError.OK, remaining will be set to the slice of str that has yet to be transcoded, and output will be set to the
+slice of buf that contains what UTF-8 was transcoded so far.
 
-If the input string's encoding is invalid, returns false, remaining will be set to the slice of str beginning with the
-invalid code unit, and output will be set to an empty string.
+If the input string's encoding is invalid, returns the error code, remaining will be set to the slice of str beginning
+with the invalid code unit, and output will be set to an empty string.
 
 Params:
 	str = The string to be transcoded into UTF-8.
@@ -256,7 +317,7 @@ Params:
 	output = If successful, set to a slice of buf which contains the encoded UTF-8.
 
 Returns:
-	true if transcoding was successful, false otherwise.
+	One of the members of UTFError.
 
 Examples:
 	Suppose you want to convert some UTF-32 text to UTF-8 and output it to a file as you go. You can do this in multiple
@@ -269,14 +330,14 @@ char[] output = void;
 
 while(input.length > 0)
 {
-	if(UTF32ToUTF8(input, buffer, input, output))
+	if(UTF32ToUTF8(input, buffer, input, output) == UTFError.OK)
 		outputUTF8ToFile(output);
 	else
 		throw SomeException("Invalid UTF32");
 }
 -----
 */
-bool _toUTF8(T, bool swap)(T[] str, char[] buf, ref T[] remaining, ref char[] output)
+UTFError _toUTF8(T, bool swap)(T[] str, char[] buf, ref T[] remaining, ref char[] output)
 {
 	auto src = str.ptr;
 	auto end = src + str.length;
@@ -298,33 +359,26 @@ bool _toUTF8(T, bool swap)(T[] str, char[] buf, ref T[] remaining, ref char[] ou
 			static if(is(T == wchar))
 			{
 				static if(swap)
-					bool ok = decodeUTF16CharBS(src, end, c);
+					UTFError ok = decodeUTF16CharBS(src, end, c);
 				else
-					bool ok = decodeUTF16Char(src, end, c);
-
-				if(!ok)
-				{
-					remaining = str[srcSave - str.ptr .. $];
-					output = null;
-					return false;
-				}
+					UTFError ok = decodeUTF16Char(src, end, c);
 			}
 			else static if(is(T == dchar))
 			{
-				c = *src++;
-
 				static if(swap)
-					c = ((c & 0xFF) << 24) | ((c & 0xFF00) << 8) | ((c & 0xFF0000) >> 8) | (c >> 24);
-
-				if(mixin(IS_INVALID_BMP!("c")))
-				{
-					remaining = str[srcSave - str.ptr .. $];
-					output = null;
-					return false;
-				}
+					UTFError ok = decodeUTF32CharBS(src, end, c);
+				else
+					UTFError ok = decodeUTF32Char(src, end, c);
 			}
 			else
 				static assert(false);
+
+			if(ok != UTFError.OK)
+			{
+				remaining = str[srcSave - str.ptr .. $];
+				output = null;
+				return ok;
+			}
 
 			if(c < 0x800)
 			{
@@ -364,7 +418,7 @@ bool _toUTF8(T, bool swap)(T[] str, char[] buf, ref T[] remaining, ref char[] ou
 
 	remaining = str[src - str.ptr .. $];
 	output = buf[0 .. dest - buf.ptr];
-	return true;
+	return UTFError.OK;
 }
 
 /**
@@ -388,25 +442,27 @@ Convenience alias for the byte-swapped UTF-32 to UTF-8 function.
 alias _toUTF8!(dchar, true) UTF32ToUTF8BS;
 
 /**
-Encodes a single Unicode codepoint into UTF-8 and returns its encoding. Useful as a shortcut for when you just need to
-convert a character to its UTF-8 representation.
+Encodes a single Unicode codepoint into UTF-8. Useful as a shortcut for when you just need to convert a character to its
+UTF-8 representation.
 
 Params:
-	buf = The output buffer.
+	buf = The output buffer. Should be at least four bytes long.
 	c = The character to encode.
 	ret = Will be set to the slice of buf that contains the output UTF-8.
 
 Returns:
-	true if encoding was successful, false if not. Also returns false if buf is too small to hold the encoded character.
+	One of the members of UTFError. If buf is too small to hold the encoded character, returns UTFError.Truncated.
 */
-bool encodeUTF8Char(char[] buf, dchar c, ref char[] ret)
+UTFError encodeUTF8Char(char[] buf, dchar c, ref char[] ret)
 {
 	dchar[] remaining = void;
 
-	if(UTF32ToUTF8((&c)[0 .. 1], buf, remaining, ret))
-		return remaining.length == 0;
+	auto ok = UTF32ToUTF8((&c)[0 .. 1], buf, remaining, ret);
+
+	if(ok == UTFError.OK)
+		return remaining.length == 0 ? UTFError.OK : UTFError.Truncated;
 	else
-		return false;
+		return ok;
 }
 
 // =====================================================================================================================

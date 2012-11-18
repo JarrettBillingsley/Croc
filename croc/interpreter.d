@@ -770,7 +770,7 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 
 				char[] tmp = void;
 
-				if(!encodeUTF8Char(buffer, inbuf, tmp))
+				if(encodeUTF8Char(buffer, inbuf, tmp) != UTFError.OK)
 					throwStdException(t, "UnicodeException", "Invalid character U+{:X6}", cast(uint)inbuf);
 
 				return pushString(t, tmp);
@@ -2077,7 +2077,7 @@ void stringConcat(CrocThread* t, CrocValue first, CrocValue[] vals, uword len)
 		{
 			char[6] outbuf = void;
 
-			if(!encodeUTF8Char(outbuf, v.mChar, s))
+			if(encodeUTF8Char(outbuf, v.mChar, s) != UTFError.OK)
 				throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (U+{:X6})", v.mChar);
 		}
 
