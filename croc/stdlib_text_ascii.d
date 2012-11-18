@@ -77,15 +77,23 @@ void _asciiEncodeInternal(CrocThread* t, word destSlot, uword start, char[] str,
 	}
 
 	auto end = src + str.length;
+	auto last = src;
 
 	// At least one of the characters is outside ASCII range, just let the slower loop figure out what to do
 	while(src < end)
 	{
 		if(*src < 0x80)
-			*dest++ = *src++;
+			src++;
 		else
 		{
+			if(src !is last)
+			{
+				memcpy(dest, last, (src - last) * char.sizeof);
+				dest += src - last;
+			}
+
 			auto c = fastDecodeUTF8Char(src);
+			last = src;
 
 			if(errors == "strict")
 				throwStdException(t, "UnicodeException", "Character U+{:X6} cannot be encoded as ASCII", cast(uint)c);
@@ -96,6 +104,12 @@ void _asciiEncodeInternal(CrocThread* t, word destSlot, uword start, char[] str,
 			else
 				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
 		}
+	}
+
+	if(src !is last)
+	{
+		memcpy(dest, last, (src - last) * char.sizeof);
+		dest += src - last;
 	}
 
 	// "ignore" may have resulted in fewer characters being encoded than we allocated for

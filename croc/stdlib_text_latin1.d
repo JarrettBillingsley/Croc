@@ -77,14 +77,22 @@ void _latin1EncodeInternal(CrocThread* t, word destSlot, uword start, char[] str
 	}
 
 	auto end = src + str.length;
+	auto last = src;
 
 	while(src < end)
 	{
 		if(*src < 0x80)
-			*dest++ = *src++;
+			src++;
 		else
 		{
+			if(src !is last)
+			{
+				memcpy(dest, last, (src - last) * char.sizeof);
+				dest += src - last;
+			}
+
 			auto c = fastDecodeUTF8Char(src);
+			last = src;
 
 			if(c <= 0xFF)
 				*dest++ = c;
@@ -97,6 +105,12 @@ void _latin1EncodeInternal(CrocThread* t, word destSlot, uword start, char[] str
 			else
 				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
 		}
+	}
+
+	if(src !is last)
+	{
+		memcpy(dest, last, (src - last) * char.sizeof);
+		dest += src - last;
 	}
 
 	// "ignore" may have resulted in fewer characters being encoded than we allocated for

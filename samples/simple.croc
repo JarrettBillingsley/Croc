@@ -8,11 +8,12 @@ function main()
 		writeln(c)
 	writeln()
 
-	local s = "\u00feello there!"
+	local s = "oh \u00feello there!"
 	writeln$ s
-	local asc = text.getCodec("latin1")
-	local m = asc.encode(s)
-	local t = asc.decode(m)
+	local asc = text.getCodec("ascii")
+	local m = asc.encode(s, "replace")
+	m[3] = 188
+	local t = asc.decode(m, "replace")
 	writeln$ t
 
 /*
