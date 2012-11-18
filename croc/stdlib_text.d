@@ -234,6 +234,64 @@ function utf8SequenceLength(firstByte: int)
 }
 
 /**
+UTF-8 "BOM", not so much a byte-order mark as it is a UTF-8 tag. Sometimes appears at the beginning of UTF-8 encoded
+text.
+*/
+global BOM_UTF8 = "\uFEFF"
+
+/**
+Little-endian UTF-16 BOM.
+*/
+global BOM_UTF16_LE = memblock.new(2)
+BOM_UTF16_LE[0] = 0xFF
+BOM_UTF16_LE[1] = 0xFE
+
+/**
+Big-endian UTF-16 BOM.
+*/
+global BOM_UTF16_BE = memblock.new(2)
+BOM_UTF16_BE[0] = 0xFE
+BOM_UTF16_BE[1] = 0xFF
+
+/**
+Little-endian UTF-32 BOM.
+*/
+global BOM_UTF32_LE = memblock.new(4, 0)
+BOM_UTF32_LE[0] = 0xFF
+BOM_UTF32_LE[1] = 0xFE
+
+/**
+Big-endian UTF-32 BOM.
+*/
+global BOM_UTF32_BE = memblock.new(4, 0)
+BOM_UTF32_BE[2] = 0xFE
+BOM_UTF32_BE[3] = 0xFF
+
+/**
+Native and byte-swapped UTF-16 and UTF-32 BOMs. These are just aliases for the above globals, and which is "native" and
+which is "byte-swapped" is determined automatically for you.
+*/
+global BOM_UTF16, BOM_UTF16_BS
+
+/// ditto
+global BOM_UTF32, BOM_UTF32_BS
+
+if(BOM_UTF16_LE.readUInt16(0) == 0xFEFF)
+{
+	BOM_UTF16 = BOM_UTF16_LE
+	BOM_UTF32 = BOM_UTF32_LE
+	BOM_UTF16_BS = BOM_UTF16_BE
+	BOM_UTF32_BS = BOM_UTF32_BE
+}
+else
+{
+	BOM_UTF16 = BOM_UTF16_BE
+	BOM_UTF32 = BOM_UTF32_BE
+	BOM_UTF16_BS = BOM_UTF16_LE
+	BOM_UTF32_BS = BOM_UTF32_LE
+}
+
+/**
 The base class for all text codecs which are registered with this module. This class defines an interface which all
 codecs must implement.
 */
