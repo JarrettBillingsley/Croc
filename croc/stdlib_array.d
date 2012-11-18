@@ -202,6 +202,7 @@ const RegisterFunc[] _methodFuncs =
 	{"bsearch",  &_bsearch,  maxParams: 1},
 	{"pop",      &_pop,      maxParams: 1},
 	{"insert",   &_insert,   maxParams: 2},
+	{"swap",     &_swap,     maxParams: 2},
 	{"set",      &_set},
 	{"min",      &_min,      maxParams: 0},
 	{"max",      &_max,      maxParams: 0},
@@ -753,6 +754,34 @@ uword _insert(CrocThread* t)
 
 	dup(t, 2);
 	idxai(t, 0, index);
+	dup(t, 0);
+	return 1;
+}
+
+uword _swap(CrocThread* t)
+{
+	checkParam(t, 0, CrocValue.Type.Array);
+	auto a = getArray(t, 0);
+	auto data = a.toArray();
+	crocint idx1 = checkIntParam(t, 1);
+	crocint idx2 = checkIntParam(t, 2);
+
+	if(idx1 < 0) idx1 += data.length;
+	if(idx2 < 0) idx2 += data.length;
+
+	if(idx1 < 0 || idx1 >= data.length)
+		throwStdException(t, "BoundsException", "Invalid array index: {}", idx1);
+
+	if(idx2 < 0 || idx2 >= data.length)
+		throwStdException(t, "BoundsException", "Invalid array index: {}", idx2);
+
+	if(idx1 != idx2)
+	{
+		auto tmp = data[cast(uword)idx1];
+		data[cast(uword)idx1] = data[cast(uword)idx2];
+		data[cast(uword)idx2] = tmp;
+	}
+
 	dup(t, 0);
 	return 1;
 }
@@ -1314,6 +1343,12 @@ foreach(i, v; a, "reverse")
 		`More or less the inverse of \tt{pop}, this function lets you insert a value into an array, shifting
 		down all the values after it. The \tt{index} can be negative to mean from the end of the array. \tt{index}
 		can also be the length of the array, in which case the value is appended to the end of the array.`},
+
+		{kind: "function", name: "swap",
+		params: [Param("idx1", "int"), Param("idx2", "int")],
+		extra: [Extra("section", "Methods")],
+		docs:
+		`Swaps the values contained in the two given elements.`},
 
 		{kind: "function", name: "set",
 		params: [Param("vararg", "vararg")],
