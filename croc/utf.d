@@ -154,9 +154,12 @@ bool decodeUTF8Char(ref char* s, char* end, ref dchar outch)
 /**
 Same as above, but for UTF-16 encoded text.
 */
-bool decodeUTF16Char(ref wchar* s, wchar* end, ref dchar outch)
+bool decodeUTF16Char(bool swap = false)(ref wchar* s, wchar* end, ref dchar outch)
 {
 	dchar c = *s;
+
+	static if(swap)
+		c = ((c & 0xFF) << 8) | (c >> 8);
 
 	// Single-codeunit character?
 	if(c <= 0xD7FF || c >= 0xE000)
@@ -175,6 +178,9 @@ bool decodeUTF16Char(ref wchar* s, wchar* end, ref dchar outch)
 
 	dchar c2 = s[1];
 
+	static if(swap)
+		c2 = ((c2 & 0xFF) << 8) | (c2 >> 8);
+
 	// Second code unit must be a trailing surrogate
 	if(!mixin(IN_RANGE!("c2", "0xDC00", "0xDFFF")))
 		return false;
@@ -188,6 +194,11 @@ bool decodeUTF16Char(ref wchar* s, wchar* end, ref dchar outch)
 	outch = c;
 	return true;
 }
+
+/**
+Same as above, but byteswaps the code units when reading them.
+*/
+alias decodeUTF16Char!(true) decodeUTF16CharBS;
 
 /**
 Verifies whether or not the given string is valid encoded UTF-8.
@@ -265,7 +276,7 @@ while(input.length > 0)
 }
 -----
 */
-bool _toUTF8(T)(T[] str, char[] buf, ref T[] remaining, ref char[] output)
+bool _toUTF8(T, bool swap)(T[] str, char[] buf, ref T[] remaining, ref char[] output)
 {
 	auto src = str.ptr;
 	auto end = src + str.length;
@@ -286,7 +297,12 @@ bool _toUTF8(T)(T[] str, char[] buf, ref T[] remaining, ref char[] output)
 
 			static if(is(T == wchar))
 			{
-				if(!decodeUTF16Char(src, end, c))
+				static if(swap)
+					bool ok = decodeUTF16CharBS(src, end, c);
+				else
+					bool ok = decodeUTF16Char(src, end, c);
+
+				if(!ok)
 				{
 					remaining = str[srcSave - str.ptr .. $];
 					output = null;
@@ -296,6 +312,9 @@ bool _toUTF8(T)(T[] str, char[] buf, ref T[] remaining, ref char[] output)
 			else static if(is(T == dchar))
 			{
 				c = *src++;
+
+				static if(swap)
+					c = ((c & 0xFF) << 24) | ((c & 0xFF00) << 8) | ((c & 0xFF0000) >> 8) | (c >> 24);
 
 				if(mixin(IS_INVALID_BMP!("c")))
 				{
@@ -351,12 +370,22 @@ bool _toUTF8(T)(T[] str, char[] buf, ref T[] remaining, ref char[] output)
 /**
 Convenience alias for the UTF-16 to UTF-8 function.
 */
-alias _toUTF8!(wchar) UTF16ToUTF8;
+alias _toUTF8!(wchar, false) UTF16ToUTF8;
 
 /**
-Convenience alias for the UTF-16 to UTF-32 function.
+Convenience alias for the UTF-32 to UTF-8 function.
 */
-alias _toUTF8!(dchar) UTF32ToUTF8;
+alias _toUTF8!(dchar, false) UTF32ToUTF8;
+
+/**
+Convenience alias for the byte-swapped UTF-16 to UTF-8 function.
+*/
+alias _toUTF8!(wchar, true) UTF16ToUTF8BS;
+
+/**
+Convenience alias for the byte-swapped UTF-32 to UTF-8 function.
+*/
+alias _toUTF8!(dchar, true) UTF32ToUTF8BS;
 
 /**
 Encodes a single Unicode codepoint into UTF-8 and returns its encoding. Useful as a shortcut for when you just need to
@@ -514,7 +543,7 @@ while(input.length > 0)
 -----
 
 */
-wchar[] UTF8ToUTF16(char[] str, wchar[] buf, ref char[] remaining)
+wchar[] UTF8ToUTF16(bool swap = false)(char[] str, wchar[] buf, ref char[] remaining)
 {
 	auto src = str.ptr;
 	auto end = src + str.length;
@@ -531,12 +560,26 @@ wchar[] UTF8ToUTF16(char[] str, wchar[] buf, ref char[] remaining)
 			auto c = fastDecodeUTF8Char(src);
 
 			if(c < 0x10000)
-				*dest++ = c;
+			{
+				static if(swap)
+					*dest++ = cast(wchar)(((c & 0xFF) << 8) | (c >> 8));
+				else
+					*dest++ = c;
+			}
 			else if(dest < destEnd - 1)
 			{
 				c -= 0x10000;
-				*dest++ = cast(wchar)(0xD800 | (c >> 10));
-				*dest++ = cast(wchar)(0xDC00 | (c & 0x3FF));
+
+				static if(swap)
+				{
+					*dest++ = cast(wchar)(0x00D8 | ((c & 0x3FC00) >> 2) | (c >> 18));
+					*dest++ = cast(wchar)(0x00DC | ((c & 0xFF) << 8) | ((c >> 8) & 0x3));
+				}
+				else
+				{
+					*dest++ = cast(wchar)(0xD800 | (c >> 10));
+					*dest++ = cast(wchar)(0xDC00 | (c & 0x3FF));
+				}
 			}
 			else
 			{
@@ -551,9 +594,14 @@ wchar[] UTF8ToUTF16(char[] str, wchar[] buf, ref char[] remaining)
 }
 
 /**
+Same as above, but byte-swaps the output.
+*/
+alias UTF8ToUTF16!(true) UTF8ToUTF16BS;
+
+/**
 Same as above, but for transcoding to UTF-32 instead.
 */
-dchar[] UTF8ToUTF32(char[] str, dchar[] buf, ref char[] remaining)
+dchar[] UTF8ToUTF32(bool swap = false)(char[] str, dchar[] buf, ref char[] remaining)
 {
 	auto src = str.ptr;
 	auto end = src + str.length;
@@ -562,15 +610,33 @@ dchar[] UTF8ToUTF32(char[] str, dchar[] buf, ref char[] remaining)
 
 	while(src < end && dest < destEnd)
 	{
-		if(*src < 0x80)
-			*dest++ = *src++;
+		static if(swap)
+		{
+			if(*src < 0x80)
+				*dest++ = (*src++) << 24;
+			else
+			{
+				auto c = fastDecodeUTF8Char(src);
+				*dest++ = ((c & 0xFF) << 24) | ((c & 0xFF00) << 8) | ((c & 0xFF0000) >> 8) | (c >> 24);
+			}
+		}
 		else
-			*dest++ = fastDecodeUTF8Char(src);
+		{
+			if(*src < 0x80)
+				*dest++ = *src++;
+			else
+				*dest++ = fastDecodeUTF8Char(src);
+		}
 	}
 
 	remaining = str[src - str.ptr .. $];
 	return buf[0 .. dest - buf.ptr];
 }
+
+/**
+Same as above, but byte-swaps the output.
+*/
+alias UTF8ToUTF32!(true) UTF8ToUTF32BS;
 
 /**
 Given a valid UTF-8 string and two codepoint indices, returns a slice of the string.
