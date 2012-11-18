@@ -237,7 +237,15 @@ function utf8SequenceLength(firstByte: int)
 UTF-8 "BOM", not so much a byte-order mark as it is a UTF-8 tag. Sometimes appears at the beginning of UTF-8 encoded
 text.
 */
-global BOM_UTF8 = "\uFEFF"
+global BOM_UTF8 = memblock.new(3)
+BOM_UTF8[0] = 0xEF
+BOM_UTF8[1] = 0xBB
+BOM_UTF8[2] = 0xBF
+
+/**
+A string representation of the above.
+*/
+global BOM_UTF8_STR = "\uFEFF"
 
 /**
 Little-endian UTF-16 BOM.

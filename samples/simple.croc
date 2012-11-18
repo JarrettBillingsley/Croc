@@ -10,12 +10,13 @@ function main()
 
 	local s = "oh \u00feello there!\uFEFF"
 
-	foreach(codec; ["ascii", "latin-1", "utf-8"])
+	foreach(codec; ["ascii", "latin-1", "utf-8", "utf-8-sig"])
 	{
 		writeln(codec)
 		writeln$ s
 		local c = text.getCodec(codec)
 		local m = c.encode(s, "replace")
+		writeln$ m
 		local d = c.incrementalDecoder()
 
 		local t = ""

@@ -194,7 +194,7 @@ class Utf8Codec : TextCodec
 		if(eaten < (hi - lo))
 			throw ValueException("Incomplete text at end of data")
 
-		return ret;
+		return ret
 	}
 
 	function incrementalEncoder(errors: string = "strict") =
@@ -211,5 +211,110 @@ aliasCodec("utf-8", "utf8")
 
 // =====================================================================================================================
 // UTF-8 with a signature
+
+local class Utf8SigIncrementalEncoder : IncrementalEncoder
+{
+	_errors
+	_first = true
+
+	this(errors: string = "strict")
+		:_errors = errors
+
+	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
+	{
+		if(!:_first)
+			_encodeInto(str, dest, start, :_errors)
+		else
+		{
+			:_first = false
+			_encodeInto(BOM_UTF8_STR ~ str, dest, start, :_errors)
+		}
+	}
+
+	function reset()
+	{
+		:_first = true
+	}
+}
+
+local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
+{
+	_first = true
+
+	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+	{
+		local prefix = 0
+
+		if(:_first)
+		{
+			local sliceLen = hi - lo
+
+			if(sliceLen < 3)
+			{
+				if(BOM_UTF8.compare(0, src, lo, sliceLen) == 0)
+					return "", 0, 3 - sliceLen
+				else
+					:_first = false
+			}
+			else
+			{
+				:_first = false
+
+				if(BOM_UTF8.compare(0, src, lo, 3) == 0)
+				{
+					lo += 3
+					prefix = 3
+				}
+			}
+		}
+
+		local ret, eaten = _decodeRange(src, lo, hi, errors)
+		local needed = 0
+
+		if(eaten < (hi - lo))
+		{
+			needed = utf8SequenceLength(src[lo + eaten])
+			assert(needed != 0) // should be a legal start char, if the decoder is working..
+		}
+
+		return ret, prefix + eaten, needed
+	}
+
+	function reset()
+	{
+		super.reset()
+		:_first = true
+	}
+}
+
+class Utf8SigCodec : TextCodec
+{
+	name = "utf-8-sig"
+
+	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict") =
+		_encodeInto(BOM_UTF8_STR ~ str, dest, start, errors)
+
+	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
+	{
+		if((hi - lo) >= 3 && BOM_UTF8.compare(0, src, lo, 3) == 0)
+			lo += 3
+
+		local ret, eaten = _decodeRange(src, lo, hi, errors)
+
+		if(eaten < (hi - lo))
+			throw ValueException("Incomplete text at end of data")
+
+		return ret
+	}
+
+	function incrementalEncoder(errors: string = "strict") =
+		Utf8SigIncrementalEncoder(errors)
+
+	function incrementalDecoder(errors: string = "strict") =
+		Utf8SigIncrementalDecoder(errors)
+}
+
+registerCodec("utf-8-sig", Utf8SigCodec())
+aliasCodec("utf-8-sig", "utf8-sig")
 
 `;
