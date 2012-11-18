@@ -36,14 +36,14 @@ private const ubyte[256] UTF8CharLengths =
 	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
 	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
 	3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-	4,4,4,4,4,4,4,4,1,1,1,1,1,1,1,1
+	4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0
 ];
 
 private const size_t UTF8InvalidTailBits[4]  = [1,1,0,1]; // 2-bit index
@@ -95,6 +95,15 @@ size_t charUTF8Length(dchar c)
 }
 
 /**
+Given the value of an initial UTF-8 code unit, returns how many bytes long this character is, or 0 if this is an invalid
+initial code unit.
+*/
+size_t utf8SequenceLength(ubyte firstByte)
+{
+	return UTF8CharLengths[firstByte];
+}
+
+/**
 Enumeration of possible return values from certain UTF decoding functions.
 */
 enum UTFError
@@ -141,7 +150,7 @@ UTFError decodeUTF8Char(ref char* s, char* end, ref dchar outch)
 
 	size_t len = UTF8CharLengths[c];
 
-	if(len == 1)
+	if(len == 0)
 		return UTFError.BadEncoding;
 	else if((s + len) > end)
 		return UTFError.Truncated;

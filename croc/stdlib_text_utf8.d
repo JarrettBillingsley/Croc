@@ -112,7 +112,13 @@ uword _utf8DecodeInternal(CrocThread* t)
 			else
 			{
 				// Either a correctly-encoded invalid character or a bad encoding -- skip it either way
-				src += charUTF8Length(*src);
+				auto len = utf8SequenceLength(*src);
+
+				if(len == 0)
+					src++;
+				else
+					src += len;
+
 				last = src;
 
 				if(errors == "strict")
