@@ -31,6 +31,7 @@ import croc.ex;
 import croc.types;
 
 import croc.stdlib_text_ascii;
+import croc.stdlib_text_latin1;
 
 // =====================================================================================================================
 // Public
@@ -42,6 +43,7 @@ void initTextLib(CrocThread* t)
 {
 	importModuleFromStringNoNS(t, "text", textSource, "text.croc");
 	initAsciiCodec(t);
+	initLatin1Codec(t);
 }
 
 // =====================================================================================================================

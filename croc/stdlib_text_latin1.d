@@ -22,7 +22,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module croc.stdlib_text_ascii;
+module croc.stdlib_text_latin1;
 
 import tango.math.Math;
 import tango.stdc.string;
@@ -41,10 +41,10 @@ import croc.utf;
 
 package:
 
-void initAsciiCodec(CrocThread* t)
+void initLatin1Codec(CrocThread* t)
 {
 	pushGlobal(t, "text");
-	loadString(t, _code, true, "text_ascii.croc");
+	loadString(t, _code, true, "text_latin1.croc");
 	pushNull(t);
 	newTable(t);
 		registerFields(t, _funcs);
@@ -56,11 +56,11 @@ void initAsciiCodec(CrocThread* t)
 
 const RegisterFunc[] _funcs =
 [
-	{ "asciiEncodeInternal", &_encodeInto!(_asciiEncodeInternal),  maxParams: 4 },
-	{ "asciiDecodeInternal", &_decodeRange!(_asciiDecodeInternal), maxParams: 4 }
+	{ "latin1EncodeInternal", &_encodeInto!(_latin1EncodeInternal),  maxParams: 4 },
+	{ "latin1DecodeInternal", &_decodeRange!(_latin1DecodeInternal), maxParams: 4 }
 ];
 
-void _asciiEncodeInternal(CrocThread* t, word destSlot, uword start, char[] str, uword strlen, char[] errors)
+void _latin1EncodeInternal(CrocThread* t, word destSlot, uword start, char[] str, uword strlen, char[] errors)
 {
 	// Gonna need at most str.length characters, if all goes well
 	lenai(t, destSlot, max(len(t, destSlot), start + str.length));
@@ -71,14 +71,13 @@ void _asciiEncodeInternal(CrocThread* t, word destSlot, uword start, char[] str,
 
 	if(str.length == strlen)
 	{
-		// It's definitely ASCII, just shortcut copying it over.
+		// It's plain ASCII, just shortcut copying it over.
 		memcpy(dest, src, strlen * char.sizeof);
 		return;
 	}
 
 	auto end = src + str.length;
 
-	// At least one of the characters is outside ASCII range, just let the slower loop figure out what to do
 	while(src < end)
 	{
 		if(*src < 0x80)
@@ -87,7 +86,9 @@ void _asciiEncodeInternal(CrocThread* t, word destSlot, uword start, char[] str,
 		{
 			auto c = fastDecodeUTF8Char(src);
 
-			if(errors == "strict")
+			if(c <= 0xFF)
+				*dest++ = c;
+			else if(errors == "strict")
 				throwStdException(t, "UnicodeException", "Character U+{:X6} cannot be encoded as ASCII", cast(uint)c);
 			else if(errors == "ignore")
 				continue;
@@ -102,7 +103,7 @@ void _asciiEncodeInternal(CrocThread* t, word destSlot, uword start, char[] str,
 	lenai(t, destSlot, dest - destBase);
 }
 
-void _asciiDecodeInternal(CrocThread* t, ref StrBuffer s, ubyte[] mb, char[] errors)
+void _latin1DecodeInternal(CrocThread* t, ref StrBuffer s, ubyte[] mb, char[] errors)
 {
 	auto src = mb.ptr;
 	auto end = mb.ptr + mb.length;
@@ -117,17 +118,8 @@ void _asciiDecodeInternal(CrocThread* t, ref StrBuffer s, ubyte[] mb, char[] err
 			if(src !is last)
 				s.addString(cast(char[])last[0 .. src - last]);
 
-			auto c = *src++;
+			s.addChar(cast(dchar)*src++);
 			last = src;
-
-			if(errors == "strict")
-				throwStdException(t, "UnicodeException", "Character 0x{:X2} is invalid ASCII (above 0x7F)", c);
-			else if(errors == "ignore")
-				continue;
-			else if(errors == "replace")
-				s.addChar('\uFFFD');
-			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
 		}
 	}
 
@@ -138,9 +130,9 @@ void _asciiDecodeInternal(CrocThread* t, ref StrBuffer s, ubyte[] mb, char[] err
 const char[] _code =
 `
 local _internal = vararg
-local _encodeInto, _decodeRange = _internal.asciiEncodeInternal, _internal.asciiDecodeInternal
+local _encodeInto, _decodeRange = _internal.latin1EncodeInternal, _internal.latin1DecodeInternal
 
-local class AsciiIncrementalEncoder : IncrementalEncoder
+local class Latin1IncrementalEncoder : IncrementalEncoder
 {
 	_errors
 
@@ -153,7 +145,7 @@ local class AsciiIncrementalEncoder : IncrementalEncoder
 	function reset() {}
 }
 
-local class AsciiIncrementalDecoder : IncrementalDecoder
+local class Latin1IncrementalDecoder : IncrementalDecoder
 {
 	_errors
 
@@ -166,19 +158,20 @@ local class AsciiIncrementalDecoder : IncrementalDecoder
 	function reset() {}
 }
 
-class AsciiCodec : TextCodec
+class Latin1Codec : TextCodec
 {
-	name = "ascii"
+	name = "latin1"
 
 	function incrementalEncoder(errors: string = "strict") =
-		AsciiIncrementalEncoder(errors)
+		Latin1IncrementalEncoder(errors)
 
 	function incrementalDecoder(errors: string = "strict") =
-		AsciiIncrementalDecoder(errors)
+		Latin1IncrementalDecoder(errors)
 }
 
-object.addMethod(AsciiCodec, "encodeInto", _encodeInto)
-object.addMethod(AsciiCodec, "decodeRange", _decodeRange)
+object.addMethod(Latin1Codec, "encodeInto", _encodeInto)
+object.addMethod(Latin1Codec, "decodeRange", _decodeRange)
 
-registerCodec("ascii", AsciiCodec())
+registerCodec("latin1", Latin1Codec())
+aliasCodec("latin1", "latin-1", "iso8859-1", "cp819")
 `;

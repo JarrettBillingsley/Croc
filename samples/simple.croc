@@ -10,8 +10,8 @@ function main()
 
 	local s = "\u00feello there!"
 	writeln$ s
-	local asc = text.getCodec("ascii")
-	local m = asc.encode(s, "ignore")
+	local asc = text.getCodec("latin1")
+	local m = asc.encode(s)
 	local t = asc.decode(m)
 	writeln$ t
 
