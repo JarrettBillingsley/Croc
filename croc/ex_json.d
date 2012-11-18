@@ -36,6 +36,7 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.types;
+import croc.utf;
 import croc.utils;
 
 // ================================================================================================================================================
@@ -324,7 +325,7 @@ private:
 	uword mCol;
 	char[] mSource;
 	char* mSourcePtr;
-	char* mSourceEnd
+	char* mSourceEnd;
 	char* mCharPos;
 	dchar mCharacter;
 
@@ -337,7 +338,6 @@ public:
 		mLine = 1;
 		mCol = 0;
 		mSource = source;
-		mPosition = 0;
 
 		nextChar();
 		next();
