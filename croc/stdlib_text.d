@@ -458,4 +458,126 @@ class IncrementalDecoder
 	function reset()
 		throw NotImplementedException()
 }
+
+/**
+A base class for incremental decoders which share a common behavior: needing to save partial character encodings from
+the end of a data block for use in the next call.
+
+Subclasses need only implement the constructor and the \link{bufferedDecode_} method.
+*/
+class BufferedIncrementalDecoder : IncrementalDecoder
+{
+	_errors
+	_scratch
+	_have = 0
+	_needed = 0
+
+	/**
+	Constructor. Subclasses must override this and use \tt{super()} to call this, as it accesses private fields.
+	*/
+	this(errors: string = "strict")
+	{
+		:_errors = errors
+		:_scratch = memblock.new(4)
+	}
+
+	/**
+	Subclasses just implement this method. Note that it takes both an \tt{errors} parameter \em{and} a \tt{final}
+	parameter.
+
+	This method should return three values. The first is the decoded string (or the empty string if there was not enough
+	data to decode anything). The second is the number of bytes of the given slice that were consumed during decoding.
+	The third is the number of bytes needed to complete the undecoded data, if any. That probably doesn't make any sense
+	without knowing how the buffering scheme works.
+
+	When this method is given a memblock slice, it's possible that there is incomplete encoded data at the end of the
+	slice. For instance, in a multibyte character encoding scheme (like UTF-8), there might only be the first byte of a
+	four-byte character at the end of the slice. Suppose the slice is 16 bytes long. In this case, this method would
+	return the decoded version of the first 15 bytes, then the number 15 (to indicate that only 15 of 16 bytes were
+	decoded), and finally the number 3. Why 3? Because it knows that the character needs 4 bytes total, but there was
+	only 1 byte of it at the end of the slice. So 4 - 1 = 3.
+
+	With this information, this class can save that 1 byte into an internal buffer, and then on the next call to
+	\link{decodeRange}, it will check to see if there are enough bytes to finish off the character. When enough bytes
+	do eventually come in, this method will be called to decode that one character.
+
+	If all the bytes were decoded from the given slice, then this method should return \tt{hi - lo} as the number of
+	bytes consumed, and 0 for the number of bytes needed.
+
+	\returns three values: the decoded string (or an empty string if nothing was decoded), the number of bytes consumed
+		from the given slice of the memblock, and the number of bytes needed (or 0).
+	*/
+	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+		throw NotImplementedException()
+
+	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
+	{
+		local sliceLen = hi - lo
+		local ret1, ret2, eaten, needed
+
+		// First check if we have leftover gunk from the last call, and if so, try to decode that shiiiit
+		if(:_needed)
+		{
+			local whatsLeft = :_needed - :_have
+
+			if(sliceLen < whatsLeft)
+			{
+				// still haven't been given enough bytes to finish..
+				if(final)
+					throw ValueException("Incomplete text at end of data")
+
+				// save what we were given and just return an empty string for now
+				:_scratch.copy(:_have, src, lo, sliceLen)
+				:_have += sliceLen
+				return ""
+			}
+
+			// okay, we have enough bytes! let's try to decode it
+			:_scratch.copy(:_have, src, lo, whatsLeft)
+			lo += whatsLeft
+			sliceLen = hi - lo
+			ret1, eaten, needed = :bufferedDecode_(:_scratch, 0, :_needed, :_errors)
+
+			if(eaten != :_needed || needed != 0)
+				throw StateException("Error in decoder: was told {} bytes were needed, but decoding still failed".format(:_needed))
+
+			:_needed = 0
+		}
+
+		// Next decode the main part of the memblock
+		ret2, eaten, needed = :bufferedDecode_(src, lo, hi, :_errors)
+
+		:_have = sliceLen - eaten
+
+		if(:_have)
+		{
+			if(final)
+				throw ValueException("Incomplete text at end of data")
+
+			if(needed <= :_have)
+				throw StateException("Error in decoder: was told {} bytes were needed, but already have that many".format(needed))
+
+			if(#:_scratch < needed)
+				#:_scratch = needed
+
+			:_scratch.copy(0, src, hi - :_have, :_have)
+			:_needed = needed
+		}
+
+		// Reset state if this was the last piece
+		if(final)
+			:reset()
+
+		if(ret1 is null)
+			return ret2
+		else
+			return ret1 ~ ret2
+	}
+
+	function reset()
+	{
+		:_have = 0
+		:_needed = 0
+	}
+}
 `;

@@ -145,7 +145,10 @@ const char[] _code =
 `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.utf8EncodeInternal, _internal.utf8DecodeInternal
-import exceptions: ValueException
+import exceptions: ValueException, StateException
+
+// =====================================================================================================================
+// "Raw" UTF-8
 
 local class Utf8IncrementalEncoder : IncrementalEncoder
 {
@@ -160,78 +163,23 @@ local class Utf8IncrementalEncoder : IncrementalEncoder
 	function reset() {}
 }
 
-local class Utf8IncrementalDecoder : IncrementalDecoder
+local class Utf8IncrementalDecoder : BufferedIncrementalDecoder
 {
-	_errors
-	_scratch
-	_numScratch = 0
+	this(errors: string)
+		super(errors)
 
-	this(errors: string = "strict")
+	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 	{
-		:_errors = errors
-		:_scratch = memblock.new(4)
-	}
+		local ret, eaten = _decodeRange(src, lo, hi, errors)
+		local needed = 0
 
-	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
-	{
-		local sliceLen = hi - lo
-		local ret1, ret2, eaten
-
-		// First check if we have leftover gunk from the last call, and if so, try to decode that shiiiit
-		if(:_numScratch)
+		if(eaten < (hi - lo))
 		{
-			local charLen = utf8SequenceLength(:_scratch[0])
-			local needed = charLen - :_numScratch
-			assert(needed > 0)
-
-			if(sliceLen < needed)
-			{
-				// still haven't been given enough bytes to finish..
-				if(final)
-					throw ValueException("Incomplete text at end of data")
-
-				// save what we were given and just return an empty string for now
-				:_scratch.copy(:_numScratch, src, lo, sliceLen)
-				:_numScratch += sliceLen
-				return ""
-			}
-			else
-			{
-				// okay, we have enough bytes! let's try to decode it
-				:_scratch.copy(:_numScratch, src, lo, needed)
-				lo += needed
-				sliceLen = hi - lo
-				ret1, eaten = _decodeRange(:_scratch, 0, charLen, :_errors)
-				assert(eaten == charLen)
-			}
+			needed = utf8SequenceLength(src[lo + eaten])
+			assert(needed != 0) // should be a legal start char, if the decoder is working..
 		}
 
-		// Next decode the main part of the memblock
-		ret2, eaten = _decodeRange(src, lo, hi, :_errors)
-		:_numScratch = sliceLen - eaten
-
-		if(:_numScratch)
-		{
-			if(final)
-				throw ValueException("Incomplete text at end of data")
-
-			:_scratch.copy(0, src, hi - :_numScratch, :_numScratch)
-			assert(utf8SequenceLength(:_scratch[0]) > 0) // should be a legal start char, if the decoder is working..
-		}
-
-		// Reset state if this was the last piece
-		if(final)
-			:reset()
-
-		if(ret1 is null)
-			return ret2
-		else
-			return ret1 ~ ret2
-	}
-
-	function reset()
-	{
-		:_numScratch = 0
+		return ret, eaten, needed
 	}
 }
 
@@ -260,4 +208,8 @@ object.addMethod(Utf8Codec, "encodeInto", _encodeInto)
 
 registerCodec("utf-8", Utf8Codec())
 aliasCodec("utf-8", "utf8")
+
+// =====================================================================================================================
+// UTF-8 with a signature
+
 `;
