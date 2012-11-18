@@ -283,7 +283,7 @@ uword _constructor(CrocThread* t)
 	if(data.length > 0)
 	{
 		auto mb = getMemblock(t, -1);
-		UTF8ToUTF32(data, cast(dchar[])mb.data);
+		Utf8ToUtf32(data, cast(dchar[])mb.data);
 		_setLength(t, length);
 	}
 	else
@@ -554,7 +554,7 @@ uword _opCat(CrocThread* t)
 	if(isString(t, 1))
 	{
 		auto dest = makeObj(.len(t, 1));
-		UTF8ToUTF32(getString(t, 1), dest);
+		Utf8ToUtf32(getString(t, 1), dest);
 	}
 	else if(isChar(t, 1))
 	{
@@ -570,7 +570,7 @@ uword _opCat(CrocThread* t)
 		pushToString(t, 1);
 		auto s = getString(t, -1);
 		auto dest = makeObj(.len(t, -1));
-		UTF8ToUTF32(s, dest);
+		Utf8ToUtf32(s, dest);
 		pop(t);
 	}
 
@@ -605,7 +605,7 @@ uword _opCat_r(CrocThread* t)
 	if(isString(t, 1))
 	{
 		auto dest = makeObj(.len(t, 1));
-		UTF8ToUTF32(getString(t, 1), dest);
+		Utf8ToUtf32(getString(t, 1), dest);
 	}
 	else if(isChar(t, 1))
 	{
@@ -616,7 +616,7 @@ uword _opCat_r(CrocThread* t)
 		pushToString(t, 1);
 		auto s = getString(t, -1);
 		auto dest = makeObj(.len(t, -1));
-		UTF8ToUTF32(s, dest);
+		Utf8ToUtf32(s, dest);
 		pop(t);
 	}
 
@@ -652,7 +652,7 @@ uword _opCatAssign(CrocThread* t)
 		if(isString(t, i))
 		{
 			auto dest = resize(.len(t, i));
-			UTF8ToUTF32(getString(t, i), dest);
+			Utf8ToUtf32(getString(t, i), dest);
 		}
 		else if(isChar(t, i))
 			resize(1)[0] = getChar(t, i);
@@ -673,7 +673,7 @@ uword _opCatAssign(CrocThread* t)
 		{
 			pushToString(t, i);
 			auto dest = resize(.len(t, -1));
-			UTF8ToUTF32(getString(t, -1), dest);
+			Utf8ToUtf32(getString(t, -1), dest);
 			pop(t);
 		}
 	}
@@ -778,7 +778,7 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 		if(cpLen != (hi - lo))
 			throwStdException(t, "ValueException", "Length of destination ({}) and length of source string ({}) do not match", hi - lo, cpLen);
 
-		UTF8ToUTF32(getString(t, filler), (cast(dchar[])mb.data)[lo .. hi]);
+		Utf8ToUtf32(getString(t, filler), (cast(dchar[])mb.data)[lo .. hi]);
 	}
 	else if(isArray(t, filler))
 	{
@@ -883,7 +883,7 @@ uword _insert(CrocThread* t)
 		{
 			auto str = getString(t, 2);
 			auto tmp = doResize(cpLen);
-			UTF8ToUTF32(str, tmp);
+			Utf8ToUtf32(str, tmp);
 		}
 	}
 	else if(isChar(t, 2))
@@ -921,7 +921,7 @@ uword _insert(CrocThread* t)
 		{
 			auto str = getString(t, -1);
 			auto tmp = doResize(cpLen);
-			UTF8ToUTF32(str, tmp);
+			Utf8ToUtf32(str, tmp);
 		}
 
 		pop(t);
@@ -1375,7 +1375,7 @@ uword _format(CrocThread* t)
 	uint sink(char[] data)
 	{
 		uword datalen = void;
-		verifyUTF8(data, datalen);
+		verifyUtf8(data, datalen);
 		ulong totalLen = cast(uword)len + datalen;
 
 		if(totalLen > uword.max)
@@ -1386,7 +1386,7 @@ uword _format(CrocThread* t)
 		auto oldLen = len;
 		len = cast(uword)totalLen;
 
-		UTF8ToUTF32(data, (cast(dchar[])mb.data)[cast(uword)oldLen .. cast(uword)totalLen]);
+		Utf8ToUtf32(data, (cast(dchar[])mb.data)[cast(uword)oldLen .. cast(uword)totalLen]);
 		return data.length;
 	}
 

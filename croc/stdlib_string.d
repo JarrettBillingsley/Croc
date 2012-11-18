@@ -277,7 +277,7 @@ uword _commonFind(bool reverse)(CrocThread* t)
 	{
 		auto ch = getChar(t, 1);
 
-		if(encodeUTF8Char(buf, ch, pat) != UTFError.OK)
+		if(encodeUtf8Char(buf, ch, pat) != UtfError.OK)
 			throwStdException(t, "UnicodeException", "Invalid Unicode character U+{:X6}", cast(uint)ch);
 	}
 	else
@@ -297,9 +297,9 @@ uword _commonFind(bool reverse)(CrocThread* t)
 
 	// Search
 	static if(reverse)
-		pushInt(t, UTF8ByteIdxToCP(src, src.locatePatternPrior(pat, UTF8CPIdxToByte(src, cast(uword)start))));
+		pushInt(t, utf8ByteIdxToCP(src, src.locatePatternPrior(pat, utf8CPIdxToByte(src, cast(uword)start))));
 	else
-		pushInt(t, UTF8ByteIdxToCP(src, src.locatePattern(pat, UTF8CPIdxToByte(src, cast(uword)start))));
+		pushInt(t, utf8ByteIdxToCP(src, src.locatePattern(pat, utf8CPIdxToByte(src, cast(uword)start))));
 
 	return 1;
 }
@@ -531,7 +531,7 @@ uword _iterator(CrocThread* t)
 		return 0;
 
 	char* ptr = str.ptr + realIdx;
-	auto c = fastDecodeUTF8Char(ptr);
+	auto c = fastDecodeUtf8Char(ptr);
 
 	pushInt(t, ptr - str.ptr);
 	setUpval(t, 0);

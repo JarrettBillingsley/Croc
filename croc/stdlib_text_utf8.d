@@ -97,14 +97,14 @@ uword _utf8DecodeInternal(CrocThread* t)
 			}
 
 			dchar c = void;
-			auto ok = decodeUTF8Char(src, end, c);
+			auto ok = decodeUtf8Char(src, end, c);
 
-			if(ok == UTFError.OK)
+			if(ok == UtfError.OK)
 			{
 				s.addChar(c);
 				last = src;
 			}
-			else if(ok == UTFError.Truncated)
+			else if(ok == UtfError.Truncated)
 			{
 				// incomplete character encoding.. stop it here
 				break;

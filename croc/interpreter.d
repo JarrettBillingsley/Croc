@@ -770,7 +770,7 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 
 				char[] tmp = void;
 
-				if(encodeUTF8Char(buffer, inbuf, tmp) != UTFError.OK)
+				if(encodeUtf8Char(buffer, inbuf, tmp) != UtfError.OK)
 					throwStdException(t, "UnicodeException", "Invalid character U+{:X6}", cast(uint)inbuf);
 
 				return pushString(t, tmp);
@@ -1881,7 +1881,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 						if(!isValidChar(stack[idx].mChar))
 							throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (\\U{:x8})", cast(uint)stack[idx].mChar);
 
-						len += charUTF8Length(stack[idx].mChar);
+						len += charUtf8Length(stack[idx].mChar);
 					}
 					else
 						break;
@@ -2077,7 +2077,7 @@ void stringConcat(CrocThread* t, CrocValue first, CrocValue[] vals, uword len)
 		{
 			char[6] outbuf = void;
 
-			if(encodeUTF8Char(outbuf, v.mChar, s) != UTFError.OK)
+			if(encodeUtf8Char(outbuf, v.mChar, s) != UtfError.OK)
 				throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (U+{:X6})", v.mChar);
 		}
 
@@ -2111,7 +2111,7 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 				if(!isValidChar(t.stack[dest].mChar))
 					throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (\\U{:x8})", t.stack[dest].mChar);
 
-				len = charUTF8Length(t.stack[dest].mChar);
+				len = charUtf8Length(t.stack[dest].mChar);
 			}
 			else
 				len = t.stack[dest].mString.length;
@@ -2125,7 +2125,7 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 					if(!isValidChar(stack[idx].mChar))
 						throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (\\U{:x8})", cast(uint)stack[idx].mChar);
 
-					len += charUTF8Length(stack[idx].mChar);
+					len += charUtf8Length(stack[idx].mChar);
 				}
 				else
 				{

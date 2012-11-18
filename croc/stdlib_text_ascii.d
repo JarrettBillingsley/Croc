@@ -99,7 +99,7 @@ uword _asciiEncodeInternal(CrocThread* t)
 				dest += src - last;
 			}
 
-			auto c = fastDecodeUTF8Char(src);
+			auto c = fastDecodeUtf8Char(src);
 			last = src;
 
 			if(errors == "strict")

@@ -98,7 +98,7 @@ uword _latin1EncodeInternal(CrocThread* t)
 				dest += src - last;
 			}
 
-			auto c = fastDecodeUTF8Char(src);
+			auto c = fastDecodeUtf8Char(src);
 			last = src;
 
 			if(c <= 0xFF)

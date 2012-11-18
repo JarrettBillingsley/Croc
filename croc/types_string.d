@@ -104,20 +104,20 @@ package:
 	// And these indices better be good.
 	CrocString* slice(CrocVM* vm, CrocString* s, uword lo, uword hi)
 	{
-		auto str = UTF8Slice(s.toString(), lo, hi);
+		auto str = utf8Slice(s.toString(), lo, hi);
 		uword h = void;
 
 		if(auto s = lookup(vm, str, h))
 			return s;
 
 		// don't have to verify since we're slicing from a string we know is good
-		return create(vm, UTF8Slice(s.toString(), lo, hi), h, hi - lo);
+		return create(vm, utf8Slice(s.toString(), lo, hi), h, hi - lo);
 	}
 
 	// Like slice, the index is in codepoints, not byte indices.
 	dchar charAt(CrocString* s, uword idx)
 	{
-		return UTF8CharAt(s.toString(), idx);
+		return utf8CharAt(s.toString(), idx);
 	}
 
 	// ================================================================================================================================================

@@ -606,7 +606,7 @@ static:
 		methodCall(t, -3, "test", 1);
 
 		if(getBool(t, -1))
-			pos = UTF8ByteIdxToCP(memb.subject, memb.groupIdx[0]);
+			pos = utf8ByteIdxToCP(memb.subject, memb.groupIdx[0]);
 
 		pushInt(t, pos);
 		return 1;
