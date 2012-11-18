@@ -237,10 +237,7 @@ function utf8SequenceLength(firstByte: int)
 UTF-8 "BOM", not so much a byte-order mark as it is a UTF-8 tag. Sometimes appears at the beginning of UTF-8 encoded
 text.
 */
-global BOM_UTF8 = memblock.new(3)
-BOM_UTF8[0] = 0xEF
-BOM_UTF8[1] = 0xBB
-BOM_UTF8[2] = 0xBF
+global BOM_UTF8 = memblock.fromArray([0xEF 0xBB 0xBF])
 
 /**
 A string representation of the above.
@@ -250,30 +247,22 @@ global BOM_UTF8_STR = "\uFEFF"
 /**
 Little-endian UTF-16 BOM.
 */
-global BOM_UTF16_LE = memblock.new(2)
-BOM_UTF16_LE[0] = 0xFF
-BOM_UTF16_LE[1] = 0xFE
+global BOM_UTF16_LE = memblock.fromArray([0xFF 0xFE])
 
 /**
 Big-endian UTF-16 BOM.
 */
-global BOM_UTF16_BE = memblock.new(2)
-BOM_UTF16_BE[0] = 0xFE
-BOM_UTF16_BE[1] = 0xFF
+global BOM_UTF16_BE = memblock.fromArray([0xFE 0xFF])
 
 /**
 Little-endian UTF-32 BOM.
 */
-global BOM_UTF32_LE = memblock.new(4, 0)
-BOM_UTF32_LE[0] = 0xFF
-BOM_UTF32_LE[1] = 0xFE
+global BOM_UTF32_LE = memblock.fromArray([0xFF 0xFE 0x00 0x00])
 
 /**
 Big-endian UTF-32 BOM.
 */
-global BOM_UTF32_BE = memblock.new(4, 0)
-BOM_UTF32_BE[2] = 0xFE
-BOM_UTF32_BE[3] = 0xFF
+global BOM_UTF32_BE = memblock.fromArray([0x00 0x00 0xFE 0xFF])
 
 /**
 Native and byte-swapped UTF-16 and UTF-32 BOMs. These are just aliases for the above globals, and which is "native" and

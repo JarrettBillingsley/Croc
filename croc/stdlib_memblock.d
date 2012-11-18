@@ -94,7 +94,8 @@ private:
 
 const RegisterFunc[] _globalFuncs =
 [
-	{"new", &_new, maxParams: 2},
+	{"new",       &_new,       maxParams: 2},
+	{"fromArray", &_fromArray, maxParams: 1}
 ];
 
 uword _new(CrocThread* t)
@@ -110,6 +111,25 @@ uword _new(CrocThread* t)
 
 	if(haveFill)
 		getMemblock(t, -1).data[] = cast(ubyte)checkIntParam(t, 2);
+
+	return 1;
+}
+
+uword _fromArray(CrocThread* t)
+{
+	checkParam(t, 1, CrocValue.Type.Array);
+	auto arr = getArray(t, 1).toArray();
+
+	newMemblock(t, arr.length);
+	auto data = getMemblock(t, -1).data;
+
+	foreach(i, ref slot; arr)
+	{
+		if(slot.value.type != CrocValue.Type.Int)
+			throwStdException(t, "TypeException", "Array must be all integers");
+
+		data[i] = cast(ubyte)slot.value.mInt;
+	}
 
 	return 1;
 }
@@ -465,7 +485,20 @@ version(CrocBuiltinDocs)
 		\param[fill] is the value to fill each byte of the memblock with. Defaults to 0. The value will be wrapped to the
 		range of an unsigned byte.
 
-		\throws[exceptions.RangeException] if \tt{size} is invalid (negative or too large to be represented).`}
+		\throws[exceptions.RangeException] if \tt{size} is invalid (negative or too large to be represented).`},
+
+		{kind: "function", name: "fromArray",
+		params: [Param("arr", "array")],
+		docs:
+		`Creates a new memblock using the contents of the array as the data.
+
+		The new memblock will be the same length as the array. The array must hold nothing but integers. They are not
+		required to be in the range \tt{[0 .. 255]}; just the lower 8 bits will be used from each integer.
+
+		\param[arr] is the array holding the data from which the memblock will be constructed.
+		\returns the new memblock.
+
+		\throws[exceptions.TypeException] if \tt{arr} has any non-integer elements.`}
 	];
 
 	Docs[] _methodFuncDocs =
