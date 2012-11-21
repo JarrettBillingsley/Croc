@@ -358,71 +358,61 @@ UtfError _toUtf8(T, bool swap)(T[] str, char[] buf, ref T[] remaining, ref char[
 
 	while(src < end && dest < destEnd)
 	{
-		if(*src < 0x80)
-			*dest++ = *src++;
+		auto srcSave = src;
+		dchar c = void;
+
+		static if(is(T == wchar))
+			UtfError ok = decodeUtf16Char!(swap)(src, end, c);
+		else static if(is(T == dchar))
+			UtfError ok = decodeUtf32Char!(swap)(src, end, c);
+		else
+			static assert(false);
+
+		if(ok != UtfError.OK)
+		{
+			remaining = str[srcSave - str.ptr .. $];
+			output = null;
+			return ok;
+		}
+
+		if(c < 0x80)
+		{
+			*dest++ = c;
+			continue;
+		}
+		if(c < 0x800)
+		{
+			if(dest <= destEndM2)
+			{
+				*dest++ = cast(char)(0xC0 | (c >> 6));
+				*dest++ = cast(char)(0x80 | (c & 0x3F));
+				continue;
+			}
+		}
+		else if(c < 0x10000)
+		{
+			if(dest <= destEndM3)
+			{
+				*dest++ = cast(char)(0xE0 | (c >> 12));
+				*dest++ = cast(char)(0x80 | ((c >> 6) & 0x3F));
+				*dest++ = cast(char)(0x80 | (c & 0x3F));
+				continue;
+			}
+		}
 		else
 		{
-			auto srcSave = src;
-			dchar c = void;
-
-			static if(is(T == wchar))
+			if(dest <= destEndM4)
 			{
-				static if(swap)
-					UtfError ok = decodeUtf16CharBS(src, end, c);
-				else
-					UtfError ok = decodeUtf16Char(src, end, c);
+				*dest++ = cast(char)(0xF0 | (c >> 18));
+				*dest++ = cast(char)(0x80 | ((c >> 12) & 0x3F));
+				*dest++ = cast(char)(0x80 | ((c >> 6) & 0x3F));
+				*dest++ = cast(char)(0x80 | (c & 0x3F));
+				continue;
 			}
-			else static if(is(T == dchar))
-			{
-				static if(swap)
-					UtfError ok = decodeUtf32CharBS(src, end, c);
-				else
-					UtfError ok = decodeUtf32Char(src, end, c);
-			}
-			else
-				static assert(false);
-
-			if(ok != UtfError.OK)
-			{
-				remaining = str[srcSave - str.ptr .. $];
-				output = null;
-				return ok;
-			}
-
-			if(c < 0x800)
-			{
-				if(dest <= destEndM2)
-				{
-					*dest++ = cast(char)(0xC0 | (c >> 6));
-					*dest++ = cast(char)(0x80 | (c & 0x3F));
-					continue;
-				}
-			}
-			else if(c < 0x10000)
-			{
-				if(dest <= destEndM3)
-				{
-					*dest++ = cast(char)(0xE0 | (c >> 12));
-					*dest++ = cast(char)(0x80 | ((c >> 6) & 0x3F));
-					*dest++ = cast(char)(0x80 | (c & 0x3F));
-					continue;
-				}
-			}
-			else
-			{
-				if(dest <= destEndM4)
-				{
-					*dest++ = cast(char)(0xF0 | (c >> 18));
-					*dest++ = cast(char)(0x80 | ((c >> 12) & 0x3F));
-					*dest++ = cast(char)(0x80 | ((c >> 6) & 0x3F));
-					*dest++ = cast(char)(0x80 | (c & 0x3F));
-					continue;
-				}
-			}
-
-			src = srcSave;
-			break;
 		}
+
+		src = srcSave;
+		break;
 	}
 
 	remaining = str[src - str.ptr .. $];
@@ -777,4 +767,15 @@ size_t utf8ByteIdxToCP(char[] str, size_t fake)
 		s += Utf8CharLengths[*s];
 
 	return ret;
+}
+
+/**
+Given a valid UTF-8 string, count how many codepoints there are in it.
+
+This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
+traversal of the string.
+*/
+size_t fastUtf8CPLength(char[] str)
+{
+	return utf8ByteIdxToCP(str, str.length);
 }

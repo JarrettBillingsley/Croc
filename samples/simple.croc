@@ -15,7 +15,8 @@ function main()
 		writeln(codec)
 		writeln$ s
 		local c = text.getCodec(codec)
-		local m = c.encode(s, "replace")
+		local m = memblock.new(50)
+		c.encodeInto(s, m, 0, "replace")
 		writeln$ m
 		local d = c.incrementalDecoder()
 

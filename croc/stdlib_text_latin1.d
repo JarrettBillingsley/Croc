@@ -24,7 +24,6 @@ subject to the following restrictions:
 
 module croc.stdlib_text_latin1;
 
-import tango.math.Math;
 import tango.stdc.string;
 
 import croc.api_interpreter;
@@ -69,7 +68,7 @@ uword _latin1EncodeInternal(CrocThread* t)
 	mixin(encodeIntoHeader);
 
 	// Gonna need at most str.length characters, if all goes well
-	lenai(t, 2, max(len(t, 2), start + str.length));
+	lenai(t, 2, start + str.length);
 
 	auto destBase = getMemblockData(t, 2).ptr;
 	auto dest = destBase + start;

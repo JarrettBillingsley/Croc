@@ -22,8 +22,9 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module croc.stdlib_text_utf8;
+module croc.stdlib_text_utf16;
 
+import tango.math.Math;
 import tango.stdc.string;
 
 import croc.api_interpreter;
@@ -40,10 +41,15 @@ import croc.utf;
 
 package:
 
-void initUtf8Codec(CrocThread* t)
+void initUtf16Codec(CrocThread* t)
 {
+	ubyte[2] test = void;
+	test[0] = 1;
+	test[1] = 0;
+	isLittleEndian = *(cast(ushort*)test.ptr) == 1;
+
 	pushGlobal(t, "text");
-	loadString(t, _code, true, "text_utf8.croc");
+	loadString(t, _code, true, "text_utf16.croc");
 	pushNull(t);
 	newTable(t);
 		registerFields(t, _funcs);
@@ -57,86 +63,120 @@ void initUtf8Codec(CrocThread* t)
 
 private:
 
+// Shared global, but only ever read, so whatev
+bool isLittleEndian;
+
 const RegisterFunc[] _funcs =
 [
-	{ "utf8EncodeInternal", &_utf8EncodeInternal, maxParams: 4 },
-	{ "utf8DecodeInternal", &_utf8DecodeInternal, maxParams: 4 }
+	{ "utf16EncodeInternal", &_utf16EncodeInternal, maxParams: 5 },
+	{ "utf16DecodeInternal", &_utf16DecodeInternal, maxParams: 5 }
 ];
 
-uword _utf8EncodeInternal(CrocThread* t)
+uword _utf16EncodeInternal(CrocThread* t)
 {
 	mixin(encodeIntoHeader);
-	lenai(t, 2, start + str.length);
-	auto dest = getMemblockData(t, 2).ptr + start;
-	memcpy(dest, str.ptr, str.length);
+
+	auto byteOrder = optCharParam(t, 5, 'n');
+	auto toUtf16 = &Utf8ToUtf16;
+
+	if((byteOrder == 'b' && isLittleEndian) || (byteOrder == 'l' && !isLittleEndian))
+		toUtf16 = &Utf8ToUtf16BS;
+
+	// this initial sizing might not be enough.. but it's probably enough for most text. only trans-BMP chars will
+	// need more room
+	lenai(t, 2, max(len(t, 2), start + strlen * wchar.sizeof));
+	auto dest = (cast(wchar*)(getMemblockData(t, 2).ptr + start))[0 .. strlen];
+
+	char[] remaining = void;
+	auto encoded = toUtf16(str, dest, remaining);
+
+	if(remaining.length > 0)
+	{
+		// Didn't have enough room.. let's allocate a little more aggressively this time
+		start += encoded.length * wchar.sizeof;
+		strlen = fastUtf8CPLength(remaining);
+		lenai(t, 2, start + strlen * wchar.sizeof * 2);
+		dest = (cast(wchar*)(getMemblockData(t, 2).ptr + start))[0 .. strlen];
+		encoded = toUtf16(remaining, dest, remaining);
+		assert(remaining.length == 0);
+		lenai(t, 2, start + encoded.length * wchar.sizeof);
+	}
+
 	dup(t, 2);
 	return 1;
 }
 
-uword _utf8DecodeInternal(CrocThread* t)
+uword _utf16DecodeInternal(CrocThread* t)
 {
 	mixin(decodeRangeHeader);
 
-	auto src = cast(char*)mb.ptr;
-	auto end = cast(char*)mb.ptr + mb.length;
+	auto byteOrder = optCharParam(t, 5, 'n');
+	auto toUtf8 = &Utf16ToUtf8;
+
+	if((byteOrder == 'b' && isLittleEndian) || (byteOrder == 'l' && !isLittleEndian))
+		toUtf8 = &Utf16ToUtf8BS;
+
+	auto src = cast(ushort*)mb.ptr;
+	auto end = cast(ushort*)(mb.ptr + (mb.length & ~1)); // round down to lower even number, if it's an odd-size slice
 	auto last = src;
 
 	auto s = StrBuffer(t);
 
 	while(src < end)
 	{
-		if(*src < 0x80)
-			src++;
-		else
-		{
-			if(src !is last)
-			{
-				s.addString(cast(char[])last[0 .. src - last]);
-				last = src;
-			}
 
-			dchar c = void;
-			auto ok = decodeUtf8Char(src, end, c);
+		// if(*src < 0x80)
+		// 	src++;
+		// else
+		// {
+		// 	if(src !is last)
+		// 	{
+		// 		s.addString(cast(char[])last[0 .. src - last]);
+		// 		last = src;
+		// 	}
 
-			if(ok == UtfError.OK)
-			{
-				s.addChar(c);
-				last = src;
-			}
-			else if(ok == UtfError.Truncated)
-			{
-				// incomplete character encoding.. stop it here
-				break;
-			}
-			else
-			{
-				// Either a correctly-encoded invalid character or a bad encoding -- skip it either way
-				auto len = utf8SequenceLength(*src);
+		// 	dchar c = void;
+		// 	auto ok = decodeUtf8Char(src, end, c);
 
-				if(len == 0)
-					src++;
-				else
-					src += len;
+		// 	if(ok == UtfError.OK)
+		// 	{
+		// 		s.addChar(c);
+		// 		last = src;
+		// 	}
+		// 	else if(ok == UtfError.Truncated)
+		// 	{
+		// 		// incomplete character encoding.. stop it here
+		// 		break;
+		// 	}
+		// 	else
+		// 	{
+		// 		// Either a correctly-encoded invalid character or a bad encoding -- skip it either way
+		// 		auto len = utf8SequenceLength(*src);
 
-				last = src;
+		// 		if(len == 0)
+		// 			src++;
+		// 		else
+		// 			src += len;
 
-				if(errors == "strict")
-					throwStdException(t, "UnicodeException", "Invalid UTF-8");
-				else if(errors == "ignore")
-					continue;
-				else if(errors == "replace")
-					s.addChar('\uFFFD');
-				else
-					throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
-			}
-		}
+		// 		last = src;
+
+		// 		if(errors == "strict")
+		// 			throwStdException(t, "UnicodeException", "Invalid UTF-8");
+		// 		else if(errors == "ignore")
+		// 			continue;
+		// 		else if(errors == "replace")
+		// 			s.addChar('\uFFFD');
+		// 		else
+		// 			throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+		// 	}
+		// }
 	}
 
 	if(src !is last)
 		s.addString(cast(char[])last[0 .. src - last]);
 
 	s.finish();
-	pushInt(t, src - cast(char*)mb.ptr); // how many characters we consumed
+	pushInt(t, cast(char*)src - cast(char*)mb.ptr); // how many characters we consumed
 	return 2;
 }
 
