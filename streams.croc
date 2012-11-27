@@ -10,6 +10,8 @@ import exceptions:
 
 import math:
 	min
+	
+import text
 
 local function clamp(x, lo, hi) =
 	x < lo ? lo : x > hi ? hi : x
@@ -259,6 +261,10 @@ class Stream
 		while(remaining > 0)
 		{
 			local bytesWritten = :write(m, offset, remaining)
+			
+			if(bytesWritten == 0)
+				throw EOFException()
+			
 			offset += bytesWritten
 			remaining -= bytesWritten
 		}
@@ -496,8 +502,8 @@ class MemblockStream : Stream
 		if(size == 0)
 			return 0
 
-		local numBytes = min(size, #:_mb - :pos)
-		m.rawCopy(offset, :_mb, :_pos, numBytes)
+		local numBytes = min(size, #:_mb - :_pos)
+		m.copy(offset, :_mb, :_pos, numBytes)
 		:_pos += numBytes
 		return numBytes
 	}
@@ -519,7 +525,7 @@ class MemblockStream : Stream
 		if(size > bytesLeft)
 			#:_mb += size - bytesLeft
 
-		:_mb.rawCopy(:_pos, m, offset, size)
+		:_mb.copy(:_pos, m, offset, size)
 		:_pos += size
 		return size
 	}
@@ -645,7 +651,7 @@ class UTF8Stream
 			{
 				if(readBuf[:bufPos] == 10)
 				{
-					:chunks ~= string.fromRawUnicode(readBuf, start, :bufPos)
+					:chunks ~= text.fromRawUnicode(readBuf, start, :bufPos)
 					:bufPos++
 					break main
 				}
@@ -653,7 +659,7 @@ class UTF8Stream
 
 			local realEnd = cropPartial(readBuf, :bufPos)
 
-			:chunks ~= string.fromRawUnicode(readBuf, start, realEnd)
+			:chunks ~= text.fromRawUnicode(readBuf, start, realEnd)
 
 			if(realEnd < :bufPos)
 			{
@@ -839,7 +845,7 @@ class BinaryStream : StreamWrapper
 			throw RangeException("Invalid number of characters ({})".format(n))
 
 		#:_strBuf = n
-		:stream.readExact(:_strBuf)
+		:_stream.readExact(:_strBuf)
 		return text.fromRawAscii(:_strBuf)
 	}
 
@@ -850,16 +856,16 @@ class BinaryStream : StreamWrapper
 	\returns \tt{this}.
 	\throws[EOFException] if end-of-file was reached.
 	*/
-	function writeInt8(x: int)      { :_rwbuf.writeInt8(0, x);    :_stream.writeExact(:_rwBuf, 0, 1); return this }
-	function writeInt16(x: int)     { :_rwbuf.writeInt16(0, x);   :_stream.writeExact(:_rwBuf, 0, 2); return this }
-	function writeInt32(x: int)     { :_rwbuf.writeInt32(0, x);   :_stream.writeExact(:_rwBuf, 0, 4); return this }
-	function writeInt64(x: int)     { :_rwbuf.writeInt64(0, x);   :_stream.writeExact(:_rwBuf, 0, 8); return this }
-	function writeUInt8(x: int)     { :_rwbuf.writeUInt8(0, x);   :_stream.writeExact(:_rwBuf, 0, 1); return this }
-	function writeUInt16(x: int)    { :_rwbuf.writeUInt16(0, x);  :_stream.writeExact(:_rwBuf, 0, 2); return this }
-	function writeUInt32(x: int)    { :_rwbuf.writeUInt32(0, x);  :_stream.writeExact(:_rwBuf, 0, 4); return this }
-	function writeUInt64(x: int)    { :_rwbuf.writeUInt64(0, x);  :_stream.writeExact(:_rwBuf, 0, 8); return this }
-	function writeFloat32(x: float) { :_rwbuf.writeFloat32(0, x); :_stream.writeExact(:_rwBuf, 0, 4); return this }
-	function writeFloat64(x: float) { :_rwbuf.writeFloat64(0, x); :_stream.writeExact(:_rwBuf, 0, 8); return this }
+	function writeInt8(x: int)      { :_rwBuf.writeInt8(0, x);    :_stream.writeExact(:_rwBuf, 0, 1); return this }
+	function writeInt16(x: int)     { :_rwBuf.writeInt16(0, x);   :_stream.writeExact(:_rwBuf, 0, 2); return this }
+	function writeInt32(x: int)     { :_rwBuf.writeInt32(0, x);   :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeInt64(x: int)     { :_rwBuf.writeInt64(0, x);   :_stream.writeExact(:_rwBuf, 0, 8); return this }
+	function writeUInt8(x: int)     { :_rwBuf.writeUInt8(0, x);   :_stream.writeExact(:_rwBuf, 0, 1); return this }
+	function writeUInt16(x: int)    { :_rwBuf.writeUInt16(0, x);  :_stream.writeExact(:_rwBuf, 0, 2); return this }
+	function writeUInt32(x: int)    { :_rwBuf.writeUInt32(0, x);  :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeUInt64(x: int)    { :_rwBuf.writeUInt64(0, x);  :_stream.writeExact(:_rwBuf, 0, 8); return this }
+	function writeFloat32(x: float) { :_rwBuf.writeFloat32(0, x); :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeFloat64(x: float) { :_rwBuf.writeFloat64(0, x); :_stream.writeExact(:_rwBuf, 0, 8); return this }
 
 	/**
 	Writes a binary representation of the given string. To read this binary representation back again, use \link{readString}.
@@ -920,7 +926,7 @@ class BufferedInStream : StreamWrapper
 	this(s: @InStream, bufSize: int = 4096)
 	{
 		super(s)
-		:_buf = memblock.new(clamp(bufSize, 128, intMax))
+		:_buf = memblock.new(clamp(bufSize, 128, math.intMax))
 	}
 
 	/**
@@ -955,7 +961,7 @@ class BufferedInStream : StreamWrapper
 			}
 
 			local num = min(buffered, remaining)
-			m.rawCopy(offset, :_buf, :_bufPos, num)
+			m.copy(offset, :_buf, :_bufPos, num)
 			:_bufPos += num
 			offset += num
 			remaining -= num
@@ -1009,7 +1015,7 @@ class BufferedOutStream : StreamWrapper
 	this(s: @OutStream, bufSize: int = 4096)
 	{
 		super(s)
-		:_buf = memblock.new(clamp(bufSize, 128, intMax))
+		:_buf = memblock.new(clamp(bufSize, 128, math.intMax))
 	}
 
 	/**
@@ -1042,7 +1048,7 @@ class BufferedOutStream : StreamWrapper
 			}
 
 			local num = min(spaceLeft, remaining)
-			:_buf.rawCopy(:_bufPos, m, offset, num)
+			:_buf.copy(:_bufPos, m, offset, num)
 			:_bufPos += num
 			offset += num
 			remaining -= num
