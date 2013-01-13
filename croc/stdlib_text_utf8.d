@@ -168,18 +168,7 @@ local class Utf8IncrementalDecoder : BufferedIncrementalDecoder
 		super(errors)
 
 	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
-	{
-		local ret, eaten = _decodeRange(src, lo, hi, errors)
-		local needed = 0
-
-		if(eaten < (hi - lo))
-		{
-			needed = utf8SequenceLength(src[lo + eaten])
-			assert(needed != 0) // should be a legal start char, if the decoder is working..
-		}
-
-		return ret, eaten, needed
-	}
+		return _decodeRange(src, lo, hi, errors)
 }
 
 class Utf8Codec : TextCodec
@@ -251,7 +240,7 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 			if(sliceLen < 3)
 			{
 				if(BOM_UTF8.compare(0, src, lo, sliceLen) == 0)
-					return "", 0, 3 - sliceLen
+					return "", 0
 				else
 					:_first = false
 			}
@@ -268,15 +257,7 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 		}
 
 		local ret, eaten = _decodeRange(src, lo, hi, errors)
-		local needed = 0
-
-		if(eaten < (hi - lo))
-		{
-			needed = utf8SequenceLength(src[lo + eaten])
-			assert(needed != 0) // should be a legal start char, if the decoder is working..
-		}
-
-		return ret, prefix + eaten, needed
+		return ret, prefix + eaten
 	}
 
 	function reset()
