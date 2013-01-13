@@ -266,6 +266,63 @@ Same as above, but byteswaps the code units when reading them.
 alias decodeUtf32Char!(true) decodeUtf32CharBS;
 
 /**
+Skips over a bad UTF-8 codepoint by advancing the given string pointer over it. Note that depending on the nature of the
+invalid incoding, subsequent decoding may fail anyway.
+
+Params:
+	s = pointer to the codepoint to be skipped. Will be advanced by this function, though never past end.
+	end = pointer to the end of the string.
+*/
+void skipBadUtf8Char(ref char* s, char* end)
+{
+	size_t len = Utf8CharLengths[*s];
+
+	if(len == 0)
+		s++;
+	else if((s + len) > end)
+		s = end;
+	else
+		s += len;
+}
+
+/**
+Same as above, but for UTF-16 encoded text.
+*/
+void skipBadUtf16Char(bool swap = false)(ref wchar* s, wchar* end)
+{
+	dchar c = *s;
+
+	static if(swap)
+		c = ((c & 0xFF) << 8) | (c >> 8);
+
+	if(c <= 0xDBFF || c >= 0xE000)
+		s++;
+	else if((s + 2) > end)
+		s = end;
+	else
+		s += 2;
+}
+
+/**
+Same as above, but byteswaps the code units when reading them.
+*/
+alias skipBadUtf16Char!(true) skipBadUtf16CharBS;
+
+/**
+Same as above, but for UTF-32 encoded text.
+*/
+void skipBadUtf32Char(bool swap = false)(ref dchar* s, dchar* end)
+{
+	if(s < end)
+		s++;
+}
+
+/**
+Same as above, but byteswaps the code units when reading them.
+*/
+alias skipBadUtf32Char!(true) skipBadUtf32CharBS;
+
+/**
 Verifies whether or not the given string is valid encoded UTF-8.
 
 Params:
@@ -608,7 +665,12 @@ wchar[] Utf8ToUtf16(bool swap = false)(char[] str, wchar[] buf, ref char[] remai
 	while(src < end && dest < destEnd)
 	{
 		if(*src < 0x80)
-			*dest++ = *src++;
+		{
+			static if(swap)
+				*dest++ = cast(wchar)(*src++ << 8);
+			else
+				*dest++ = *src++;
+		}
 		else
 		{
 			auto srcSave = src;

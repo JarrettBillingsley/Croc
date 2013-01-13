@@ -77,9 +77,9 @@ uword _utf16EncodeInternal(CrocThread* t)
 	mixin(encodeIntoHeader);
 
 	auto byteOrder = optCharParam(t, 5, 'n');
-	auto toUtf16 = &Utf8ToUtf16;
+	auto toUtf16 = &Utf8ToUtf16!(false);
 
-	if((byteOrder == 'b' && isLittleEndian) || (byteOrder == 'l' && !isLittleEndian))
+	if(byteOrder == 's' || (byteOrder == 'b' && isLittleEndian) || (byteOrder == 'l' && !isLittleEndian))
 		toUtf16 = &Utf8ToUtf16BS;
 
 	// this initial sizing might not be enough.. but it's probably enough for most text. only trans-BMP chars will
@@ -99,9 +99,9 @@ uword _utf16EncodeInternal(CrocThread* t)
 		dest = (cast(wchar*)(getMemblockData(t, 2).ptr + start))[0 .. strlen];
 		encoded = toUtf16(remaining, dest, remaining);
 		assert(remaining.length == 0);
-		lenai(t, 2, start + encoded.length * wchar.sizeof);
 	}
 
+	lenai(t, 2, start + encoded.length * wchar.sizeof);
 	dup(t, 2);
 	return 1;
 }
@@ -112,146 +112,73 @@ uword _utf16DecodeInternal(CrocThread* t)
 
 	auto byteOrder = optCharParam(t, 5, 'n');
 	auto toUtf8 = &Utf16ToUtf8;
+	auto skipBadChar = &skipBadUtf16Char!(false);
 
-	if((byteOrder == 'b' && isLittleEndian) || (byteOrder == 'l' && !isLittleEndian))
+	if(byteOrder == 's' || (byteOrder == 'b' && isLittleEndian) || (byteOrder == 'l' && !isLittleEndian))
+	{
 		toUtf8 = &Utf16ToUtf8BS;
+		skipBadChar = &skipBadUtf16CharBS;
+	}
 
-	auto src = cast(ushort*)mb.ptr;
-	auto end = cast(ushort*)(mb.ptr + (mb.length & ~1)); // round down to lower even number, if it's an odd-size slice
-	auto last = src;
+	mb = mb[0 .. $ & ~1]; // round down to lower even length, if it's an odd-sized slice
+
+	auto src = cast(wchar*)mb.ptr;
+	auto end = src + (mb.length / 2);
 
 	auto s = StrBuffer(t);
+	char[256] buf = void;
+	wchar[] remaining = void;
+	char[] output = void;
 
 	while(src < end)
 	{
+		auto ok = toUtf8(src[0 .. end - src], buf, remaining, output);
 
-		// if(*src < 0x80)
-		// 	src++;
-		// else
-		// {
-		// 	if(src !is last)
-		// 	{
-		// 		s.addString(cast(char[])last[0 .. src - last]);
-		// 		last = src;
-		// 	}
+		if(ok == UtfError.OK)
+		{
+			s.addString(output);
 
-		// 	dchar c = void;
-		// 	auto ok = decodeUtf8Char(src, end, c);
+			if(remaining.length)
+				src = remaining.ptr;
+			else
+				src = end;
+		}
+		else if(ok == UtfError.Truncated)
+		{
+			// incomplete character encoding.. stop it here
+			break;
+		}
+		else
+		{
+			// Either a correctly-encoded invalid character or a bad encoding -- skip it either way
+			skipBadChar(src, end);
 
-		// 	if(ok == UtfError.OK)
-		// 	{
-		// 		s.addChar(c);
-		// 		last = src;
-		// 	}
-		// 	else if(ok == UtfError.Truncated)
-		// 	{
-		// 		// incomplete character encoding.. stop it here
-		// 		break;
-		// 	}
-		// 	else
-		// 	{
-		// 		// Either a correctly-encoded invalid character or a bad encoding -- skip it either way
-		// 		auto len = utf8SequenceLength(*src);
-
-		// 		if(len == 0)
-		// 			src++;
-		// 		else
-		// 			src += len;
-
-		// 		last = src;
-
-		// 		if(errors == "strict")
-		// 			throwStdException(t, "UnicodeException", "Invalid UTF-8");
-		// 		else if(errors == "ignore")
-		// 			continue;
-		// 		else if(errors == "replace")
-		// 			s.addChar('\uFFFD');
-		// 		else
-		// 			throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
-		// 	}
-		// }
+			if(errors == "strict")
+				throwStdException(t, "UnicodeException", "Invalid UTF-16");
+			else if(errors == "ignore")
+				continue;
+			else if(errors == "replace")
+				s.addChar('\uFFFD');
+			else
+				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+		}
 	}
 
-	if(src !is last)
-		s.addString(cast(char[])last[0 .. src - last]);
-
 	s.finish();
-	pushInt(t, cast(char*)src - cast(char*)mb.ptr); // how many characters we consumed
+	pushInt(t, cast(char*)src - cast(char*)mb.ptr); // how many bytes were consumed
 	return 2;
 }
 
 const char[] _code =
 `
 local _internal = vararg
-local _encodeInto, _decodeRange = _internal.utf8EncodeInternal, _internal.utf8DecodeInternal
+local _encodeInto, _decodeRange = _internal.utf16EncodeInternal, _internal.utf16DecodeInternal
 import exceptions: ValueException, StateException
 
 // =====================================================================================================================
-// "Raw" UTF-8
+// UTF-16 (BOM + native on encoding, BOM + either on decoding)
 
-local class Utf8IncrementalEncoder : IncrementalEncoder
-{
-	_errors
-
-	this(errors: string = "strict")
-		:_errors = errors
-
-	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
-		_encodeInto(str, dest, start, :_errors)
-
-	function reset() {}
-}
-
-local class Utf8IncrementalDecoder : BufferedIncrementalDecoder
-{
-	this(errors: string)
-		super(errors)
-
-	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
-	{
-		local ret, eaten = _decodeRange(src, lo, hi, errors)
-		local needed = 0
-
-		if(eaten < (hi - lo))
-		{
-			needed = utf8SequenceLength(src[lo + eaten])
-			assert(needed != 0) // should be a legal start char, if the decoder is working..
-		}
-
-		return ret, eaten, needed
-	}
-}
-
-class Utf8Codec : TextCodec
-{
-	name = "utf-8"
-
-	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
-	{
-		local ret, eaten = _decodeRange(src, lo, hi, errors)
-
-		if(eaten < (hi - lo))
-			throw ValueException("Incomplete text at end of data")
-
-		return ret
-	}
-
-	function incrementalEncoder(errors: string = "strict") =
-		Utf8IncrementalEncoder(errors)
-
-	function incrementalDecoder(errors: string = "strict") =
-		Utf8IncrementalDecoder(errors)
-}
-
-object.addMethod(Utf8Codec, "encodeInto", _encodeInto)
-
-registerCodec("utf-8", Utf8Codec())
-aliasCodec("utf-8", "utf8")
-
-// =====================================================================================================================
-// UTF-8 with a signature
-
-local class Utf8SigIncrementalEncoder : IncrementalEncoder
+local class Utf16IncrementalEncoder : IncrementalEncoder
 {
 	_errors
 	_first = true
@@ -266,7 +193,12 @@ local class Utf8SigIncrementalEncoder : IncrementalEncoder
 		else
 		{
 			:_first = false
-			_encodeInto(BOM_UTF8_STR ~ str, dest, start, :_errors)
+
+			if(start + #BOM_UTF16 > #dest)
+				#dest = start + #BOM_UTF16
+
+			dest.copy(start, BOM_UTF16, 0, #BOM_UTF16)
+			_encodeInto(str, dest, start + #BOM_UTF16, :_errors)
 		}
 	}
 
@@ -276,9 +208,10 @@ local class Utf8SigIncrementalEncoder : IncrementalEncoder
 	}
 }
 
-local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
+local class Utf16IncrementalDecoder : BufferedIncrementalDecoder
 {
 	_first = true
+	_order = 'n'
 
 	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 	{
@@ -286,59 +219,66 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 
 		if(:_first)
 		{
-			local sliceLen = hi - lo
+			if(hi - lo < #BOM_UTF16)
+				return "", 0
 
-			if(sliceLen < 3)
+			:_first = false
+
+			if(BOM_UTF16.compare(0, src, lo, #BOM_UTF16) == 0)
 			{
-				if(BOM_UTF8.compare(0, src, lo, sliceLen) == 0)
-					return "", 0, 3 - sliceLen
-				else
-					:_first = false
+				lo += #BOM_UTF16
+				prefix = #BOM_UTF16
+			}
+			else if(BOM_UTF16_BS.compare(0, src, lo, #BOM_UTF16_BS) == 0)
+			{
+				lo += #BOM_UTF16_BS
+				prefix = #BOM_UTF16_BS
+				:_order = 's'
 			}
 			else
-			{
-				:_first = false
-
-				if(BOM_UTF8.compare(0, src, lo, 3) == 0)
-				{
-					lo += 3
-					prefix = 3
-				}
-			}
+				throw UnicodeException("UTF-16 encoded text has no BOM")
 		}
 
-		local ret, eaten = _decodeRange(src, lo, hi, errors)
-		local needed = 0
-
-		if(eaten < (hi - lo))
-		{
-			needed = utf8SequenceLength(src[lo + eaten])
-			assert(needed != 0) // should be a legal start char, if the decoder is working..
-		}
-
-		return ret, prefix + eaten, needed
+		local ret, eaten = _decodeRange(src, lo, hi, errors, :_order)
+		return ret, prefix + eaten
 	}
 
 	function reset()
 	{
 		super.reset()
 		:_first = true
+		:_order = 'n'
 	}
 }
 
-class Utf8SigCodec : TextCodec
+class Utf16Codec : TextCodec
 {
-	name = "utf-8-sig"
+	name = "utf-16"
 
-	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict") =
-		_encodeInto(BOM_UTF8_STR ~ str, dest, start, errors)
+	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict")
+	{
+		if(start + #BOM_UTF16 > #dest)
+			#dest = start + #BOM_UTF16
+
+		dest.copy(start, BOM_UTF16, 0, #BOM_UTF16)
+		_encodeInto(str, dest, start + #BOM_UTF16, errors)
+	}
 
 	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 	{
-		if((hi - lo) >= 3 && BOM_UTF8.compare(0, src, lo, 3) == 0)
-			lo += 3
+		if(hi - lo < #BOM_UTF16)
+			throw UnicodeException("UTF-16 encoded text is too short to have a BOM")
 
-		local ret, eaten = _decodeRange(src, lo, hi, errors)
+		local ret, eaten
+
+		if(BOM_UTF16.compare(0, src, lo, #BOM_UTF16) == 0)
+			ret, eaten = _decodeRange(src, lo + #BOM_UTF16, hi, errors)
+		else if(BOM_UTF16_BS.compare(0, src, lo, #BOM_UTF16_BS) == 0)
+			ret, eaten = _decodeRange(src, lo + #BOM_UTF16_BS, hi, errors, 's')
+		else
+			throw UnicodeException("UTF-16 encoded text has no BOM")
+
+		eaten += #BOM_UTF16
 
 		if(eaten < (hi - lo))
 			throw ValueException("Incomplete text at end of data")
@@ -347,13 +287,110 @@ class Utf8SigCodec : TextCodec
 	}
 
 	function incrementalEncoder(errors: string = "strict") =
-		Utf8SigIncrementalEncoder(errors)
+		Utf16IncrementalEncoder(errors)
 
 	function incrementalDecoder(errors: string = "strict") =
-		Utf8SigIncrementalDecoder(errors)
+		Utf16IncrementalDecoder(errors)
 }
 
-registerCodec("utf-8-sig", Utf8SigCodec())
-aliasCodec("utf-8-sig", "utf8-sig")
+registerCodec("utf-16", Utf16Codec())
+aliasCodec("utf-16", "utf16")
 
+// =====================================================================================================================
+// UTF-16 Little Endian (no BOM on either encoding or decoding)
+
+local class Utf16LEIncrementalEncoder : IncrementalEncoder
+{
+	_errors
+
+	this(errors: string = "strict")
+		:_errors = errors
+
+	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
+		_encodeInto(str, dest, start, :_errors, 'l')
+
+	function reset() {}
+}
+
+local class Utf16LEIncrementalDecoder : BufferedIncrementalDecoder
+{
+	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+		return _decodeRange(src, lo, hi, errors, 'l')
+}
+
+class Utf16LECodec : TextCodec
+{
+	name = "utf-16-le"
+
+	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict") =
+		_encodeInto(str, dest, start, errors, 'l')
+
+	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
+	{
+		local ret, eaten = _decodeRange(src, lo, hi, errors, 'l')
+
+		if(eaten < (hi - lo))
+			throw ValueException("Incomplete text at end of data")
+
+		return ret
+	}
+
+	function incrementalEncoder(errors: string = "strict") =
+		Utf16LEIncrementalEncoder(errors)
+
+	function incrementalDecoder(errors: string = "strict") =
+		Utf16LEIncrementalDecoder(errors)
+}
+
+registerCodec("utf-16-le", Utf16LECodec())
+aliasCodec("utf-16-le", "utf16le")
+
+// =====================================================================================================================
+// UTF-16 Big Endian (no BOM on either encoding or decoding)
+
+local class Utf16BEIncrementalEncoder : IncrementalEncoder
+{
+	_errors
+
+	this(errors: string = "strict")
+		:_errors = errors
+
+	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
+		_encodeInto(str, dest, start, :_errors, 'b')
+
+	function reset() {}
+}
+
+local class Utf16BEIncrementalDecoder : BufferedIncrementalDecoder
+{
+	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+		return _decodeRange(src, lo, hi, errors, 'b')
+}
+
+class Utf16BECodec : TextCodec
+{
+	name = "utf-16-be"
+
+	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict") =
+		_encodeInto(str, dest, start, errors, 'b')
+
+	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
+	{
+		local ret, eaten = _decodeRange(src, lo, hi, errors, 'b')
+
+		if(eaten < (hi - lo))
+			throw ValueException("Incomplete text at end of data")
+
+		return ret
+	}
+
+	function incrementalEncoder(errors: string = "strict") =
+		Utf16BEIncrementalEncoder(errors)
+
+	function incrementalDecoder(errors: string = "strict") =
+		Utf16BEIncrementalDecoder(errors)
+}
+
+registerCodec("utf-16-be", Utf16BECodec())
+aliasCodec("utf-16-be", "utf16be")
 `;

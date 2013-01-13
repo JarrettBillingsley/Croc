@@ -86,49 +86,44 @@ uword _utf8DecodeInternal(CrocThread* t)
 	while(src < end)
 	{
 		if(*src < 0x80)
+		{
 			src++;
+			continue;
+		}
+
+		if(src !is last)
+		{
+			s.addString(cast(char[])last[0 .. src - last]);
+			last = src;
+		}
+
+		dchar c = void;
+		auto ok = decodeUtf8Char(src, end, c);
+
+		if(ok == UtfError.OK)
+		{
+			s.addChar(c);
+			last = src;
+		}
+		else if(ok == UtfError.Truncated)
+		{
+			// incomplete character encoding.. stop it here
+			break;
+		}
 		else
 		{
-			if(src !is last)
-			{
-				s.addString(cast(char[])last[0 .. src - last]);
-				last = src;
-			}
+			// Either a correctly-encoded invalid character or a bad encoding -- skip it either way
+			skipBadUtf8Char(src, end);
+			last = src;
 
-			dchar c = void;
-			auto ok = decodeUtf8Char(src, end, c);
-
-			if(ok == UtfError.OK)
-			{
-				s.addChar(c);
-				last = src;
-			}
-			else if(ok == UtfError.Truncated)
-			{
-				// incomplete character encoding.. stop it here
-				break;
-			}
+			if(errors == "strict")
+				throwStdException(t, "UnicodeException", "Invalid UTF-8");
+			else if(errors == "ignore")
+				continue;
+			else if(errors == "replace")
+				s.addChar('\uFFFD');
 			else
-			{
-				// Either a correctly-encoded invalid character or a bad encoding -- skip it either way
-				auto len = utf8SequenceLength(*src);
-
-				if(len == 0)
-					src++;
-				else
-					src += len;
-
-				last = src;
-
-				if(errors == "strict")
-					throwStdException(t, "UnicodeException", "Invalid UTF-8");
-				else if(errors == "ignore")
-					continue;
-				else if(errors == "replace")
-					s.addChar('\uFFFD');
-				else
-					throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
-			}
+				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
 		}
 	}
 
@@ -136,7 +131,7 @@ uword _utf8DecodeInternal(CrocThread* t)
 		s.addString(cast(char[])last[0 .. src - last]);
 
 	s.finish();
-	pushInt(t, src - cast(char*)mb.ptr); // how many characters we consumed
+	pushInt(t, src - cast(char*)mb.ptr); // how many bytes were consumed
 	return 2;
 }
 
@@ -164,9 +159,6 @@ local class Utf8IncrementalEncoder : IncrementalEncoder
 
 local class Utf8IncrementalDecoder : BufferedIncrementalDecoder
 {
-	this(errors: string)
-		super(errors)
-
 	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 		return _decodeRange(src, lo, hi, errors)
 }
