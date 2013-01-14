@@ -251,11 +251,11 @@ CrocValue getInstanceMethod(CrocThread* t, CrocInstance* inst, CrocString* name,
 {
 	if(auto ret = instance.getMethod(inst, name))
 	{
-		if(!ret.isPublic && ret.proto !is t.currentAR.proto)
-			throwStdException(t, "MethodException", "Attempting to call private method '{}' from outside class '{}'", name.toString(), ret.proto.name.toString());
+		if(!ret.value.isPublic && ret.value.proto !is t.currentAR.proto)
+			throwStdException(t, "MethodException", "Attempting to call private method '{}' from outside class '{}'", name.toString(), ret.value.proto.name.toString());
 
-		proto = ret.proto;
-		return ret.value;
+		proto = ret.value.proto;
+		return ret.value.value;
 	}
 	else
 		return CrocValue.nullValue;
@@ -1083,18 +1083,25 @@ void fieldImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocString* n
 
 		case CrocValue.Type.Instance:
 			auto i = container.mInstance;
+			auto v = instance.getField(i, name);
 
-			if(auto v = instance.getField(i, name))
+			if(v is null)
 			{
-				if(!v.value.isPublic && t.currentAR.proto !is v.value.proto)
-					throwStdException(t, "FieldException", "Attempting to access private field '{}' from outside class '{}'", name.toString(), v.value.proto.name.toString());
+				v = instance.getMethod(i, name);
 
-				return t.stack[dest] = v.value.value;
+				if(v is null)
+				{
+					if(!raw && tryMM!(2, true)(t, MM.Field, &t.stack[dest], container, &CrocValue(name)))
+						return;
+
+					throwStdException(t, "FieldException", "Attempting to access nonexistent field '{}' from instance of class '{}'", name.toString(), i.parent.name.toString());
+				}
 			}
-			else if(!raw && tryMM!(2, true)(t, MM.Field, &t.stack[dest], container, &CrocValue(name)))
-				return;
-			else
-				throwStdException(t, "FieldException", "Attempting to access nonexistent field '{}' from instance of class '{}'", name.toString(), i.parent.name.toString());
+
+			if(!v.value.isPublic && t.currentAR.proto !is v.value.proto)
+				throwStdException(t, "FieldException", "Attempting to access private field '{}' from outside class '{}'", name.toString(), v.value.proto.name.toString());
+
+			return t.stack[dest] = v.value.value;
 
 		case CrocValue.Type.Namespace:
 			auto v = namespace.get(container.mNamespace, name);

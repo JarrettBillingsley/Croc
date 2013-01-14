@@ -77,12 +77,9 @@ package:
 		return i.fields.lookupNode(name);
 	}
 
-	FieldValue* getMethod(CrocInstance* i, CrocString* name)
+	typeof(CrocClass.fields).Node* getMethod(CrocInstance* i, CrocString* name)
 	{
-		if(auto ret = classobj.getMethod(i.parent, name))
-			return &ret.value;
-		else
-			return null;
+		return classobj.getMethod(i.parent, name);
 	}
 
 	void setField(ref Allocator alloc, CrocInstance* i, typeof(CrocInstance.fields).Node* slot, CrocValue* value)
