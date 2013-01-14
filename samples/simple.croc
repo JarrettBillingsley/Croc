@@ -10,7 +10,7 @@ function main()
 
 	local s = "oh \u00feello there!\uFEFF"
 
-	foreach(codec; ["ascii", "latin-1", "utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf16be"])
+	foreach(codec; ["ascii", "latin-1", "utf-8", "utf-8-sig", "utf32", "utf32le", "utf32be"])
 	{
 		writeln(codec)
 		writeln$ s

@@ -34,6 +34,7 @@ import croc.stdlib_text_ascii;
 import croc.stdlib_text_latin1;
 import croc.stdlib_text_utf8;
 import croc.stdlib_text_utf16;
+import croc.stdlib_text_utf32;
 
 // =====================================================================================================================
 // Public
@@ -48,6 +49,7 @@ void initTextLib(CrocThread* t)
 	initLatin1Codec(t);
 	initUtf8Codec(t);
 	initUtf16Codec(t);
+	initUtf32Codec(t);
 }
 
 // =====================================================================================================================
