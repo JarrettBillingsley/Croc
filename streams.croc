@@ -505,8 +505,8 @@ class MemblockStream : Stream
 		if(size == 0)
 			return 0
 
-		local numBytes = min(size, #:_mb - :pos)
-		m.rawCopy(offset, :_mb, :_pos, numBytes)
+		local numBytes = min(size, #:_mb - :_pos)
+		m.copy(offset, :_mb, :_pos, numBytes)
 		:_pos += numBytes
 		return numBytes
 	}
@@ -529,7 +529,7 @@ class MemblockStream : Stream
 		if(size > bytesLeft)
 			#:_mb += size - bytesLeft
 
-		:_mb.rawCopy(:_pos, m, offset, size)
+		:_mb.copy(:_pos, m, offset, size)
 		:_pos += size
 		return size
 	}
