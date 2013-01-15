@@ -5,6 +5,7 @@ import exceptions:
 	IOException,
 	NotImplementedException,
 	RangeException,
+	StateException,
 	TypeException,
 	ValueException
 
@@ -580,157 +581,6 @@ class MemblockStream : Stream
 	function getBacking() = :_mb
 }
 
-local function cropPartial(s: memblock, pos: int)
-{
-	local i = pos - 1
-
-	while(i > 0)
-	{
-		local b = s[i]
-
-		if(!(b & 0x80))
-			break
-
-		if((b & 0xC0) == 0xC0)
-		{
-			local d = pos - i
-
-			if(b & 0x20)
-				d--
-
-			if(b & 0x10)
-				d--
-
-			if(d == 2)
-				i = pos
-
-			return i
-		}
-		else
-			i--
-	}
-
-	return pos
-}
-
-class UTF8Stream
-{
-	stream
-	readBuf
-	writeBuf
-	chunks
-
-	bufPos = 0
-	bound = 0
-
-	shouldFlush = false
-	dirty = false
-
-	this(s: Stream)
-	{
-		:stream = s
-		:readBuf = memblock.new(4096)
-		:writeBuf = memblock.new(0)
-		:chunks = []
-	}
-
-	function readln()
-	{
-		if(:bound == 0)
-		{
-			:_readMore(:bufPos)
-
-			if(:bound == 0)
-				return null
-		}
-
-		#:chunks = 0
-		local readBuf = :readBuf
-
-		while main(:bound > 0)
-		{
-			local start = :bufPos
-
-			for(; :bufPos < :bound; :bufPos++)
-			{
-				if(readBuf[:bufPos] == 10)
-				{
-					:chunks ~= string.fromRawUnicode(readBuf, start, :bufPos)
-					:bufPos++
-					break main
-				}
-			}
-
-			local realEnd = cropPartial(readBuf, :bufPos)
-
-			:chunks ~= string.fromRawUnicode(readBuf, start, realEnd)
-
-			if(realEnd < :bufPos)
-			{
-				for(local i, j = 0, realEnd; j < :bufPos; i++, j++)
-					readBuf[i] = readBuf[j]
-			}
-
-			:_readMore(:bufPos - realEnd)
-		}
-
-		local ret = "".join(:chunks)
-		#:chunks = 0
-
-		if(#ret && ret[-1] == '\r')
-			#ret--
-
-		return ret
-	}
-
-	function iterator(idx: int)
-	{
-		if(local ret = :readln())
-			return idx + 1, ret
-	}
-
-	function opApply(_)
-		return :iterator, this, 0
-
-	function write(vararg)
-	{
-		for(i: 0 .. #vararg)
-			:stream.write(toString(vararg[i]).toRawUnicode(8, :writeBuf))
-	}
-
-	function writeln(vararg)
-	{
-		:write(vararg)
-		:write("\n")
-
-		if(:shouldFlush)
-			:stream.flush()
-	}
-
-	function writef(fmt: string, vararg)
-	{
-		:stream.write(fmt.format(vararg).toRawUnicode(8, :writeBuf))
-	}
-
-	function writefln(fmt: string, vararg)
-	{
-		:writef(fmt, vararg)
-		:write("\n")
-
-		if(:shouldFlush)
-			:stream.flush()
-	}
-
-	function flushOnNL(f: bool)
-		:shouldFlush = f
-
-	function _readMore(start: int)
-	{
-		:bufPos = 0
-		:bound = :stream.read(:readBuf, start)
-	}
-}
-
 /**
 A base class for types of streams which expand the capabilities of another stream without obscuring the underlying
 stream interface.
@@ -1110,4 +960,255 @@ class BufferedOutStream : StreamWrapper
 		:_flush()
 		:_stream.close()
 	}
+}
+
+/**
+Implements a simple line-oriented text reader. You provide it with a stream and a character encoding to use, and it will
+decode text data from the stream and return it one line at a time.
+
+This class uses its own buffering mechanism, meaning that you do not have to place a buffer between it and the source
+stream object.
+
+This class does not implement the stream interface, nor is it a stream wrapper.
+*/
+class TextReader
+{
+	_stream
+	_codec
+	_readBuf
+	_chunks
+	_string = ""
+
+	/**
+	Constructor.
+
+	\param[s] is the stream which will provide the data. It must be readable.
+	\param[codec] is the name of the codec (see \link{text}) in which the stream data is encoded.
+	\param[errors] is the error handling mode that will be passed to the text codec. Defaults to \tt{"strict"}.
+	\param[bufSize] is the size of the internal buffer. Defaults to 4096 (4 KB). Its value is clamped to a minimum of
+		128.
+	*/
+	this(s: @InStream, codec: string, errors: string = "strict", bufSize: int = 4096)
+	{
+		:_stream = s
+		:_codec = text.getCodec(codec).incrementalDecoder(errors)
+		:_readBuf = memblock.new(bufSize < 128 ? 128 : bufSize)
+		:_chunks = []
+	}
+
+	/**
+	Reads one line of text from the stream.
+
+	\param[stripEnding] controls whether or not the line ending character(s) will be preserved in the output. This
+		defaults to "true", in which case the line ending will be stripped and only the line's text will be returned.
+
+	\returns a string containing one line of text, or if the end of the stream has been reached, returns \tt{null}.
+	*/
+	function readln(stripEnding: bool = true)
+	{
+		if(:_string is "")
+		{
+			:_readMore()
+
+			if(:_string is "")
+				return null
+		}
+
+		#:_chunks = 0
+
+		while main(:_string !is "")
+		{
+			foreach(pos, c; :_string)
+			{
+				if(c == '\r' || c == '\n')
+				{
+					local nextLineStart
+
+					if(c == '\r' && pos + 1 < #:_string && :_string[pos + 1] == '\n')
+						nextLineStart = pos + 2
+					else
+						nextLineStart = pos + 1
+
+					if(stripEnding)
+						:_chunks ~= :_string[.. pos]
+					else
+						:_chunks ~= :_string[.. nextLineStart]
+
+					:_string = :_string[nextLineStart ..]
+					break main
+				}
+			}
+
+			:_chunks ~= :_string
+			:_string = ""
+			:_readMore()
+		}
+
+		return "".join(:_chunks)
+	}
+
+	function stripIterator(idx: int)
+	{
+		if(local ret = :readln())
+			return idx + 1, ret
+	}
+
+	function nostripIterator(idx: int)
+	{
+		if(local ret = :readln(false))
+			return idx + 1, ret
+	}
+
+	/**
+	Allows instances of this object to be used in \tt{foreach} loops. The first index is the 1-based index of the line,
+	and the second index is the line's contents.
+
+	\param[mode] is a string controlling whether or not line ending character(s) are stripped. The default is "strip"
+		which removes them. The only other valid value is "nostrip" which preserves them.
+
+	\examples
+
+	Suppose you had a file with three lines, and you had a stream that read from that file. You could iterate over its
+	lines like so:
+
+\code
+foreach(i, line; TextReader(fileStream))
+	writefln("{}: {}", i, line)
+\endcode
+
+	This might print:
+
+\verbatim
+1: First line!
+2: Second line.
+3: Last liiiiine
+\endverbatim
+	*/
+	function opApply(mode: string = "strip")
+	{
+		if(mode is "strip")
+			return :stripIterator, this, 0
+		else if(mode is "nostrip")
+			return :nostripIterator, this, 0
+		else
+			throw ValueException("Invalid iteration mode '{}'".format(mode))
+	}
+
+	/**
+	Reads all the remaining lines from the stream and returns them as an array of strings.
+
+	\param[stripEnding] works just like in \link{readln}.
+	\returns an array of strings, one for each line.
+	*/
+	function readAllLines(stripEnding: bool = true) =
+		[line foreach line; this, stripEnding ? "strip" : "nostrip"]
+
+	/**
+	\returns the stream object that was passed to the constructor.
+	*/
+	function getStream() =
+		:_stream
+
+	function _readMore()
+	{
+		local numRead = :_stream.read(:_readBuf)
+
+		if(numRead == 0)
+			return
+
+		local final = numRead < #:_readBuf
+		:_string ~= :_codec.decodeRange(:_readBuf, 0, numRead, final)
+	}
+}
+
+/**
+Implements a simple line-oriented text writer with formatting support. You provide it with a stream and a character
+encoding to use, and it will transparently encode text that you write. It can optionally flush the underlying stream at
+each newline.
+
+Unlike \link{TextReader}, this class does \em{not} use any buffering mechanism, so if you're using this to write a large
+file for instance, it's best to put a buffer between this and the output stream.
+
+This class does not implement the stream interface, nor is it a stream wrapper.
+*/
+class TextWriter
+{
+	_stream
+	_codec
+	_writeBuf
+	_shouldFlush = false
+	_newline
+
+	/**
+	Constructor.
+
+	\param[s] is the stream to which data will be written. It must be writable.
+	\param[codec] is the name of the codec (see \link{text}) in which the text will be encoded.
+	\param[errors] is the error handling mode that will be passed to the text codec. Defaults to \tt{"strict"}.
+	\param[newline] is the string which will be output to write a newline. Defaults to \tt{"\\n"}.
+	*/
+	this(s: @OutStream, codec: string, errors: string = "strict", newline: string = "\n")
+	{
+		:_stream = s
+		:_codec = text.getCodec(codec).incrementalEncoder()
+		:_writeBuf = memblock.new(0)
+		:_newline = newline
+	}
+
+	/**
+	Controls whether the underlying stream will be automatically flushed on newlines. This flushing behavior only
+	happens after calls to \link{writeln} and \link{writefln}; it does not happen if there are newlines embedded in the
+	output text.
+
+	\param[f] is \tt{true} to enable this behavior, \tt{false} otherwise. By default, flushing is off.
+	*/
+	function flushOnNL(f: bool)
+		:_shouldFlush = f
+
+	/**
+	Converts each argument to its string representation (with \link{toString}), encodes the string with the writer's
+	encoding, and outputs it to the underlying stream.
+	*/
+	function write(vararg)
+	{
+		for(i: 0 .. #vararg)
+			:_stream.write(:_codec.encodeInto(toString(vararg[i]), :_writeBuf, 0))
+	}
+
+	/**
+	Same as above, but after outputting the arguments, outputs the newline string as specified in the constructor. After
+	that, it will call the underlying stream's \tt{flush} method if newline flushing is enabled.
+	*/
+	function writeln(vararg)
+	{
+		:write(vararg)
+		:write(:_newline)
+
+		if(:_shouldFlush)
+			:_stream.flush()
+	}
+
+	/**
+	Equivalent to calling \tt{write(fmt.format(vararg))}.
+	*/
+	function writef(fmt: string, vararg)
+		:_stream.write(:_codec.encodeInto(fmt.format(vararg), :_writeBuf, 0))
+
+	/**
+	Same as above, but outputs a newline and optionally flushes like \link{writeln}.
+	*/
+	function writefln(fmt: string, vararg)
+	{
+		:writef(fmt, vararg)
+		:write(:_newline)
+
+		if(:_shouldFlush)
+			:_stream.flush()
+	}
+
+	/**
+	\returns the stream object that was passed to the constructor.
+	*/
+	function getStream() =
+		:_stream
 }

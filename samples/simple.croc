@@ -1,80 +1,6 @@
 module samples.simple
 
-import exceptions: StateException
-import streams: InStream, MemblockStream
-
-class TextInStream
-{
-	_stream
-	_codec
-	_readBuf
-	_chunks
-	_string = ""
-
-	this(s: @InStream, codec: string, errors: string = "strict")
-	{
-		:_stream = s
-		:_codec = text.getCodec(codec).incrementalDecoder(errors)
-		:_readBuf = memblock.new(4096)
-		:_chunks = []
-	}
-
-	function readln()
-	{
-		if(:_string is "")
-		{
-			:_readMore()
-
-			if(:_string is "")
-				return null
-		}
-
-		#:_chunks = 0
-
-		while(:_string !is "")
-		{
-			local pos = :_string.find('\n')
-
-			if(pos < #:_string)
-			{
-				if(pos > 0 && :_string[pos - 1] == '\r')
-					:_chunks ~= :_string[.. pos - 1]
-				else
-					:_chunks ~= :_string[.. pos]
-
-				:_string = :_string[pos + 1 ..]
-
-				break
-			}
-
-			:_chunks ~= :_string
-			:_string = ""
-			:_readMore()
-		}
-
-		return "".join(:_chunks)
-	}
-
-	function iterator(idx: int)
-	{
-		if(local ret = :readln())
-			return idx + 1, ret
-	}
-
-	function opApply(_)
-		return :iterator, this, 0
-
-	function _readMore()
-	{
-		local numRead = :_stream.read(:_readBuf)
-
-		if(numRead == 0)
-			return
-
-		local final = numRead < #:_readBuf
-		:_string ~= :_codec.decodeRange(:_readBuf, 0, numRead, final)
-	}
-}
+import streams: MemblockStream, TextReader, TextWriter
 
 local str =
 "This is a long string with several lines.
@@ -84,9 +10,17 @@ This is the third!"
 function main()
 {
 	local mb = text.getCodec("utf-8").encode(str)
-	local s = TextInStream(MemblockStream(mb), "utf-8")
+	local s = TextReader(MemblockStream(mb), "utf-8")
+	local mbs = MemblockStream()
+	local s2 = TextWriter(mbs, "utf-8")
 
 	foreach(i, line; s)
+		s2.writeln(line)
+
+	mbs.position(0)
+	s = TextReader(mbs, "utf-8")
+
+	foreach(i, line; s, "nostrip")
 		writeln(i, ": ", line)
 }
 
