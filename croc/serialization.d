@@ -532,7 +532,7 @@ private:
 
 		push(t, CrocValue(v));
 
-		if(hasField(t, -1, "opSerialize"))
+		if(hasField(t, -1, "opSerialize") || hasMethod(t, -1, "opSerialize"))
 		{
 			field(t, -1, "opSerialize");
 

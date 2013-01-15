@@ -235,8 +235,8 @@ uword _Finalizable(CrocThread* t)
 {
 	checkParam(t, 1, CrocValue.Type.Class);
 
-	if(!hasField(t, 1, "finalizer"))
-		throwStdException(t, "FieldException", "Class {} does not have a 'finalizer' field", className(t, 1));
+	if(!hasMethod(t, 1, "finalizer"))
+		throwStdException(t, "FieldException", "Class {} does not have a 'finalizer' method", className(t, 1));
 
 	field(t, 1, "finalizer");
 
