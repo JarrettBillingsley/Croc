@@ -2,7 +2,7 @@
 This module contains the 'stream' standard library.
 
 License:
-Copyright (c) 2008 Jarrett Billingsley
+Copyright (c) 2013 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -25,12 +25,7 @@ subject to the following restrictions:
 
 module croc.stdlib_stream;
 
-import tango.core.Traits;
-import tango.io.Console;
-import tango.io.device.Conduit;
-import tango.io.stream.Format;
-import tango.io.stream.Lines;
-import tango.math.Math;
+import tango.io.model.IConduit;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -40,1203 +35,1539 @@ import croc.ex_library;
 import croc.types;
 import croc.vm;
 
-struct StreamLib
-{
-static:
-	void init(CrocThread* t)
-	{
-		makeModule(t, "stream", function uword(CrocThread* t)
-		{
-			InStreamObj.init(t);
-			OutStreamObj.init(t);
-			InoutStreamObj.init(t);
-			MemInStreamObj.init(t);
-			MemOutStreamObj.init(t);
-			MemInoutStreamObj.init(t);
-
-			return 0;
-		});
-
-		importModuleNoNS(t, "stream");
-	}
-}
-
-struct InStreamObj
-{
-static:
-	enum Fields
-	{
-		stream,
-		lines
-	}
-
-	align(1) struct Members
-	{
-		InputStream stream;
-		Lines!(char) lines;
-		bool closed = true;
-		bool closable = true;
-	}
-
-	InputStream getStream(CrocThread* t, word idx)
-	{
-		return checkInstParam!(Members)(t, idx, "stream.InStream").stream;
-	}
-
-	InputStream getOpenStream(CrocThread* t, word idx)
-	{
-		auto ret = checkInstParam!(Members)(t, idx, "stream.InStream");
-
-		if(ret.closed)
-			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
-
-		return ret.stream;
-	}
-
-	void init(CrocThread* t)
-	{
-		CreateClass(t, "InStream", (CreateClass* c)
-		{
-			c.method("constructor",  2, &constructor);
-
-			mixin(ReadFuncDefs);
-			mixin(CommonFuncDefs);
-		});
-
-		newFunction(t, &allocator, "InStream.allocator");
-		setAllocator(t, -2);
-
-		newFunction(t, &finalizer, "InStream.finalizer");
-		setFinalizer(t, -2);
-
-		newGlobal(t, "InStream");
-	}
-
-	Members* getThis(CrocThread* t)
-	{
-		return checkInstParam!(Members)(t, 0, "InStream");
-	}
-
-	Members* getOpenThis(CrocThread* t)
-	{
-		auto ret = checkInstParam!(Members)(t, 0, "InStream");
-
-		if(ret.closed)
-			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
-
-		return ret;
-	}
-
-	uword allocator(CrocThread* t)
-	{
-		newInstance(t, 0, Fields.max + 1, Members.sizeof);
-		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
-
-		dup(t);
-		pushNull(t);
-		rotateAll(t, 3);
-		methodCall(t, 2, "constructor", 0);
-		return 1;
-	}
-
-	uword finalizer(CrocThread* t)
-	{
-		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
-
-		if(memb.closable && !memb.closed)
-		{
-			memb.closed = true;
-			safeCode(t, "exceptions.IOException", memb.stream.close());
-		}
-
-		return 0;
-	}
-
-	uword constructor(CrocThread* t)
-	{
-		auto memb = getThis(t);
-
-		if(memb.stream !is null)
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized InStream");
-
-		checkParam(t, 1, CrocValue.Type.NativeObj);
-		auto input = cast(InputStream)getNativeObj(t, 1);
-
-		if(input is null)
-			throwStdException(t, "ValueException", "instances of InStream may only be created using instances of the Tango InputStream");
-
-		memb.closable = optBoolParam(t, 2, true);
-		memb.stream = input;
-		memb.lines = new Lines!(char)(memb.stream);
-		memb.closed = false;
-
-		pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, 0, Fields.stream);
-		pushNativeObj(t, memb.lines);              setExtraVal(t, 0, Fields.lines);
-
-		return 0;
-	}
-
-	mixin ReadFuncs!(false);
-	mixin CommonFuncs!(false, false);
-}
-
-struct OutStreamObj
-{
-static:
-	enum Fields
-	{
-		stream,
-		print
-	}
-
-	align(1) struct Members
-	{
-		OutputStream stream;
-		FormatOutput!(char) print;
-		bool closed = true;
-		bool closable = true;
-	}
-
-	OutputStream getStream(CrocThread* t, word idx)
-	{
-		return checkInstParam!(Members)(t, idx, "stream.OutStream").stream;
-	}
-
-	OutputStream getOpenStream(CrocThread* t, word idx)
-	{
-		auto ret = checkInstParam!(Members)(t, idx, "stream.OutStream");
-
-		if(ret.closed)
-			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
-
-		return ret.stream;
-	}
-
-	void init(CrocThread* t)
-	{
-		CreateClass(t, "OutStream", (CreateClass* c)
-		{
-			c.method("constructor",   2, &constructor);
-
-			mixin(WriteFuncDefs);
-			mixin(CommonFuncDefs);
-		});
-
-		newFunction(t, &allocator, "OutStream.allocator");
-		setAllocator(t, -2);
-
-		newFunction(t, &finalizer, "OutStream.finalizer");
-		setFinalizer(t, -2);
-
-		newGlobal(t, "OutStream");
-	}
-
-	Members* getThis(CrocThread* t)
-	{
-		return checkInstParam!(Members)(t, 0, "OutStream");
-	}
-
-	Members* getOpenThis(CrocThread* t)
-	{
-		auto ret = checkInstParam!(Members)(t, 0, "OutStream");
-
-		if(ret.closed)
-			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
-
-		return ret;
-	}
-
-	uword allocator(CrocThread* t)
-	{
-		newInstance(t, 0, Fields.max + 1, Members.sizeof);
-		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
-
-		dup(t);
-		pushNull(t);
-		rotateAll(t, 3);
-		methodCall(t, 2, "constructor", 0);
-		return 1;
-	}
-
-	uword finalizer(CrocThread* t)
-	{
-		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
-
-		if(memb.closable && !memb.closed)
-		{
-			memb.closed = true;
-			safeCode(t, "exceptions.IOException", memb.stream.flush());
-			safeCode(t, "exceptions.IOException", memb.stream.close());
-		}
-
-		return 0;
-	}
-
-	uword constructor(CrocThread* t)
-	{
-		auto memb = getThis(t);
-
-		if(memb.stream !is null)
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized OutStream");
-
-		checkParam(t, 1, CrocValue.Type.NativeObj);
-		auto output = cast(OutputStream)getNativeObj(t, 1);
-
-		if(output is null)
-			throwStdException(t, "ValueException", "instances of OutStream may only be created using instances of the Tango OutputStream");
-
-		memb.closable = optBoolParam(t, 2, true);
-		memb.stream = output;
-		memb.print = new FormatOutput!(char)(t.vm.formatter, memb.stream);
-		memb.closed = false;
-
-		pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, 0, Fields.stream);
-		pushNativeObj(t, memb.print);              setExtraVal(t, 0, Fields.print);
-
-		return 0;
-	}
-
-	mixin WriteFuncs!(false);
-	mixin CommonFuncs!(false, true);
-}
-
-struct InoutStreamObj
-{
-static:
-	enum Fields
-	{
-		stream,
-		lines,
-		print
-	}
-
-	align(1) struct Members
-	{
-		IConduit stream;
-		Lines!(char) lines;
-		FormatOutput!(char) print;
-		bool closed = true;
-		bool closable = true;
-		bool dirty = false;
-	}
-
-	IConduit getStream(CrocThread* t, word idx)
-	{
-		return checkInstParam!(Members)(t, idx, "stream.InoutStream").stream;
-	}
-
-	IConduit getOpenStream(CrocThread* t, word idx)
-	{
-		auto ret = checkInstParam!(Members)(t, idx, "stream.InoutStream");
-
-		if(ret.closed)
-			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
-
-		return ret.stream;
-	}
-
-	void init(CrocThread* t)
-	{
-		CreateClass(t, "Stream", (CreateClass* c)
-		{
-			c.method("constructor", 2, &constructor);
-
-			mixin(ReadFuncDefs);
-			mixin(WriteFuncDefs);
-			mixin(CommonFuncDefs);
-		});
-
-		newFunction(t, &allocator, "InoutStream.allocator");
-		setAllocator(t, -2);
-
-		newFunction(t, &finalizer, "InoutStream.finalizer");
-		setFinalizer(t, -2);
-
-		newGlobal(t, "InoutStream");
-	}
-
-	Members* getThis(CrocThread* t)
-	{
-		return checkInstParam!(Members)(t, 0, "InoutStream");
-	}
-
-	Members* getOpenThis(CrocThread* t)
-	{
-		auto ret = checkInstParam!(Members)(t, 0, "InoutStream");
-
-		if(ret.closed)
-			throwStdException(t, "StateException", "Attempting to perform operation on a closed stream");
-
-		return ret;
-	}
-
-	uword allocator(CrocThread* t)
-	{
-		newInstance(t, 0, Fields.max + 1, Members.sizeof);
-		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
-
-		dup(t);
-		pushNull(t);
-		rotateAll(t, 3);
-		methodCall(t, 2, "constructor", 0);
-		return 1;
-	}
-
-	uword finalizer(CrocThread* t)
-	{
-		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
-
-		if(memb.closable && !memb.closed)
-		{
-			memb.closed = true;
-
-			if(memb.dirty)
-			{
-				safeCode(t, "exceptions.IOException", memb.stream.flush());
-				memb.dirty = false;
-			}
-
-			safeCode(t, "exceptions.IOException", memb.stream.close());
-		}
-
-		return 0;
-	}
-
-	uword constructor(CrocThread* t)
-	{
-		auto memb = getThis(t);
-
-		if(memb.stream !is null)
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized InoutStream");
-
-		checkParam(t, 1, CrocValue.Type.NativeObj);
-		auto stream = cast(IConduit)getNativeObj(t, 1);
-
-		if(stream is null)
-			throwStdException(t, "ValueException", "instances of Stream may only be created using instances of Tango's IConduit");
-
-		memb.closable = optBoolParam(t, 2, true);
-		memb.stream = stream;
-		memb.lines = new Lines!(char)(memb.stream);
-		memb.print = new FormatOutput!(char)(t.vm.formatter, memb.stream);
-		memb.closed = false;
-
-		pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, 0, Fields.stream);
-		pushNativeObj(t, memb.lines);              setExtraVal(t, 0, Fields.lines);
-		pushNativeObj(t, memb.print);              setExtraVal(t, 0, Fields.print);
-
-		return 0;
-	}
-
-	void checkDirty(CrocThread* t, Members* memb)
-	{
-		if(memb.dirty)
-		{
-			memb.dirty = false;
-			safeCode(t, "exceptions.IOException", memb.stream.flush());
-		}
-	}
-
-	mixin ReadFuncs!(true);
-	mixin WriteFuncs!(true);
-	mixin CommonFuncs!(true, false);
-}
-
-class MemblockConduit : Conduit, Conduit.Seek
-{
-private:
-	CrocVM* vm;
-	ulong mMB;
-	uword mPos = 0;
-
-	this(CrocVM* vm, ulong mb)
-	{
-		super();
-		this.vm = vm;
-		mMB = mb;
-	}
+// =====================================================================================================================
+// Public
+// =====================================================================================================================
 
 public:
-	override char[] toString()
-	{
-		return "<memblock>";
-	}
 
-	override uword bufferSize()
-	{
-		return 1024;
-	}
+void initStreamLib(CrocThread* t)
+{
+	newTable(t);
+		registerFields(t, _funcs);
+	newGlobal(t, "_streamtmp");
 
-	override void detach()
-	{
+	importModuleFromStringNoNS(t, "stream", Code, __FILE__);
 
-	}
-
-	override uword read(void[] dest)
-	{
-		auto t = currentThread(vm);
-		pushRef(t, mMB);
-		auto mb = getMemblock(t, -1);
-		pop(t);
-
-		auto data = mb.data;
-
-		if(mPos >= data.length)
-			return Eof;
-
-		auto numBytes = min(data.length - mPos, dest.length);
-		dest[0 .. numBytes] = data[mPos .. mPos + numBytes];
-		mPos += numBytes;
-		return numBytes;
-	}
-
-	override uword write(void[] src)
-	{
-		auto t = currentThread(vm);
-		pushRef(t, mMB);
-		auto mb = getMemblock(t, -1);
-
-		auto data = mb.data;
-
-		if(src.length > data.length - mPos)
-			lenai(t, -1, mPos + src.length);
-
-		pop(t);
-
-		data[mPos .. mPos + src.length] = cast(ubyte[])src[];
-		mPos += src.length;
-		return src.length;
-	}
-
-	override long seek(long offset, Anchor anchor = Anchor.Begin)
-	{
-		auto t = currentThread(vm);
-		pushRef(t, mMB);
-		auto mb = getMemblock(t, -1);
-		pop(t);
-
-		auto data = mb.data;
-
-		if(offset > data.length)
-			offset = data.length;
-
-		switch(anchor)
-		{
-			case Anchor.Begin:
-				mPos = cast(uword)offset;
-				break;
-
-			case Anchor.End:
-				mPos = cast(uword)(data.length - offset);
-				break;
-
-			case Anchor.Current:
-				if(offset < 0 && -offset >= mPos)
-					mPos = 0;
-				else if(offset > 0 && mPos + offset > data.length)
-					mPos = data.length;
-				else
-					mPos += offset;
-				break;
-
-			default: assert(false);
-		}
-
-		return mPos;
-	}
+	pushGlobal(t, "_G");
+	pushString(t, "_streamtmp");
+	removeKey(t, -2);
+	pop(t);
 }
 
-struct MemInStreamObj
+// =====================================================================================================================
+// Private
+// =====================================================================================================================
+
+private:
+
+const RegisterFunc[] _funcs =
+[
+	{ "streamCtor",  &_streamCtor,  maxParams: 4 },
+	{ "streamRead",  &_streamRead,  maxParams: 4 },
+	{ "streamWrite", &_streamWrite, maxParams: 4 },
+	{ "streamSeek",  &_streamSeek,  maxParams: 3 },
+	{ "streamFlush", &_streamFlush, maxParams: 0 },
+	{ "streamClose", &_streamClose, maxParams: 0 }
+];
+
+uword _streamCtor(CrocThread* t)
 {
-static:
-	alias InStreamObj.Members Members;
+	checkParam(t, 1, CrocValue.Type.NativeObj);
+	auto stream = getNativeObj(t, 1);
+	auto closable = optBoolParam(t, 2, true);
+	auto haveReadable = isValidIndex(t, 3);
+	auto readable = haveReadable ? checkBoolParam(t, 3) : false;
+	auto haveWritable = isValidIndex(t, 4);
+	auto writable = haveWritable ? checkBoolParam(t, 4) : false;
 
-	void init(CrocThread* t)
+	field(t, 0, "NativeStream_stream");
+
+	if(!isNull(t, -1))
+		throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized stream");
+
+	pop(t);
+
+	if(cast(IConduit)stream)
 	{
-		CreateClass(t, "MemInStream", "InStream", (CreateClass* c)
-		{
-			c.method("constructor", &constructor);
-		});
-
-		newFunction(t, &finalizer, "MemInStream.finalizer");
-		setFinalizer(t, -2);
-
-		newGlobal(t, "MemInStream");
+		if(!haveReadable || !haveWritable)
+			throwStdException(t, "TypeException", "Both readable and writable parameters must be provided with an IConduit");
 	}
+	else if(cast(InputStream)stream)
+		readable = true;
+	else if(cast(OutputStream)stream)
+		writable = true;
+	else
+		throwStdException(t, "TypeException", "stream parameter does not implement any of the valid Tango interfaces");
 
-	uword finalizer(CrocThread* t)
+	dup(t, 1);             fielda(t, 0, "NativeStream_stream");
+	pushBool(t, readable); fielda(t, 0, "NativeStream_readable");
+	pushBool(t, writable); fielda(t, 0, "NativeStream_writable");
+	pushBool(t, closable); fielda(t, 0, "NativeStream_closable");
+
+	if(cast(IConduit.Seek)stream)
 	{
-		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
-
-		if(!memb.closed)
-		{
-			memb.closed = true;
-			removeRef(t, (cast(MemblockConduit)memb.stream).mMB);
-		}
-
-		return 0;
-	}
-
-	uword constructor(CrocThread* t)
-	{
-		auto memb = InStreamObj.getThis(t);
-
-		if(memb.stream !is null)
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized MemInStream");
-
-		checkParam(t, 1, CrocValue.Type.Memblock);
-
-		pushNull(t);
-		pushNull(t);
-		pushNativeObj(t, new MemblockConduit(getVM(t), createRef(t, 1)));
 		pushBool(t, true);
-		superCall(t, -4, "constructor", 0);
-
-		return 0;
+		fielda(t, 0, "NativeStream_seekable");
 	}
+
+	pushNull(t);
+	pushNull(t);
+	superCall(t, -2, "constructor", 0);
+
+	return 0;
 }
 
-struct MemOutStreamObj
+uword _streamRead(CrocThread* t)
 {
-static:
-	alias OutStreamObj.Members Members;
+	auto stream = cast(InputStream)getNativeObj(t, 1); assert(stream !is null);
+	auto offset = cast(uword)getInt(t, 3);
+	auto size = cast(uword)getInt(t, 4);
+	auto dest = cast(void*)(getMemblockData(t, 2).ptr + offset);
 
-	void init(CrocThread* t)
+	auto initial = size;
+
+	while(size > 0)
 	{
-		CreateClass(t, "MemOutStream", "OutStream", (CreateClass* c)
+		auto numRead = safeCode(t, "exceptions.IOException", stream.read(dest[0 .. size]));
+
+		if(numRead == IOStream.Eof)
+			break;
+		else if(numRead < size)
 		{
-			c.method("constructor", &constructor);
-		});
-
-		newFunction(t, &finalizer, "MemOutStream.finalizer");
-		setFinalizer(t, -2);
-
-		newGlobal(t, "MemOutStream");
-	}
-
-	uword finalizer(CrocThread* t)
-	{
-		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
-
-		if(!memb.closed)
-		{
-			memb.closed = true;
-			removeRef(t, (cast(MemblockConduit)memb.stream).mMB);
-		}
-
-		return 0;
-	}
-
-	uword constructor(CrocThread* t)
-	{
-		auto memb = OutStreamObj.getThis(t);
-
-		if(memb.stream !is null)
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized MemOutStream");
-
-		checkParam(t, 1, CrocValue.Type.Memblock);
-
-		pushNull(t);
-		dup(t);
-		pushNativeObj(t, new MemblockConduit(getVM(t), createRef(t, 1)));
-		pushBool(t, true);
-		superCall(t, -4, "constructor", 0);
-
-		return 0;
-	}
-}
-
-struct MemInoutStreamObj
-{
-static:
-	alias InoutStreamObj.Members Members;
-
-	void init(CrocThread* t)
-	{
-		CreateClass(t, "MemInoutStream", "InoutStream", (CreateClass* c)
-		{
-			c.method("constructor", &constructor);
-		});
-
-		newFunction(t, &finalizer, "MemInoutStream.finalizer");
-		setFinalizer(t, -2);
-
-		newGlobal(t, "MemInoutStream");
-	}
-
-	uword finalizer(CrocThread* t)
-	{
-		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
-
-		if(!memb.closed)
-		{
-			memb.closed = true;
-			removeRef(t, (cast(MemblockConduit)memb.stream).mMB);
-		}
-
-		return 0;
-	}
-
-	uword constructor(CrocThread* t)
-	{
-		auto memb = InoutStreamObj.getThis(t);
-
-		if(memb.stream !is null)
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized MemInoutStream");
-
-		checkParam(t, 1, CrocValue.Type.Memblock);
-
-		pushNull(t);
-		dup(t);
-		pushNativeObj(t, new MemblockConduit(getVM(t), createRef(t, 1)));
-		pushBool(t, true);
-		superCall(t, -4, "constructor", 0);
-
-		return 0;
-	}
-}
-
-template ReadFuncs(bool isInout)
-{
-	void readExact(CrocThread* t, Members* memb, void* dest, uword size)
-	{
-		while(size > 0)
-		{
-			auto numRead = safeCode(t, "exceptions.IOException", memb.stream.read(dest[0 .. size]));
-
-			if(numRead == IOStream.Eof)
-				throwStdException(t, "IOException", "End-of-flow encountered while reading");
-
 			size -= numRead;
-			dest += numRead;
+			break;
 		}
+
+		size -= numRead;
+		dest += numRead;
 	}
 
-	uword readAtMost(CrocThread* t, Members* memb, void* dest, uword size)
-	{
-		auto initial = size;
+	pushInt(t, initial - size);
+	return 1;
+}
 
-		while(size > 0)
+uword _streamWrite(CrocThread* t)
+{
+	auto stream = cast(OutputStream)getNativeObj(t, 1); assert(stream !is null);
+	auto offset = cast(uword)getInt(t, 3);
+	auto size = cast(uword)getInt(t, 4);
+	auto src = cast(void*)(getMemblockData(t, 2).ptr + offset);
+
+	auto initial = size;
+
+	while(size > 0)
+	{
+		auto numWritten = safeCode(t, "exceptions.IOException", stream.write(src[0 .. size]));
+
+		if(numWritten == IOStream.Eof)
 		{
-			auto numRead = safeCode(t, "exceptions.IOException", memb.stream.read(dest[0 .. size]));
-
-			if(numRead == IOStream.Eof)
-				break;
-			else if(numRead < size)
-			{
-				size -= numRead;
-				break;
-			}
-
-			size -= numRead;
-			dest += numRead;
+			lookup(t, "EOFException");
+			pushNull(t);
+			pushString(t, "End-of-flow encountered while writing");
+			rawCall(t, -3, 1);
+			throwException(t);
 		}
 
-		return initial - size;
+		size -= numWritten;
+		src += numWritten;
 	}
 
-	uword readVal(T)(CrocThread* t)
+	pushInt(t, initial);
+	return 1;
+}
+
+uword _streamSeek(CrocThread* t)
+{
+	auto stream = cast(IOStream)getNativeObj(t, 1); assert(stream !is null);
+	auto offset = getInt(t, 2);
+	auto whence = getChar(t, 3);
+	auto realWhence =
+		whence == 'b' ? IOStream.Anchor.Begin :
+		whence == 'c' ? IOStream.Anchor.Current :
+		IOStream.Anchor.End;
+
+	pushInt(t, safeCode(t, "exceptions.IOException", stream.seek(offset, realWhence)));
+	return 1;
+}
+
+uword _streamFlush(CrocThread* t)
+{
+	auto stream = cast(IOStream)getNativeObj(t, 1); assert(stream !is null);
+	safeCode(t, "exceptions.IOException", stream.flush());
+	return 0;
+}
+
+uword _streamClose(CrocThread* t)
+{
+	auto stream = cast(IOStream)getNativeObj(t, 1); assert(stream !is null);
+	safeCode(t, "exceptions.IOException", stream.close());
+	return 0;
+}
+
+const Code =
+`/**
+This module contains Croc's streamed input/output framework. The base class for all data streams, \link{Stream}, as well
+as several useful subclasses and helpers are defined in this module.
+
+This module is safe. The \link{NativeStream} class does let scripts read and write data outside memory, but only the
+host can create instances of it.
+*/
+module stream
+
+import exceptions:
+	BoundsException,
+	IOException,
+	NotImplementedException,
+	RangeException,
+	StateException,
+	TypeException,
+	ValueException
+
+import math: min
+import object: Finalizable
+import text
+
+local streamCtor = _streamtmp.streamCtor
+local streamRead = _streamtmp.streamRead
+local streamWrite = _streamtmp.streamWrite
+local streamSeek = _streamtmp.streamSeek
+local streamFlush = _streamtmp.streamFlush
+local streamClose = _streamtmp.streamClose
+
+local function clamp(x, lo, hi) =
+	x < lo ? lo : x > hi ? hi : x
+
+/**
+An exception type derived from \tt{IOException} thrown in some APIs when end-of-file is reached.
+*/
+class EOFException : IOException
+{
+	///
+	this()
+		super("Unexpected end of file")
+}
+
+/**
+An exception type derived from \tt{IOException} thrown in some APIs when stream protocols (behavior,
+return values etc.) are not respected.
+*/
+class StreamProtocolException : IOException
+{
+	///
+	this(msg: string)
+		super("Stream protocol error: " ~ msg)
+}
+
+/**
+A helper function for checking the params to stream \tt{read} and \tt{write} functions.
+
+This ensures that the \tt{offset} and \tt{size} parameters are valid, and throws exceptions if not.
+
+\throws[exceptions.BoundsException] if either \tt{offset} or \tt{size} is invalid.
+*/
+function checkRWParams(m, offset, size)
+{
+	if(offset < 0 || offset > #m)
+		throw BoundsException("Invalid offset {} in memblock of size {}".format(offset, #m))
+
+	if(size < 0 || size > #m - offset)
+		throw BoundsException("Invalid size {} in memblock of size {} starting from offset {}".format(size, #m, offset))
+}
+
+local checkRWParams = checkRWParams
+
+/**
+The base class for stream-based IO.
+
+This class defines the interface that all streams must implement, as well as some helper functions which are implemented
+in terms of the user-defined methods. This interface is fairly low-level and is meant to be wrapped by higher-level
+stream wrappers and filters.
+
+There are a relatively small number of functions which must be implemented to satisfy the stream interface. Detailed
+descriptions of these methods and their behavior is given inside this class, but a quick overview is as follows:
+
+\blist
+	\li \b{\tt{readable, writable, seekable}} - These simply return bools which indicate whether this stream can be read
+		from, written to, and seeked.
+	\li \b{\tt{read, write, seek}} - The real workhorse functions which actually perform the reading, writing, and
+		seeking of the stream. Each of these only needs to be implemented if the corresponding \tt{-able} method returns
+		\tt{true}.
+	\li \b{\tt{flush, close, isOpen}} - Miscellaneous optional methods.
+\endlist
+
+For any given stream, likely only the first six (or some subset thereof) will have to be implemented.
+*/
+class Stream
+{
+	_scratch
+
+	/**
+	Constructor. Be sure to call this as \tt{super()} in classes derived from \link{Stream}. While it only checks
+	that one of \link{readable} and \link{writable} returns true right now, this may change in the future.
+
+	\throws[exceptions.IOException] if both \link{readable} and \link{writable} return \tt{false}.
+	*/
+	this()
 	{
-		auto memb = getOpenThis(t);
-		static if(isInout) checkDirty(t, memb);
-		T val = void;
-
-		readExact(t, memb, &val, T.sizeof);
-
-		static if(isIntegerType!(T))
-			pushInt(t, cast(crocint)val);
-		else static if(isRealType!(T))
-			pushFloat(t, val);
-		else static if(isCharType!(T))
-			pushChar(t, val);
-		else
-			static assert(false);
-
-		return 1;
+		if(!:readable() && !:writable())
+			throw IOException("Stream is neither readable nor writable!")
 	}
 
-	uword readString(CrocThread* t)
+	/**
+	Reads data from the stream into the given memblock.
+
+	\param[this] must be readable.
+	\param[m] is the memblock into which data will be read.
+	\param[offset] is the offset into \tt{m} where the first byte of data will be placed. Defaults to 0.
+	\param[size] is the number of bytes to read. Defaults to the size of \tt{m} minus the \tt{offset}.
+
+	\returns an integer.
+
+	\blist
+		\li If \tt{size} is 0, this function is a no-op, and the return value is 0.
+		\li If \tt{size} is nonzero,
+		\blist
+			\li If the read is successful, the return value is an integer in the range \tt{[1, size]} and indicates
+				the number of bytes actually read. Fewer than \tt{size} bytes can be read in a number of non-error
+				situations. If you need to fill up a buffer, make repeated calls to \tt{read} until the desired number
+				of bytes has been read. The \link{readExact} method does this for you.
+			\li If the stream has reached the end of the file, the return value is 0.
+		\endlist
+	\endlist
+
+	\throws[exceptions.BoundsException] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
+	is outside the range \tt{[0, #m - offset]}.
+
+	\throws[exceptions.IOException] or a derived class if some error occurred.
+	*/
+	function read(this: @InStream, m: memblock, offset: int = 0, size: int = #m - offset)
+		throw NotImplementedException()
+
+	/**
+	Writes data into the stream from the given memblock.
+
+	\param[this] must be writable.
+	\param[m] is the memblock from which data will be written.
+	\param[offset] is the offset into \tt{m} where the first byte of data will be retrieved. Defaults to 0.
+	\param[size] is the number of bytes to write. Defaults to the size of \tt{m} minus the \tt{offset}.
+
+	\returns an integer.
+
+	\blist
+		\li If \tt{size} is 0, this function is a no-op, and the return value is 0.
+		\li If \tt{size} is nonzero and the write is successful, the return value is an integer in the range
+			\tt{[1, size]} and indicates the number of bytes actually written. Fewer than \tt{size} bytes can be written
+			in a number of non-error situations. If you need to write a whole buffer, make repeated calls to \tt{write}
+			until the desired number of bytes has been written. The \link{writeExact} method does this for you.
+	\endlist
+
+	\throws[exceptions.BoundsException] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
+	is outside the range \tt{[0, #m - offset]}.
+
+	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[EOFException] if end-of-file was reached.
+	*/
+	function write(this: @OutStream, m: memblock, offset: int = 0, size: int = #m - offset)
+		throw NotImplementedException()
+
+	/**
+	Changes the position of the stream's read/write position, and reports the new position once changed.
+
+	Seeking past the end of a stream may or may not be an error, depending on the kind of stream.
+
+	\param[this] must be seekable.
+	\param[offset] is the position offset, whose meaning depends upon the \tt{where} parameter.
+	\param[where] is a character indicating the position in the stream from which the new stream position will be
+		calculated. It can be one of the three following values:
+
+	\dlist
+		\li{\b{\tt{'b'}}} The \tt{offset} is treated as an absolute offset from the beginning of the stream.
+		\li{\b{\tt{'c'}}} The \tt{offset} is treated as a relative offset from the current read/write position. This
+			means that negative \tt{offset} values move the read/write position backwards.
+		\li{\b{\tt{'e'}}} The \tt{offset} is treated as a relative offset from the end of the stream.
+	\endlist
+
+	\returns the new stream position as an absolute position from the beginning of the stream.
+
+	\throws[exceptions.IOException] if the resulting stream position would be negative, or if some error occurred.
+	*/
+	function seek(this: @SeekStream, offset: int, where: char)
+		throw NotImplementedException()
+
+	/**
+	Tells whether or not \link{read} can be called on this stream.
+	\returns a bool indicating such. The default implementation returns \tt{false}.
+	*/
+	function readable() = false
+
+	/**
+	Tells whether or not \link{write} can be called on this stream.
+	\returns a bool indicating such. The default implementation returns \tt{false}.
+	*/
+	function writable() = false
+
+	/**
+	Tells whether or not \link{seek} can be called on this stream.
+	\returns a bool indicating such. The default implementation returns \tt{false}.
+	*/
+	function seekable() = false
+
+	/**
+	An optional method used to flush cached data to the stream.
+
+	Often buffering schemes are used to improve IO performance, but such schemes mean that the stream and its backing
+	store are often incoherent. This method is called to force coherency by flushing any buffered data and writing it
+	into the backing store.
+
+	The default implementation is simply to do nothing.
+	*/
+	function flush() {}
+
+	/**
+	An optional method used to close a stream by releasing any system resources associated with it and preventing any
+	further use.
+
+	This method should be allowed to be called more than once, but calls beyond the first should be no-ops.
+
+	The default implementation is simply to do nothing.
+	*/
+	function close() {}
+
+	/**
+	An optional method used to check whether or not this stream has been closed.
+
+	This goes along with the \link{close} method; once \link{close} has been called, this method should return
+	\tt{false}.
+
+	\returns a bool indicating whether or not this stream is still open. The default implementation simply returns
+	\tt{true}.
+	*/
+	function isOpen() = true
+
+	/**
+	A helper method which attempts to read a block of data fully, making multiple calls to \link{read} as needed.
+
+	Since \link{read} may not read all the data for a block in one call, this method exists to automatically make as
+	many calls to \link{read} as needed to fill the requested block of data. The parameters are identical to those of
+	\link{read}.
+
+	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[EOFException] if end-of-file was reached.
+	*/
+	function readExact(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
-		auto memb = getOpenThis(t);
-		static if(isInout) checkDirty(t, memb);
+		checkRWParams(m, offset, size)
+		local remaining = size
 
-		uword length = void;
-		readExact(t, memb, &length, length.sizeof);
-
-		auto dat = t.vm.alloc.allocArray!(char)(length);
-
-		scope(exit)
-			t.vm.alloc.freeArray(dat);
-
-		readExact(t, memb, dat.ptr, dat.length * char.sizeof);
-		pushString(t, dat);
-		return 1;
-	}
-
-	uword readln(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		static if(isInout) checkDirty(t, memb);
-		auto ret = safeCode(t, "exceptions.IOException", memb.lines.next());
-
-		if(ret.ptr is null)
-			throwStdException(t, "IOException", "Stream has no more data.");
-
-		pushString(t, ret);
-		return 1;
-	}
-
-	uword readChars(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		auto num = checkIntParam(t, 1);
-
-		if(num < 0 || num > uword.max)
-			throwStdException(t, "RangeException", "Invalid number of characters ({})", num);
-
-		static if(isInout) checkDirty(t, memb);
-
-		auto dat = t.vm.alloc.allocArray!(char)(cast(uword)num);
-
-		scope(exit)
-			t.vm.alloc.freeArray(dat);
-
-		readExact(t, memb, dat.ptr, dat.length * char.sizeof);
-		pushString(t, dat);
-		return 1;
-	}
-
-	uword readMemblock(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		static if(isInout) checkDirty(t, memb);
-		checkAnyParam(t, 1);
-
-		crocint size = void;
-		CrocMemblock* mb = void;
-
-		if(isInt(t, 1))
+		while(remaining > 0)
 		{
-			size = getInt(t, 1);
+			local bytesRead = :read(m, offset, remaining)
 
-			if(size < 0 || size > uword.max)
-				throwStdException(t, "RangeException", "Invalid size: {}", size);
+			if(bytesRead == 0)
+				throw EOFException()
 
-			newMemblock(t, cast(uword)size);
-			mb = getMemblock(t, -1);
+			offset += bytesRead
+			remaining -= bytesRead
 		}
-		else if(isMemblock(t, 1))
+	}
+
+	/**
+	A helper method which attempts to write a block of data fully, making multiple calls to \link{write} as needed.
+
+	Since \link{write} may not write all the data for a block in one call, this method exists to automatically make as
+	many calls to \link{write} as needed to write the requested block of data. The parameters are identical to those of
+	\link{write}.
+
+	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[EOFException] if end-of-file was reached.
+	*/
+	function writeExact(m: memblock, offset: int = 0, size: int = #m - offset)
+	{
+		checkRWParams(m, offset, size)
+		local remaining = size
+
+		while(remaining > 0)
 		{
-			mb = getMemblock(t, 1);
-			size = optIntParam(t, 2, mb.data.length);
-
-			if(size < 0 || size > uword.max)
-				throwStdException(t, "RangeException", "Invalid size: {}", size);
-
-			if(size != mb.data.length)
-				lenai(t, 1, size);
-
-			dup(t, 1);
+			local bytesWritten = :write(m, offset, remaining)
+			offset += bytesWritten
+			remaining -= bytesWritten
 		}
-		else
-			paramTypeError(t, 1, "int|memblock");
-
-		readExact(t, memb, mb.data.ptr, cast(uword)size);
-		return 1;
 	}
 
-	uword rawRead(CrocThread* t)
+	/**
+	Skips forward a given number of bytes.
+
+	The stream need not be seekable in order to skip forward. If it is not seekable, data will simply be read into a
+	scratch buffer and discarded until the desired number of bytes have been skipped. If it is seekable, this will
+	simply call \link{seek} to seek forward \tt{dist} bytes.
+
+	\param[this] must be readable, and may optionally be seekable.
+	\param[dist] is the number of bytes to skip. Can be 0.
+
+	\throws[exceptions.RangeException] if \tt{dist} is negative.
+	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[EOFException] if end-of-file was reached.
+	*/
+	function skip(this: @InStream, dist: int)
 	{
-		auto memb = getOpenThis(t);
-		static if(isInout) checkDirty(t, memb);
-		checkParam(t, 1, CrocValue.Type.Memblock);
-		auto mb = getMemblock(t, 1);
+		if(dist < 0)
+			throw RangeException("Invalid skip distance ({})".format(dist))
+		else if(dist == 0)
+			return
 
-		if(mb.data.length == 0)
-			throwStdException(t, "ValueException", "Memblock cannot be 0 elements long");
+		if(:seekable())
+		{
+			:seek(dist, 'c')
+			return
+		}
 
-		auto realSize = readAtMost(t, memb, mb.data.ptr, mb.data.length);
-		pushInt(t, realSize);
-		return 1;
-	}
+		:flush()
 
-	uword iterator(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		static if(isInout) checkDirty(t, memb);
-		auto index = checkIntParam(t, 1) + 1;
-		auto line = safeCode(t, "exceptions.IOException", memb.lines.next());
-
-		if(line.ptr is null)
-			return 0;
-
-		pushInt(t, index);
-		pushString(t, line);
-		return 2;
-	}
-
-	uword opApply(CrocThread* t)
-	{
-		checkInstParam(t, 0, isInout ? "InoutStream" : "InStream");
-		getUpval(t, 0);
-		dup(t, 0);
-		pushInt(t, 0);
-		return 3;
-	}
-
-	uword skip(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		auto dist_ = checkIntParam(t, 1);
-
-		if(dist_ < 0 || dist_ > uword.max)
-			throwStdException(t, "RangeException", "Invalid skip distance ({})", dist_);
-
-		auto dist = cast(uword)dist_;
-
-		static if(isInout) checkDirty(t, memb);
-
-		// it's OK if this is shared - it's just a bit bucket
-		static ubyte[1024] dummy;
+		:_scratch ?= memblock.new(4096)
+		local buf = :_scratch
 
 		while(dist > 0)
 		{
-			uword numBytes = dist < dummy.length ? dist : dummy.length;
-			readExact(t, memb, dummy.ptr, numBytes);
-			dist -= numBytes;
-		}
+			local bytesRead = :readExact(buf, 0, min(dist, #buf))
 
-		return 0;
-	}
-}
+			if(bytesRead == 0)
+				throw EOFException()
 
-template WriteFuncs(bool isInout)
-{
-	void writeExact(CrocThread* t, Members* memb, void* src, uword size)
-	{
-		while(size > 0)
-		{
-			auto numWritten = safeCode(t, "exceptions.IOException", memb.stream.write(src[0 .. size]));
-
-			if(numWritten == IOStream.Eof)
-				throwStdException(t, "IOException", "End-of-flow encountered while writing");
-
-			size -= numWritten;
-			src += numWritten;
+			dist -= numBytes
 		}
 	}
 
-	uword writeVal(T)(CrocThread* t)
+	/**
+	Reads all remaining data from the stream up to end-of-file into a memblock.
+
+	This will call \link{read} as many times as needed until it indicates that the end of file has been reached.
+
+	\param[this] must be readable.
+	\param[m] is an optional memblock to use as the buffer to hold the read data. If one is given, it will be resized to
+		hold the read data. If it is not given, a new memblock will be used instead.
+
+	\returns the memblock holding the read data.
+	*/
+	function readAll(this: @InStream, m: memblock = null)
 	{
-		auto memb = getOpenThis(t);
+		if(m is null)
+			m = memblock.new(4096)
+		else if(#m < 4096)
+			#m = 4096
 
-		static if(isIntegerType!(T))
-			T val = cast(T)checkIntParam(t, 1);
-		else static if(isRealType!(T))
-			T val = cast(T)checkFloatParam(t, 1);
-		else static if(isCharType!(T))
-			T val = cast(T)checkCharParam(t, 1);
-		else
-			static assert(false);
+		local offs = 0
 
-		writeExact(t, memb, &val, val.sizeof);
-		static if(isInout) memb.dirty = true;
-		dup(t, 0);
-		return 1;
-	}
-
-	uword writeString(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		auto str = checkStringParam(t, 1);
-
-		auto len = str.length;
-		writeExact(t, memb, &len, len.sizeof);
-		writeExact(t, memb, str.ptr, str.length * char.sizeof);
-
-		static if(isInout) memb.dirty = true;
-		dup(t, 0);
-		return 1;
-	}
-
-	uword write(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		auto p = memb.print;
-		auto numParams = stackSize(t) - 1;
-
-		for(uword i = 1; i <= numParams; i++)
+		while(true)
 		{
-			pushToString(t, i);
-			safeCode(t, "exceptions.IOException", p.print(getString(t, -1)));
-			pop(t);
+			local numBytes = :read(m, offs)
+
+			if(numBytes == 0)
+				break
+
+			offs += numBytes
+
+			if(#m < offs + 4096)
+				#m = offs + 4096
 		}
 
-		static if(isInout) memb.dirty = true;
-		dup(t, 0);
-		return 1;
+		#m = offs
+		return m
 	}
 
-	uword writeln(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		auto p = memb.print;
-		auto numParams = stackSize(t) - 1;
+	/**
+	Copies data from another stream into this one.
 
-		for(uword i = 1; i <= numParams; i++)
+	The data is copied in blocks of 4096 bytes at a time.
+
+	\param[this] must be writable.
+	\param[s] is the source stream from which the data will be read, and must be readable.
+	\param[size] is the number of bytes to copy, or -1 to mean all data until \tt{s} reaches end-of-file.
+
+	\throws[exceptions.RangeException] if \tt{size < -1}.
+	\throws[EOFException] if \tt{size > 0} and end-of-file was reached before copying could finish.
+	*/
+	function copy(this: @OutStream, s: @InStream, size: int = -1)
+	{
+		:_scratch ?= memblock.new(4096)
+		local buf = :_scratch
+
+		if(size < -1)
+			throw RangeException("Invalid size: {}".format(size))
+
+		if(size == -1)
 		{
-			pushToString(t, i);
-			safeCode(t, "exceptions.IOException", p.print(getString(t, -1)));
-			pop(t);
-		}
-
-		safeCode(t, "exceptions.IOException", p.newline());
-		static if(isInout) memb.dirty = true;
-		dup(t, 0);
-		return 1;
-	}
-
-	uword writef(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		auto p = memb.print;
-		auto numParams = stackSize(t) - 1;
-
-		safeCode(t, "exceptions.IOException", formatImpl(t, numParams, delegate uint(char[] s)
-		{
-			p.print(s);
-			return s.length;
-		}));
-
-		static if(isInout) memb.dirty = true;
-		dup(t, 0);
-		return 1;
-	}
-
-	uword writefln(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		auto p = memb.print;
-		auto numParams = stackSize(t) - 1;
-
-		safeCode(t, "exceptions.IOException", formatImpl(t, numParams, delegate uint(char[] s)
-		{
-			p.print(s);
-			return s.length;
-		}));
-
-		safeCode(t, "exceptions.IOException", p.newline());
-		static if(isInout) memb.dirty = true;
-		dup(t, 0);
-		return 1;
-	}
-
-	uword writeChars(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		auto str = checkStringParam(t, 1);
-		writeExact(t, memb, str.ptr, str.length * char.sizeof);
-		static if(isInout) memb.dirty = true;
-		dup(t, 0);
-		return 1;
-	}
-
-	uword writeMemblock(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		checkParam(t, 1, CrocValue.Type.Memblock);
-		auto mb = getMemblock(t, 1);
-		auto lo = optIntParam(t, 2, 0);
-		auto hi = optIntParam(t, 3, mb.data.length);
-
-		if(lo < 0)
-			lo += mb.data.length;
-
-		if(hi < 0)
-			hi += mb.data.length;
-
-		if(lo < 0 || lo > hi || hi > mb.data.length)
-			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.data.length);
-
-		writeExact(t, memb, mb.data.ptr + cast(uword)lo, cast(uword)(hi - lo));
-		static if(isInout) memb.dirty = true;
-		dup(t, 0);
-		return 1;
-	}
-
-	uword flush(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		safeCode(t, "exceptions.IOException", memb.stream.flush());
-		//safeCode(t, "exceptions.IOException", memb.stream.clear());
-		static if(isInout) memb.dirty = false;
-		dup(t, 0);
-		return 1;
-	}
-
-	uword copy(CrocThread* t)
-	{
-		auto memb = getOpenThis(t);
-		checkInstParam(t, 1);
-
-		InputStream stream;
-		pushGlobal(t, "InStream");
-
-		if(as(t, 1, -1))
-		{
-			pop(t);
-			stream = getMembers!(InStreamObj.Members)(t, 1).stream;
-		}
-		else
-		{
-			pop(t);
-			pushGlobal(t, "InoutStream");
-
-			if(as(t, 1, -1))
+			while(true)
 			{
-				pop(t);
-				stream = getMembers!(InoutStreamObj.Members)(t, 1).stream;
+				local numRead = s.read(buf)
+
+				if(numRead == 0)
+					break
+
+				:writeExact(buf, 0, numRead)
 			}
-			else
-				paramTypeError(t, 1, "InStream|InoutStream");
 		}
+		else
+		{
+			local remaining = size
 
-		safeCode(t, "exceptions.IOException", memb.stream.copy(stream));
-		static if(isInout) memb.dirty = true;
-		dup(t, 0);
-		return 1;
+			while(remaining > 0)
+			{
+				local numRead = s.read(buf, 0, min(remaining, #buf))
+
+				if(numRead == 0)
+					throw EOFException()
+
+				:writeExact(buf, 0, numRead)
+				remaining -= numRead
+			}
+		}
 	}
 
-	uword flushOnNL(CrocThread* t)
+	/**
+	Sets or gets the absolute position in the stream, as a convenience.
+
+	\param[this] must be seekable.
+	\param[pos] is either the new read/write position, measured in bytes from the beginning of the stream, or \tt{null}.
+
+	\returns the new position if \tt{pos} was non-null, or the current position if \tt{pos} was \tt{null}.
+	*/
+	function position(this: @SeekStream, pos: int|null)
 	{
-		auto memb = getOpenThis(t);
-		safeCode(t, "exceptions.IOException", memb.print.flush = checkBoolParam(t, 1));
-		return 0;
+		if(pos is null)
+			return :seek(0, 'c')
+		else
+			return :seek(pos, 'b')
+	}
+
+	/**
+	Returns the size of the stream in bytes.
+
+	It does this by seeking to the end of the stream and getting the position, then seeking back to where it was before
+	calling this method. As a result this method can cause buffered data to be flushed.
+
+	\param[this] must be seekable.
+
+	\returns an integer indicating how many bytes long this stream is.
+	*/
+	function size(this: @SeekStream)
+	{
+		local pos = :position()
+		local ret = :seek(0, 'e')
+		:position(pos)
+		return ret
 	}
 }
 
-template CommonFuncs(bool isInout, bool isOut)
+/**
+These are meant to be used as custom parameter type constraints, to ensure that a stream parameter supports certain
+operations.
+
+All of these ensure that \tt{s} is derived from \link{Stream}. The \tt{in} functions ensure that \tt{s.readable()}
+returns true; the \tt{out} functions ensure that \tt{s.writable()} returns true; and the \tt{seek} functions ensure that
+\tt{s.seekable()} returns true. An example of use:
+
+\code
+// Expects the dest stream to be writable and the src stream to be readable
+function copyBlock(dest: @OutStream, src: @InStream) { ... }
+
+// Finds the directory section in a ZIP file and reads it; expects the stream to be readable and seekable.
+function readZIPDirectory(s: @InSeekStream) { ... }
+\endcode
+
+It's a good idea to use only what you need and not over-request features; for instance, if you're never going to write
+to the stream, don't use an \tt{out} function.
+
+\param[s] the stream object to test.
+\returns a bool telling whether or not it satisfies the constraints.
+*/
+function InStream(s) =        s as Stream && s.readable()
+function OutStream(s) =       s as Stream &&                 s.writable()                 /// ditto
+function InoutStream(s) =     s as Stream && s.readable() && s.writable()                 /// ditto
+function SeekStream(s) =      s as Stream &&                                 s.seekable() /// ditto
+function InSeekStream(s) =    s as Stream && s.readable() &&                 s.seekable() /// ditto
+function OutSeekStream(s) =   s as Stream &&                 s.writable() && s.seekable() /// ditto
+function InoutSeekStream(s) = s as Stream && s.readable() && s.writable() && s.seekable() /// ditto
+
+/**
+This is meant to be used as a custom parameter type constraint. It ensures that its parameter is derived from
+\link{Stream} and that its \link[Stream.isOpen]{\tt{isOpen} method} returns \tt{true}.
+
+\param[s] the stream object to test.
+\returns a bool telling whether or not it satisfies the constraints.
+*/
+function OpenStream(s) = s as Stream && s.isOpen()
+
+/**
+Implements a readable, writable, seekable stream that uses a memblock as its data backing store.
+
+This is a very useful kind of stream. With it you can redirect stream operations that would normally go to a file to
+memory instead. It can often be much faster to read in a large chunk of a file, or a file in its entirety, and then do
+processing in memory. This is also useful for building up data to be sent over networks or such.
+
+The backing memblock can be one you provide, or it can use its own. The memblock will be grown automatically when data
+is written past its end.
+*/
+class MemblockStream : Stream
 {
-	uword seek(CrocThread* t)
+	_mb
+	_pos = 0
+
+	/**
+	Constructor.
+
+	\param[mb] is the memblock to use as the backing store. If none is given, a new zero-size memblock will be used
+	instead.
+	*/
+	this(mb: memblock = memblock.new(0))
 	{
-		auto memb = getOpenThis(t);
-		static if(isInout) checkDirty(t, memb);
-		auto pos = checkIntParam(t, 1);
-		auto whence = checkCharParam(t, 2);
-
-		if(whence == 'b')
-			safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.Begin));
-		else if(whence == 'c')
-			safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.Current));
-		else if(whence == 'e')
-			safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.End));
-		else
-			throwStdException(t, "ValueException", "Invalid seek type '{}'", whence);
-
-		dup(t, 0);
-		return 1;
+		:_mb = mb
+		super()
 	}
 
-	uword position(CrocThread* t)
+	/**
+	Implmentation of \link{Stream.read}.
+	*/
+	function read(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
-		auto memb = getOpenThis(t);
-		auto numParams = stackSize(t) - 1;
+		if(:_pos >= #:_mb)
+			return 0
 
-		if(numParams == 0)
+		checkRWParams(m, offset, size)
+
+		if(size == 0)
+			return 0
+
+		local numBytes = min(size, #:_mb - :_pos)
+		m.copy(offset, :_mb, :_pos, numBytes)
+		:_pos += numBytes
+		return numBytes
+	}
+
+	/**
+	Implmentation of \link{Stream.write}.
+
+	If there is not enough space in the memblock to hold the new data, the memblock's size will be expanded to
+	accommodate.
+	*/
+	function write(m: memblock, offset: int = 0, size: int = #m - offset)
+	{
+		checkRWParams(m, offset, size)
+
+		if(size == 0)
+			return 0
+
+		local bytesLeft = #:_mb - :_pos
+
+		if(size > bytesLeft)
+			#:_mb += size - bytesLeft
+
+		:_mb.copy(:_pos, m, offset, size)
+		:_pos += size
+		return size
+	}
+
+	/**
+	Implmentation of \link{Stream.seek}.
+
+	If you seek past the end of the memblock, the memblock will be resized to the new offset. This is to match the
+	behavior of seeking on files.
+
+	\throws[exceptions.ValueException] if \tt{where} is invalid.
+	\throws[exceptions.IOException] if the resulting offset is negative.
+	*/
+	function seek(offset: int, where: char)
+	{
+		switch(where)
 		{
-			pushInt(t, safeCode(t, "exceptions.IOException", cast(crocint)memb.stream.seek(0, IOStream.Anchor.Current)));
-			return 1;
+			case 'b': break
+			case 'c': offset += :_pos; break
+			case 'e': offset += #:_mb; break
+			default: throw ValueException("Invalid seek type '{}'".format(where))
 		}
-		else
-		{
-			static if(isInout) checkDirty(t, memb);
-			safeCode(t, "exceptions.IOException", memb.stream.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
-			return 0;
-		}
+
+		if(offset < 0)
+			throw IOException("Invalid seek offset")
+
+		if(offset > #:_mb)
+			#:_mb = offset
+
+		:_pos = offset
+		return offset
 	}
 
-	uword size(CrocThread* t)
+	/**
+	Implementations of \link{Stream.readable}, \link{Stream.writable}, and \link{Stream.seekable}. All return true.
+	*/
+	function readable() = true
+	function writable() = true /// ditto
+	function seekable() = true /// ditto
+
+	/**
+	Gets the backing memblock.
+
+	It's probably best not to change the size of the memblock while it's still being used by the stream.
+
+	\returns the backing memblock.
+	*/
+	function getBacking() = :_mb
+}
+
+/**
+A base class for types of streams which expand the capabilities of another stream without obscuring the underlying
+stream interface.
+
+It takes a stream object and implements all of the \link{Stream} interface methods as simply passthroughs to the
+underlying stream object. Subclasses can then add methods and possibly override just those which they need to.
+*/
+class StreamWrapper : Stream
+{
+	_stream
+
+	/**
+	Constructor.
+
+	\param[s] is the stream object to be wrapped.
+	*/
+	this(s: Stream)
 	{
-		auto memb = getOpenThis(t);
-		static if(isInout) checkDirty(t, memb);
-		auto pos = safeCode(t, "exceptions.IOException", memb.stream.seek(0, IOStream.Anchor.Current));
-		auto ret = safeCode(t, "exceptions.IOException", memb.stream.seek(0, IOStream.Anchor.End));
-		safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.Begin));
-		pushInt(t, cast(crocint)ret);
-		return 1;
+		:_stream = s
+		super()
 	}
 
-	uword close(CrocThread* t)
+	/**
+	These all simply pass through functionality to the wrapped stream object.
+	*/
+	function read(m, off, size) = :_stream.read(m, off, size)
+	function write(m, off, size) = :_stream.write(m, off, size) /// ditto
+	function seek(off, where) = :_stream.seek(off, where)       /// ditto
+	function flush() = :_stream.flush()                         /// ditto
+	function close() = :_stream.close()                         /// ditto
+	function isOpen() = :_stream.isOpen()                       /// ditto
+	function readable() = :_stream.readable()                   /// ditto
+	function writable() = :_stream.writable()                   /// ditto
+	function seekable() = :_stream.seekable()                   /// ditto
+
+	/**
+	Gets the stream that this instance wraps.
+
+	\returns the same stream object that was passed to the constructor.
+	*/
+	function getWrappedStream() = :_stream
+}
+
+/**
+A kind of stream wrapper class that adds a simple interface for reading and writing binary data.
+
+Because it's a stream wrapper, the basic stream interface can still be used on it and the functionality will be passed
+through to the wrapped stream.
+*/
+class BinaryStream : StreamWrapper
+{
+	_rwBuf
+	_strBuf
+
+	/**
+	Constructor.
+
+	\param[s] is the stream to be wrapped.
+	*/
+	this(s: Stream)
 	{
-		auto memb = getOpenThis(t);
-
-		if(!memb.closable)
-			throwStdException(t, "StateException", "Attempting to close an unclosable stream");
-
-		memb.closed = true;
-		static if(isInout || isOut) safeCode(t, "exceptions.IOException", memb.stream.flush());
-		safeCode(t, "exceptions.IOException", memb.stream.close());
-		return 0;
+		super(s)
+		:_rwBuf = memblock.new(8)
+		:_strBuf = memblock.new(0)
 	}
 
-	uword isOpen(CrocThread* t)
+	/**
+	These all read a single integer or floating-point value of the given type and size.
+
+	Note that because Croc's \tt{int} type is a signed 64-bit integer, \tt{readUInt64} will return negative numbers for
+	those that exceed 2\sup{63} - 1. It exists for completeness.
+
+	\returns an \tt{int} or \tt{float} representing the value read.
+	\throws[EOFException] if end-of-file was reached.
+	*/
+	function readInt8()    { :_stream.readExact(:_rwBuf, 0, 1); return :_rwBuf.readInt8(0)    }
+	function readInt16()   { :_stream.readExact(:_rwBuf, 0, 2); return :_rwBuf.readInt16(0)   } /// ditto
+	function readInt32()   { :_stream.readExact(:_rwBuf, 0, 4); return :_rwBuf.readInt32(0)   } /// ditto
+	function readInt64()   { :_stream.readExact(:_rwBuf, 0, 8); return :_rwBuf.readInt64(0)   } /// ditto
+	function readUInt8()   { :_stream.readExact(:_rwBuf, 0, 1); return :_rwBuf.readUInt8(0)   } /// ditto
+	function readUInt16()  { :_stream.readExact(:_rwBuf, 0, 2); return :_rwBuf.readUInt16(0)  } /// ditto
+	function readUInt32()  { :_stream.readExact(:_rwBuf, 0, 4); return :_rwBuf.readUInt32(0)  } /// ditto
+	function readUInt64()  { :_stream.readExact(:_rwBuf, 0, 8); return :_rwBuf.readUInt64(0)  } /// ditto
+	function readFloat32() { :_stream.readExact(:_rwBuf, 0, 4); return :_rwBuf.readFloat32(0) } /// ditto
+	function readFloat64() { :_stream.readExact(:_rwBuf, 0, 8); return :_rwBuf.readFloat64(0) } /// ditto
+
+	/**
+	Reads a binary representation of a \tt{string} object. Should only be used as the inverse to \link{writeString}.
+
+	\returns a \tt{string} representing the value read.
+	\throws[EOFException] if end-of-file was reached.
+	*/
+	function readString()
 	{
-		pushBool(t, !getThis(t).closed);
-		return 1;
+		local len = :readUInt64()
+		#:_strBuf = len
+		:stream.readExact(:_strBuf)
+		return text.fromRawUnicode(:_strBuf)
+	}
+
+	/**
+	Reads a given number of \b{ASCII} characters and returns them as a string.
+
+	This is particularly useful for chunk identifiers in RIFF-type files and "magic numbers", though it can have other
+	uses as well.
+
+	\param[n] is the number of bytes to read.
+
+	\returns a \tt{string} representing the characters read.
+
+	\throws[exceptions.RangeException] if \tt{n < 1}.
+	\throws[EOFException] if end-of-file was reached.
+	*/
+	function readChars(n: int)
+	{
+		if(n < 1)
+			throw RangeException("Invalid number of characters ({})".format(n))
+
+		#:_strBuf = n
+		:stream.readExact(:_strBuf)
+		return text.fromRawAscii(:_strBuf)
+	}
+
+	/**
+	These all write a single integer or floating-point value of the given type and size.
+
+	\param[x] is the value to write.
+	\returns \tt{this}.
+	\throws[EOFException] if end-of-file was reached.
+	*/
+	function writeInt8(x: int)      { :_rwbuf.writeInt8(0, x);    :_stream.writeExact(:_rwBuf, 0, 1); return this }
+	function writeInt16(x: int)     { :_rwbuf.writeInt16(0, x);   :_stream.writeExact(:_rwBuf, 0, 2); return this }
+	function writeInt32(x: int)     { :_rwbuf.writeInt32(0, x);   :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeInt64(x: int)     { :_rwbuf.writeInt64(0, x);   :_stream.writeExact(:_rwBuf, 0, 8); return this }
+	function writeUInt8(x: int)     { :_rwbuf.writeUInt8(0, x);   :_stream.writeExact(:_rwBuf, 0, 1); return this }
+	function writeUInt16(x: int)    { :_rwbuf.writeUInt16(0, x);  :_stream.writeExact(:_rwBuf, 0, 2); return this }
+	function writeUInt32(x: int)    { :_rwbuf.writeUInt32(0, x);  :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeUInt64(x: int)    { :_rwbuf.writeUInt64(0, x);  :_stream.writeExact(:_rwBuf, 0, 8); return this }
+	function writeFloat32(x: float) { :_rwbuf.writeFloat32(0, x); :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeFloat64(x: float) { :_rwbuf.writeFloat64(0, x); :_stream.writeExact(:_rwBuf, 0, 8); return this }
+
+	/**
+	Writes a binary representation of the given string. To read this binary representation back again, use
+	\link{readString}. The representation is a 64-bit unsigned integer indicating the length, in bytes, of the string
+	data encoded in UTF-8, followed by the string data encoded in UTF-8.
+
+	\param[x] is the string to write.
+	\returns \tt{this}.
+	\throws[EOFException] if end-of-file was reached.
+	*/
+	function writeString(x: string)
+	{
+		text.toRawUnicode(x, 8, :_strBuf)
+		:writeUInt64(#:_strBuf)
+		:stream.writeExact(:_strBuf)
+		return this
+	}
+
+	/**
+	Writes the given string, which must be ASCII only, as a raw sequence of byte-sized characters.
+
+	This is particularly useful for chunk identifiers in RIFF-type files and "magic numbers", though it can have other
+	uses as well.
+
+	\param[x] is the string containing the characters to be written. It must be ASCII.
+	\returns \tt{this}.
+	\throws[exceptions.ValueException] if \tt{x} is not ASCII.
+	\throws[EOFException] if end-of-file was reached.
+	*/
+	function writeChars(x: string)
+	{
+		if(!ascii.isAscii(x))
+			throw ValueException("Can only write ASCII strings as raw characters")
+
+		text.toRawAscii(x, :_strBuf)
+		:stream.writeExact(:_strBuf)
+		return this
 	}
 }
 
-const char[] WriteFuncDefs =
-`c.method("writeByte",     1, &writeVal!(byte));
-c.method("writeUByte",    1, &writeVal!(ubyte));
-c.method("writeShort",    1, &writeVal!(short));
-c.method("writeUShort",   1, &writeVal!(ushort));
-c.method("writeInt",      1, &writeVal!(int));
-c.method("writeUInt",     1, &writeVal!(uint));
-c.method("writeLong",     1, &writeVal!(long));
-c.method("writeULong",    1, &writeVal!(ulong));
-c.method("writeFloat",    1, &writeVal!(float));
-c.method("writeDouble",   1, &writeVal!(double));
-c.method("writeChar",     1, &writeVal!(char));
-c.method("writeWChar",    1, &writeVal!(wchar));
-c.method("writeDChar",    1, &writeVal!(dchar));
-c.method("writeString",   1, &writeString);
-c.method("write",            &write);
-c.method("writeln",          &writeln);
-c.method("writef",           &writef);
-c.method("writefln",         &writefln);
-c.method("writeChars",    1, &writeChars);
-c.method("writeMemblock", 3, &writeMemblock);
-c.method("flush",         0, &flush);
-c.method("copy",          1, &copy);
-c.method("flushOnNL",     1, &flushOnNL);`;
+/**
+A stream wrapper that adds input buffering. Note that this class only allows reading and seeking; writing is
+unsupported.
 
-const char[] ReadFuncDefs =
-`c.method("readByte",     0, &readVal!(byte));
-c.method("readUByte",    0, &readVal!(ubyte));
-c.method("readShort",    0, &readVal!(short));
-c.method("readUShort",   0, &readVal!(ushort));
-c.method("readInt",      0, &readVal!(int));
-c.method("readUInt",     0, &readVal!(uint));
-c.method("readLong",     0, &readVal!(long));
-c.method("readULong",    0, &readVal!(ulong));
-c.method("readFloat",    0, &readVal!(float));
-c.method("readDouble",   0, &readVal!(double));
-c.method("readChar",     0, &readVal!(char));
-c.method("readWChar",    0, &readVal!(wchar));
-c.method("readDChar",    0, &readVal!(dchar));
-c.method("readString",   0, &readString);
-c.method("readln",       0, &readln);
-c.method("readChars",    1, &readChars);
-c.method("readMemblock", 2, &readMemblock);
-c.method("rawRead",      2, &rawRead);
-c.method("skip",         1, &skip);
-	newFunction(t, &iterator, "InStream.iterator");
-c.method("opApply", 1, &opApply, 1);`;
+This stream adds a transparent buffering scheme when reading data. Seeking is also allowed and will work correctly even
+if data is buffered.
+*/
+class BufferedInStream : StreamWrapper
+{
+	_buf
+	_bufPos = 0
+	_bound = 0
 
-const char[] CommonFuncDefs =
-`c.method("seek",         2, &seek);
-c.method("position",     1, &position);
-c.method("size",         0, &size);
-c.method("close",        0, &close);
-c.method("isOpen",       0, &isOpen);`;
+	/**
+	Constructor.
+
+	\param[s] is the stream to be wrapped.
+	\param[bufSize] is the size of the memory buffer. Defaults to 4KB. Its size is clamped to a minimum of 128 bytes,
+	and there is no upper limit.
+	*/
+	this(s: @InStream, bufSize: int = 4096)
+	{
+		super(s)
+		:_buf = memblock.new(clamp(bufSize, 128, intMax))
+	}
+
+	/**
+	Regardless of whether or not the underlying stream is writable, this class is not. Erratic behavior can result if
+	you try to write to a stream that is wrapped by this class.
+
+	\returns false.
+	*/
+	function writable() =
+		false
+
+	/**
+	Implementation of the \tt{read} method. It works exactly like the normal \tt{read} method, performing buffering
+	transparently.
+
+	The call signature and return values are the same as \link{Stream.read}.
+	*/
+	function read(m: memblock, offset: int = 0, size: int = #m - offset)
+	{
+		checkRWParams(m, offset, size)
+		local remaining = size
+
+		while(remaining > 0)
+		{
+			local buffered = :_bound - :_bufPos
+
+			if(buffered == 0)
+			{
+				buffered = :_readMore()
+
+				if(buffered == 0)
+					break
+			}
+
+			local num = min(buffered, remaining)
+			m.rawCopy(offset, :_buf, :_bufPos, num)
+			:_bufPos += num
+			offset += num
+			remaining -= num
+		}
+
+		return size - remaining
+	}
+
+	/**
+	Implementation of the \tt{seek} method. It works exactly like the normal \tt{seek} method, and will seek properly
+	even if data has been buffered.
+
+	Seeking will clear the data buffer. The call signature and return values are the same as \link{Stream.seek}.
+	*/
+	function seek(this: @SeekStream, offset: int, where: char)
+	{
+		if(where == 'c')
+			offset -= :_bound - :_bufPos
+
+		:_bufPos, :_bound = 0, 0
+		return :_stream.seek(offset, where)
+	}
+
+	function _readMore()
+	{
+		assert((:_bound - :_bufPos) == 0)
+		:_bufPos = 0
+		:_bound = :_stream.read(:_buf)
+		return :_bound
+	}
+}
+
+/**
+A stream wrapper that adds output buffering. Note that this class only allows writing and seeking; reading is
+unsupported.
+
+This stream adds a transparent buffering scheme when writing data. Seeking is also allowed and will work correctly even
+if data is buffered.
+*/
+class BufferedOutStream : StreamWrapper
+{
+	_buf
+	_bufPos = 0
+
+	/**
+	Constructor.
+
+	\param[s] is the stream to be wrapped.
+	\param[bufSize] is the size of the memory buffer. Defaults to 4KB. Its size is clamped to a minimum of 128 bytes,
+	and there is no upper limit.
+	*/
+	this(s: @OutStream, bufSize: int = 4096)
+	{
+		super(s)
+		:_buf = memblock.new(clamp(bufSize, 128, intMax))
+	}
+
+	/**
+	Regardless of whether or not the underlying stream is readable, this class is not. Erratic behavior can result if
+	you try to read from a stream that is wrapped by this class.
+
+	\returns false.
+	*/
+	function readable() =
+		false
+
+	/**
+	Implementation of the \tt{write} method. It works exactly like the normal \tt{write} method, performing buffering
+	transparently.
+
+	The call signature and return values are the same as \link{Stream.write}.
+	*/
+	function write(m: memblock, offset: int = 0, size: int = #m - offset)
+	{
+		checkRWParams(m, offset, size)
+		local remaining = size
+
+		while(remaining > 0)
+		{
+			local spaceLeft = #:_buf - :_bufPos
+
+			if(spaceLeft == 0)
+			{
+				:flush()
+				spaceLeft = #:_buf
+			}
+
+			local num = min(spaceLeft, remaining)
+			:_buf.rawCopy(:_bufPos, m, offset, num)
+			:_bufPos += num
+			offset += num
+			remaining -= num
+		}
+
+		return size - remaining
+	}
+
+	/**
+	Implementation of the \tt{seek} method. It works exactly like the normal \tt{seek} method, and will seek properly
+	even if data has been buffered.
+
+	Seeking will flush the data buffer. The call signature and return values are the same as \link{Stream.seek}.
+	*/
+	function seek(offset: int, where: char)
+	{
+		if(where == 'c')
+			offset -= :_bufPos
+
+		if(:_bufPos > 0)
+			:flush()
+
+		return :_stream.seek(offset, where)
+	}
+
+	/**
+	Implementation of the \tt{flush} method. This writes any buffered data to the stream. If no data is buffered, does
+	nothing.
+
+	\throws[EOFException] if end-of-file is reached.
+	*/
+	function flush()
+	{
+		if(:_bufPos > 0)
+		{
+			:_stream.write(:_buf, 0, :_bufPos)
+			:_bufPos = 0
+			:_stream.flush()
+		}
+	}
+
+	/**
+	Implementation of the \tt{close} method. Simply flushes the buffer and then calls \tt{close} on the underlying
+	stream.
+	*/
+	function close()
+	{
+		:_flush()
+		:_stream.close()
+	}
+}
+
+/**
+Implements a simple line-oriented text reader. You provide it with a stream and a character encoding to use, and it will
+decode text data from the stream and return it one line at a time.
+
+This class uses its own buffering mechanism, meaning that you do not have to place a buffer between it and the source
+stream object.
+
+This class does not implement the stream interface, nor is it a stream wrapper.
+*/
+class TextReader
+{
+	_stream
+	_codec
+	_readBuf
+	_chunks
+	_string = ""
+
+	/**
+	Constructor.
+
+	\param[s] is the stream which will provide the data. It must be readable.
+	\param[codec] is the name of the codec (see \link{text}) in which the stream data is encoded.
+	\param[errors] is the error handling mode that will be passed to the text codec. Defaults to \tt{"strict"}.
+	\param[bufSize] is the size of the internal buffer. Defaults to 4096 (4 KB). Its value is clamped to a minimum of
+		128.
+	*/
+	this(s: @InStream, codec: string, errors: string = "strict", bufSize: int = 4096)
+	{
+		:_stream = s
+		:_codec = text.getCodec(codec).incrementalDecoder(errors)
+		:_readBuf = memblock.new(bufSize < 128 ? 128 : bufSize)
+		:_chunks = []
+	}
+
+	/**
+	Reads one line of text from the stream.
+
+	\param[stripEnding] controls whether or not the line ending character(s) will be preserved in the output. This
+		defaults to "true", in which case the line ending will be stripped and only the line's text will be returned.
+
+	\returns a string containing one line of text, or if the end of the stream has been reached, returns \tt{null}.
+	*/
+	function readln(stripEnding: bool = true)
+	{
+		if(:_string is "")
+		{
+			:_readMore()
+
+			if(:_string is "")
+				return null
+		}
+
+		#:_chunks = 0
+
+		while main(:_string !is "")
+		{
+			foreach(pos, c; :_string)
+			{
+				if(c == '\r' || c == '\n')
+				{
+					local nextLineStart
+
+					if(c == '\r' && pos + 1 < #:_string && :_string[pos + 1] == '\n')
+						nextLineStart = pos + 2
+					else
+						nextLineStart = pos + 1
+
+					if(stripEnding)
+						:_chunks ~= :_string[.. pos]
+					else
+						:_chunks ~= :_string[.. nextLineStart]
+
+					:_string = :_string[nextLineStart ..]
+					break main
+				}
+			}
+
+			:_chunks ~= :_string
+			:_string = ""
+			:_readMore()
+		}
+
+		return "".join(:_chunks)
+	}
+
+	function stripIterator(idx: int)
+	{
+		if(local ret = :readln())
+			return idx + 1, ret
+	}
+
+	function nostripIterator(idx: int)
+	{
+		if(local ret = :readln(false))
+			return idx + 1, ret
+	}
+
+	/**
+	Allows instances of this object to be used in \tt{foreach} loops. The first index is the 1-based index of the line,
+	and the second index is the line's contents.
+
+	\param[mode] is a string controlling whether or not line ending character(s) are stripped. The default is "strip"
+		which removes them. The only other valid value is "nostrip" which preserves them.
+
+	\examples
+
+	Suppose you had a file with three lines, and you had a stream that read from that file. You could iterate over its
+	lines like so:
+
+\code
+foreach(i, line; TextReader(fileStream))
+	writefln("{}: {}", i, line)
+\endcode
+
+	This might print:
+
+\verbatim
+1: First line!
+2: Second line.
+3: Last liiiiine
+\endverbatim
+	*/
+	function opApply(mode: string = "strip")
+	{
+		if(mode is "strip")
+			return :stripIterator, this, 0
+		else if(mode is "nostrip")
+			return :nostripIterator, this, 0
+		else
+			throw ValueException("Invalid iteration mode '{}'".format(mode))
+	}
+
+	/**
+	Reads all the remaining lines from the stream and returns them as an array of strings.
+
+	\param[stripEnding] works just like in \link{readln}.
+	\returns an array of strings, one for each line.
+	*/
+	function readAllLines(stripEnding: bool = true) =
+		[line foreach line; this, stripEnding ? "strip" : "nostrip"]
+
+	/**
+	\returns the stream object that was passed to the constructor.
+	*/
+	function getStream() =
+		:_stream
+
+	function _readMore()
+	{
+		local numRead = :_stream.read(:_readBuf)
+
+		if(numRead == 0)
+			return
+
+		local final = numRead < #:_readBuf
+		:_string ~= :_codec.decodeRange(:_readBuf, 0, numRead, final)
+	}
+}
+
+/**
+Implements a simple line-oriented text writer with formatting support. You provide it with a stream and a character
+encoding to use, and it will transparently encode text that you write. It can optionally flush the underlying stream at
+each newline.
+
+Unlike \link{TextReader}, this class does \em{not} use any buffering mechanism, so if you're using this to write a large
+file for instance, it's best to put a buffer between this and the output stream.
+
+This class does not implement the stream interface, nor is it a stream wrapper.
+*/
+class TextWriter
+{
+	_stream
+	_codec
+	_writeBuf
+	_shouldFlush = false
+	_newline
+
+	/**
+	Constructor.
+
+	\param[s] is the stream to which data will be written. It must be writable.
+	\param[codec] is the name of the codec (see \link{text}) in which the text will be encoded.
+	\param[errors] is the error handling mode that will be passed to the text codec. Defaults to \tt{"strict"}.
+	\param[newline] is the string which will be output to write a newline. Defaults to \tt{"\\n"}.
+	*/
+	this(s: @OutStream, codec: string, errors: string = "strict", newline: string = "\n")
+	{
+		:_stream = s
+		:_codec = text.getCodec(codec).incrementalEncoder()
+		:_writeBuf = memblock.new(0)
+		:_newline = newline
+	}
+
+	/**
+	Controls whether the underlying stream will be automatically flushed on newlines. This flushing behavior only
+	happens after calls to \link{writeln} and \link{writefln}; it does not happen if there are newlines embedded in the
+	output text.
+
+	\param[f] is \tt{true} to enable this behavior, \tt{false} otherwise. By default, flushing is off.
+	*/
+	function flushOnNL(f: bool)
+		:_shouldFlush = f
+
+	/**
+	Converts each argument to its string representation (with \link{toString}), encodes the string with the writer's
+	encoding, and outputs it to the underlying stream.
+	*/
+	function write(vararg)
+	{
+		for(i: 0 .. #vararg)
+			:_stream.write(:_codec.encodeInto(toString(vararg[i]), :_writeBuf, 0))
+	}
+
+	/**
+	Same as above, but after outputting the arguments, outputs the newline string as specified in the constructor. After
+	that, it will call the underlying stream's \tt{flush} method if newline flushing is enabled.
+	*/
+	function writeln(vararg)
+	{
+		:write(vararg)
+		:write(:_newline)
+
+		if(:_shouldFlush)
+			:_stream.flush()
+	}
+
+	/**
+	Equivalent to calling \tt{write(fmt.format(vararg))}.
+	*/
+	function writef(fmt: string, vararg)
+		:_stream.write(:_codec.encodeInto(fmt.format(vararg), :_writeBuf, 0))
+
+	/**
+	Same as above, but outputs a newline and optionally flushes like \link{writeln}.
+	*/
+	function writefln(fmt: string, vararg)
+	{
+		:writef(fmt, vararg)
+		:write(:_newline)
+
+		if(:_shouldFlush)
+			:_stream.flush()
+	}
+
+	/**
+	\returns the stream object that was passed to the constructor.
+	*/
+	function getStream() =
+		:_stream
+}
+
+/**
+This class wraps a host language stream object. Because of this, its interface may vary between implementations of Croc.
+This is the documentation for the D 1.0 implementation.
+
+This class wraps objects of one of three of Tango's IO interfaces: \tt{InputStream}, \tt{OutputStream}, or
+\tt{IConduit}. It also provides a "closability" option to prevent script code from closing streams it shouldn't have
+permission to.
+*/
+@Finalizable
+class NativeStream : Stream
+{
+	_stream
+	_closed = false
+	_readable
+	_writable
+	_seekable = false
+	_closable
+	_dirty = false
+
+	/**
+	Constructor.
+
+	\param[stream] is a native object that must inherit from one of Tango's \tt{InputStream}, \tt{OutputStream}, or
+		\tt{IConduit} interfaces. If it inherits from either of the first two, the \tt{readable} and \tt{writable}
+		parameters will be ignored, and its read/writability will be automatically determined. If it inherits from
+		\tt{IConduit}, you must provide both the \tt{readable} and \tt{writable} parameters. This is because Tango does
+		not provide any means of determining whether an \tt{IConduit} really can be read or written (for instance, a
+		\tt{File} opened in read-only mode is still "writable" according to the type system). Additionally, if this
+		object derives from \tt{IConduit.Seek}, this stream will be seekable.
+	\param[closable] tells whether or not script code will be allowed to close this stream. The default is \tt{true},
+		but you can prevent scripts from closing a stream by passing \tt{false}. For instance, the \tt{console} library
+		prevents scripts from closing the standard streams it creates.
+	\param[readable] see the \tt{stream} parameter.
+	\param[writable] see the \tt{stream} parameter.
+	*/
+	this(stream: nativeobj, closable: bool = true, readable: null|bool, writable: null|bool)
+		streamCtor(with this, stream, closable, readable, writable)
+
+	/**
+	Finalizer. If the stream is writable, it will be flushed, and if it is closable, it will be closed.
+	*/
+	function finalizer()
+	{
+		if(:_writable) :_checkDirty()
+		if(:_closable && !:_closed) :close()
+	}
+
+	/**
+	Implementations of the main stream interface functions. These all expect the stream to be open.
+	*/
+	function read(this: @OpenStream, m: memblock, offset: int = 0, size: int = #m - offset)
+	{
+		:_checkReadable()
+		if(:_writable) :_checkDirty()
+		checkRWParams(m, offset, size)
+		return streamRead(:_stream, m, offset, size)
+	}
+
+	/// ditto
+	function write(this: @OpenStream, m: memblock, offset: int = 0, size: int = #m - offset)
+	{
+		:_checkWritable()
+		checkRWParams(m, offset, size)
+		return streamWrite(:_stream, m, offset, size)
+	}
+
+	/// ditto
+	function seek(this: @OpenStream, offset: int, where: char)
+	{
+		:_checkSeekable()
+		if(:_writable) :_checkDirty()
+
+		if(where !in "bce")
+			throw ValueException("Invalid seek location '{}'".format(where))
+
+		return streamSeek(:_stream, offset, where)
+	}
+
+	/**
+	Tells whether or not the stream is readable, writable, seekable, and closable.
+	*/
+	function readable() = :_readable
+	function writable() = :_writable /// ditto
+	function seekable() = :_seekable /// ditto
+	function closable() = :_closable /// ditto
+
+	/**
+	Calls the underlying flush method of the stream.
+	*/
+	function flush(this: @OpenStream)
+		streamFlush(:_stream)
+
+	/**
+	Closes the stream.
+
+	\throws[exceptions.StateException] if you try to close a stream that was not set to be closable in the constructor.
+	*/
+	function close()
+	{
+		if(!:_closable)
+			throw StateException("Trying to close an unclosable stream")
+
+		streamClose(:_stream)
+		:_closed = true
+	}
+
+	/**
+	Tells whether or not the stream is open.
+	*/
+	function isOpen() =
+		!:_closed
+
+	function _checkReadable() { if(!:_readable) throw TypeException("Attempting to read from an unreadable stream") }
+	function _checkWritable() { if(!:_writable) throw TypeException("Attempting to write to an unwritable stream") }
+	function _checkSeekable() { if(!:_seekable) throw TypeException("Attempting to seek an unseekable stream") }
+
+	function _checkDirty()
+	{
+		if(:_dirty)
+		{
+			:flush()
+			:_dirty = false
+		}
+	}
+}
+`;

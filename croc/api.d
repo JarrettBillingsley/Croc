@@ -62,7 +62,7 @@ import croc.stdlib_object;
 // import croc.stdlib_os;
 import croc.stdlib_path;
 // import croc.stdlib_serialization;
-// import croc.stdlib_stream;
+import croc.stdlib_stream;
 import croc.stdlib_string;
 import croc.stdlib_text;
 import croc.stdlib_thread;
@@ -151,19 +151,19 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	}
 
 	// Finish up the safe libs.
-	// StreamLib.init(t);
+	MathLib.init(t);
+	initObjectLib(t);
+	initMemblockLib(t);
+	initTextLib(t); // depends on memblock
+	initStreamLib(t); // depends on math, object, text
 	initArrayLib(t);
 	initAsciiLib(t);
 	CompilerLib.init(t);
-	// initConsoleLib(t); // depends on stream
+	initConsoleLib(t); // depends on stream
 	initEnvLib(t);
 	// JSONLib.init(t); // depends on stream
-	MathLib.init(t);
-	initMemblockLib(t);
-	initObjectLib(t);
 	initPathLib(t);
 	// SerializationLib.init(t); // depends on stream
-	initTextLib(t);
 	ThreadLib.init(t);
 	// TimeLib.init(t);
 

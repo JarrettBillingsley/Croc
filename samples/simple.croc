@@ -1,26 +1,6 @@
 module samples.simple
 
-import streams: MemblockStream, TextReader, TextWriter
-
-local str =
-"This is a long string with several lines.
-This is the second line.
-This is the third!"
-
 function main()
 {
-	local mb = text.getCodec("utf-8").encode(str)
-	local s = TextReader(MemblockStream(mb), "utf-8")
-	local mbs = MemblockStream()
-	local s2 = TextWriter(mbs, "utf-8")
 
-	foreach(i, line; s)
-		s2.writeln(line)
-
-	mbs.position(0)
-	s = TextReader(mbs, "utf-8")
-
-	foreach(i, line; s, "nostrip")
-		writeln(i, ": ", line)
 }
-

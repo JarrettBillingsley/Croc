@@ -467,6 +467,15 @@ function OutSeekStream(s) =   s as Stream &&                 s.writable() && s.s
 function InoutSeekStream(s) = s as Stream && s.readable() && s.writable() && s.seekable() /// ditto
 
 /**
+This is meant to be used as a custom parameter type constraint. It ensures that its parameter is derived from
+\link{Stream} and that its \link[Stream.isOpen]{\tt{isOpen} method} returns \tt{true}.
+
+\param[s] the stream object to test.
+\returns a bool telling whether or not it satisfies the constraints.
+*/
+function OpenStream(s) = s as Stream && s.isOpen()
+
+/**
 Implements a readable, writable, seekable stream that uses a memblock as its data backing store.
 
 This is a very useful kind of stream. With it you can redirect stream operations that would normally go to a file to
@@ -1212,3 +1221,82 @@ class TextWriter
 	function getStream() =
 		:_stream
 }
+
+@object.Finalizable
+class NativeStream : Stream
+{
+	_stream
+	_closed = false
+	_readable
+	_writable
+	_seekable = false
+	_closable
+	_dirty = false
+
+	function finalizer()
+	{
+		if(:_writable) :_checkDirty()
+		if(:_closable && !:_closed) :close()
+	}
+
+	function read(this: @OpenStream, m: memblock, offset: int = 0, size: int = #m - offset)
+	{
+		:_checkReadable()
+		if(:_writable) :_checkDirty()
+		checkRWParams(m, offset, size)
+		return streamRead(:_stream, m, offset, size)
+	}
+
+	function write(this: @OpenStream, m: memblock, offset: int = 0, size: int = #m - offset)
+	{
+		:_checkWritable()
+		checkRWParams(m, offset, size)
+		return streamWrite(:_stream, m, offset, size)
+	}
+
+	function seek(this: @OpenStream, offset: int, where: char)
+	{
+		:_checkSeekable()
+		if(:_writable) :_checkDirty()
+
+		if(where !in "bce")
+			throw ValueException("Invalid seek location '{}'".format(where))
+
+		return streamSeek(:_stream, offset, where)
+	}
+
+	function readable() = :_readable
+	function writable() = :_writable
+	function seekable() = :_seekable
+	function closable() = :_closable
+
+	function flush(this: @OpenStream)
+		streamFlush(:_stream)
+
+	function close()
+	{
+		if(!:_closable)
+			throw StateException("Trying to close an unclosable stream")
+
+		streamClose(:_stream)
+		:_closed = true
+	}
+
+	function isOpen() =
+		!:_closed
+
+	function _checkReadable() { if(!:_readable) throw TypeException("Attempting to read from an unreadable stream") }
+	function _checkWritable() { if(!:_writable) throw TypeException("Attempting to write to an unwritable stream") }
+	function _checkSeekable() { if(!:_seekable) throw TypeException("Attempting to seek an unseekable stream") }
+
+	function _checkDirty()
+	{
+		if(:_dirty)
+		{
+			:flush()
+			:_dirty = false
+		}
+	}
+}
+
+object.addMethod(NativeStream, "constructor", ctorrr)

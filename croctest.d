@@ -29,8 +29,6 @@ version(CrocAllAddons)
 
 /*
 	Process      (4 fields, 0 bytes)
-	Regexp       (2 fields, 0 bytes)
-	Streams      (well, will be replaced with NativeStream, which'll need like.. 1 field)
 	StringBuffer (2 fields, 0 bytes)
 	Timer        (1 field, 1 StopWatch that can be made a memblock field)
 	Vector       (2 fields, 1 pointer to a TypeStruct..)
@@ -51,23 +49,6 @@ void main()
 	{
 		t = openVM(&vm);
 		loadUnsafeLibs(t, CrocUnsafeLib.ReallyAll);
-
-		newFunction(t, function uword(CrocThread* t)
-		{
-			auto numParams = stackSize(t) - 1;
-
-			for(uword i = 1; i <= numParams; i++)
-			{
-				pushToString(t, i);
-				Stdout(getString(t, -1));
-				pop(t);
-			}
-
-			Stdout.newline;
-
-			return 0;
-		}, "writeln");
-		newGlobal(t, "writeln");
 
 		version(CrocPcreAddon) PcreLib.init(t);
 		version(CrocSdlAddon) SdlLib.init(t);

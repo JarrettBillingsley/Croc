@@ -47,31 +47,17 @@ public:
 
 void initConsoleLib(CrocThread* t)
 {
-	auto console = importModuleFromString(t, "console", GlobalFuncCode, __FILE__);
-		auto stream = importModule(t, "stream");
+	newTable(t);
+		pushNativeObj(t, cast(Object)Cin.stream);  fielda(t, -2, "Cin");
+		pushNativeObj(t, cast(Object)Cout.stream); fielda(t, -2, "Cout");
+		pushNativeObj(t, cast(Object)Cerr.stream); fielda(t, -2, "Cerr");
+	newGlobal(t, "_consoletmp");
 
-			field(t, stream, "InStream");
-			pushNull(t);
-			pushNativeObj(t, cast(Object)Cin.stream);
-			pushBool(t, false);
-			rawCall(t, -4, 1);
-		fielda(t, console, "stdin");
+	importModuleFromStringNoNS(t, "console", GlobalFuncCode, __FILE__);
 
-			field(t, stream, "OutStream");
-			pushNull(t);
-			pushNativeObj(t, cast(Object)Cout.stream);
-			pushBool(t, false);
-			rawCall(t, -4, 1);
-		fielda(t, console, "stdout");
-
-			field(t, stream, "OutStream");
-			pushNull(t);
-			pushNativeObj(t, cast(Object)Cerr.stream);
-			pushBool(t, false);
-			rawCall(t, -4, 1);
-		fielda(t, console, "stderr");
-
-		pop(t);
+	pushGlobal(t, "_G");
+	pushString(t, "_consoletmp");
+	removeKey(t, -2);
 	pop(t);
 }
 
@@ -90,7 +76,7 @@ convenience.
 */
 module console
 
-import stream
+import stream : TextReader, TextWriter, NativeStream
 
 /**
 These are the \link{stream.Stream} objects that wrap the standard input, output, and error streams. You can, however,
@@ -100,12 +86,16 @@ change the standard input stream to use a file instead of the console, you could
 \code
 // Good idea to hold onto the old stream in case you want to set it back
 local oldStream = console.stdin
-console.stdin = file.inFile("somefile.txt")
+console.stdin = TextReader(file.inFile("somefile.txt"))
 
 // Now any use of stdin (including the global readln() function) will read from "somefile.txt" instead.
 \endcode
 */
 global stdin, stdout, stderr
+
+stdin = TextReader(NativeStream(_consoletmp.Cin, false, true, false), "utf-8", "replace")
+stdout = TextWriter(NativeStream(_consoletmp.Cout, false, false, true), "utf-8", "replace")
+stderr = TextWriter(NativeStream(_consoletmp.Cerr, false, false, true), "utf-8", "replace")
 
 /**
 This is a shortcut for calling \tt{stdout.write} with the given arguments.
