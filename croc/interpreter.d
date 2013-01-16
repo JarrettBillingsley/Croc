@@ -107,7 +107,7 @@ void runFinalizers(CrocThread* t)
 		{
 			push(t, CrocValue(i.parent.finalizer));
 			push(t, CrocValue(i));
-			commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, null));
+			commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, i.parent));
 		}
 		catch(CrocException e)
 		{
