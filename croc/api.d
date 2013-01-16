@@ -61,7 +61,6 @@ import croc.stdlib_modules;
 import croc.stdlib_object;
 // import croc.stdlib_os;
 import croc.stdlib_path;
-// import croc.stdlib_regexp;
 // import croc.stdlib_serialization;
 // import croc.stdlib_stream;
 import croc.stdlib_string;
@@ -163,7 +162,6 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	initMemblockLib(t);
 	initObjectLib(t);
 	initPathLib(t);
-	// RegexpLib.init(t);
 	// SerializationLib.init(t); // depends on stream
 	initTextLib(t);
 	ThreadLib.init(t);

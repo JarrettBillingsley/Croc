@@ -37,7 +37,6 @@ local StdlibLookup =
 	object        = "StdLib/ObjectLib"
 	os            = "StdLib/OSLib"
 	path          = "StdLib/PathLib"
-	regexp        = "StdLib/RegexpLib"
 	serialization = "StdLib/SerializationLib"
 	stream        = "StdLib/StreamLib"
 	string        = "StdLib/StringLib"

@@ -40,7 +40,6 @@ croc\stdlib_math.d
 croc\stdlib_memblock.d
 croc\stdlib_modules.d
 croc\stdlib_os.d
-croc\stdlib_regexp.d
 croc\stdlib_serialization.d
 croc\stdlib_stream.d
 croc\stdlib_string.d
