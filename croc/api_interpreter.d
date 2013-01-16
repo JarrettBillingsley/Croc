@@ -2355,7 +2355,7 @@ void addField(CrocThread* t, word cls)
 /**
 
 */
-void addMethod(CrocThread* t, word cls, char[] name, bool isPublic = true)
+void addMethod(CrocThread* t, word cls, char[] name)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto c = absIndex(t, cls);
@@ -3860,7 +3860,7 @@ uword superCall(CrocThread* t, word slot, char[] name, word numReturns)
 	mixin(FuncNameMix);
 
 	// Invalid call?
-	if(t.arIndex == 0 || t.currentAR.proto is null)
+	if(t.arIndex == 0 || t.currentAR.proto is null || t.currentAR.proto.parent is null)
 		throwStdException(t, "RuntimeException", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where there is no super class");
 
 	// Get num params
@@ -3884,7 +3884,7 @@ uword superCall(CrocThread* t, word slot, char[] name, word numReturns)
 
 	// Do the call
 	auto methodName = createString(t, name);
-	auto ret = commonMethodCall(t, absSlot, _this, &CrocValue(t.currentAR.proto), methodName, numReturns, numParams);
+	auto ret = commonMethodCall(t, absSlot, _this, &CrocValue(t.currentAR.proto.parent), methodName, numReturns, numParams);
 	return commonCall(t, absSlot, numReturns, ret);
 }
 
@@ -3909,7 +3909,7 @@ uword superCall(CrocThread* t, word slot, word numReturns)
 	pop(t);
 
 	// Invalid call?
-	if(t.arIndex == 0 || t.currentAR.proto is null)
+	if(t.arIndex == 0 || t.currentAR.proto is null || t.currentAR.proto.parent is null)
 		throwStdException(t, "RuntimeException", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where there is no super class");
 
 	// Get num params
@@ -3931,7 +3931,7 @@ uword superCall(CrocThread* t, word slot, word numReturns)
 	}
 
 	// Do the call
-	auto ret = commonMethodCall(t, absSlot, _this, &CrocValue(t.currentAR.proto), methodName, numReturns, numParams);
+	auto ret = commonMethodCall(t, absSlot, _this, &CrocValue(t.currentAR.proto.parent), methodName, numReturns, numParams);
 	return commonCall(t, absSlot, numReturns, ret);
 }
 
