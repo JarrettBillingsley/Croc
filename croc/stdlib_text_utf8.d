@@ -139,7 +139,7 @@ const char[] _code =
 `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.utf8EncodeInternal, _internal.utf8DecodeInternal
-import exceptions: ValueException, StateException
+import exceptions: ValueException
 
 // =====================================================================================================================
 // "Raw" UTF-8

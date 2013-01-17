@@ -51,7 +51,7 @@ import croc.stdlib_debug;
 import croc.stdlib_docs;
 import croc.stdlib_env;
 import croc.stdlib_exceptions;
-// import croc.stdlib_file;
+import croc.stdlib_file;
 import croc.stdlib_gc;
 import croc.stdlib_hash;
 import croc.stdlib_json;
@@ -66,7 +66,7 @@ import croc.stdlib_stream;
 import croc.stdlib_string;
 import croc.stdlib_text;
 import croc.stdlib_thread;
-// import croc.stdlib_time;
+import croc.stdlib_time;
 
 // ================================================================================================================================================
 // Public
@@ -165,7 +165,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	initPathLib(t);
 	// SerializationLib.init(t); // depends on stream
 	ThreadLib.init(t);
-	// TimeLib.init(t);
+	TimeLib.init(t);
 
 	version(CrocBuiltinDocs)
 		Compiler.setDefaultFlags(t, Compiler.All);
@@ -220,7 +220,7 @@ Params:
 */
 void loadUnsafeLibs(CrocThread* t, uint libs = CrocUnsafeLib.All)
 {
-	// if(libs & CrocUnsafeLib.File)  FileLib.init(t);
+	if(libs & CrocUnsafeLib.File)  FileLib.init(t);
 	// if(libs & CrocUnsafeLib.OS)    OSLib.init(t);
 	if(libs & CrocUnsafeLib.Debug) DebugLib.init(t);
 }

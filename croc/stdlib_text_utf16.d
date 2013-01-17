@@ -173,7 +173,7 @@ const char[] _code =
 `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.utf16EncodeInternal, _internal.utf16DecodeInternal
-import exceptions: ValueException, StateException
+import exceptions: ValueException, UnicodeException
 
 // =====================================================================================================================
 // UTF-16 (BOM + native on encoding, BOM + either on decoding)

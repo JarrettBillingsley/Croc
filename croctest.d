@@ -23,7 +23,6 @@ version(CrocAllAddons)
 
 /*
 	Process      (4 fields, 0 bytes)
-	Timer        (1 field, 1 StopWatch that can be made a memblock field)
 
 	Socket       (certainly gonna be changed)
 	Regex        (2 fields, some extra gunk that can easily live in a memblock)

@@ -68,9 +68,9 @@ static:
 		{
 			importModuleNoNS(t, "stream");
 
-			newFunction(t, 1, &inFile,                "inFile");        newGlobal(t, "inFile");
-			newFunction(t, 2, &outFile,               "outFile");       newGlobal(t, "outFile");
-			newFunction(t, 2, &inoutFile,             "inoutFile");     newGlobal(t, "inoutFile");
+			newFunction(t, 2, &inFile,                "inFile");        newGlobal(t, "inFile");
+			newFunction(t, 3, &outFile,               "outFile");       newGlobal(t, "outFile");
+			newFunction(t, 3, &inoutFile,             "inoutFile");     newGlobal(t, "inoutFile");
 			newFunction(t, 2, &rename,                "rename");        newGlobal(t, "rename");
 			newFunction(t, 1, &remove,                "remove");        newGlobal(t, "remove");
 			newFunction(t, 2, &copy,                  "copy");          newGlobal(t, "copy");
@@ -94,8 +94,9 @@ static:
 			newFunction(t, 1, &readMemblock,          "readMemblock");  newGlobal(t, "readMemblock");
 			newFunction(t, 2, &writeMemblock,         "writeMemblock"); newGlobal(t, "writeMemblock");
 
-				newFunction(t, &linesIterator, "linesIterator");
-			newFunction(t, 1, &lines, "lines", 1);        newGlobal(t, "lines");
+				newFunction(t, &linesStripIterator, "linesIterator");
+				newFunction(t, &linesNostripIterator, "linesIterator");
+			newFunction(t, 3, &lines, "lines", 2);        newGlobal(t, "lines");
 
 			return 0;
 		});
@@ -106,12 +107,25 @@ static:
 	uword inFile(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
-		auto f = safeCode(t, "exceptions.IOException", new BufferedInput(new File(name, File.ReadExisting)));
+		auto bufSize = optIntParam(t, 2, 4096);
+		auto f = safeCode(t, "exceptions.IOException", new File(name, File.ReadExisting));
 
-		lookupCT!("stream.InStream")(t);
+		auto slot = lookupCT!("stream.NativeStream")(t);
 		pushNull(t);
 		pushNativeObj(t, f);
-		rawCall(t, -3, 1);
+		pushBool(t, true);
+		pushBool(t, true);
+		pushBool(t, false);
+		rawCall(t, slot, 1);
+
+		if(bufSize > 0)
+		{
+			lookupCT!("stream.BufferedInStream")(t);
+			pushNull(t);
+			dup(t, slot);
+			pushInt(t, bufSize);
+			rawCall(t, -4, 1);
+		}
 
 		return 1;
 	}
@@ -120,6 +134,7 @@ static:
 	{
 		auto name = checkStringParam(t, 1);
 		auto mode = optCharParam(t, 2, 'c');
+		auto bufSize = optIntParam(t, 3, 4096);
 
 		File.Style style;
 
@@ -132,12 +147,24 @@ static:
 				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
 		}
 
-		auto f = safeCode(t, "exceptions.IOException", new BufferedOutput(new File(name, style)));
+		auto f = safeCode(t, "exceptions.IOException", new File(name, style));
 
-		lookupCT!("stream.OutStream")(t);
+		auto slot = lookupCT!("stream.NativeStream")(t);
 		pushNull(t);
 		pushNativeObj(t, f);
-		rawCall(t, -3, 1);
+		pushBool(t, true);
+		pushBool(t, false);
+		pushBool(t, true);
+		rawCall(t, slot, 1);
+
+		if(bufSize > 0)
+		{
+			lookupCT!("stream.BufferedOutStream")(t);
+			pushNull(t);
+			dup(t, slot);
+			pushInt(t, bufSize);
+			rawCall(t, -4, 1);
+		}
 
 		return 1;
 	}
@@ -148,6 +175,7 @@ static:
 
 		auto name = checkStringParam(t, 1);
 		auto mode = optCharParam(t, 2, 'e');
+		auto bufSize = optIntParam(t, 3, 4096);
 
 		File.Style style;
 
@@ -162,10 +190,23 @@ static:
 
 		auto f = safeCode(t, "exceptions.IOException", new File(name, style));
 
-		lookupCT!("stream.InoutStream")(t);
+		auto slot = lookupCT!("stream.NativeStream")(t);
 		pushNull(t);
 		pushNativeObj(t, f);
-		rawCall(t, -3, 1);
+		pushBool(t, true);
+		pushBool(t, true);
+		pushBool(t, true);
+		rawCall(t, slot, 1);
+
+		// TODO:
+		// if(bufSize > 0)
+		// {
+		// 	lookupCT!("stream.BufferedInoutStream")(t);
+		// 	pushNull(t);
+		// 	dup(t, slot);
+		// 	pushInt(t, bufSize);
+		// 	rawCall(t, -4, 1);
+		// }
 
 		return 1;
 	}
@@ -292,7 +333,7 @@ static:
 			auto filter = checkStringParam(t, 2);
 			checkParam(t, 3, CrocValue.Type.Function);
 
-			safeCode(t, "exceptions.IOException", 
+			safeCode(t, "exceptions.IOException",
 			{
 				foreach(ref info; Path_children(fp))
 				{
@@ -307,7 +348,7 @@ static:
 						pushString(t, info.name);
 						cat(t, 2);
 						rawCall(t, -3, 1);
-						
+
 						if(isBool(t, -1) && !getBool(t, -1))
 							break;
 
@@ -332,10 +373,10 @@ static:
 						pushString(t, info.name);
 						cat(t, 2);
 						rawCall(t, -3, 1);
-						
+
 						if(isBool(t, -1) && !getBool(t, -1))
 							break;
-							
+
 						pop(t);
 					}
 				}
@@ -422,36 +463,76 @@ static:
 		return 1;
 	}
 
-	uword linesIterator(CrocThread* t)
+	uword linesStripIterator(CrocThread* t)
 	{
-		auto lines = checkInstParam!(InStreamObj.Members)(t, 0, "stream.InStream").lines;
 		auto index = checkIntParam(t, 1) + 1;
-		auto line = safeCode(t, "exceptions.IOException", lines.next());
 
-		if(line.ptr is null)
+		dup(t, 0);
+		pushNull(t);
+		methodCall(t, -2, "readln", 1);
+
+		if(isNull(t, -1))
 		{
 			dup(t, 0);
+			pushNull(t);
+			methodCall(t, -2, "getStream", 1);
 			pushNull(t);
 			methodCall(t, -2, "close", 0);
 			return 0;
 		}
 
 		pushInt(t, index);
-		pushString(t, line);
+		swap(t);
+		return 2;
+	}
+
+	uword linesNostripIterator(CrocThread* t)
+	{
+		auto index = checkIntParam(t, 1) + 1;
+
+		dup(t, 0);
+		pushNull(t);
+		pushBool(t, false);
+		methodCall(t, -3, "readln", 1);
+
+		if(isNull(t, -1))
+		{
+			dup(t, 0);
+			pushNull(t);
+			methodCall(t, -2, "getStream", 1);
+			pushNull(t);
+			methodCall(t, -2, "close", 0);
+			return 0;
+		}
+
+		pushInt(t, index);
+		swap(t);
 		return 2;
 	}
 
 	uword lines(CrocThread* t)
 	{
+		const StripIterator = 0;
+		const NostripIterator = 1;
+
 		checkStringParam(t, 1);
+		bool stripEnding = optBoolParam(t, 2, true);
+		auto encoding = optStringParam(t, 3, "utf-8");
 
 		pushGlobal(t, "inFile");
 		pushNull(t);
 		dup(t, 1);
-		rawCall(t, -3, 1);
+		pushInt(t, 0); // disable buffering, as TextReader does its own
+		rawCall(t, -4, 1);
+
+		lookupCT!("stream.TextReader")(t);
+		pushNull(t);
+		moveToTop(t, -3);
+		pushString(t, encoding);
+		rawCall(t, -4, 1);
 
 		pushInt(t, 0);
-		getUpval(t, 0);
+		getUpval(t, stripEnding ? StripIterator : NostripIterator);
 		insert(t, -3);
 
 		return 3;

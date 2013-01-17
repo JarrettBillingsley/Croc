@@ -67,8 +67,8 @@ const RegisterFunc[] _funcs =
 	{ "streamRead",  &_streamRead,  maxParams: 4 },
 	{ "streamWrite", &_streamWrite, maxParams: 4 },
 	{ "streamSeek",  &_streamSeek,  maxParams: 3 },
-	{ "streamFlush", &_streamFlush, maxParams: 0 },
-	{ "streamClose", &_streamClose, maxParams: 0 }
+	{ "streamFlush", &_streamFlush, maxParams: 1 },
+	{ "streamClose", &_streamClose, maxParams: 1 }
 ];
 
 uword _streamCtor(CrocThread* t)
@@ -224,7 +224,7 @@ import exceptions:
 	TypeException,
 	ValueException
 
-import math: min
+import math: min, intMax
 import object: Finalizable
 import text
 
@@ -864,6 +864,7 @@ through to the wrapped stream.
 */
 class BinaryStream : StreamWrapper
 {
+	_stream
 	_rwBuf
 	_strBuf
 
@@ -875,6 +876,7 @@ class BinaryStream : StreamWrapper
 	this(s: Stream)
 	{
 		super(s)
+		:_stream = s
 		:_rwBuf = memblock.new(8)
 		:_strBuf = memblock.new(0)
 	}
@@ -1002,6 +1004,7 @@ if data is buffered.
 */
 class BufferedInStream : StreamWrapper
 {
+	_stream
 	_buf
 	_bufPos = 0
 	_bound = 0
@@ -1016,6 +1019,7 @@ class BufferedInStream : StreamWrapper
 	this(s: @InStream, bufSize: int = 4096)
 	{
 		super(s)
+		:_stream = s
 		:_buf = memblock.new(clamp(bufSize, 128, intMax))
 	}
 
@@ -1052,7 +1056,7 @@ class BufferedInStream : StreamWrapper
 			}
 
 			local num = min(buffered, remaining)
-			m.rawCopy(offset, :_buf, :_bufPos, num)
+			m.copy(offset, :_buf, :_bufPos, num)
 			:_bufPos += num
 			offset += num
 			remaining -= num
@@ -1094,6 +1098,7 @@ if data is buffered.
 */
 class BufferedOutStream : StreamWrapper
 {
+	_stream
 	_buf
 	_bufPos = 0
 
@@ -1107,6 +1112,7 @@ class BufferedOutStream : StreamWrapper
 	this(s: @OutStream, bufSize: int = 4096)
 	{
 		super(s)
+		:_stream = s
 		:_buf = memblock.new(clamp(bufSize, 128, intMax))
 	}
 
@@ -1141,7 +1147,7 @@ class BufferedOutStream : StreamWrapper
 			}
 
 			local num = min(spaceLeft, remaining)
-			:_buf.rawCopy(:_bufPos, m, offset, num)
+			:_buf.copy(:_bufPos, m, offset, num)
 			:_bufPos += num
 			offset += num
 			remaining -= num

@@ -65,6 +65,22 @@ static:
 		}
 	}
 
+	crocint _getTime()
+	{
+		version(Windows)
+		{
+			ulong time;
+			QueryPerformanceCounter(&time);
+			return cast(crocint)((time * 1_000_000) / performanceFreq);
+		}
+		else
+		{
+			timeval tv;
+			gettimeofday(&tv, null);
+			return cast(crocint)(tv.tv_sec * 1_000_000L + tv.tv_usec);
+		}
+	}
+
 	void init(CrocThread* t)
 	{
 		makeModule(t, "time", function uword(CrocThread* t)
@@ -84,22 +100,10 @@ static:
 
 	uword microTime(CrocThread* t)
 	{
-		version(Windows)
-		{
-			ulong time;
-			QueryPerformanceCounter(&time);
-			pushInt(t, cast(crocint)((time * 1_000_000) / performanceFreq));
-		}
-		else
-		{
-			timeval tv;
-			gettimeofday(&tv, null);
-			pushInt(t, cast(crocint)(tv.tv_sec * 1_000_000L + tv.tv_usec));
-		}
-
+		pushInt(t, _getTime());
 		return 1;
 	}
-	
+
 	uword dateTime(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
@@ -201,69 +205,58 @@ static:
 	static struct Timer
 	{
 	static:
-		align(1) struct Members
-		{
-			StopWatch mWatch;
-			crocfloat mTime = 0;
-		}
+		const Start = "Timer_start";
+		const Time = "Timer_time";
 
 		void init(CrocThread* t)
 		{
 			CreateClass(t, "Timer", (CreateClass* c)
 			{
-				c.method("start",     0, &start);
-				c.method("stop",      0, &stop);
-				c.method("seconds",   0, &seconds);
-				c.method("millisecs", 0, &millisecs);
-				c.method("microsecs", 0, &microsecs);
+				pushInt(t, 0); c.field("_start");
+				pushInt(t, 0); c.field("_time");
+				c.method("start",       0, &start);
+				c.method("stop",        0, &stop);
+				c.method("seconds",     0, &seconds);
+				c.method("millisecs",   0, &millisecs);
+				c.method("microsecs",   0, &microsecs);
 			});
-
-			newFunction(t, &allocator, "Timer.allocator");
-			setAllocator(t, -2);
 
 			newGlobal(t, "Timer");
 		}
 
-		Members* getThis(CrocThread* t)
-		{
-			return checkInstParam!(Members)(t, 0, "Timer");
-		}
-
-		uword allocator(CrocThread* t)
-		{
-			newInstance(t, 0, 0, Members.sizeof);
-			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
-			return 1;
-		}
-
 		uword start(CrocThread* t)
 		{
-			getThis(t).mWatch.start();
+			pushInt(t, _getTime());
+			fielda(t, 0, Start);
 			return 0;
 		}
-	
+
 		uword stop(CrocThread* t)
 		{
-			auto members = getThis(t);
-			members.mTime = members.mWatch.stop();
+			auto end = _getTime();
+			field(t, 0, Start);
+			pushInt(t, end - getInt(t, -1));
+			fielda(t, 0, Time);
 			return 0;
 		}
-	
+
 		uword seconds(CrocThread* t)
 		{
-			pushFloat(t, getThis(t).mTime);
+			field(t, 0, Time);
+			pushFloat(t, getInt(t, -1) / 1_000_000.0);
 			return 1;
 		}
-	
+
 		uword millisecs(CrocThread* t)
 		{
-			pushFloat(t, getThis(t).mTime * 1_000);
+			field(t, 0, Time);
+			pushFloat(t, getInt(t, -1) / 1_000.0);
 			return 1;
 		}
-	
+
 		uword microsecs(CrocThread* t)
 		{
-			pushFloat(t, getThis(t).mTime * 1_000_000);
+			field(t, 0, Time);
 			return 1;
 		}
 	}
