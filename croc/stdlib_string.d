@@ -158,41 +158,58 @@ uword _join(CrocThread* t)
 		return 1;
 	}
 
+	uword totalLen = 0;
+
 	foreach(i, ref val; arr)
-		if(val.value.type != CrocValue.Type.String && val.value.type != CrocValue.Type.Char)
+	{
+		if(val.value.type == CrocValue.Type.String)
+			totalLen += val.value.mString.length;
+		else if(val.value.type == CrocValue.Type.Char)
+		{
+			auto c = val.value.mChar;
+			auto chLen = charUtf8Length(c);
+
+			if(chLen == 0 || !isValidChar(c))
+				throwStdException(t, "ValueException", "Array element {} is an invalid character", i);
+
+			totalLen += chLen;
+		}
+		else
 			throwStdException(t, "TypeException", "Array element {} is not a string or char", i);
-
-	auto s = StrBuffer(t);
-
-	if(arr[0].value.type == CrocValue.Type.String)
-		s.addString(arr[0].value.mString.toString());
-	else
-		s.addChar(arr[0].value.mChar);
-
-	if(sep.length == 0)
-	{
-		foreach(ref val; arr[1 .. $])
-		{
-			if(val.value.type == CrocValue.Type.String)
-				s.addString(val.value.mString.toString());
-			else
-				s.addChar(val.value.mChar);
-		}
-	}
-	else
-	{
-		foreach(ref val; arr[1 .. $])
-		{
-			s.addString(sep);
-
-			if(val.value.type == CrocValue.Type.String)
-				s.addString(val.value.mString.toString());
-			else
-				s.addChar(val.value.mChar);
-		}
 	}
 
-	s.finish();
+	totalLen += sep.length * (arr.length - 1);
+
+	auto buf = allocArray!(char)(t, totalLen);
+	uword pos = 0;
+
+	scope(exit) freeArray(t, buf);
+
+	foreach(i, ref val; arr)
+	{
+		if(i > 0 && sep.length > 0)
+		{
+			buf[pos .. pos + sep.length] = sep[];
+			pos += sep.length;
+		}
+
+		if(val.value.type == CrocValue.Type.String)
+		{
+			auto s = val.value.mString.toString();
+			buf[pos .. pos + s.length] = s[];
+			pos += s.length;
+		}
+		else
+		{
+			auto c = val.value.mChar;
+			char[] slice = void;
+			auto ok = encodeUtf8Char(buf[pos .. $], c, slice);
+			assert(ok == UtfError.OK);
+			pos += slice.length;
+		}
+	}
+
+	pushString(t, buf);
 	return 1;
 }
 
