@@ -170,10 +170,8 @@ A utility structure for building up strings out of several pieces more efficient
 all the bits and concatenating. This struct keeps an internal buffer so that strings are built up in
 large chunks.
 
-This struct uses the stack of a thread to hold its intermediate results, so if you perform any stack
-manipulation to calls to this struct's functions, make sure your stack operations are balanced, or you
-will mess up the string building. Also, negative stack indices may change where they reference during
-string building since the stack may grow, so be sure to use absolute (positive) indices where necessary.
+This struct reserves one thread stack slot when you are using it. You can use the stack however you like, just don't
+move that stack slot. Also, when you call the finish method, that stack slot must be on top.
 
 A typical use looks something like this:
 
@@ -183,25 +181,27 @@ buf.addString(someString);
 buf.addChar(someChar);
 // ...
 auto strIdx = buf.finish();
-// The stack is how it was before we created the buffer, except with the result string is on top.
+// The stack is how it was before we created the buffer, except the resulting string is on top.
 -----
 */
 struct StrBuffer
 {
 private:
 	CrocThread* t;
-	uword numPieces;
+	word slot;
 	uword pos;
-	char[512] data;
+	char[1024] data;
 
 public:
 	/**
-	Create an instance of this struct. The struct is bound to a single thread.
+	Create an instance of this struct. The struct is bound to a single thread. This pushes a value to the thread's
+	stack.
 	*/
 	static StrBuffer opCall(CrocThread* t)
 	{
 		StrBuffer ret;
 		ret.t = t;
+		ret.start();
 		return ret;
 	}
 
@@ -210,7 +210,9 @@ public:
 	*/
 	void addChar(dchar c)
 	{
-		char[6] outbuf = void;
+		assert(slot != 0);
+
+		char[4] outbuf = void;
 		char[] s = void;
 
 		if(encodeUtf8Char(outbuf, c, s) != UtfError.OK)
@@ -228,49 +230,51 @@ public:
 	*/
 	void addString(char[] s)
 	{
-		// this code doesn't validate the data, but it'll get validated eventually
-		if(s.length <= (data.length - pos))
-		{
-			data[pos .. pos + s.length] = s[];
-			pos += s.length;
-		}
-		else
-		{
-			if(pos != 0)
-				flush();
+		assert(slot != 0);
 
-			pushString(t, s);
-			incPieces();
+		if(s.length > (data.length - pos))
+		{
+			if(s.length > data.length)
+			{
+				flush();
+				pushString(t, s);
+				addPiece();
+				return;
+			}
+
+			flush();
 		}
+
+		data[pos .. pos + s.length] = s[];
+		pos += s.length;
 	}
 
 	/**
-	Add the value on top of the stack to the buffer. This is the only function that breaks the
-	rule of leaving the stack balanced. For this function to work, you must have exactly one
-	value on top of the stack, and it must be a string or a char.
+	Add the value on top of the stack to the buffer. It must be a string or char, and it will be popped.
 	*/
 	void addTop()
 	{
+		assert(slot != 0);
+
 		if(isString(t, -1))
 		{
 			auto s = getString(t, -1);
 
-			if(s.length <= (data.length - pos))
+			if(s.length > (data.length - pos))
 			{
-				data[pos .. pos + s.length] = s[];
-				pos += s.length;
-				pop(t);
-			}
-			else
-			{
-				if(pos != 0)
+				if(s.length > data.length)
 				{
 					flush();
-					insert(t, -2);
+					addPiece();
+					return;
 				}
 
-				incPieces();
+				flush();
 			}
+
+			data[pos .. pos + s.length] = s[];
+			pos += s.length;
+			pop(t);
 		}
 		else if(isChar(t, -1))
 		{
@@ -296,20 +300,42 @@ public:
 	}
 
 	/**
-	Indicate that the string building is complete. This function will leave just the finished string
-	on top of the stack. The StrBuffer will also be in a state to build a new string if you so desire.
+	You can call this after calling finish so that you can reuse this object to build another string.
+	*/
+	void start()
+	{
+		assert(slot == 0);
+		slot = pushNull(t);
+	}
+
+	/**
+	Finish building the string. The stack slot that was pushed by the constructor or by start must be on top of the
+	stack. That slot will be replaced with the result string, and that slot index is returned.
 	*/
 	word finish()
 	{
-		flush();
+		assert(slot != 0);
 
-		auto num = numPieces;
-		numPieces = 0;
+		if(stackSize(t) - 1 != slot)
+			throwStdException(t, "ApiError", "Stack is not in the same configuration as when start() was called");
 
-		if(num == 0)
-			return pushString(t, "");
+		if(isNull(t, slot))
+		{
+			pop(t);
+			pushString(t, data[0 .. pos]);
+		}
 		else
-			return cat(t, num);
+		{
+			flush();
+			pushString(t, "");
+			pushNull(t);
+			moveToTop(t, slot);
+			methodCall(t, slot, "join", 1);
+		}
+
+		auto ret = slot;
+		slot = 0;
+		return ret;
 	}
 
 private:
@@ -320,19 +346,19 @@ private:
 
 		pushString(t, data[0 .. pos]);
 		pos = 0;
-
-		incPieces();
+		addPiece();
 	}
 
-	void incPieces()
+	void addPiece()
 	{
-		numPieces++;
-
-		if(numPieces > 50)
+		if(isNull(t, slot))
 		{
-			cat(t, numPieces);
-			numPieces = 1;
+			newArray(t, 0);
+			swap(t, slot);
+			pop(t);
 		}
+
+		cateq(t, slot, 1);
 	}
 }
 
