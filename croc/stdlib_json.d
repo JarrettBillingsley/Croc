@@ -26,15 +26,11 @@ subject to the following restrictions:
 
 module croc.stdlib_json;
 
-import tango.io.Console;
-import tango.io.device.Array;
-import tango.io.stream.Format;
-
 import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
 import croc.ex_json;
 import croc.ex_library;
-import croc.stdlib_stream;
 import croc.types;
 
 struct JSONLib
@@ -44,10 +40,8 @@ static:
 	{
 		makeModule(t, "json", function uword(CrocThread* t)
 		{
-			importModuleNoNS(t, "stream");
-
-			newFunction(t, 1, &fromJSON, "fromJSON");   newGlobal(t, "fromJSON");
-			newFunction(t, 2, &toJSON, "toJSON");       newGlobal(t, "toJSON");
+			newFunction(t, 1, &fromJSON,  "fromJSON");  newGlobal(t, "fromJSON");
+			newFunction(t, 2, &toJSON,    "toJSON");    newGlobal(t, "toJSON");
 			newFunction(t, 3, &writeJSON, "writeJSON"); newGlobal(t, "writeJSON");
 
 			return 0;
@@ -64,53 +58,17 @@ static:
 
 	uword toJSON(CrocThread* t)
 	{
-// 		static scope class CrocHeapBuffer : Array
-// 		{
-// 			Allocator* alloc;
-// 			uint increment;
-//
-// 			this(ref Allocator alloc)
-// 			{
-// 				super(null);
-//
-// 				this.alloc = &alloc;
-// 				setContent(alloc.allocArray!(ubyte)(1024), 0);
-// 				this.increment = 1024;
-// 			}
-//
-// 			~this()
-// 			{
-// 				alloc.freeArray(data);
-// 			}
-//
-// 			override uint fill(InputStream src)
-// 			{
-// 				if(writable <= increment / 8)
-// 					expand(increment);
-//
-// 				return write(&src.read);
-// 			}
-//
-// 			override uint expand(uint size)
-// 			{
-// 				if(size < increment)
-// 					size = increment;
-//
-// 				dimension += size;
-// 				alloc.resizeArray(data, dimension);
-// 				return writable;
-// 			}
-// 		}
-
 		checkAnyParam(t, 1);
 		auto pretty = optBoolParam(t, 2, false);
 
-		scope buf = new Array(256, 256);
-		scope printer = new FormatOutput!(char)(t.vm.formatter, buf);
+		auto buf = StrBuffer(t);
 
-		.toJSON(t, 1, pretty, printer);
+		void output(char[] s) { buf.addString(s); }
+		void newline() { buf.addString("\n"); }
 
-		pushString(t, safeCode(t, "exceptions.RuntimeException", cast(char[])buf.slice()));
+		.toJSON(t, 1, pretty, &output, &newline);
+
+		buf.finish();
 		return 1;
 	}
 
@@ -119,23 +77,28 @@ static:
 		checkParam(t, 1, CrocValue.Type.Instance);
 		checkAnyParam(t, 2);
 		auto pretty = optBoolParam(t, 3, false);
-		FormatOutput!(char) printer = void;
 
-		lookupCT!("stream.OutStream")(t);
+		if(!as(t, 1, -1))
+			paramTypeError(t, 1, "stream.TextWriter");
 
-		if(as(t, 1, -1))
-			printer = getMembers!(OutStreamObj.Members)(t, 1).print;
-		else
+		pop(t);
+
+		void output(char[] s)
 		{
-			lookupCT!("stream.InoutStream")(t);
-
-			if(as(t, 1, -1))
-				printer = getMembers!(InoutStreamObj.Members)(t, 1).print;
-			else
-				paramTypeError(t, 1, "OutStream|InoutStream");
+			dup(t, 1);
+			pushNull(t);
+			pushString(t, s);
+			methodCall(t, -3, "write", 0);
 		}
 
-		.toJSON(t, 2, pretty, printer);
+		void newline()
+		{
+			dup(t, 1);
+			pushNull(t);
+			methodCall(t, -2, "writeln", 0);
+		}
+
+		.toJSON(t, 2, pretty, &output, &newline);
 		return 0;
 	}
 

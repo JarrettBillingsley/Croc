@@ -61,31 +61,38 @@ word fromJSON(CrocThread* t, char[] source)
 	return ret;
 }
 
-void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
+void toJSON(CrocThread* t, word root, bool pretty, void delegate(char[]) output, void delegate() nl)
 {
 	root = absIndex(t, root);
 	auto cycles = newTable(t);
 
 	word indent = 0;
 
+	void printf(char[] fmt, ...)
+	{
+		pushVFormat(t, fmt, _arguments, _argptr);
+		output(getString(t, -1));
+		pop(t);
+	}
+
 	void newline(word dir = 0)
 	{
-		printer.newline;
+		nl();
 
 		if(dir > 0)
 			indent++;
 		else if(dir < 0)
 			indent--;
 
-		for(word i = indent; i > 0; i--)
-			printer.print("\t");
+		for(word i = 0; i < indent; i++)
+			output("\t");
 	}
 
 	void delegate(word) outputValue;
 
 	void outputTable(word tab)
 	{
-		printer.print("{");
+		output("{");
 
 		if(pretty)
 			newline(1);
@@ -102,7 +109,7 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 				first = false;
 			else
 			{
-				printer.print(",");
+				output(",");
 
 				if(pretty)
 					newline();
@@ -111,9 +118,9 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 			outputValue(k);
 
 			if(pretty)
-				printer.print(": ");
+				output(": ");
 			else
-				printer.print(":");
+				output(":");
 
 			outputValue(v);
 		}
@@ -121,12 +128,12 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 		if(pretty)
 			newline(-1);
 
-		printer.print("}");
+		output("}");
 	}
 
 	void outputArray(word arr)
 	{
-		printer.print("[");
+		output("[");
 
 		auto l = len(t, arr);
 
@@ -135,38 +142,44 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 			if(i > 0)
 			{
 				if(pretty)
-					printer.print(", ");
+					output(", ");
 				else
-					printer.print(",");
+					output(",");
 			}
 
 			outputValue(idxi(t, arr, i));
 			pop(t);
 		}
 
-		printer.print("]");
+		output("]");
 	}
 
 	void outputChar(dchar c)
 	{
 		switch(c)
 		{
-			case '\b': printer.print("\\b"); return;
-			case '\f': printer.print("\\f"); return;
-			case '\n': printer.print("\\n"); return;
-			case '\r': printer.print("\\r"); return;
-			case '\t': printer.print("\\t"); return;
-
-			case '"', '\\', '/':
-				printer.print("\\");
-				printer.print(c);
-				return;
+			case '\b': output("\\b");  return;
+			case '\f': output("\\f");  return;
+			case '\n': output("\\n");  return;
+			case '\r': output("\\r");  return;
+			case '\t': output("\\t");  return;
+			case '"':  output("\\\""); return;
+			case '\\': output("\\\\"); return;
+			case '/':  output("\\/");  return;
 
 			default:
 				if(c > 0x7f)
-					printer.format("\\u{:x4}", cast(int)c);
+					printf("\\u{:x4}", cast(int)c);
 				else
-					printer.print(c);
+				{
+					char[4] buf = void;
+					char[] ret = void;
+
+					if(encodeUtf8Char(buf, c, ret) != UtfError.OK)
+						throwStdException(t, "ValueException", "Invalid character U+{:X6}", cast(uint)c);
+
+					output(ret);
+				}
 
 				return;
 		}
@@ -177,34 +190,34 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 		switch(type(t, idx))
 		{
 			case CrocValue.Type.Null:
-				printer.print("null");
+				output("null");
 				break;
 
 			case CrocValue.Type.Bool:
-				printer.print(getBool(t, idx) ? "true" : "false");
+				output(getBool(t, idx) ? "true" : "false");
 				break;
 
 			case CrocValue.Type.Int:
-				printer.format("{}", getInt(t, idx));
+				printf("{}", getInt(t, idx));
 				break;
 
 			case CrocValue.Type.Float:
-				printer.format("{}", getFloat(t, idx));
+				printf("{}", getFloat(t, idx));
 				break;
 
 			case CrocValue.Type.Char:
-				printer.print('"');
+				output("\"");
 				outputChar(getChar(t, idx));
-				printer.print('"');
+				output("\"");
 				break;
 
 			case CrocValue.Type.String:
-				printer.print('"');
+				output("\"");
 
 				foreach(dchar c; getString(t, idx))
 					outputChar(c);
 
-				printer.print('"');
+				output("\"");
 				break;
 
 			case CrocValue.Type.Table:
@@ -261,7 +274,6 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 		throwStdException(t, "TypeException", "Root element must be either a table or an array, not a '{}'", getString(t, -1));
 	}
 
-	printer.flush();
 	pop(t);
 }
 

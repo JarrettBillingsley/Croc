@@ -54,7 +54,7 @@ import croc.stdlib_exceptions;
 // import croc.stdlib_file;
 import croc.stdlib_gc;
 import croc.stdlib_hash;
-// import croc.stdlib_json;
+import croc.stdlib_json;
 import croc.stdlib_math;
 import croc.stdlib_memblock;
 import croc.stdlib_modules;
@@ -161,7 +161,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	CompilerLib.init(t);
 	initConsoleLib(t); // depends on stream
 	initEnvLib(t);
-	// JSONLib.init(t); // depends on stream
+	JSONLib.init(t); // depends on stream
 	initPathLib(t);
 	// SerializationLib.init(t); // depends on stream
 	ThreadLib.init(t);
