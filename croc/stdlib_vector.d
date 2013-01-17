@@ -50,7 +50,7 @@ void initVector(CrocThread* t)
 {
 	CreateClass(t, "Vector", (CreateClass* c)
 	{
-		pushNull(t);   c.field("_m");
+		pushNull(t);   c.field("_data");
 		pushInt(t, 0); c.field("_kind");
 		pushInt(t, 0); c.field("_itemLength");
 
@@ -117,10 +117,10 @@ void initVector(CrocThread* t)
 		c.method("revMod",         1, &_revMod);
 	});
 
-	field(t, -1, "fillRange");   fielda(t, -2, "opSliceAssign");
-	field(t, -1, "opCatAssign"); fielda(t, -2, "append");
-	field(t, -1, "opAdd");       fielda(t, -2, "opAdd_r");
-	field(t, -1, "opMul");       fielda(t, -2, "opMul_r");
+	field(t, -1, "fillRange");   addMethod(t, -2, "opSliceAssign");
+	field(t, -1, "opCatAssign"); addMethod(t, -2, "append");
+	field(t, -1, "opAdd");       addMethod(t, -2, "opAdd_r");
+	field(t, -1, "opMul");       addMethod(t, -2, "opMul_r");
 
 	newGlobal(t, "Vector");
 }
@@ -176,50 +176,54 @@ const TypeStruct[] _typeStructs =
 	TypeCode.f64: { TypeCode.f64, 8, 3, "f64" }
 ];
 
+const Data = "Vector_data";
+const Kind = "Vector_kind";
+const ItemLength = "Vector_itemLength";
+
 struct Members
 {
-	CrocMemblock* m; // redundantly stored here for convenience
+	CrocMemblock* data;
 	TypeStruct* kind;
 	uword itemLength;
 }
 
-CrocValue _rawIndex(Members* m, uword idx)
+CrocValue _rawIndex(ref Members m, uword idx)
 {
 	assert(idx < m.itemLength);
 
 	switch(m.kind.code)
 	{
-		case TypeCode.i8:  return CrocValue(cast(crocint)(cast(byte*)m.m.data.ptr)[idx]);
-		case TypeCode.i16: return CrocValue(cast(crocint)(cast(short*)m.m.data.ptr)[idx]);
-		case TypeCode.i32: return CrocValue(cast(crocint)(cast(int*)m.m.data.ptr)[idx]);
-		case TypeCode.i64: return CrocValue(cast(crocint)(cast(long*)m.m.data.ptr)[idx]);
-		case TypeCode.u8:  return CrocValue(cast(crocint)(cast(ubyte*)m.m.data.ptr)[idx]);
-		case TypeCode.u16: return CrocValue(cast(crocint)(cast(ushort*)m.m.data.ptr)[idx]);
-		case TypeCode.u32: return CrocValue(cast(crocint)(cast(uint*)m.m.data.ptr)[idx]);
-		case TypeCode.u64: return CrocValue(cast(crocint)(cast(ulong*)m.m.data.ptr)[idx]);
-		case TypeCode.f32: return CrocValue(cast(crocfloat)(cast(float*)m.m.data.ptr)[idx]);
-		case TypeCode.f64: return CrocValue(cast(crocfloat)(cast(double*)m.m.data.ptr)[idx]);
+		case TypeCode.i8:  return CrocValue(cast(crocint)(cast(byte*)m.data.data.ptr)[idx]);
+		case TypeCode.i16: return CrocValue(cast(crocint)(cast(short*)m.data.data.ptr)[idx]);
+		case TypeCode.i32: return CrocValue(cast(crocint)(cast(int*)m.data.data.ptr)[idx]);
+		case TypeCode.i64: return CrocValue(cast(crocint)(cast(long*)m.data.data.ptr)[idx]);
+		case TypeCode.u8:  return CrocValue(cast(crocint)(cast(ubyte*)m.data.data.ptr)[idx]);
+		case TypeCode.u16: return CrocValue(cast(crocint)(cast(ushort*)m.data.data.ptr)[idx]);
+		case TypeCode.u32: return CrocValue(cast(crocint)(cast(uint*)m.data.data.ptr)[idx]);
+		case TypeCode.u64: return CrocValue(cast(crocint)(cast(ulong*)m.data.data.ptr)[idx]);
+		case TypeCode.f32: return CrocValue(cast(crocfloat)(cast(float*)m.data.data.ptr)[idx]);
+		case TypeCode.f64: return CrocValue(cast(crocfloat)(cast(double*)m.data.data.ptr)[idx]);
 
 		default: assert(false);
 	}
 }
 
-void _rawIndexAssign(Members* m, uword idx, CrocValue val)
+void _rawIndexAssign(ref Members m, uword idx, CrocValue val)
 {
 	assert(idx < m.itemLength);
 
 	switch(m.kind.code)
 	{
-		case TypeCode.i8:  return (cast(byte*)m.m.data.ptr)[idx]   = cast(byte)val.mInt;
-		case TypeCode.i16: return (cast(short*)m.m.data.ptr)[idx]  = cast(short)val.mInt;
-		case TypeCode.i32: return (cast(int*)m.m.data.ptr)[idx]    = cast(int)val.mInt;
-		case TypeCode.i64: return (cast(long*)m.m.data.ptr)[idx]   = cast(long)val.mInt;
-		case TypeCode.u8:  return (cast(ubyte*)m.m.data.ptr)[idx]  = cast(ubyte)val.mInt;
-		case TypeCode.u16: return (cast(ushort*)m.m.data.ptr)[idx] = cast(ushort)val.mInt;
-		case TypeCode.u32: return (cast(uint*)m.m.data.ptr)[idx]   = cast(uint)val.mInt;
-		case TypeCode.u64: return (cast(ulong*)m.m.data.ptr)[idx]  = cast(ulong)val.mInt;
-		case TypeCode.f32: return (cast(float*)m.m.data.ptr)[idx]  = val.type == CrocValue.Type.Int ? cast(float)val.mInt  : cast(float)val.mFloat;
-		case TypeCode.f64: return (cast(double*)m.m.data.ptr)[idx] = val.type == CrocValue.Type.Int ? cast(double)val.mInt : cast(double)val.mFloat;
+		case TypeCode.i8:  return (cast(byte*)m.data.data.ptr)[idx]   = cast(byte)val.mInt;
+		case TypeCode.i16: return (cast(short*)m.data.data.ptr)[idx]  = cast(short)val.mInt;
+		case TypeCode.i32: return (cast(int*)m.data.data.ptr)[idx]    = cast(int)val.mInt;
+		case TypeCode.i64: return (cast(long*)m.data.data.ptr)[idx]   = cast(long)val.mInt;
+		case TypeCode.u8:  return (cast(ubyte*)m.data.data.ptr)[idx]  = cast(ubyte)val.mInt;
+		case TypeCode.u16: return (cast(ushort*)m.data.data.ptr)[idx] = cast(ushort)val.mInt;
+		case TypeCode.u32: return (cast(uint*)m.data.data.ptr)[idx]   = cast(uint)val.mInt;
+		case TypeCode.u64: return (cast(ulong*)m.data.data.ptr)[idx]  = cast(ulong)val.mInt;
+		case TypeCode.f32: return (cast(float*)m.data.data.ptr)[idx]  = val.type == CrocValue.Type.Int ? cast(float)val.mInt  : cast(float)val.mFloat;
+		case TypeCode.f64: return (cast(double*)m.data.data.ptr)[idx] = val.type == CrocValue.Type.Int ? cast(double)val.mInt : cast(double)val.mFloat;
 
 		default: assert(false);
 	}
@@ -229,28 +233,31 @@ Members _getMembers(CrocThread* t, uword slot = 0)
 {
 	Members ret = void;
 
-	field(t, slot, "Vector_m");
+	field(t, slot, Data);
 	assert(!isNull(t, -1));
-	ret.m = getMemblock(t, -1);
+	ret.data = getMemblock(t, -1);
 	pop(t);
 
-	field(t, slot, "Vector_kind");
+	field(t, slot, Kind);
 	ret.kind = cast(TypeStruct*)getInt(t, -1);
 	pop(t);
 
-	uword len = ret.m.data.length >> ret.kind.sizeShift;
+	uword len = ret.data.data.length >> ret.kind.sizeShift;
 
-	if(len << ret.kind.sizeShift != ret.m.data.length)
+	if(len << ret.kind.sizeShift != ret.data.data.length)
 		throwStdException(t, "ValueException", "Vector's underlying memblock length is not an even multiple of its item size");
 
 	pushInt(t, len);
-	fielda(t, slot, "Vector_itemLength");
+	fielda(t, slot, ItemLength);
 	ret.itemLength = len;
 
 	return ret;
 }
 
-/*word memblockFromDArray(_T)(CrocThread* t, _T[] arr)
+/*
+TODO: these
+
+word memblockFromDArray(_T)(CrocThread* t, _T[] arr)
 {
 	alias realType!(_T) T;
 
@@ -343,9 +350,9 @@ uword _constructor(CrocThread* t)
 {
 	checkInstParam(t, 0, "Vector");
 
-	field(t, 0, "Vector_m");
+	field(t, 0, Data);
 
-	if(isNull(t, -1))
+	if(!isNull(t, -1))
 		throwStdException(t, "StateException", "Attempting to call the constructor on an already-initialized Vector");
 
 	pop(t);
@@ -355,14 +362,18 @@ uword _constructor(CrocThread* t)
 	if(kind is null)
 		throwStdException(t, "ValueException", "Invalid type code '{}'", getString(t, 1));
 
+	pushInt(t, cast(crocint)kind);
+	fielda(t, 0, Kind);
+
 	auto size = checkIntParam(t, 2);
 
 	if(size < 0 || size > uword.max)
 		throwStdException(t, "RangeException", "Invalid size ({})", size);
 
-	newMemblock(t, cast(uword)size * self.kind.itemSize);
-	self.m = getMemblock(t, -1);
-	setExtraVal(t, 0, Data);
+	newMemblock(t, cast(uword)size * kind.itemSize);
+	fielda(t, 0, Data);
+	pushInt(t, size);
+	fielda(t, 0, ItemLength);
 
 	if(isValidIndex(t, 3))
 	{
@@ -484,7 +495,8 @@ uword _type(CrocThread* t)
 		if(byteSize % ts.itemSize != 0)
 			throwStdException(t, "ValueException", "Vector's byte size is not an even multiple of new type's item size");
 
-		m.kind = ts;
+		pushInt(t, cast(crocint)ts);
+		fielda(t, 0, Kind);
 		return 0;
 	}
 }
@@ -564,7 +576,7 @@ uword _toString(CrocThread* t)
 uword _getMemblock(CrocThread* t)
 {
 	auto m = _getMembers(t);
-	push(t, CrocValue(m.m));
+	push(t, CrocValue(m.data));
 	return 1;
 }
 
@@ -580,7 +592,7 @@ uword _dup(CrocThread* t)
 
 	auto n = _getMembers(t, -1);
 	auto byteSize = m.itemLength * m.kind.itemSize;
-	(cast(ubyte*)n.m.data)[0 .. byteSize] = (cast(ubyte*)m.m.data)[0 .. byteSize];
+	(cast(ubyte*)n.data.data)[0 .. byteSize] = (cast(ubyte*)m.data.data)[0 .. byteSize];
 
 	return 1;
 }
@@ -591,10 +603,10 @@ uword _reverse(CrocThread* t)
 
 	switch(m.kind.itemSize)
 	{
-		case 1: (cast(ubyte*)m.m.data) [0 .. m.itemLength].reverse; break;
-		case 2: (cast(ushort*)m.m.data)[0 .. m.itemLength].reverse; break;
-		case 4: (cast(uint*)m.m.data)  [0 .. m.itemLength].reverse; break;
-		case 8: (cast(ulong*)m.m.data) [0 .. m.itemLength].reverse; break;
+		case 1: (cast(ubyte*)m.data.data) [0 .. m.itemLength].reverse; break;
+		case 2: (cast(ushort*)m.data.data)[0 .. m.itemLength].reverse; break;
+		case 4: (cast(uint*)m.data.data)  [0 .. m.itemLength].reverse; break;
+		case 8: (cast(ulong*)m.data.data) [0 .. m.itemLength].reverse; break;
 
 		default:
 			throwStdException(t, "ValueException", "A Vector type must've been added that doesn't have 1-, 2-, 4-, or 8-byte elements, so I don't know how to reverse it.");
@@ -610,16 +622,16 @@ uword _sort(CrocThread* t)
 
 	switch(m.kind.code)
 	{
-		case TypeCode.i8:  (cast(byte*)m.m.data)  [0 .. m.itemLength].sort; break;
-		case TypeCode.i16: (cast(short*)m.m.data) [0 .. m.itemLength].sort; break;
-		case TypeCode.i32: (cast(int*)m.m.data)   [0 .. m.itemLength].sort; break;
-		case TypeCode.i64: (cast(long*)m.m.data)  [0 .. m.itemLength].sort; break;
-		case TypeCode.u8:  (cast(ubyte*)m.m.data) [0 .. m.itemLength].sort; break;
-		case TypeCode.u16: (cast(ushort*)m.m.data)[0 .. m.itemLength].sort; break;
-		case TypeCode.u32: (cast(uint*)m.m.data)  [0 .. m.itemLength].sort; break;
-		case TypeCode.u64: (cast(ulong*)m.m.data) [0 .. m.itemLength].sort; break;
-		case TypeCode.f32: (cast(float*)m.m.data) [0 .. m.itemLength].sort; break;
-		case TypeCode.f64: (cast(double*)m.m.data)[0 .. m.itemLength].sort; break;
+		case TypeCode.i8:  (cast(byte*)m.data.data)  [0 .. m.itemLength].sort; break;
+		case TypeCode.i16: (cast(short*)m.data.data) [0 .. m.itemLength].sort; break;
+		case TypeCode.i32: (cast(int*)m.data.data)   [0 .. m.itemLength].sort; break;
+		case TypeCode.i64: (cast(long*)m.data.data)  [0 .. m.itemLength].sort; break;
+		case TypeCode.u8:  (cast(ubyte*)m.data.data) [0 .. m.itemLength].sort; break;
+		case TypeCode.u16: (cast(ushort*)m.data.data)[0 .. m.itemLength].sort; break;
+		case TypeCode.u32: (cast(uint*)m.data.data)  [0 .. m.itemLength].sort; break;
+		case TypeCode.u64: (cast(ulong*)m.data.data) [0 .. m.itemLength].sort; break;
+		case TypeCode.f32: (cast(float*)m.data.data) [0 .. m.itemLength].sort; break;
+		case TypeCode.f64: (cast(double*)m.data.data)[0 .. m.itemLength].sort; break;
 		default: assert(false);
 	}
 
@@ -711,16 +723,16 @@ uword _max(CrocThread* t)
 
 	switch(m.kind.code)
 	{
-		case TypeCode.i8:  pushInt(t, minMaxImpl!(">")(cast(byte[])m.m.data));     break;
-		case TypeCode.i16: pushInt(t, minMaxImpl!(">")(cast(short[])m.m.data));    break;
-		case TypeCode.i32: pushInt(t, minMaxImpl!(">")(cast(int[])m.m.data));      break;
-		case TypeCode.i64: pushInt(t, minMaxImpl!(">")(cast(long[])m.m.data));     break;
-		case TypeCode.u8:  pushInt(t, minMaxImpl!(">")(cast(ubyte[])m.m.data));    break;
-		case TypeCode.u16: pushInt(t, minMaxImpl!(">")(cast(ushort[])m.m.data));   break;
-		case TypeCode.u32: pushInt(t, minMaxImpl!(">")(cast(uint[])m.m.data));     break;
-		case TypeCode.u64: pushInt(t, cast(crocint)minMaxImpl!(">")(cast(ulong[])m.m.data)); break;
-		case TypeCode.f32: pushFloat(t, minMaxImpl!(">")(cast(float[])m.m.data));  break;
-		case TypeCode.f64: pushFloat(t, minMaxImpl!(">")(cast(double[])m.m.data)); break;
+		case TypeCode.i8:  pushInt(t, minMaxImpl!(">")(cast(byte[])m.data.data));     break;
+		case TypeCode.i16: pushInt(t, minMaxImpl!(">")(cast(short[])m.data.data));    break;
+		case TypeCode.i32: pushInt(t, minMaxImpl!(">")(cast(int[])m.data.data));      break;
+		case TypeCode.i64: pushInt(t, minMaxImpl!(">")(cast(long[])m.data.data));     break;
+		case TypeCode.u8:  pushInt(t, minMaxImpl!(">")(cast(ubyte[])m.data.data));    break;
+		case TypeCode.u16: pushInt(t, minMaxImpl!(">")(cast(ushort[])m.data.data));   break;
+		case TypeCode.u32: pushInt(t, minMaxImpl!(">")(cast(uint[])m.data.data));     break;
+		case TypeCode.u64: pushInt(t, cast(crocint)minMaxImpl!(">")(cast(ulong[])m.data.data)); break;
+		case TypeCode.f32: pushFloat(t, minMaxImpl!(">")(cast(float[])m.data.data));  break;
+		case TypeCode.f64: pushFloat(t, minMaxImpl!(">")(cast(double[])m.data.data)); break;
 		default: assert(false);
 	}
 
@@ -736,16 +748,16 @@ uword _min(CrocThread* t)
 
 	switch(m.kind.code)
 	{
-		case TypeCode.i8:  pushInt(t, minMaxImpl!("<")(cast(byte[])m.m.data));     break;
-		case TypeCode.i16: pushInt(t, minMaxImpl!("<")(cast(short[])m.m.data));    break;
-		case TypeCode.i32: pushInt(t, minMaxImpl!("<")(cast(int[])m.m.data));      break;
-		case TypeCode.i64: pushInt(t, minMaxImpl!("<")(cast(long[])m.m.data));     break;
-		case TypeCode.u8:  pushInt(t, minMaxImpl!("<")(cast(ubyte[])m.m.data));    break;
-		case TypeCode.u16: pushInt(t, minMaxImpl!("<")(cast(ushort[])m.m.data));   break;
-		case TypeCode.u32: pushInt(t, minMaxImpl!("<")(cast(uint[])m.m.data));     break;
-		case TypeCode.u64: pushInt(t, cast(crocint)minMaxImpl!("<")(cast(ulong[])m.m.data)); break;
-		case TypeCode.f32: pushFloat(t, minMaxImpl!("<")(cast(float[])m.m.data));  break;
-		case TypeCode.f64: pushFloat(t, minMaxImpl!("<")(cast(double[])m.m.data)); break;
+		case TypeCode.i8:  pushInt(t, minMaxImpl!("<")(cast(byte[])m.data.data));     break;
+		case TypeCode.i16: pushInt(t, minMaxImpl!("<")(cast(short[])m.data.data));    break;
+		case TypeCode.i32: pushInt(t, minMaxImpl!("<")(cast(int[])m.data.data));      break;
+		case TypeCode.i64: pushInt(t, minMaxImpl!("<")(cast(long[])m.data.data));     break;
+		case TypeCode.u8:  pushInt(t, minMaxImpl!("<")(cast(ubyte[])m.data.data));    break;
+		case TypeCode.u16: pushInt(t, minMaxImpl!("<")(cast(ushort[])m.data.data));   break;
+		case TypeCode.u32: pushInt(t, minMaxImpl!("<")(cast(uint[])m.data.data));     break;
+		case TypeCode.u64: pushInt(t, cast(crocint)minMaxImpl!("<")(cast(ulong[])m.data.data)); break;
+		case TypeCode.f32: pushFloat(t, minMaxImpl!("<")(cast(float[])m.data.data));  break;
+		case TypeCode.f64: pushFloat(t, minMaxImpl!("<")(cast(double[])m.data.data)); break;
 		default: assert(false);
 	}
 
@@ -759,7 +771,7 @@ uword _insert(CrocThread* t)
 	auto idx = checkIntParam(t, 1);
 	checkAnyParam(t, 2);
 
-	if(!m.m.ownData)
+	if(!m.data.ownData)
 		throwStdException(t, "ValueException", "Attempting to insert into a Vector which does not own its data");
 
 	if(idx < 0)
@@ -779,20 +791,22 @@ uword _insert(CrocThread* t)
 		auto oldLen = len;
 		auto isize = m.kind.itemSize;
 
-		push(t, CrocValue(m.m));
+		push(t, CrocValue(m.data));
 		lenai(t, -1, cast(uword)totalLen * isize);
 		pop(t);
 
 		m.itemLength = cast(uword)totalLen;
+		pushInt(t, m.itemLength);
+		fielda(t, 0, ItemLength);
 
 		if(idx < oldLen)
 		{
 			auto end = idx + otherLen;
 			auto numLeft = oldLen - idx;
-			memmove(&m.m.data[cast(uword)end * isize], &m.m.data[cast(uword)idx * isize], cast(uint)(numLeft * isize));
+			memmove(&m.data.data[cast(uword)end * isize], &m.data.data[cast(uword)idx * isize], cast(uint)(numLeft * isize));
 		}
 
-		return m.m.data[cast(uword)idx * isize.. cast(uword)(idx + otherLen) * isize];
+		return m.data.data[cast(uword)idx * isize.. cast(uword)(idx + otherLen) * isize];
 	}
 
 	pushGlobal(t, "Vector");
@@ -806,7 +820,7 @@ uword _insert(CrocThread* t)
 			if(m.itemLength != 0)
 			{
 				auto slice = doResize(len);
-				auto data = m.m.data;
+				auto data = m.data.data;
 				auto isize = m.kind.itemSize;
 				slice[0 .. cast(uword)idx * isize] = data[0 .. cast(uword)idx * isize];
 				slice[cast(uword)idx * isize .. $] = data[cast(uword)(idx + len) * isize .. $];
@@ -822,7 +836,7 @@ uword _insert(CrocThread* t)
 			if(other.itemLength != 0)
 			{
 				auto slice = doResize(other.itemLength);
-				memcpy(slice.ptr, other.m.data.ptr, other.itemLength * m.kind.itemSize);
+				memcpy(slice.ptr, other.data.data.ptr, other.itemLength * m.kind.itemSize);
 			}
 		}
 	}
@@ -845,7 +859,7 @@ uword _remove(CrocThread* t)
 {
 	auto m = _getMembers(t);
 
-	if(!m.m.ownData)
+	if(!m.data.ownData)
 		throwStdException(t, "ValueException", "Attempting to remove from a Vector which does not own its data");
 
 	if(m.itemLength == 0)
@@ -868,12 +882,13 @@ uword _remove(CrocThread* t)
 		auto isize = m.kind.itemSize;
 
 		if(hi < m.itemLength)
-			memmove(&m.m.data[cast(uword)lo * isize], &m.m.data[cast(uword)hi * isize], cast(uint)((m.itemLength - hi) * isize));
+			memmove(&m.data.data[cast(uword)lo * isize], &m.data.data[cast(uword)hi * isize], cast(uint)((m.itemLength - hi) * isize));
 
 		auto diff = hi - lo;
-		push(t, CrocValue(m.m));
+		push(t, CrocValue(m.data));
 		lenai(t, -1, cast(uword)((m.itemLength - diff) * isize));
 		pop(t);
+		// don't have to update ItemLength here cause _getMembers does that on every method call
 	}
 
 	dup(t, 0);
@@ -884,7 +899,7 @@ uword _pop(CrocThread* t)
 {
 	auto m = _getMembers(t);
 
-	if(!m.m.ownData)
+	if(!m.data.ownData)
 		throwStdException(t, "ValueException", "Attempting to pop from a Vector which does not own its data");
 
 	if(m.itemLength == 0)
@@ -903,9 +918,9 @@ uword _pop(CrocThread* t)
 	auto isize = m.kind.itemSize;
 
 	if(index < m.itemLength - 1)
-		memmove(&m.m.data[cast(uword)index * isize], &m.m.data[(cast(uword)index + 1) * isize], cast(uint)((m.itemLength - index - 1) * isize));
+		memmove(&m.data.data[cast(uword)index * isize], &m.data.data[(cast(uword)index + 1) * isize], cast(uint)((m.itemLength - index - 1) * isize));
 
-	push(t, CrocValue(m.m));
+	push(t, CrocValue(m.data));
 	lenai(t, -1, (m.itemLength - 1) * isize);
 	pop(t);
 
@@ -922,14 +937,14 @@ uword _sum(CrocThread* t)
 
 		switch(m.kind.code)
 		{
-			case TypeCode.i8:  foreach(val; cast(byte[])m.m.data)   res += val; break;
-			case TypeCode.i16: foreach(val; cast(short[])m.m.data)  res += val; break;
-			case TypeCode.i32: foreach(val; cast(int[])m.m.data)    res += val; break;
-			case TypeCode.i64: foreach(val; cast(long[])m.m.data)   res += val; break;
-			case TypeCode.u8:  foreach(val; cast(ubyte[])m.m.data)  res += val; break;
-			case TypeCode.u16: foreach(val; cast(ushort[])m.m.data) res += val; break;
-			case TypeCode.u32: foreach(val; cast(uint[])m.m.data)   res += val; break;
-			case TypeCode.u64: foreach(val; cast(ulong[])m.m.data)  res += val; break;
+			case TypeCode.i8:  foreach(val; cast(byte[])m.data.data)   res += val; break;
+			case TypeCode.i16: foreach(val; cast(short[])m.data.data)  res += val; break;
+			case TypeCode.i32: foreach(val; cast(int[])m.data.data)    res += val; break;
+			case TypeCode.i64: foreach(val; cast(long[])m.data.data)   res += val; break;
+			case TypeCode.u8:  foreach(val; cast(ubyte[])m.data.data)  res += val; break;
+			case TypeCode.u16: foreach(val; cast(ushort[])m.data.data) res += val; break;
+			case TypeCode.u32: foreach(val; cast(uint[])m.data.data)   res += val; break;
+			case TypeCode.u64: foreach(val; cast(ulong[])m.data.data)  res += val; break;
 			default: assert(false);
 		}
 
@@ -941,8 +956,8 @@ uword _sum(CrocThread* t)
 
 		switch(m.kind.code)
 		{
-			case TypeCode.f32: foreach(val; cast(float[])m.m.data)  res += val; break;
-			case TypeCode.f64: foreach(val; cast(double[])m.m.data) res += val; break;
+			case TypeCode.f32: foreach(val; cast(float[])m.data.data)  res += val; break;
+			case TypeCode.f64: foreach(val; cast(double[])m.data.data) res += val; break;
 			default: assert(false);
 		}
 
@@ -962,14 +977,14 @@ uword _product(CrocThread* t)
 
 		switch(m.kind.code)
 		{
-			case TypeCode.i8:  foreach(val; cast(byte[])m.m.data)   res *= val; break;
-			case TypeCode.i16: foreach(val; cast(short[])m.m.data)  res *= val; break;
-			case TypeCode.i32: foreach(val; cast(int[])m.m.data)    res *= val; break;
-			case TypeCode.i64: foreach(val; cast(long[])m.m.data)   res *= val; break;
-			case TypeCode.u8:  foreach(val; cast(ubyte[])m.m.data)  res *= val; break;
-			case TypeCode.u16: foreach(val; cast(ushort[])m.m.data) res *= val; break;
-			case TypeCode.u32: foreach(val; cast(uint[])m.m.data)   res *= val; break;
-			case TypeCode.u64: foreach(val; cast(ulong[])m.m.data)  res *= val; break;
+			case TypeCode.i8:  foreach(val; cast(byte[])m.data.data)   res *= val; break;
+			case TypeCode.i16: foreach(val; cast(short[])m.data.data)  res *= val; break;
+			case TypeCode.i32: foreach(val; cast(int[])m.data.data)    res *= val; break;
+			case TypeCode.i64: foreach(val; cast(long[])m.data.data)   res *= val; break;
+			case TypeCode.u8:  foreach(val; cast(ubyte[])m.data.data)  res *= val; break;
+			case TypeCode.u16: foreach(val; cast(ushort[])m.data.data) res *= val; break;
+			case TypeCode.u32: foreach(val; cast(uint[])m.data.data)   res *= val; break;
+			case TypeCode.u64: foreach(val; cast(ulong[])m.data.data)  res *= val; break;
 			default: assert(false);
 		}
 
@@ -981,8 +996,8 @@ uword _product(CrocThread* t)
 
 		switch(m.kind.code)
 		{
-			case TypeCode.f32: foreach(val; cast(float[])m.m.data)  res *= val; break;
-			case TypeCode.f64: foreach(val; cast(double[])m.m.data) res *= val; break;
+			case TypeCode.f32: foreach(val; cast(float[])m.data.data)  res *= val; break;
+			case TypeCode.f64: foreach(val; cast(double[])m.data.data) res *= val; break;
 			default: assert(false);
 		}
 
@@ -1030,15 +1045,15 @@ uword _copyRange(CrocThread* t)
 	auto isize = m.kind.itemSize;
 
 	if(opis(t, 0, 3))
-		memmove(&m.m.data[cast(uword)lo * isize], &other.m.data[cast(uword)lo2 * isize], cast(uword)(hi - lo) * isize);
+		memmove(&m.data.data[cast(uword)lo * isize], &other.data.data[cast(uword)lo2 * isize], cast(uword)(hi - lo) * isize);
 	else
-		memcpy(&m.m.data[cast(uword)lo * isize], &other.m.data[cast(uword)lo2 * isize], cast(uword)(hi - lo) * isize);
+		memcpy(&m.data.data[cast(uword)lo * isize], &other.data.data[cast(uword)lo2 * isize], cast(uword)(hi - lo) * isize);
 
 	dup(t, 0);
 	return 1;
 }
 
-void fillImpl(CrocThread* t, Members* m, word filler, uword lo, uword hi)
+void fillImpl(CrocThread* t, ref Members m, word filler, uword lo, uword hi)
 {
 	pushGlobal(t, "Vector");
 
@@ -1052,11 +1067,11 @@ void fillImpl(CrocThread* t, Members* m, word filler, uword lo, uword hi)
 		if(other.itemLength != (hi - lo))
 			throwStdException(t, "ValueException", "Length of destination ({}) and length of source ({}) do not match", hi - lo, other.itemLength);
 
-		if(m is other)
+		if(m.data is other.data)
 			return; // only way this can be is if we're assigning a Vector's entire contents into itself, which is a no-op.
 
 		auto isize = m.kind.itemSize;
-		memcpy(&m.m.data[lo * isize], other.m.data.ptr, other.itemLength * isize);
+		memcpy(&m.data.data[lo * isize], other.data.data.ptr, other.itemLength * isize);
 	}
 	else if(isFunction(t, filler))
 	{
@@ -1105,16 +1120,16 @@ void fillImpl(CrocThread* t, Members* m, word filler, uword lo, uword hi)
 	{
 		switch(m.kind.code)
 		{
-			case TypeCode.i8:  auto val = checkIntParam(t, filler); (cast(byte[])  m.m.data)[lo .. hi] = cast(byte)val;   break;
-			case TypeCode.i16: auto val = checkIntParam(t, filler); (cast(short[]) m.m.data)[lo .. hi] = cast(short)val;  break;
-			case TypeCode.i32: auto val = checkIntParam(t, filler); (cast(int[])   m.m.data)[lo .. hi] = cast(int)val;    break;
-			case TypeCode.i64: auto val = checkIntParam(t, filler); (cast(long[])  m.m.data)[lo .. hi] = cast(long)val;   break;
-			case TypeCode.u8:  auto val = checkIntParam(t, filler); (cast(ubyte[]) m.m.data)[lo .. hi] = cast(ubyte)val;  break;
-			case TypeCode.u16: auto val = checkIntParam(t, filler); (cast(ushort[])m.m.data)[lo .. hi] = cast(ushort)val; break;
-			case TypeCode.u32: auto val = checkIntParam(t, filler); (cast(uint[])  m.m.data)[lo .. hi] = cast(uint)val;   break;
-			case TypeCode.u64: auto val = checkIntParam(t, filler); (cast(ulong[]) m.m.data)[lo .. hi] = cast(ulong)val;  break;
-			case TypeCode.f32: auto val = checkNumParam(t, filler); (cast(float[]) m.m.data)[lo .. hi] = cast(float)val;  break;
-			case TypeCode.f64: auto val = checkNumParam(t, filler); (cast(double[])m.m.data)[lo .. hi] = cast(double)val; break;
+			case TypeCode.i8:  auto val = checkIntParam(t, filler); (cast(byte[])  m.data.data)[lo .. hi] = cast(byte)val;   break;
+			case TypeCode.i16: auto val = checkIntParam(t, filler); (cast(short[]) m.data.data)[lo .. hi] = cast(short)val;  break;
+			case TypeCode.i32: auto val = checkIntParam(t, filler); (cast(int[])   m.data.data)[lo .. hi] = cast(int)val;    break;
+			case TypeCode.i64: auto val = checkIntParam(t, filler); (cast(long[])  m.data.data)[lo .. hi] = cast(long)val;   break;
+			case TypeCode.u8:  auto val = checkIntParam(t, filler); (cast(ubyte[]) m.data.data)[lo .. hi] = cast(ubyte)val;  break;
+			case TypeCode.u16: auto val = checkIntParam(t, filler); (cast(ushort[])m.data.data)[lo .. hi] = cast(ushort)val; break;
+			case TypeCode.u32: auto val = checkIntParam(t, filler); (cast(uint[])  m.data.data)[lo .. hi] = cast(uint)val;   break;
+			case TypeCode.u64: auto val = checkIntParam(t, filler); (cast(ulong[]) m.data.data)[lo .. hi] = cast(ulong)val;  break;
+			case TypeCode.f32: auto val = checkNumParam(t, filler); (cast(float[]) m.data.data)[lo .. hi] = cast(float)val;  break;
+			case TypeCode.f64: auto val = checkNumParam(t, filler); (cast(double[])m.data.data)[lo .. hi] = cast(double)val; break;
 			default: assert(false);
 		}
 	}
@@ -1208,8 +1223,8 @@ uword _opEquals(CrocThread* t)
 			pushBool(t, false);
 		else
 		{
-			auto a = (cast(byte*)m.m.data)[0 .. m.itemLength * m.kind.itemSize];
-			auto b = (cast(byte*)other.m.data)[0 .. a.length];
+			auto a = (cast(byte*)m.data.data)[0 .. m.itemLength * m.kind.itemSize];
+			auto b = (cast(byte*)other.data.data)[0 .. a.length];
 			pushBool(t, a == b);
 		}
 	}
@@ -1236,16 +1251,16 @@ uword _opCmp(CrocThread* t)
 
 		switch(m.kind.code)
 		{
-			case TypeCode.i8:  auto a = (cast(byte[])  m.m.data)[0 .. l]; auto b = (cast(byte[])  other.m.data)[0 .. l]; cmp = typeid(byte[]).  compare(&a, &b); break;
-			case TypeCode.i16: auto a = (cast(short[]) m.m.data)[0 .. l]; auto b = (cast(short[]) other.m.data)[0 .. l]; cmp = typeid(short[]). compare(&a, &b); break;
-			case TypeCode.i32: auto a = (cast(int[])   m.m.data)[0 .. l]; auto b = (cast(int[])   other.m.data)[0 .. l]; cmp = typeid(int[]).   compare(&a, &b); break;
-			case TypeCode.i64: auto a = (cast(long[])  m.m.data)[0 .. l]; auto b = (cast(long[])  other.m.data)[0 .. l]; cmp = typeid(long[]).  compare(&a, &b); break;
-			case TypeCode.u8:  auto a = (cast(ubyte[]) m.m.data)[0 .. l]; auto b = (cast(ubyte[]) other.m.data)[0 .. l]; cmp = typeid(ubyte[]). compare(&a, &b); break;
-			case TypeCode.u16: auto a = (cast(ushort[])m.m.data)[0 .. l]; auto b = (cast(ushort[])other.m.data)[0 .. l]; cmp = typeid(ushort[]).compare(&a, &b); break;
-			case TypeCode.u32: auto a = (cast(uint[])  m.m.data)[0 .. l]; auto b = (cast(uint[])  other.m.data)[0 .. l]; cmp = typeid(uint[]).  compare(&a, &b); break;
-			case TypeCode.u64: auto a = (cast(ulong[]) m.m.data)[0 .. l]; auto b = (cast(ulong[]) other.m.data)[0 .. l]; cmp = typeid(ulong[]). compare(&a, &b); break;
-			case TypeCode.f32: auto a = (cast(float[]) m.m.data)[0 .. l]; auto b = (cast(float[]) other.m.data)[0 .. l]; cmp = typeid(float[]). compare(&a, &b); break;
-			case TypeCode.f64: auto a = (cast(double[])m.m.data)[0 .. l]; auto b = (cast(double[])other.m.data)[0 .. l]; cmp = typeid(double[]).compare(&a, &b); break;
+			case TypeCode.i8:  auto a = (cast(byte[])  m.data.data)[0 .. l]; auto b = (cast(byte[])  other.data.data)[0 .. l]; cmp = typeid(byte[]).  compare(&a, &b); break;
+			case TypeCode.i16: auto a = (cast(short[]) m.data.data)[0 .. l]; auto b = (cast(short[]) other.data.data)[0 .. l]; cmp = typeid(short[]). compare(&a, &b); break;
+			case TypeCode.i32: auto a = (cast(int[])   m.data.data)[0 .. l]; auto b = (cast(int[])   other.data.data)[0 .. l]; cmp = typeid(int[]).   compare(&a, &b); break;
+			case TypeCode.i64: auto a = (cast(long[])  m.data.data)[0 .. l]; auto b = (cast(long[])  other.data.data)[0 .. l]; cmp = typeid(long[]).  compare(&a, &b); break;
+			case TypeCode.u8:  auto a = (cast(ubyte[]) m.data.data)[0 .. l]; auto b = (cast(ubyte[]) other.data.data)[0 .. l]; cmp = typeid(ubyte[]). compare(&a, &b); break;
+			case TypeCode.u16: auto a = (cast(ushort[])m.data.data)[0 .. l]; auto b = (cast(ushort[])other.data.data)[0 .. l]; cmp = typeid(ushort[]).compare(&a, &b); break;
+			case TypeCode.u32: auto a = (cast(uint[])  m.data.data)[0 .. l]; auto b = (cast(uint[])  other.data.data)[0 .. l]; cmp = typeid(uint[]).  compare(&a, &b); break;
+			case TypeCode.u64: auto a = (cast(ulong[]) m.data.data)[0 .. l]; auto b = (cast(ulong[]) other.data.data)[0 .. l]; cmp = typeid(ulong[]). compare(&a, &b); break;
+			case TypeCode.f32: auto a = (cast(float[]) m.data.data)[0 .. l]; auto b = (cast(float[]) other.data.data)[0 .. l]; cmp = typeid(float[]). compare(&a, &b); break;
+			case TypeCode.f64: auto a = (cast(double[])m.data.data)[0 .. l]; auto b = (cast(double[])other.data.data)[0 .. l]; cmp = typeid(double[]).compare(&a, &b); break;
 			default: assert(false);
 		}
 
@@ -1270,15 +1285,14 @@ uword _opLengthAssign(CrocThread* t)
 	auto m = _getMembers(t);
 	auto len = checkIntParam(t, 1);
 
-	if(!m.m.ownData)
+	if(!m.data.ownData)
 		throwStdException(t, "ValueException", "Attempting to change the length of a Vector which does not own its data");
 
 	if(len < 0 || len > uword.max)
 		throwStdException(t, "RangeException", "Invalid new length: {}", len);
 
-	auto isize = cast(uword)len * m.kind.itemSize;
-	push(t, CrocValue(m.m));
-	lenai(t, -1, isize);
+	push(t, CrocValue(m.data));
+	lenai(t, -1, cast(uword)len * m.kind.itemSize);
 	return 0;
 }
 
@@ -1340,7 +1354,7 @@ uword _opSlice(CrocThread* t)
 	auto n = _getMembers(t, -1);
 	auto isize = m.kind.itemSize;
 
-	memcpy(n.m.data.ptr, m.m.data.ptr + (cast(uword)lo * isize), (cast(uword)hi - cast(uword)lo) * isize);
+	memcpy(n.data.data.ptr, m.data.data.ptr + (cast(uword)lo * isize), (cast(uword)hi - cast(uword)lo) * isize);
 
 	return 0;
 }
@@ -1401,7 +1415,7 @@ uword _opSerialize(CrocThread* t)
 {
 	auto m = _getMembers(t);
 
-	if(!m.m.ownData)
+	if(!m.data.ownData)
 		throwStdException(t, "ValueException", "Attempting to serialize a Vector which does not own its data");
 
 	dup(t, 2);
@@ -1411,7 +1425,7 @@ uword _opSerialize(CrocThread* t)
 
 	dup(t, 2);
 	pushNull(t);
-	push(t, CrocValue(m.m));
+	push(t, CrocValue(m.data));
 	rawCall(t, -3, 0);
 
 	return 0;
@@ -1419,8 +1433,7 @@ uword _opSerialize(CrocThread* t)
 
 uword _opDeserialize(CrocThread* t)
 {
-	auto m = checkInstParam!(Members)(t, 0, "Vector");
-	*m = Members.init;
+	checkInstParam(t, 0, "Vector");
 
 	dup(t, 2);
 	pushNull(t);
@@ -1429,12 +1442,14 @@ uword _opDeserialize(CrocThread* t)
 	if(!isString(t, -1))
 		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'string' but found '{}' instead", type(t, -1));
 
-	m.kind = _typeCodeToKind(getString(t, -1));
+	auto kind = _typeCodeToKind(getString(t, -1));
+	pop(t);
 
-	if(m.kind is null)
+	if(kind is null)
 		throwStdException(t, "ValueException", "Invalid data encountered when deserializing - Invalid type code '{}'", getString(t, -1));
 
-	pop(t);
+	pushInt(t, cast(crocint)kind);
+	fielda(t, 0, Kind);
 
 	dup(t, 2);
 	pushNull(t);
@@ -1443,7 +1458,7 @@ uword _opDeserialize(CrocThread* t)
 	if(!isMemblock(t, -1))
 		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'memblock' but found '{}' instead", type(t, -1));
 
-	m.m = getMemblock(t, -1);
+	fielda(t, 0, Data);
 	return 0;
 }
 
@@ -1468,8 +1483,8 @@ uword _opCat(CrocThread* t)
 		rawCall(t, -4, 1);
 
 		auto n = _getMembers(t, -1);
-		n.m.data[0 .. m.m.data.length] = m.m.data[];
-		n.m.data[m.m.data.length .. $] = other.m.data[];
+		n.data.data[0 .. m.data.data.length] = m.data.data[];
+		n.data.data[m.data.data.length .. $] = other.data.data[];
 	}
 	else
 	{
@@ -1485,7 +1500,7 @@ uword _opCat(CrocThread* t)
 		rawCall(t, -4, 1);
 
 		auto n = _getMembers(t, -1);
-		n.m.data[0 .. m.m.data.length] = m.m.data[];
+		n.data.data[0 .. m.data.data.length] = m.data.data[];
 		_rawIndexAssign(n, n.itemLength - 1, *getValue(t, 1));
 	}
 
@@ -1510,7 +1525,7 @@ uword _opCat_r(CrocThread* t)
 
 	auto n = _getMembers(t, -1);
 	_rawIndexAssign(n, 0, *getValue(t, 1));
-	n.m.data[1 .. $] = m.m.data[];
+	n.data.data[1 .. $] = m.data.data[];
 
 	return 1;
 }
@@ -1521,7 +1536,7 @@ uword _opCatAssign(CrocThread* t)
 	auto numParams = stackSize(t) - 1;
 	checkAnyParam(t, 1);
 
-	if(!m.m.ownData)
+	if(!m.data.ownData)
 		throwStdException(t, "ValueException", "Attempting to append to a Vector which does not own its data");
 
 	ulong totalLen = m.itemLength;
@@ -1574,14 +1589,14 @@ uword _opCatAssign(CrocThread* t)
 			if(opis(t, 0, i))
 			{
 				// special case for when we're appending a Vector to itself; use the old length
-				memcpy(m.m.data.ptr + j, m.m.data.ptr, oldLen * isize);
+				memcpy(m.data.data.ptr + j, m.data.data.ptr, oldLen * isize);
 				j += oldLen;
 			}
 			else
 			{
 				auto other = _getMembers(t, i);
-				m.m.data[j .. j + other.m.data.length] = other.m.data[];
-				j += other.m.data.length;
+				m.data.data[j .. j + other.data.data.length] = other.data.data[];
+				j += other.data.data.length;
 			}
 		}
 		else
@@ -1615,16 +1630,16 @@ char[] opAssign(char[] name, char[] op)
 
 			switch(m.kind.code)
 			{
-				case TypeCode.i8:  (cast(byte[])m.m.data)[]   ` ~ op ~ `= (cast(byte[])other.m.data)[];   break;
-				case TypeCode.i16: (cast(short[])m.m.data)[]  ` ~ op ~ `= (cast(short[])other.m.data)[];  break;
-				case TypeCode.i32: (cast(int[])m.m.data)[]    ` ~ op ~ `= (cast(int[])other.m.data)[];    break;
-				case TypeCode.i64: (cast(long[])m.m.data)[]   ` ~ op ~ `= (cast(long[])other.m.data)[];   break;
-				case TypeCode.u8:  (cast(ubyte[])m.m.data)[]  ` ~ op ~ `= (cast(ubyte[])other.m.data)[];  break;
-				case TypeCode.u16: (cast(ushort[])m.m.data)[] ` ~ op ~ `= (cast(ushort[])other.m.data)[]; break;
-				case TypeCode.u32: (cast(uint[])m.m.data)[]   ` ~ op ~ `= (cast(uint[])other.m.data)[];   break;
-				case TypeCode.u64: (cast(ulong[])m.m.data)[]  ` ~ op ~ `= (cast(ulong[])other.m.data)[];  break;
-				case TypeCode.f32: (cast(float[])m.m.data)[]  ` ~ op ~ `= (cast(float[])other.m.data)[];  break;
-				case TypeCode.f64: (cast(double[])m.m.data)[] ` ~ op ~ `= (cast(double[])other.m.data)[]; break;
+				case TypeCode.i8:  (cast(byte[])m.data.data)[]   ` ~ op ~ `= (cast(byte[])other.data.data)[];   break;
+				case TypeCode.i16: (cast(short[])m.data.data)[]  ` ~ op ~ `= (cast(short[])other.data.data)[];  break;
+				case TypeCode.i32: (cast(int[])m.data.data)[]    ` ~ op ~ `= (cast(int[])other.data.data)[];    break;
+				case TypeCode.i64: (cast(long[])m.data.data)[]   ` ~ op ~ `= (cast(long[])other.data.data)[];   break;
+				case TypeCode.u8:  (cast(ubyte[])m.data.data)[]  ` ~ op ~ `= (cast(ubyte[])other.data.data)[];  break;
+				case TypeCode.u16: (cast(ushort[])m.data.data)[] ` ~ op ~ `= (cast(ushort[])other.data.data)[]; break;
+				case TypeCode.u32: (cast(uint[])m.data.data)[]   ` ~ op ~ `= (cast(uint[])other.data.data)[];   break;
+				case TypeCode.u64: (cast(ulong[])m.data.data)[]  ` ~ op ~ `= (cast(ulong[])other.data.data)[];  break;
+				case TypeCode.f32: (cast(float[])m.data.data)[]  ` ~ op ~ `= (cast(float[])other.data.data)[];  break;
+				case TypeCode.f64: (cast(double[])m.data.data)[] ` ~ op ~ `= (cast(double[])other.data.data)[]; break;
 				default: assert(false);
 			}
 		}
@@ -1632,16 +1647,16 @@ char[] opAssign(char[] name, char[] op)
 		{
 			switch(m.kind.code)
 			{
-				case TypeCode.i8:  auto val = checkIntParam(t, 1); (cast(byte[])m.m.data)[]   ` ~ op ~ `= cast(byte)val;   break;
-				case TypeCode.i16: auto val = checkIntParam(t, 1); (cast(short[])m.m.data)[]  ` ~ op ~ `= cast(short)val;  break;
-				case TypeCode.i32: auto val = checkIntParam(t, 1); (cast(int[])m.m.data)[]    ` ~ op ~ `= cast(int)val;    break;
-				case TypeCode.i64: auto val = checkIntParam(t, 1); (cast(long[])m.m.data)[]   ` ~ op ~ `= cast(long)val;   break;
-				case TypeCode.u8:  auto val = checkIntParam(t, 1); (cast(ubyte[])m.m.data)[]  ` ~ op ~ `= cast(ubyte)val;  break;
-				case TypeCode.u16: auto val = checkIntParam(t, 1); (cast(ushort[])m.m.data)[] ` ~ op ~ `= cast(ushort)val; break;
-				case TypeCode.u32: auto val = checkIntParam(t, 1); (cast(uint[])m.m.data)[]   ` ~ op ~ `= cast(uint)val;   break;
-				case TypeCode.u64: auto val = checkIntParam(t, 1); (cast(ulong[])m.m.data)[]  ` ~ op ~ `= cast(ulong)val;  break;
-				case TypeCode.f32: auto val = checkNumParam(t, 1); (cast(float[])m.m.data)[]  ` ~ op ~ `= cast(float)val;  break;
-				case TypeCode.f64: auto val = checkNumParam(t, 1); (cast(double[])m.m.data)[] ` ~ op ~ `= cast(double)val; break;
+				case TypeCode.i8:  auto val = checkIntParam(t, 1); (cast(byte[])m.data.data)[]   ` ~ op ~ `= cast(byte)val;   break;
+				case TypeCode.i16: auto val = checkIntParam(t, 1); (cast(short[])m.data.data)[]  ` ~ op ~ `= cast(short)val;  break;
+				case TypeCode.i32: auto val = checkIntParam(t, 1); (cast(int[])m.data.data)[]    ` ~ op ~ `= cast(int)val;    break;
+				case TypeCode.i64: auto val = checkIntParam(t, 1); (cast(long[])m.data.data)[]   ` ~ op ~ `= cast(long)val;   break;
+				case TypeCode.u8:  auto val = checkIntParam(t, 1); (cast(ubyte[])m.data.data)[]  ` ~ op ~ `= cast(ubyte)val;  break;
+				case TypeCode.u16: auto val = checkIntParam(t, 1); (cast(ushort[])m.data.data)[] ` ~ op ~ `= cast(ushort)val; break;
+				case TypeCode.u32: auto val = checkIntParam(t, 1); (cast(uint[])m.data.data)[]   ` ~ op ~ `= cast(uint)val;   break;
+				case TypeCode.u64: auto val = checkIntParam(t, 1); (cast(ulong[])m.data.data)[]  ` ~ op ~ `= cast(ulong)val;  break;
+				case TypeCode.f32: auto val = checkNumParam(t, 1); (cast(float[])m.data.data)[]  ` ~ op ~ `= cast(float)val;  break;
+				case TypeCode.f64: auto val = checkNumParam(t, 1); (cast(double[])m.data.data)[] ` ~ op ~ `= cast(double)val; break;
 				default: assert(false);
 			}
 		}
@@ -1732,44 +1747,44 @@ char[] rev_func(char[] name, char[] op)
 			switch(m.kind.code)
 			{
 				case TypeCode.i8:
-					auto data = cast(byte[])m.m.data;
-					auto otherData = cast(byte[])other.m.data;
+					auto data = cast(byte[])m.data.data;
+					auto otherData = cast(byte[])other.data.data;
 
 					for(uword i = 0; i < data.length; i++)
 						data[i] = cast(byte)(otherData[i] ` ~ op ~ ` data[i]);
 					break;
 
 				case TypeCode.i16:
-					auto data = cast(short[])m.m.data;
-					auto otherData = cast(short[])other.m.data;
+					auto data = cast(short[])m.data.data;
+					auto otherData = cast(short[])other.data.data;
 
 					for(uword i = 0; i < data.length; i++)
 						data[i] = cast(short)(otherData[i] ` ~ op ~ ` data[i]);
 					break;
 
-				case TypeCode.i32: auto data = cast(int[])m.m.data;  data[] = (cast(int[])other.m.data)[] ` ~ op ~ ` data[];  break;
-				case TypeCode.i64: auto data = cast(long[])m.m.data; data[] = (cast(long[])other.m.data)[] ` ~ op ~ ` data[]; break;
+				case TypeCode.i32: auto data = cast(int[])m.data.data;  data[] = (cast(int[])other.data.data)[] ` ~ op ~ ` data[];  break;
+				case TypeCode.i64: auto data = cast(long[])m.data.data; data[] = (cast(long[])other.data.data)[] ` ~ op ~ ` data[]; break;
 
 				case TypeCode.u8:
-					auto data = cast(ubyte[])m.m.data;
-					auto otherData = cast(ubyte[])other.m.data;
+					auto data = cast(ubyte[])m.data.data;
+					auto otherData = cast(ubyte[])other.data.data;
 
 					for(uword i = 0; i < data.length; i++)
 						data[i] = cast(ubyte)(otherData[i] ` ~ op ~ ` data[i]);
 					break;
 
 				case TypeCode.u16:
-					auto data = cast(ushort[])m.m.data;
-					auto otherData = cast(ushort[])other.m.data;
+					auto data = cast(ushort[])m.data.data;
+					auto otherData = cast(ushort[])other.data.data;
 
 					for(uword i = 0; i < data.length; i++)
 						data[i] = cast(ushort)(otherData[i] ` ~ op ~ ` data[i]);
 					break;
 
-				case TypeCode.u32: auto data = cast(uint[])m.m.data;   data[] = (cast(uint[])other.m.data)[] ` ~ op ~ ` data[];   break;
-				case TypeCode.u64: auto data = cast(ulong[])m.m.data;  data[] = (cast(ulong[])other.m.data)[] ` ~ op ~ ` data[];  break;
-				case TypeCode.f32: auto data = cast(float[])m.m.data;  data[] = (cast(float[])other.m.data)[] ` ~ op ~ ` data[];  break;
-				case TypeCode.f64: auto data = cast(double[])m.m.data; data[] = (cast(double[])other.m.data)[] ` ~ op ~ ` data[]; break;
+				case TypeCode.u32: auto data = cast(uint[])m.data.data;   data[] = (cast(uint[])other.data.data)[] ` ~ op ~ ` data[];   break;
+				case TypeCode.u64: auto data = cast(ulong[])m.data.data;  data[] = (cast(ulong[])other.data.data)[] ` ~ op ~ ` data[];  break;
+				case TypeCode.f32: auto data = cast(float[])m.data.data;  data[] = (cast(float[])other.data.data)[] ` ~ op ~ ` data[];  break;
+				case TypeCode.f64: auto data = cast(double[])m.data.data; data[] = (cast(double[])other.data.data)[] ` ~ op ~ ` data[]; break;
 				default: assert(false);
 			}
 		}
@@ -1779,7 +1794,7 @@ char[] rev_func(char[] name, char[] op)
 			{
 				case TypeCode.i8:
 					auto val = cast(byte)checkIntParam(t, 1);
-					auto data = cast(byte[])m.m.data;
+					auto data = cast(byte[])m.data.data;
 
 					for(uword i = 0; i < data.length; i++)
 						data[i] = cast(byte)(val ` ~ op ~ ` data[i]);
@@ -1787,7 +1802,7 @@ char[] rev_func(char[] name, char[] op)
 
 				case TypeCode.i16:
 					auto val = cast(short)checkIntParam(t, 1);
-					auto data = cast(short[])m.m.data;
+					auto data = cast(short[])m.data.data;
 
 					for(uword i = 0; i < data.length; i++)
 						data[i] = cast(short)(val ` ~ op ~ ` data[i]);
@@ -1795,19 +1810,19 @@ char[] rev_func(char[] name, char[] op)
 
 				case TypeCode.i32:
 					auto val = cast(int)checkIntParam(t, 1);
-					auto data = cast(int[])m.m.data;
+					auto data = cast(int[])m.data.data;
 					data[] = val ` ~ op ~ `data[];
 					break;
 
 				case TypeCode.i64:
 					auto val = cast(long)checkIntParam(t, 1);
-					auto data = cast(long[])m.m.data;
+					auto data = cast(long[])m.data.data;
 					data[] = val ` ~ op ~ `data[];
 					break;
 
 				case TypeCode.u8:
 					auto val = cast(ubyte)checkIntParam(t, 1);
-					auto data = cast(ubyte[])m.m.data;
+					auto data = cast(ubyte[])m.data.data;
 
 					for(uword i = 0; i < data.length; i++)
 						data[i] = cast(ubyte)(val ` ~ op ~ ` data[i]);
@@ -1815,7 +1830,7 @@ char[] rev_func(char[] name, char[] op)
 
 				case TypeCode.u16:
 					auto val = cast(ushort)checkIntParam(t, 1);
-					auto data = cast(ushort[])m.m.data;
+					auto data = cast(ushort[])m.data.data;
 
 					for(uword i = 0; i < data.length; i++)
 						data[i] = cast(ushort)(val ` ~ op ~ ` data[i]);
@@ -1823,25 +1838,25 @@ char[] rev_func(char[] name, char[] op)
 
 				case TypeCode.u32:
 					auto val = cast(uint)checkIntParam(t, 1);
-					auto data = cast(uint[])m.m.data;
+					auto data = cast(uint[])m.data.data;
 					data[] = val ` ~ op ~ `data[];
 					break;
 
 				case TypeCode.u64:
 					auto val = cast(ulong)checkIntParam(t, 1);
-					auto data = cast(ulong[])m.m.data;
+					auto data = cast(ulong[])m.data.data;
 					data[] = val ` ~ op ~ `data[];
 					break;
 
 				case TypeCode.f32:
 					auto val = cast(float)checkNumParam(t, 1);
-					auto data = cast(float[])m.m.data;
+					auto data = cast(float[])m.data.data;
 					data[] = val ` ~ op ~ `data[];
 					break;
 
 				case TypeCode.f64:
 					auto val = cast(double)checkNumParam(t, 1);
-					auto data = cast(double[])m.m.data;
+					auto data = cast(double[])m.data.data;
 					data[] = val ` ~ op ~ `data[];
 					break;
 

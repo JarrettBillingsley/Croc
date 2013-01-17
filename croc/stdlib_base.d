@@ -39,7 +39,7 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.ex_library;
-// import croc.stdlib_vector;
+import croc.stdlib_vector;
 import croc.types;
 import croc.types_class;
 import croc.types_instance;
@@ -70,7 +70,7 @@ void initBaseLib(CrocThread* t)
 		newTable(t);
 	registerGlobal(t, _dumpValFunc);
 
-	// initVector(t);
+	initVector(t);
 }
 
 version(CrocBuiltinDocs) void docBaseLib(CrocThread* t)
@@ -87,7 +87,7 @@ version(CrocBuiltinDocs) void docBaseLib(CrocThread* t)
 
 	docGlobals(t, doc, _docTables);
 
-	// docVector(t, doc);
+	docVector(t, doc);
 
 	pushGlobal(t, "_G");
 	doc.pop(-1);
