@@ -99,18 +99,20 @@ static:
 	struct ProcessObj
 	{
 	static:
-		enum Fields
-		{
-			process,
-			stdin,
-			stdout,
-			stderr
-		}
+		const processField = "Process_process";
+		const stdinField = "Process_stdin";
+		const stdoutField = "Process_stdout";
+		const stderrField = "Process_stderr";
 
 		static void init(CrocThread* t)
 		{
 			CreateClass(t, "Process", (CreateClass* c)
 			{
+				pushNull(t); c.field("_process");
+				pushNull(t); c.field("_stdin");
+				pushNull(t); c.field("_stdout");
+				pushNull(t); c.field("_stderr");
+
 				c.method("constructor", &constructor);
 				c.method("isRunning",   &isRunning);
 				c.method("workDir",     &workDir);
@@ -122,31 +124,17 @@ static:
 				c.method("kill",        &kill);
 			});
 
-			newFunction(t, &allocator, "Process.allocator");
-			setAllocator(t, -2);
-
 			newGlobal(t, "Process");
 		}
 
 		Process getProcess(CrocThread* t)
 		{
 			checkInstParam(t, 0, "Process");
-			getExtraVal(t, 0, Fields.process);
+			field(t, 0, processField);
 			auto ret = cast(Process)getNativeObj(t, -1);
 			assert(ret !is null);
 			pop(t);
 			return ret;
-		}
-
-		uword allocator(CrocThread* t)
-		{
-			newInstance(t, 0, Fields.max + 1);
-
-			dup(t);
-			pushNull(t);
-			rotateAll(t, 3);
-			methodCall(t, 2, "constructor", 0);
-			return 1;
 		}
 
 		uword constructor(CrocThread* t)
@@ -154,7 +142,7 @@ static:
 			auto numParams = stackSize(t) - 1;
 			checkInstParam(t, 0, "Process");
 
-			getExtraVal(t, 0, Fields.process);
+			field(t, 0, processField);
 
 			if(!isNull(t, -1))
 				throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Process");
@@ -162,7 +150,7 @@ static:
 			pop(t);
 
 			pushNativeObj(t, new Process());
-			setExtraVal(t, 0, Fields.process);
+			fielda(t, 0, processField);
 
 			if(numParams > 0)
 			{
@@ -258,18 +246,20 @@ static:
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
 				throwStdException(t, "StateException", "Attempting to get stdin of process that isn't running");
 
-			getExtraVal(t, 0, Fields.stdin);
+			field(t, 0, stdinField);
 
 			if(isNull(t, -1))
 			{
 				pop(t);
-				lookupCT!("stream.OutStream")(t);
+				auto slot = lookupCT!("stream.NativeStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdin.output);
 				pushBool(t, true);
-				rawCall(t, -4, 1);
+				pushBool(t, false);
+				pushBool(t, true);
+				rawCall(t, slot, 1);
 				dup(t);
-				setExtraVal(t, 0, Fields.stdin);
+				fielda(t, 0, stdinField);
 			}
 
 			return 1;
@@ -282,18 +272,20 @@ static:
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
 				throwStdException(t, "StateException", "Attempting to get stdout of process that isn't running");
 
-			getExtraVal(t, 0, Fields.stdout);
+			field(t, 0, stdoutField);
 
 			if(isNull(t, -1))
 			{
 				pop(t);
-				lookupCT!("stream.InStream")(t);
+				auto slot = lookupCT!("stream.NativeStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdout.input);
 				pushBool(t, true);
-				rawCall(t, -4, 1);
+				pushBool(t, true);
+				pushBool(t, false);
+				rawCall(t, slot, 1);
 				dup(t);
-				setExtraVal(t, 0, Fields.stdout);
+				fielda(t, 0, stdoutField);
 			}
 
 			return 1;
@@ -306,18 +298,20 @@ static:
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
 				throwStdException(t, "StateException", "Attempting to get stderr of process that isn't running");
 
-			getExtraVal(t, 0, Fields.stderr);
+			field(t, 0, stderrField);
 
 			if(isNull(t, -1))
 			{
 				pop(t);
-				lookupCT!("stream.InStream")(t);
+				auto slot = lookupCT!("stream.NativeStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stderr.input);
 				pushBool(t, true);
-				rawCall(t, -4, 1);
+				pushBool(t, true);
+				pushBool(t, false);
+				rawCall(t, slot, 1);
 				dup(t);
-				setExtraVal(t, 0, Fields.stderr);
+				fielda(t, 0, stderrField);
 			}
 
 			return 1;
@@ -327,11 +321,11 @@ static:
 		{
 			auto p = getProcess(t);
 
-			getExtraVal(t, 0, Fields.stdin);
+			field(t, 0, stdinField);
 
 			if(!isNull(t, -1))
 			{
-				dup(t, -1);
+				dup(t);
 				pushNull(t);
 				methodCall(t, -2, "isOpen", 1);
 
@@ -377,9 +371,9 @@ static:
 			pushNull(t);
 			dup(t);
 			dup(t);
-			setExtraVal(t, 0, Fields.stdin);
-			setExtraVal(t, 0, Fields.stdout);
-			setExtraVal(t, 0, Fields.stderr);
+			fielda(t, 0, stdinField);
+			fielda(t, 0, stdoutField);
+			fielda(t, 0, stderrField);
 		}
 	}
 }

@@ -59,7 +59,7 @@ import croc.stdlib_math;
 import croc.stdlib_memblock;
 import croc.stdlib_modules;
 import croc.stdlib_object;
-// import croc.stdlib_os;
+import croc.stdlib_os;
 import croc.stdlib_path;
 // import croc.stdlib_serialization;
 import croc.stdlib_stream;
@@ -221,6 +221,6 @@ Params:
 void loadUnsafeLibs(CrocThread* t, uint libs = CrocUnsafeLib.All)
 {
 	if(libs & CrocUnsafeLib.File)  FileLib.init(t);
-	// if(libs & CrocUnsafeLib.OS)    OSLib.init(t);
+	if(libs & CrocUnsafeLib.OS)    OSLib.init(t);
 	if(libs & CrocUnsafeLib.Debug) DebugLib.init(t);
 }
