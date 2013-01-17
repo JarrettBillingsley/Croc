@@ -228,6 +228,9 @@ import math: min, intMax
 import object: Finalizable
 import text
 
+local utf8Codec = text.getCodec("utf-8")
+local asciiCodec = text.getCodec("ascii")
+
 local streamCtor = _streamtmp.streamCtor
 local streamRead = _streamtmp.streamRead
 local streamWrite = _streamtmp.streamWrite
@@ -911,8 +914,8 @@ class BinaryStream : StreamWrapper
 	{
 		local len = :readUInt64()
 		#:_strBuf = len
-		:stream.readExact(:_strBuf)
-		return text.fromRawUnicode(:_strBuf)
+		:_stream.readExact(:_strBuf)
+		return utf8Codec.decode(:_strBuf)
 	}
 
 	/**
@@ -934,8 +937,8 @@ class BinaryStream : StreamWrapper
 			throw RangeException("Invalid number of characters ({})".format(n))
 
 		#:_strBuf = n
-		:stream.readExact(:_strBuf)
-		return text.fromRawAscii(:_strBuf)
+		:_stream.readExact(:_strBuf)
+		return asciiCodec.decode(:_strBuf)
 	}
 
 	/**
@@ -945,16 +948,16 @@ class BinaryStream : StreamWrapper
 	\returns \tt{this}.
 	\throws[EOFException] if end-of-file was reached.
 	*/
-	function writeInt8(x: int)      { :_rwbuf.writeInt8(0, x);    :_stream.writeExact(:_rwBuf, 0, 1); return this }
-	function writeInt16(x: int)     { :_rwbuf.writeInt16(0, x);   :_stream.writeExact(:_rwBuf, 0, 2); return this }
-	function writeInt32(x: int)     { :_rwbuf.writeInt32(0, x);   :_stream.writeExact(:_rwBuf, 0, 4); return this }
-	function writeInt64(x: int)     { :_rwbuf.writeInt64(0, x);   :_stream.writeExact(:_rwBuf, 0, 8); return this }
-	function writeUInt8(x: int)     { :_rwbuf.writeUInt8(0, x);   :_stream.writeExact(:_rwBuf, 0, 1); return this }
-	function writeUInt16(x: int)    { :_rwbuf.writeUInt16(0, x);  :_stream.writeExact(:_rwBuf, 0, 2); return this }
-	function writeUInt32(x: int)    { :_rwbuf.writeUInt32(0, x);  :_stream.writeExact(:_rwBuf, 0, 4); return this }
-	function writeUInt64(x: int)    { :_rwbuf.writeUInt64(0, x);  :_stream.writeExact(:_rwBuf, 0, 8); return this }
-	function writeFloat32(x: float) { :_rwbuf.writeFloat32(0, x); :_stream.writeExact(:_rwBuf, 0, 4); return this }
-	function writeFloat64(x: float) { :_rwbuf.writeFloat64(0, x); :_stream.writeExact(:_rwBuf, 0, 8); return this }
+	function writeInt8(x: int)      { :_rwBuf.writeInt8(0, x);    :_stream.writeExact(:_rwBuf, 0, 1); return this }
+	function writeInt16(x: int)     { :_rwBuf.writeInt16(0, x);   :_stream.writeExact(:_rwBuf, 0, 2); return this }
+	function writeInt32(x: int)     { :_rwBuf.writeInt32(0, x);   :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeInt64(x: int)     { :_rwBuf.writeInt64(0, x);   :_stream.writeExact(:_rwBuf, 0, 8); return this }
+	function writeUInt8(x: int)     { :_rwBuf.writeUInt8(0, x);   :_stream.writeExact(:_rwBuf, 0, 1); return this }
+	function writeUInt16(x: int)    { :_rwBuf.writeUInt16(0, x);  :_stream.writeExact(:_rwBuf, 0, 2); return this }
+	function writeUInt32(x: int)    { :_rwBuf.writeUInt32(0, x);  :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeUInt64(x: int)    { :_rwBuf.writeUInt64(0, x);  :_stream.writeExact(:_rwBuf, 0, 8); return this }
+	function writeFloat32(x: float) { :_rwBuf.writeFloat32(0, x); :_stream.writeExact(:_rwBuf, 0, 4); return this }
+	function writeFloat64(x: float) { :_rwBuf.writeFloat64(0, x); :_stream.writeExact(:_rwBuf, 0, 8); return this }
 
 	/**
 	Writes a binary representation of the given string. To read this binary representation back again, use
@@ -967,9 +970,9 @@ class BinaryStream : StreamWrapper
 	*/
 	function writeString(x: string)
 	{
-		text.toRawUnicode(x, 8, :_strBuf)
+		utf8Codec.encodeInto(x, :_strBuf, 0)
 		:writeUInt64(#:_strBuf)
-		:stream.writeExact(:_strBuf)
+		:_stream.writeExact(:_strBuf)
 		return this
 	}
 
@@ -989,8 +992,8 @@ class BinaryStream : StreamWrapper
 		if(!ascii.isAscii(x))
 			throw ValueException("Can only write ASCII strings as raw characters")
 
-		text.toRawAscii(x, :_strBuf)
-		:stream.writeExact(:_strBuf)
+		asciiCodec.encodeInto(x, :_strBuf, 0)
+		:_stream.writeExact(:_strBuf)
 		return this
 	}
 }
@@ -1195,7 +1198,7 @@ class BufferedOutStream : StreamWrapper
 	*/
 	function close()
 	{
-		:_flush()
+		:flush()
 		:_stream.close()
 	}
 }
