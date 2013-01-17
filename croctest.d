@@ -22,16 +22,10 @@ version(CrocAllAddons)
 }
 
 /*
-- Finish docs lib
-- Finish stream lib
-- Doc stdlibs
-*/
-
-/*
 	Process      (4 fields, 0 bytes)
-	StringBuffer (2 fields, 0 bytes)
 	Timer        (1 field, 1 StopWatch that can be made a memblock field)
 	Vector       (2 fields, 1 pointer to a TypeStruct..)
+
 	Socket       (certainly gonna be changed)
 	Regex        (2 fields, some extra gunk that can easily live in a memblock)
 	SdlSurface   (1 pointer. C pointers could just be cast to integers in D and use nativeobjs in C)

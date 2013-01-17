@@ -38,7 +38,7 @@ import croc.api_stack;
 import croc.ex;
 import croc.ex_format;
 import croc.ex_library;
-// import croc.stdlib_stringbuffer;
+import croc.stdlib_stringbuffer;
 import croc.types;
 import croc.utf;
 import croc.utils;
@@ -57,7 +57,7 @@ void initStringLib(CrocThread* t)
 {
 	makeModule(t, "string", function uword(CrocThread* t)
 	{
-		// initStringBuffer(t);
+		initStringBuffer(t);
 
 		newNamespace(t, "string");
 			registerFields(t, _methodFuncs);
@@ -81,7 +81,7 @@ version(CrocBuiltinDocs) void docStringLib(CrocThread* t)
 	Remember that strings in Croc are immutable. Therefore these functions never operate on the object on which they were
 	called. They will always return new strings distinct from the original string.`));
 
-	// docStringBuffer(t, doc);
+	docStringBuffer(t, doc);
 
 	getTypeMT(t, CrocValue.Type.String);
 		docFields(t, doc, _methodFuncDocs);

@@ -36,6 +36,7 @@ import croc.ex;
 import croc.ex_format;
 import croc.ex_library;
 import croc.types;
+import croc.utf;
 import croc.utils;
 
 alias CrocDoc.Docs Docs;
@@ -52,7 +53,8 @@ void initStringBuffer(CrocThread* t)
 {
 	CreateClass(t, "StringBuffer", (CreateClass* c)
 	{
-		c.allocator("allocator", &BasicClassAllocator!(NumFields, 0));
+		pushNull(t);   c.field("_data");
+		pushInt(t, 0); c.field("_length");
 
 		c.method("constructor",    1, &_constructor);
 		c.method("dup",            0, &_dup);
@@ -112,10 +114,10 @@ void initStringBuffer(CrocThread* t)
 	});
 
 	field(t, -1, "fillRange");
-	fielda(t, -2, "opSliceAssign");
+	addMethod(t, -2, "opSliceAssign");
 
 	field(t, -1, "opCatAssign");
-	fielda(t, -2, "append");
+	addMethod(t, -2, "append");
 
 	newGlobal(t, "StringBuffer");
 }
@@ -138,17 +140,12 @@ private:
 // =============================================================
 // Helpers
 
-enum
-{
-	Data,
-	Length,
-
-	NumFields
-}
+const Data = "StringBuffer_data";
+const Length = "StringBuffer_length";
 
 CrocMemblock* _getData(CrocThread* t, word idx = 0)
 {
-	getExtraVal(t, idx, Data);
+	field(t, idx, Data);
 
 	if(!isMemblock(t, -1))
 		throwStdException(t, "StateException", "Attempting to operate on an uninitialized StringBuffer");
@@ -160,7 +157,7 @@ CrocMemblock* _getData(CrocThread* t, word idx = 0)
 
 uword _getLength(CrocThread* t, word idx = 0)
 {
-	getExtraVal(t, idx, Length);
+	field(t, idx, Length);
 	auto ret = cast(uword)getInt(t, -1);
 	pop(t);
 	return ret;
@@ -170,7 +167,7 @@ void _setLength(CrocThread* t, uword l, word idx = 0)
 {
 	idx = absIndex(t, idx);
 	pushInt(t, cast(crocint)l);
-	setExtraVal(t, idx, Length);
+	fielda(t, idx, Length);
 }
 
 void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
@@ -217,6 +214,14 @@ word _stringBufferFromUtf32(CrocThread* t, dchar[] text)
 	return ret;
 }
 
+dchar[] _toUtf32(char[] str, dchar[] buf)
+{
+	char[] remaining = void;
+	auto ret = Utf8ToUtf32(str, buf, remaining);
+	assert(remaining.length == 0);
+	return ret;
+}
+
 dchar[] _checkStringOrStringBuffer(CrocThread* t, word idx, ref dchar[] tmp, char[] errMsg = "string|StringBuffer")
 {
 	checkAnyParam(t, idx);
@@ -224,7 +229,7 @@ dchar[] _checkStringOrStringBuffer(CrocThread* t, word idx, ref dchar[] tmp, cha
 	if(isString(t, idx))
 	{
 		tmp = allocArray!(dchar)(t, cast(uword)len(t, idx));
-		return UTF8toUTF32(getString(t, idx), tmp);
+		return _toUtf32(getString(t, idx), tmp);
 	}
 	else
 	{
@@ -283,13 +288,13 @@ uword _constructor(CrocThread* t)
 	if(data.length > 0)
 	{
 		auto mb = getMemblock(t, -1);
-		Utf8ToUtf32(data, cast(dchar[])mb.data);
+		_toUtf32(data, cast(dchar[])mb.data);
 		_setLength(t, length);
 	}
 	else
 		_setLength(t, 0);
 
-	setExtraVal(t, 0, Data);
+	fielda(t, 0, Data);
 	return 0;
 }
 
@@ -439,7 +444,7 @@ uword _opCmp(CrocThread* t)
 uword _opLength(CrocThread* t)
 {
 	_getData(t);
-	getExtraVal(t, 0, Length);
+	fielda(t, 0, Length);
 	return 1;
 }
 
@@ -554,7 +559,7 @@ uword _opCat(CrocThread* t)
 	if(isString(t, 1))
 	{
 		auto dest = makeObj(.len(t, 1));
-		Utf8ToUtf32(getString(t, 1), dest);
+		_toUtf32(getString(t, 1), dest);
 	}
 	else if(isChar(t, 1))
 	{
@@ -570,7 +575,7 @@ uword _opCat(CrocThread* t)
 		pushToString(t, 1);
 		auto s = getString(t, -1);
 		auto dest = makeObj(.len(t, -1));
-		Utf8ToUtf32(s, dest);
+		_toUtf32(s, dest);
 		pop(t);
 	}
 
@@ -605,7 +610,7 @@ uword _opCat_r(CrocThread* t)
 	if(isString(t, 1))
 	{
 		auto dest = makeObj(.len(t, 1));
-		Utf8ToUtf32(getString(t, 1), dest);
+		_toUtf32(getString(t, 1), dest);
 	}
 	else if(isChar(t, 1))
 	{
@@ -616,7 +621,7 @@ uword _opCat_r(CrocThread* t)
 		pushToString(t, 1);
 		auto s = getString(t, -1);
 		auto dest = makeObj(.len(t, -1));
-		Utf8ToUtf32(s, dest);
+		_toUtf32(s, dest);
 		pop(t);
 	}
 
@@ -652,7 +657,7 @@ uword _opCatAssign(CrocThread* t)
 		if(isString(t, i))
 		{
 			auto dest = resize(.len(t, i));
-			Utf8ToUtf32(getString(t, i), dest);
+			_toUtf32(getString(t, i), dest);
 		}
 		else if(isChar(t, i))
 			resize(1)[0] = getChar(t, i);
@@ -673,7 +678,7 @@ uword _opCatAssign(CrocThread* t)
 		{
 			pushToString(t, i);
 			auto dest = resize(.len(t, -1));
-			Utf8ToUtf32(getString(t, -1), dest);
+			_toUtf32(getString(t, -1), dest);
 			pop(t);
 		}
 	}
@@ -778,7 +783,7 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 		if(cpLen != (hi - lo))
 			throwStdException(t, "ValueException", "Length of destination ({}) and length of source string ({}) do not match", hi - lo, cpLen);
 
-		Utf8ToUtf32(getString(t, filler), (cast(dchar[])mb.data)[lo .. hi]);
+		_toUtf32(getString(t, filler), (cast(dchar[])mb.data)[lo .. hi]);
 	}
 	else if(isArray(t, filler))
 	{
@@ -883,7 +888,7 @@ uword _insert(CrocThread* t)
 		{
 			auto str = getString(t, 2);
 			auto tmp = doResize(cpLen);
-			Utf8ToUtf32(str, tmp);
+			_toUtf32(str, tmp);
 		}
 	}
 	else if(isChar(t, 2))
@@ -921,7 +926,7 @@ uword _insert(CrocThread* t)
 		{
 			auto str = getString(t, -1);
 			auto tmp = doResize(cpLen);
-			Utf8ToUtf32(str, tmp);
+			_toUtf32(str, tmp);
 		}
 
 		pop(t);
@@ -1386,7 +1391,7 @@ uword _format(CrocThread* t)
 		auto oldLen = len;
 		len = cast(uword)totalLen;
 
-		Utf8ToUtf32(data, (cast(dchar[])mb.data)[cast(uword)oldLen .. cast(uword)totalLen]);
+		_toUtf32(data, (cast(dchar[])mb.data)[cast(uword)oldLen .. cast(uword)totalLen]);
 		return data.length;
 	}
 
@@ -1415,12 +1420,12 @@ uword _opSerialize(CrocThread* t)
 
 	dup(t, 2);
 	pushNull(t);
-	getExtraVal(t, 0, Length);
+	field(t, 0, Length);
 	rawCall(t, -3, 0);
 
 	dup(t, 2);
 	pushNull(t);
-	getExtraVal(t, 0, Data);
+	field(t, 0, Data);
 	rawCall(t, -3, 0);
 
 	return 0;
@@ -1437,7 +1442,7 @@ uword _opDeserialize(CrocThread* t)
 	if(!isInt(t, -1))
 		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'int' but found '{}' instead", type(t, -1));
 
-	setExtraVal(t, 0, Length);
+	fielda(t, 0, Length);
 
 	dup(t, 2);
 	pushNull(t);
@@ -1446,7 +1451,7 @@ uword _opDeserialize(CrocThread* t)
 	if(!isMemblock(t, -1))
 		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'memblock' but found '{}' instead", type(t, -1));
 
-	setExtraVal(t, 0, Data);
+	fielda(t, 0, Data);
 
 	return 0;
 }
