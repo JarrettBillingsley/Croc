@@ -98,7 +98,7 @@ version(CrocReadline)
 			if(_instance !is null)
 				throw new Exception("Attempting to create more than one instance of ReadlineStream");
 		}
-		
+
 	public:
 		size_t readln(ref char[] dst)
 		{
@@ -310,7 +310,7 @@ private:
 	static class Goober
 	{
 		CLI!(Input)* self;
-		
+
 		this(CLI!(Input)* self)
 		{
 			this.self = self;
@@ -365,17 +365,17 @@ public:
 			return temp.startsWith("function") || temp.startsWith("class") || temp.startsWith("namespace") || temp.startsWith("@") ||
 				temp.startsWith("///") || temp.startsWith("/**");
 		}
-		
+
 		void printTraceback()
 		{
 			field(t, -1, "traceback");
-			
+
 			if(len(t, -1) <= 1)
 			{
 				pop(t);
 				return;
 			}
-			
+
 			pop(t);
 			dup(t, -1);
 			pushNull(t);
@@ -510,7 +510,7 @@ public:
 		mPrompt = Prompt1;
 
 		auto stackIdx = stackSize(t);
-		
+
 		scope(exit)
 		{
 			// Clean up the exit object
@@ -587,7 +587,7 @@ public:
 			buffer.length = 0;
 		}
 	}
-	
+
 private:
 	void setupExit(CrocThread* t)
 	{
@@ -611,13 +611,33 @@ private:
 			// class ExitObj { function toString() = ... }
 			newClass(t, "ExitObj");
 
+			pushNull(t);
+			addField(t, -2, "_goober");
+
+			newFunction(t, 1, function uword(CrocThread* t)
+			{
+				checkParam(t, 1, CrocValue.Type.NativeObj);
+				dup(t, 1);
+				fielda(t, 0, "ExitObj_goober");
+				return 0;
+			}, "constructor");
+			addMethod(t, -2, "constructor");
+
 			newFunction(t, 0, function uword(CrocThread* t)
 			{
 				pushString(t, "Use \"exit()\" or Ctrl+D<enter> to end.");
 				return 1;
 			}, "toString");
+			addMethod(t, -2, "toString");
 
-			fielda(t, -2, "toString");
+			newFunction(t, 0, function uword(CrocThread* t)
+			{
+				field(t, 0, "ExitObj_goober");
+				auto g = cast(Goober)getNativeObj(t, -1);
+				g.self.mRunning = false;
+				return 0;
+			}, "exit");
+			addMethod(t, -2, "opCall");
 
 			dup(t, -2);
 			dup(t, -2);
@@ -632,18 +652,8 @@ private:
 
 		// Set up the exit object
 		pushNull(t);
-		rawCall(t, -2, 1);
-
-			pushNativeObj(t, new Goober(this));
-		newFunction(t, 0, function uword(CrocThread* t)
-		{
-			getUpval(t, 0);
-			auto g = cast(Goober)getNativeObj(t, -1);
-			g.self.mRunning = false;
-			return 0;
-		}, "exit", 1);
-
-		fielda(t, -2, "opCall");
+		pushNativeObj(t, new Goober(this));
+		rawCall(t, -3, 1);
 
 		// Is there already an 'exit'?
 		if(findGlobal(t, "exit"))

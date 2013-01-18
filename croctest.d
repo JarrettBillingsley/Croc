@@ -22,8 +22,6 @@ version(CrocAllAddons)
 }
 
 /*
-	Process      (4 fields, 0 bytes)
-
 	Socket       (certainly gonna be changed)
 	Regex        (2 fields, some extra gunk that can easily live in a memblock)
 	SdlSurface   (1 pointer. C pointers could just be cast to integers in D and use nativeobjs in C)

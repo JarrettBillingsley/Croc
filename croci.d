@@ -75,14 +75,14 @@ Flags:
         Control whether documentation comments are extracted and attached to
         objects. The default is to enable them in interactive mode and disable
         them in file mode.
-        
+
     --doctable outname filename
         This is a special mode which does not run any code. It just extracts
         documentation comments from the file given by 'filename', and saves
         the documentation table for the file into 'outname' as JSON. That
         table can then be further processed by another program. Any parameters
         after this flag are ignored.
-        
+
         Unlike in file mode, filename must be an actual path, not just a
         module name.
 
@@ -194,17 +194,17 @@ Params parseArguments(CrocThread* t, char[][] args)
 			case "-d":
 				ret.debugEnabled = true;
 				continue;
-				
+
 			case "--safe":
 				ret.safe = true;
 				continue;
-				
+
 			case "--doctable":
 				i += 2;
-				
+
 				if(i >= args.length)
 					return error("--doctable must be followed by two arguments");
-				
+
 				ret.docOutfile = args[i - 1];
 				ret.inputFile = args[i];
 				return ret;
@@ -213,7 +213,7 @@ Params parseArguments(CrocThread* t, char[][] args)
 				if(args[i].startsWith("--docs"))
 				{
 					auto pos = args[i].locate('=');
-					
+
 					if(pos == args[i].length)
 						return error("Malfomed flag: '{}'", args[i]);
 
@@ -291,7 +291,11 @@ bool doDocgen(CrocThread* t, ref Params params)
 		{
 			pop(t);
 			auto f = (params.docOutfile == "-") ? Stdout : new TextFileOutput(params.docOutfile);
-			toJSON(t, -1, true, f);
+
+			void write(char[] s) { f.write(s); }
+			void nl() { f.newline; }
+
+			toJSON(t, -1, true, &write, &nl);
 			f.flush();
 			f.newline();
 		}
