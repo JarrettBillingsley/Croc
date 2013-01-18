@@ -45,6 +45,7 @@ import tango.text.Util;
 alias tango.text.convert.Integer.parse Int_parse;
 
 import croc.api;
+import croc.ex_library;
 import croc.utf;
 
 struct PcreLib
@@ -74,8 +75,7 @@ struct PcreLib
 					throwStdException(t, "Exception", "Your PCRE library was not built with UTF-8 support.");
 			}
 
-			importModule(t, "hash");
-			pop(t);
+			importModuleNoNS(t, "hash");
 
 			RegexObj.init(t);
 
@@ -113,26 +113,32 @@ struct PcreLib
 struct RegexObj
 {
 static:
-	struct Members
+	struct PtrStruct
 	{
-		char[] subject;
 		pcre* re;
 		pcre_extra* extra;
-		word[] groupIdx;
-		uword numGroups;
-		uword nextStart;
 	}
 
-	enum Fields
-	{
-		names,
-		subject
-	}
+	alias word[] GroupIdxType;
+
+	const Ptrs = "Regex_ptrs";
+	const Names = "Regex_names";
+	const GroupIdx = "Regex_groupIdx";
+	const Subject = "Regex_subject";
+	const NumGroups = "Regex_numGroups";
+	const NextStart = "Regex_nextStart";
 
 	void init(CrocThread* t)
 	{
 		CreateClass(t, "Regex", (CreateClass* c)
 		{
+			pushNull(t);   c.field("_ptrs");      // memblock
+			pushNull(t);   c.field("_names");     // table
+			pushNull(t);   c.field("_groupIdx");  // memblock
+			pushNull(t);   c.field("_subject");   // string
+			pushInt(t, 0); c.field("_numGroups"); // int
+			pushInt(t, 0); c.field("_nextStart"); // int
+
 			c.method("constructor",   &constructor);
 			c.method("numGroups",     &numGroups);
 			c.method("groupNames",    &groupNames);
@@ -154,10 +160,7 @@ static:
 		});
 
 		field(t, -1, "match");
-		fielda(t, -2, "opIndex");
-
-		newFunction(t, &allocator, "Regex.allocator");
-		setAllocator(t, -2);
+		addMethod(t, -2, "opIndex");
 
 		newFunction(t, &finalizer, "Regex.finalizer");
 		setFinalizer(t, -2);
@@ -166,36 +169,23 @@ static:
 	}
 
 	// -------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Allocator and Finalizer
-
-	uword allocator(CrocThread* t)
-	{
-		newInstance(t, 0, Fields.max + 1, Members.sizeof);
-		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
-
-		dup(t);
-		pushNull(t);
-		rotateAll(t, 3);
-		methodCall(t, 2, "constructor", 0);
-		return 1;
-	}
+	// Finalizer
 
 	uword finalizer(CrocThread* t)
 	{
-		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
+		field(t, 0, Ptrs);
+		auto ptrs = cast(PtrStruct*)getMemblockData(t, -1).ptr;
 
-		freeArray(t, memb.groupIdx);
-
-		if(memb.extra !is null)
+		if(ptrs.extra !is null)
 		{
-			(*pcre_free)(memb.extra);
-			memb.extra = null;
+			(*pcre_free)(ptrs.extra);
+			ptrs.extra = null;
 		}
 
-		if(memb.re !is null)
+		if(ptrs.re !is null)
 		{
-			(*pcre_free)(memb.re);
-			memb.re = null;
+			(*pcre_free)(ptrs.re);
+			ptrs.re = null;
 		}
 
 		return 0;
@@ -204,14 +194,15 @@ static:
 	// -------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Internal Functions
 
-	Members* getThis(CrocThread* t)
+	PtrStruct* getThis(CrocThread* t)
 	{
-		auto ret = checkInstParam!(Members)(t, 0, "Regex");
+		checkInstParam(t, 0, "Regex");
+		field(t, 0, Ptrs);
 
-		if(ret.re is null)
+		if(isNull(t, -1))
 			throwStdException(t, "StateException", "Attempting to call method on an uninitialized Regex instance");
 
-		return ret;
+		return cast(PtrStruct*)getMemblockData(t, -1).ptr;
 	}
 
 	word parseAttrs(char[] attrs)
@@ -230,13 +221,11 @@ static:
 		return ret | PCRE_NEWLINE_ANY | PCRE_UTF8;
 	}
 
-	void setSubject(CrocThread* t, Members* memb, word str)
+	void setSubject(CrocThread* t, word str)
 	{
-		dup(t, str);
-		setExtraVal(t, 0, Fields.subject);
-		memb.subject = getString(t, str);
-		memb.numGroups = 0;
-		memb.nextStart = 0;
+		dup(t, str);   fielda(t, 0, Subject);
+		pushInt(t, 0); fielda(t, 0, NumGroups);
+		pushInt(t, 0); fielda(t, 0, NextStart);
 	}
 
 	pcre* compilePattern(CrocThread* t, char[] pat, word attrs)
@@ -260,9 +249,9 @@ static:
 
 	word getNameTable(CrocThread* t, pcre* re, pcre_extra* extra)
 	{
-		word numNames;
-		word nameEntrySize;
-		char* nameTable;
+		word numNames = void;
+		word nameEntrySize = void;
+		char* nameTable = void;
 
 		pcre_fullinfo(re, extra, PCRE_INFO_NAMECOUNT, &numNames);
 		pcre_fullinfo(re, extra, PCRE_INFO_NAMEENTRYSIZE, &nameEntrySize);
@@ -281,12 +270,18 @@ static:
 		return ret;
 	}
 
-	word[] getGroupRange(CrocThread* t, Members* memb, word group)
+	word[] getGroupRange(CrocThread* t, word group)
 	{
-		if(memb.numGroups == 0)
+		field(t, 0, NumGroups);
+		auto numGroups = getInt(t, -1);
+		pop(t);
+
+		if(numGroups == 0)
 			throwStdException(t, "ValueException", "No more matches");
 
-		auto gi = memb.groupIdx;
+		field(t, 0, GroupIdx);
+		auto gi = cast(GroupIdxType)getMemblockData(t, -1);
+		pop(t);
 
 		if(group == -1)
 		{
@@ -298,8 +293,8 @@ static:
 			// get indexed regex match
 			auto i = getInt(t, group);
 
-			if(i < 0 || i >= memb.numGroups)
-				throwStdException(t, "RangeException", "Invalid group index {} (have {} groups)", i, memb.numGroups);
+			if(i < 0 || i >= numGroups)
+				throwStdException(t, "RangeException", "Invalid group index {} (have {} groups)", i, numGroups);
 
 			i *= 2;
 
@@ -308,7 +303,7 @@ static:
 		else if(isString(t, group))
 		{
 			// get named regex match
-			getExtraVal(t, 0, Fields.names);
+			field(t, 0, Names);
 			dup(t, group);
 			idx(t, -2);
 
@@ -332,9 +327,10 @@ static:
 
 	uword constructor(CrocThread* t)
 	{
-		auto memb = checkInstParam!(Members)(t, 0, "Regex");
+		checkInstParam(t, 0, "Regex");
+		field(t, 0, Ptrs);
 
-		if(memb.re !is null)
+		if(!isNull(t, -1))
 			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Regex");
 
 		auto pat = checkStringParam(t, 1);
@@ -350,23 +346,28 @@ static:
 			throwNamedException(t, "PcreException", "Error studying regex: {}", fromStringz(error));
 		}
 
-		memb.re = re;
-		memb.extra = extra;
+		newMemblock(t, PtrStruct.sizeof);
+		auto ptrs = cast(PtrStruct*)getMemblockData(t, -1).ptr;
+		ptrs.re = re;
+		ptrs.extra = extra;
+		fielda(t, 0, Ptrs);
 
 		word numGroups;
 		pcre_fullinfo(re, extra, PCRE_INFO_CAPTURECOUNT, &numGroups);
-		memb.groupIdx = allocArray!(word)(t, (numGroups + 1) * 3);
+
+		newMemblock(t, word.sizeof * ((numGroups + 1) * 3));
+		fielda(t, 0, GroupIdx);
 
 		getNameTable(t, re, extra);
-		setExtraVal(t, 0, Fields.names);
+		fielda(t, 0, Names);
 
 		return 0;
 	}
 
 	uword numGroups(CrocThread* t)
 	{
-		auto memb = getThis(t);
-		pushInt(t, memb.numGroups);
+		getThis(t);
+		field(t, 0, NumGroups);
 		return 1;
 	}
 
@@ -376,7 +377,7 @@ static:
 
 		pushGlobal(t, "hash");
 		pushNull(t);
-		getExtraVal(t, 0, Fields.names);
+		field(t, 0, Names);
 		methodCall(t, -3, "keys", 1);
 
 		return 1;
@@ -385,44 +386,55 @@ static:
 	uword test(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		auto memb = getThis(t);
+		auto ptrs = getThis(t);
 
 		if(numParams > 0)
 		{
 			checkStringParam(t, 1);
-			setSubject(t, memb, 1);
+			setSubject(t, 1);
 		}
-		else if(memb.nextStart == memb.subject.length)
+
+		field(t, 0, NextStart);
+		auto nextStart = cast(word)getInt(t, -1);
+		field(t, 0, Subject);
+		auto subject = getString(t, -1);
+		pop(t, 2);
+
+		if(nextStart == subject.length)
 		{
 			pushBool(t, false);
 			return 1;
 		}
 
+		field(t, 0, GroupIdx);
+		auto groupIdx = cast(GroupIdxType)getMemblockData(t, -1);
+		pop(t);
+
     	auto numGroups = pcre_exec
 		(
-			memb.re,
-			memb.extra,
-			memb.subject.ptr,
-			memb.subject.length,
-			memb.nextStart,
+			ptrs.re,
+			ptrs.extra,
+			subject.ptr,
+			subject.length,
+			nextStart,
 			PCRE_NO_UTF8_CHECK, // all Croc strings are valid UTF-8
-			memb.groupIdx.ptr,
-			memb.groupIdx.length
+			groupIdx.ptr,
+			groupIdx.length
 		);
 
 		if(numGroups == PCRE_ERROR_NOMATCH)
 		{
 			// done
-			memb.numGroups = 0;
-			memb.nextStart = memb.subject.length;
+			pushInt(t, 0);              fielda(t, 0, NumGroups);
+			pushInt(t, subject.length); fielda(t, 0, NextStart);
 			pushBool(t, false);
 		}
 		else if(numGroups < 0)
 			throwNamedException(t, "PcreException", "PCRE Error matching against string (code {})", numGroups);
 		else
 		{
-			memb.numGroups = numGroups;
-			memb.nextStart = memb.groupIdx[1];
+			pushInt(t, numGroups);   fielda(t, 0, NumGroups);
+			pushInt(t, groupIdx[1]); fielda(t, 0, NextStart);
 			pushBool(t, true);
 		}
 
@@ -431,9 +443,9 @@ static:
 
 	uword search(CrocThread* t)
 	{
-		auto memb = getThis(t);
+		getThis(t);
 		checkStringParam(t, 1);
-		setSubject(t, memb, 1);
+		setSubject(t, 1);
 		dup(t, 0);
 		return 1;
 	}
@@ -441,46 +453,54 @@ static:
 	uword match(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		auto memb = getThis(t);
-		auto range = getGroupRange(t, memb, numParams == 0 ? -1 : 1);
-		pushString(t, memb.subject[range[0] .. range[1]]);
+		getThis(t);
+		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
+		field(t, 0, Subject);
+		auto subject = getString(t, -1);
+		pushString(t, subject[range[0] .. range[1]]);
 		return 1;
 	}
 
 	uword pre(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		auto memb = getThis(t);
-		auto range = getGroupRange(t, memb, numParams == 0 ? -1 : 1);
-		pushString(t, memb.subject[0 .. range[0]]);
+		getThis(t);
+		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
+		field(t, 0, Subject);
+		auto subject = getString(t, -1);
+		pushString(t, subject[0 .. range[0]]);
 		return 1;
 	}
 
 	uword post(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		auto memb = getThis(t);
-		auto range = getGroupRange(t, memb, numParams == 0 ? -1 : 1);
-		pushString(t, memb.subject[range[1] .. $]);
+		getThis(t);
+		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
+		field(t, 0, Subject);
+		auto subject = getString(t, -1);
+		pushString(t, subject[range[1] .. $]);
 		return 1;
 	}
 
 	uword preMatchPost(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		auto memb = getThis(t);
-		auto range = getGroupRange(t, memb, numParams == 0 ? -1 : 1);
-		pushString(t, memb.subject[0 .. range[0]]);
-		pushString(t, memb.subject[range[0] .. range[1]]);
-		pushString(t, memb.subject[range[1] .. $]);
+		getThis(t);
+		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
+		field(t, 0, Subject);
+		auto subject = getString(t, -1);
+		pushString(t, subject[0 .. range[0]]);
+		pushString(t, subject[range[0] .. range[1]]);
+		pushString(t, subject[range[1] .. $]);
 		return 3;
 	}
 
 	uword matchBegin(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		auto memb = getThis(t);
-		auto range = getGroupRange(t, memb, numParams == 0 ? -1 : 1);
+		getThis(t);
+		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
 		pushInt(t, range[0]);
 		return 1;
 	}
@@ -488,8 +508,8 @@ static:
 	uword matchEnd(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		auto memb = getThis(t);
-		auto range = getGroupRange(t, memb, numParams == 0 ? -1 : 1);
+		getThis(t);
+		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
 		pushInt(t, range[1]);
 		return 1;
 	}
@@ -497,8 +517,8 @@ static:
 	uword matchBeginEnd(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		auto memb = getThis(t);
-		auto range = getGroupRange(t, memb, numParams == 0 ? -1 : 1);
+		getThis(t);
+		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
 		pushInt(t, range[0]);
 		pushInt(t, range[1]);
 		return 2;
@@ -506,9 +526,9 @@ static:
 
 	uword replace(CrocThread* t)
 	{
-		auto memb = getThis(t);
+		getThis(t);
 		auto str = checkStringParam(t, 1);
-		setSubject(t, memb, 1);
+		setSubject(t, 1);
 		checkAnyParam(t, 2);
 
 		bool test()
@@ -525,14 +545,18 @@ static:
 		uword start = 0;
 		char[] tmp = str;
 
+		field(t, 0, GroupIdx);
+		auto groupIdx = cast(GroupIdxType)getMemblockData(t, -1);
+		pop(t);
+
 		if(isString(t, 2))
 		{
 			while(test())
 			{
-				buf.addString(str[start .. memb.groupIdx[0]]);
+				buf.addString(str[start .. groupIdx[0]]);
 				dup(t, 2);
 				buf.addTop();
-				start = memb.groupIdx[1];
+				start = groupIdx[1];
 				tmp = str[start .. $];
 			}
 		}
@@ -540,7 +564,7 @@ static:
 		{
 			while(test())
 			{
-				buf.addString(str[start .. memb.groupIdx[0]]);
+				buf.addString(str[start .. groupIdx[0]]);
 
 				dup(t, 2);
 				pushNull(t);
@@ -554,7 +578,7 @@ static:
 				}
 
 				buf.addTop();
-				start = memb.groupIdx[1];
+				start = groupIdx[1];
 				tmp = str[start .. $];
 			}
 		}
@@ -569,9 +593,12 @@ static:
 
 	uword split(CrocThread* t)
 	{
-		auto memb = getThis(t);
+		getThis(t);
 		auto str = checkStringParam(t, 1);
-		setSubject(t, memb, 1);
+		setSubject(t, 1);
+		field(t, 0, GroupIdx);
+		auto groupIdx = cast(GroupIdxType)getMemblockData(t, -1);
+		pop(t);
 
 		auto ret = newArray(t, 0);
 		uword start = 0;
@@ -581,9 +608,9 @@ static:
 
 		foreach(word v; foreachLoop(t, 1))
 		{
-			pushString(t, str[start .. memb.groupIdx[0]]);
+			pushString(t, str[start .. groupIdx[0]]);
 			cateq(t, ret, 1);
-			start = memb.groupIdx[1];
+			start = groupIdx[1];
 			tmp = str[start .. $];
 		}
 
@@ -595,7 +622,7 @@ static:
 
 	uword find(CrocThread* t)
 	{
-		auto memb = getThis(t);
+		getThis(t);
 		checkStringParam(t, 1);
 
 		auto pos = len(t, 1);
@@ -606,7 +633,14 @@ static:
 		methodCall(t, -3, "test", 1);
 
 		if(getBool(t, -1))
-			pos = utf8ByteIdxToCP(memb.subject, memb.groupIdx[0]);
+		{
+			field(t, 0, Subject);
+			auto subject = getString(t, -1);
+			field(t, 0, GroupIdx);
+			auto groupIdx = cast(GroupIdxType)getMemblockData(t, -1);
+			pop(t, 2);
+			pos = utf8ByteIdxToCP(subject, groupIdx[0]);
+		}
 
 		pushInt(t, pos);
 		return 1;
@@ -614,7 +648,7 @@ static:
 
 	uword iterator(CrocThread* t)
 	{
-		auto memb = getThis(t);
+		getThis(t);
 		auto idx = checkIntParam(t, 1) + 1;
 
 		dup(t, 0);
