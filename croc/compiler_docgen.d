@@ -265,7 +265,7 @@ public:
 
 			if(idx < d.initializer.length)
 			{
-				pushString(t, d.initializer[idx].sourceStr);
+				pushTrimmedString(d.initializer[idx].sourceStr);
 				fielda(t, mDocTable, "value");
 			}
 
@@ -529,7 +529,7 @@ private:
 
 				if(f.initializer.sourceStr)
 				{
-					pushString(t, f.initializer.sourceStr);
+					pushTrimmedString(f.initializer.sourceStr);
 					fielda(t, mDocTable, "value");
 				}
 
@@ -630,5 +630,19 @@ private:
 		args ~= new(c) IntExp(c, init.location, mChildIndices[$ - 1] - 1);
 
 		return new(c) CallExp(c, init.endLocation, f, null, args.toArray());
+	}
+
+	void pushTrimmedString(char[] str)
+	{
+		auto pos = str.locate('\n');
+
+		if(pos == str.length)
+			pushString(t, str);
+		else
+		{
+			pushString(t, str[0 .. pos]);
+			pushString(t, "...");
+			cat(t, 2);
+		}
 	}
 }
