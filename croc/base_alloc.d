@@ -155,7 +155,7 @@ package:
 
 		Hash!(void*, MemBlock) _nurseryBlocks, _rcBlocks, _rawBlocks;
 	}
-	
+
 	// ------------------------------------------------------------
 	// Interfacing stuff
 
@@ -281,7 +281,7 @@ package:
 				static assert(false, "we can't resize arrays of memblock hash nodes! nonoNONONO-- god--godDAMMIT! YOU BROKE THE RULES!");
 
 			if(arr.length > 0 && _rawBlocks.lookup(arr.ptr) is null)
-				throw new Exception("AWFUL: You're trying to resize an array that wasn't allocated on the Croc RC Heap! It's of type " ~ typeid(T[]).toString());
+				throw new Exception("AWFUL: You're trying to resize an array that wasn't allocated on the Croc Heap! It's of type " ~ typeid(T[]).toString());
 		}
 
 		if(newLen == 0)
@@ -292,7 +292,7 @@ package:
 		}
 		else if(newLen == arr.length)
 			return;
-	
+
 		auto oldLen = arr.length;
 
 		debug(CROC_STOMP_MEMORY)
@@ -303,7 +303,7 @@ package:
 		}
 
 		auto ret = (cast(T*)realloc(arr.ptr, oldLen * T.sizeof, newLen * T.sizeof))[0 .. newLen];
-	
+
 		debug(CROC_LEAK_DETECTOR)
 		{
 			if(arr.ptr is ret.ptr)
@@ -316,7 +316,7 @@ package:
 		}
 
 		arr = ret;
-	
+
 		static if(!is(T == void))
 		{
 			if(newLen > oldLen)
@@ -339,7 +339,7 @@ package:
 			else
 				*_rawBlocks.insert(*this, ret.ptr) = MemBlock(ret.length * T.sizeof, typeid(T[]));
 		}
-	
+
 		return ret;
 	}
 
@@ -352,9 +352,10 @@ package:
 		{
 			static if(!is(T == Hash!(void*, MemBlock).Node))
 				if(_rawBlocks.lookup(a.ptr) is null)
-					throw new Exception("AWFUL: You're trying to free an array that wasn't allocated on the Croc RC Heap, or are performing a double free! It's of type " ~ typeid(T[]).toString());
+					throw new Exception(
+						"AWFUL: You're trying to free an array that wasn't allocated on the Croc Heap, or are performing a double free! It's of type " ~ typeid(T[]).toString());
 		}
-		
+
 		debug(CROC_STOMP_MEMORY)
 		{
 			static if(!is(T == void))

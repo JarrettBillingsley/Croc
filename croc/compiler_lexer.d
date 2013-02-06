@@ -920,7 +920,7 @@ private:
 	{
 		auto beginning = mLoc;
 
-		scope buf = new List!(char)(mCompiler.alloc);
+		scope buf = new List!(char, 64)(mCompiler);
 		dchar delimiter = mCharacter;
 
 		// to be safe..
@@ -990,9 +990,6 @@ private:
 		nextChar();
 
 		auto arr = buf.toArray();
-
-		scope(exit)
-			mCompiler.alloc.freeArray(arr);
 
 		uword cpLen;
 
@@ -1071,7 +1068,7 @@ private:
 			while(isWhitespace() && !isEOL())
 				nextChar();
 
-			scope buf = new List!(char)(mCompiler.alloc);
+			scope buf = new List!(char, 64)(mCompiler);
 
 			while(!isEOL())
 			{
@@ -1081,7 +1078,6 @@ private:
 
 			buf ~= '\n';
 			auto arr = buf.toArray();
-			scope(exit) mCompiler.alloc.freeArray(arr);
 			addComment(mCompiler.newString(arr), loc);
 		}
 		else
@@ -1107,7 +1103,7 @@ private:
 
 			auto loc = mLoc;
 
-			scope buf = new List!(char)(mCompiler.alloc);
+			scope buf = new List!(char, 64)(mCompiler);
 			uint nesting = 1;
 
 			void trimTrailingWS()
@@ -1175,7 +1171,6 @@ private:
 				buf ~= '\n';
 
 			auto arr = buf.toArray();
-			scope(exit) mCompiler.alloc.freeArray(arr);
 			addComment(mCompiler.newString(arr), loc);
 		}
 		else
@@ -1593,7 +1588,7 @@ private:
 					}
 					else if(isAlpha() || mCharacter == '_')
 					{
-						scope buf = new List!(char)(mCompiler.alloc);
+						scope buf = new List!(char, 32)(mCompiler);
 						char[6] utfbuf = void;
 
 						do
@@ -1605,9 +1600,6 @@ private:
 						} while(isAlpha() || isDecimalDigit() || mCharacter == '_' || mCharacter == '!');
 
 						auto arr = buf.toArray();
-
-						scope(exit)
-							mCompiler.alloc.freeArray(arr);
 
 						auto s = mCompiler.newString(arr);
 

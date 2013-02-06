@@ -109,9 +109,9 @@ public:
 		{
 			if(p.customConstraint)
 			{
-				scope args = new List!(Expression)(c.alloc);
-				args ~= new(c) IdentExp(c, p.name);
-				p.customConstraint = new(c) CallExp(c, p.customConstraint.endLocation, p.customConstraint, null, args.toArray());
+				scope args = new List!(Expression)(c);
+				args ~= new(c) IdentExp(p.name);
+				p.customConstraint = new(c) CallExp(p.customConstraint.endLocation, p.customConstraint, null, args.toArray());
 			}
 
 			if(p.defValue is null)
@@ -145,20 +145,20 @@ public:
 
 		d.code = visit(d.code);
 
-		scope extra = new List!(Statement)(c.alloc);
+		scope extra = new List!(Statement)(c);
 
 		foreach(ref p; d.params)
 			if(p.defValue !is null)
-				extra ~= new(c) CondAssignStmt(c, p.name.location, p.name.location, new(c) IdentExp(c, p.name), p.defValue);
+				extra ~= new(c) CondAssignStmt(p.name.location, p.name.location, new(c) IdentExp(p.name), p.defValue);
 
 		if(c.typeConstraints())
-			extra ~= new(c) TypecheckStmt(c, d.code.location, d);
+			extra ~= new(c) TypecheckStmt(d.code.location, d);
 
 		if(extra.length > 0)
 		{
 			extra ~= d.code;
 			auto arr = extra.toArray();
-			d.code = new(c) BlockStmt(c, arr[0].location, arr[$ - 1].endLocation, arr);
+			d.code = new(c) BlockStmt(arr[0].location, arr[$ - 1].endLocation, arr);
 		}
 
 		return d;
@@ -189,7 +189,7 @@ public:
 	override Statement visit(AssertStmt s)
 	{
 		if(!c.asserts())
-			return new(c) BlockStmt(c, s.location, s.endLocation, null);
+			return new(c) BlockStmt(s.location, s.endLocation, null);
 
 		s.cond = visit(s.cond);
 
@@ -200,7 +200,7 @@ public:
 			pushFormat(c.thread, "Assertion failure at {}({}:{})", s.location.file, s.location.line, s.location.col);
 			auto str = c.newString(getString(c.thread, -1));
 			pop(c.thread);
-			s.msg = new(c) StringExp(c, s.location, str);
+			s.msg = new(c) StringExp(s.location, str);
 		}
 
 		return s;
@@ -228,68 +228,68 @@ public:
 		{
 			foreach(i, sym; s.symbols)
 			{
-				scope lhs = new List!(Expression)(c.alloc);
-				scope rhs = new List!(Expression)(c.alloc);
-				lhs ~= new(c) IdentExp(c, s.symbolNames[i]);
-				rhs ~= new(c) DotExp(c, src, new(c) StringExp(c, sym.location, sym.name));
-				stmts ~= new(c) AssignStmt(c, sym.location, sym.endLocation, lhs.toArray(), rhs.toArray());
+				scope lhs = new List!(Expression)(c);
+				scope rhs = new List!(Expression)(c);
+				lhs ~= new(c) IdentExp(s.symbolNames[i]);
+				rhs ~= new(c) DotExp(src, new(c) StringExp(sym.location, sym.name));
+				stmts ~= new(c) AssignStmt(sym.location, sym.endLocation, lhs.toArray(), rhs.toArray());
 			}
 		}
 
 		// First we make the "modules.load(expr)" call.
-		auto _modules = new(c) IdentExp(c, new(c) Identifier(c, s.location, c.newString("modules")));
-		auto _load = new(c) StringExp(c, s.location, c.newString("load"));
-		scope args = new List!(Expression)(c.alloc);
+		auto _modules = new(c) IdentExp(new(c) Identifier(s.location, c.newString("modules")));
+		auto _load = new(c) StringExp(s.location, c.newString("load"));
+		scope args = new List!(Expression)(c);
 		args ~= s.expr;
-		auto call = new(c) MethodCallExp(c, s.location, s.endLocation, _modules, _load, args.toArray(), false);
+		auto call = new(c) MethodCallExp(s.location, s.endLocation, _modules, _load, args.toArray(), false);
 
 		// Now we make a list of statements.
-		scope stmts = new List!(Statement)(c.alloc);
+		scope stmts = new List!(Statement)(c);
 
 		// First we declare any selectively-imported symbols as locals
 		if(s.symbols.length > 0)
-			stmts ~= new(c) VarDecl(c, s.location, s.endLocation, Protection.Local, c.alloc.dupArray(s.symbolNames), null);
+			stmts ~= new(c) VarDecl(s.location, s.endLocation, Protection.Local, s.symbolNames, null);
 
 		if(s.importName is null)
 		{
 			if(s.symbols.length == 0)
-				stmts ~= new(c) ExpressionStmt(c, s.location, s.endLocation, call);
+				stmts ~= new(c) ExpressionStmt(s.location, s.endLocation, call);
 			else
 			{
 				// It's not renamed, but we have to get the namespace so we can fill in the selectively-imported symbols.
-				scope stmts2 = new List!(Statement)(c.alloc);
+				scope stmts2 = new List!(Statement)(c);
 
 				// First put the import into a temporary local.
-				scope names = new List!(Identifier)(c.alloc);
-				scope inits = new List!(Expression)(c.alloc);
-				auto ident = new(c) Identifier(c, s.location, c.newString(InternalName!("tempimport")));
+				scope names = new List!(Identifier)(c);
+				scope inits = new List!(Expression)(c);
+				auto ident = new(c) Identifier(s.location, c.newString(InternalName!("tempimport")));
 				names ~= ident;
 				inits ~= call;
-				stmts2 ~= new(c) VarDecl(c, s.location, s.endLocation, Protection.Local, names.toArray(), inits.toArray());
+				stmts2 ~= new(c) VarDecl(s.location, s.endLocation, Protection.Local, names.toArray(), inits.toArray());
 
 				// Now get all the fields out.
-				doSelective(stmts2, new(c) IdentExp(c, ident));
+				doSelective(stmts2, new(c) IdentExp(ident));
 
 				// Finally, we put all this in a scoped sub-block.
-				stmts ~= new(c) ScopeStmt(c, new(c) BlockStmt(c, s.location, s.endLocation, stmts2.toArray()));
+				stmts ~= new(c) ScopeStmt(new(c) BlockStmt(s.location, s.endLocation, stmts2.toArray()));
 			}
 		}
 		else
 		{
 			// Renamed import. Just put it in a new local.
-			scope names = new List!(Identifier)(c.alloc);
-			scope inits = new List!(Expression)(c.alloc);
+			scope names = new List!(Identifier)(c);
+			scope inits = new List!(Expression)(c);
 			names ~= s.importName;
 			inits ~= call;
-			stmts ~= new(c) VarDecl(c, s.location, s.endLocation, Protection.Local, names.toArray(), inits.toArray());
+			stmts ~= new(c) VarDecl(s.location, s.endLocation, Protection.Local, names.toArray(), inits.toArray());
 
 			// Do any selective imports
 			if(s.symbols.length > 0)
-				doSelective(stmts, new(c) IdentExp(c, s.importName));
+				doSelective(stmts, new(c) IdentExp(s.importName));
 		}
 
 		// Wrap it all up in a (non-scoped) block.
-		return new(c) BlockStmt(c, s.location, s.endLocation, stmts.toArray());
+		return new(c) BlockStmt(s.location, s.endLocation, stmts.toArray());
 	}
 
 	override ScopeStmt visit(ScopeStmt s)
@@ -374,7 +374,10 @@ public:
 	{
 		alias TryCatchStmt.CatchClause CC;
 
-		foreach(i, ref stmt; s.statements)
+		bool found = 0;
+		uword i = 0;
+
+		foreach(idx, ref stmt; s.statements)
 		{
 			stmt = visit(stmt);
 
@@ -384,137 +387,141 @@ public:
 			if(ss is null)
 				continue;
 
-			// Get all the statements that follow this scope statement.
-			auto rest = s.statements[i + 1 .. $];
-
-			if(rest.length == 0)
-			{
-				// If there are no more statements, the body of the scope statement will either always or never be run
-				if(ss.type == ScopeActionStmt.Exit || ss.type == ScopeActionStmt.Success)
-					stmt = ss.stmt;
-				else
-					c.alloc.resizeArray(s.statements, s.statements.length - 1);
-
-				// This is the last item, so just break.
-				break;
-			}
-
-			// Have to rewrite the statements. Scope statements are just fancy ways of writing try-catch-finally blocks.
-			rest = c.alloc.dupArray(rest);
-			auto tryBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, rest[0].location, rest[$ - 1].endLocation, rest));
-			Statement replacement;
-
-			switch(ss.type)
-			{
-				case ScopeActionStmt.Exit:
-					/*
-					scope(exit) { ss.stmt }
-					rest
-					=>
-					try { rest }
-					finally { ss.stmt }
-					*/
-					replacement = visit(new(c) TryFinallyStmt(c, ss.location, ss.endLocation, tryBody, ss.stmt));
-					break;
-
-				case ScopeActionStmt.Success:
-					/*
-					scope(success) { ss.stmt }
-					rest
-					=>
-					local __dummy = true
-					try { rest }
-					catch(__dummy2: Throwable) { __dummy = false; throw __dummy2 }
-					finally { if(__dummy) ss.stmt }
-					*/
-
-					// local __dummy = true
-					auto finishedVar = genDummyVar(ss.endLocation, InternalName!("scope{}"));
-					auto finishedVarExp = new(c) IdentExp(c, finishedVar);
-					Statement declStmt;
-					{
-						scope nameList = new List!(Identifier)(c.alloc);
-						nameList ~= finishedVar;
-						scope initializer = new List!(Expression)(c.alloc);
-						initializer ~= new(c) BoolExp(c, ss.location, true);
-						declStmt = new(c) VarDecl(c, ss.location, ss.location, Protection.Local, nameList.toArray(), initializer.toArray());
-					}
-
-					// catch(__dummy2: Throwable) { __dummy = false; throw __dummy2 }
-					auto catchVar = genDummyVar(ss.location, InternalName!("scope{}"));
-					TryCatchStmt catchStmt;
-					{
-						scope types = new List!(Expression)(c.alloc);
-						types ~= new(c) IdentExp(c, new(c) Identifier(c, ss.location, c.newString("Throwable")));
-
-						scope dummy = new List!(Statement)(c.alloc);
-						// __dummy = false;
-						scope lhs = new List!(Expression)(c.alloc);
-						lhs ~= finishedVarExp;
-						scope rhs = new List!(Expression)(c.alloc);
-						rhs ~= new(c) BoolExp(c, ss.location, false);
-						dummy ~= new(c) AssignStmt(c, ss.location, ss.location, lhs.toArray(), rhs.toArray());
-						// throw __dummy2
-						dummy ~= new(c) ThrowStmt(c, ss.stmt.location, new(c) IdentExp(c, catchVar), true);
-						auto code = dummy.toArray();
-						auto catchBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, code[0].location, code[$ - 1].endLocation, code));
-
-						scope catches = new List!(CC)(c.alloc);
-						catches ~= CC(catchVar, types.toArray(), catchBody);
-
-						catchStmt = new(c) TryCatchStmt(c, ss.location, ss.endLocation, tryBody, catches.toArray());
-					}
-
-					// finally { if(__dummy) ss.stmt }
-					ScopeStmt finallyBody;
-					{
-						scope dummy = new List!(Statement)(c.alloc);
-						// if(__dummy) ss.stmt
-						dummy ~= new(c) IfStmt(c, ss.location, ss.endLocation, null, finishedVarExp, ss.stmt, null);
-						auto code = dummy.toArray();
-						finallyBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, code[0].location, code[$ - 1].endLocation, code));
-					}
-
-					// Put it all together
-					scope code = new List!(Statement)(c.alloc);
-					code ~= declStmt;
-					code ~= new(c) TryFinallyStmt(c, ss.location, ss.endLocation, catchStmt, finallyBody);
-					auto codeArr = code.toArray();
-					replacement = visit(new(c) ScopeStmt(c, new(c) BlockStmt(c, codeArr[0].location, codeArr[$ - 1].endLocation, codeArr)));
-					break;
-
-				case ScopeActionStmt.Failure:
-					/*
-					scope(failure) { ss.stmt }
-					rest
-					=>
-					try { rest }
-					catch(__dummy: Throwable) { ss.stmt; throw __dummy }
-					*/
-					auto catchVar = genDummyVar(ss.location, InternalName!("scope{}"));
-					scope types = new List!(Expression)(c.alloc);
-					types ~= new(c) IdentExp(c, new(c) Identifier(c, ss.location, c.newString("Throwable")));
-
-					scope dummy = new List!(Statement)(c.alloc);
-					dummy ~= ss.stmt;
-					dummy ~= new(c) ThrowStmt(c, ss.stmt.endLocation, new(c) IdentExp(c, catchVar), true);
-					auto catchCode = dummy.toArray();
-					auto catchBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, catchCode[0].location, catchCode[$ - 1].endLocation, catchCode));
-
-					scope catches = new List!(CC)(c.alloc);
-					catches ~= CC(catchVar, types.toArray(), catchBody);
-					replacement = visit(new(c) TryCatchStmt(c, ss.location, ss.endLocation, tryBody, catches.toArray()));
-					break;
-
-				default: assert(false);
-			}
-
-			c.alloc.resizeArray(s.statements, i + 1);
-			// can't use stmt here since we've resized the array and it might not be valid
-			s.statements[i] = replacement;
+			found = true;
+			i = idx;
 			break;
 		}
 
+		if(!found)
+			return s;
+
+		auto ss = s.statements[i].as!(ScopeActionStmt);
+
+		// Get all the statements that follow this scope statement.
+		auto rest = s.statements[i + 1 .. $];
+
+		if(rest.length == 0)
+		{
+			// If there are no more statements, the body of the scope statement will either always or never be run
+			if(ss.type == ScopeActionStmt.Exit || ss.type == ScopeActionStmt.Success)
+				s.statements[$ - 1] = ss.stmt;
+			else
+				s.statements = s.statements[0 .. $ - 1];
+
+			return s;
+		}
+
+		// Have to rewrite the statements. Scope statements are just fancy ways of writing try-catch-finally blocks.
+		auto tryBody = new(c) ScopeStmt(new(c) BlockStmt(rest[0].location, rest[$ - 1].endLocation, rest));
+		Statement replacement;
+
+		switch(ss.type)
+		{
+			case ScopeActionStmt.Exit:
+				/*
+				scope(exit) { ss.stmt }
+				rest
+				=>
+				try { rest }
+				finally { ss.stmt }
+				*/
+				replacement = visit(new(c) TryFinallyStmt(ss.location, ss.endLocation, tryBody, ss.stmt));
+				break;
+
+			case ScopeActionStmt.Success:
+				/*
+				scope(success) { ss.stmt }
+				rest
+				=>
+				local __dummy = true
+				try { rest }
+				catch(__dummy2: Throwable) { __dummy = false; throw __dummy2 }
+				finally { if(__dummy) ss.stmt }
+				*/
+
+				// local __dummy = true
+				auto finishedVar = genDummyVar(ss.endLocation, InternalName!("scope{}"));
+				auto finishedVarExp = new(c) IdentExp(finishedVar);
+				Statement declStmt;
+				{
+					scope nameList = new List!(Identifier)(c);
+					nameList ~= finishedVar;
+					scope initializer = new List!(Expression)(c);
+					initializer ~= new(c) BoolExp(ss.location, true);
+					declStmt = new(c) VarDecl(ss.location, ss.location, Protection.Local, nameList.toArray(), initializer.toArray());
+				}
+
+				// catch(__dummy2: Throwable) { __dummy = false; throw __dummy2 }
+				auto catchVar = genDummyVar(ss.location, InternalName!("scope{}"));
+				TryCatchStmt catchStmt;
+				{
+					scope types = new List!(Expression)(c);
+					types ~= new(c) IdentExp(new(c) Identifier(ss.location, c.newString("Throwable")));
+
+					scope dummy = new List!(Statement)(c);
+					// __dummy = false;
+					scope lhs = new List!(Expression)(c);
+					lhs ~= finishedVarExp;
+					scope rhs = new List!(Expression)(c);
+					rhs ~= new(c) BoolExp(ss.location, false);
+					dummy ~= new(c) AssignStmt(ss.location, ss.location, lhs.toArray(), rhs.toArray());
+					// throw __dummy2
+					dummy ~= new(c) ThrowStmt(ss.stmt.location, new(c) IdentExp(catchVar), true);
+					auto code = dummy.toArray();
+					auto catchBody = new(c) ScopeStmt(new(c) BlockStmt(code[0].location, code[$ - 1].endLocation, code));
+
+					scope catches = new List!(CC)(c);
+					catches ~= CC(catchVar, types.toArray(), catchBody);
+
+					catchStmt = new(c) TryCatchStmt(ss.location, ss.endLocation, tryBody, catches.toArray());
+				}
+
+				// finally { if(__dummy) ss.stmt }
+				ScopeStmt finallyBody;
+				{
+					scope dummy = new List!(Statement)(c);
+					// if(__dummy) ss.stmt
+					dummy ~= new(c) IfStmt(ss.location, ss.endLocation, null, finishedVarExp, ss.stmt, null);
+					auto code = dummy.toArray();
+					finallyBody = new(c) ScopeStmt(new(c) BlockStmt(code[0].location, code[$ - 1].endLocation, code));
+				}
+
+				// Put it all together
+				scope code = new List!(Statement)(c);
+				code ~= declStmt;
+				code ~= new(c) TryFinallyStmt(ss.location, ss.endLocation, catchStmt, finallyBody);
+				auto codeArr = code.toArray();
+				replacement = visit(new(c) ScopeStmt(new(c) BlockStmt(codeArr[0].location, codeArr[$ - 1].endLocation, codeArr)));
+				break;
+
+			case ScopeActionStmt.Failure:
+				/*
+				scope(failure) { ss.stmt }
+				rest
+				=>
+				try { rest }
+				catch(__dummy: Throwable) { ss.stmt; throw __dummy }
+				*/
+				auto catchVar = genDummyVar(ss.location, InternalName!("scope{}"));
+				scope types = new List!(Expression)(c);
+				types ~= new(c) IdentExp(new(c) Identifier(ss.location, c.newString("Throwable")));
+
+				scope dummy = new List!(Statement)(c);
+				dummy ~= ss.stmt;
+				dummy ~= new(c) ThrowStmt(ss.stmt.endLocation, new(c) IdentExp(catchVar), true);
+				auto catchCode = dummy.toArray();
+				auto catchBody = new(c) ScopeStmt(new(c) BlockStmt(catchCode[0].location, catchCode[$ - 1].endLocation, catchCode));
+
+				scope catches = new List!(CC)(c);
+				catches ~= CC(catchVar, types.toArray(), catchBody);
+				replacement = visit(new(c) TryCatchStmt(ss.location, ss.endLocation, tryBody, catches.toArray()));
+				break;
+
+			default: assert(false);
+		}
+
+		s.statements = s.statements[0 .. i + 1];
+		s.statements[i] = replacement;
 		return s;
 	}
 
@@ -531,26 +538,26 @@ public:
 			if(s.condition.isTrue)
 			{
 				if(s.condVar is null)
-					return new(c) ScopeStmt(c, s.ifBody);
+					return new(c) ScopeStmt(s.ifBody);
 
-				scope names = new List!(Identifier)(c.alloc);
+				scope names = new List!(Identifier)(c);
 				names ~= s.condVar.name;
 
-				scope initializer = new List!(Expression)(c.alloc);
+				scope initializer = new List!(Expression)(c);
 				initializer ~= s.condition;
 
-				scope temp = new List!(Statement)(c.alloc);
-				temp ~= new(c) VarDecl(c, s.condVar.location, s.condVar.endLocation, Protection.Local, names.toArray(), initializer.toArray());
+				scope temp = new List!(Statement)(c);
+				temp ~= new(c) VarDecl(s.condVar.location, s.condVar.endLocation, Protection.Local, names.toArray(), initializer.toArray());
 				temp ~= s.ifBody;
 
-				return new(c) ScopeStmt(c, new(c) BlockStmt(c, s.location, s.endLocation, temp.toArray()));
+				return new(c) ScopeStmt(new(c) BlockStmt(s.location, s.endLocation, temp.toArray()));
 			}
 			else
 			{
 				if(s.elseBody)
-					return new(c) ScopeStmt(c, s.elseBody);
+					return new(c) ScopeStmt(s.elseBody);
 				else
-					return new(c) BlockStmt(c, s.location, s.endLocation, null);
+					return new(c) BlockStmt(s.location, s.endLocation, null);
 			}
 		}
 
@@ -563,7 +570,7 @@ public:
 		s.code = visit(s.code);
 
 		if(s.condition.isConstant && !s.condition.isTrue)
-			return new(c) BlockStmt(c, s.location, s.endLocation, null);
+			return new(c) BlockStmt(s.location, s.endLocation, null);
 
 		return s;
 	}
@@ -602,7 +609,7 @@ public:
 			{
 				if(s.init.length > 0)
 				{
-					scope inits = new List!(Statement)(c.alloc);
+					scope inits = new List!(Statement)(c);
 
 					foreach(i; s.init)
 					{
@@ -612,10 +619,10 @@ public:
 							inits ~= i.stmt;
 					}
 
-					return new(c) ScopeStmt(c, new(c) BlockStmt(c, s.location, s.endLocation, inits.toArray()));
+					return new(c) ScopeStmt(new(c) BlockStmt(s.location, s.endLocation, inits.toArray()));
 				}
 				else
-					return new(c) BlockStmt(c, s.location, s.endLocation, null);
+					return new(c) BlockStmt(s.location, s.endLocation, null);
 			}
 		}
 
@@ -660,7 +667,7 @@ public:
 	{
 		s.condition = visit(s.condition);
 
-		scope rangeCases = new List!(CaseStmt)(c.alloc);
+		scope rangeCases = new List!(CaseStmt)(c);
 
 		foreach(ref c; s.cases)
 		{
@@ -914,39 +921,39 @@ public:
 
 		// catch(__catch0)
 		auto cvar = genDummyVar(s.catches[0].catchVar.location, InternalName!("catch{}"));
-		auto cvarExp = new(c) IdentExp(c, cvar);
+		auto cvarExp = new(c) IdentExp(cvar);
 		s.hiddenCatchVar = cvar;
 
 		// else throw __catch0
-		Statement stmt = new(c) ThrowStmt(c, s.endLocation, cvarExp, true);
+		Statement stmt = new(c) ThrowStmt(s.endLocation, cvarExp, true);
 
 		// Doing it in reverse to make building it up easier.
 		foreach_reverse(ref ca; s.catches)
 		{
 			// if(__catch0 as E2 || __catch0 as E3)
-			Expression cond = new(c) AsExp(c, ca.catchVar.location, ca.catchVar.location, cvarExp, ca.exTypes[0]);
+			Expression cond = new(c) AsExp(ca.catchVar.location, ca.catchVar.location, cvarExp, ca.exTypes[0]);
 
 			foreach(type; ca.exTypes[1 .. $])
 			{
-				auto tmp = new(c) AsExp(c, ca.catchVar.location, ca.catchVar.location, cvarExp, type);
-				cond = new(c) OrOrExp(c, ca.catchVar.location, ca.catchVar.location, cond, tmp);
+				auto tmp = new(c) AsExp(ca.catchVar.location, ca.catchVar.location, cvarExp, type);
+				cond = new(c) OrOrExp(ca.catchVar.location, ca.catchVar.location, cond, tmp);
 			}
 
-			scope code = new List!(Statement)(c.alloc);
+			scope code = new List!(Statement)(c);
 
 			// local f = __catch0;
-			scope nameList = new List!(Identifier)(c.alloc);
+			scope nameList = new List!(Identifier)(c);
 			nameList ~= ca.catchVar;
-			scope initializer = new List!(Expression)(c.alloc);
+			scope initializer = new List!(Expression)(c);
 			initializer ~= cvarExp;
-			code ~= new(c) VarDecl(c, ca.catchVar.location, ca.catchVar.location, Protection.Local, nameList.toArray(), initializer.toArray());
+			code ~= new(c) VarDecl(ca.catchVar.location, ca.catchVar.location, Protection.Local, nameList.toArray(), initializer.toArray());
 
 			// catch2()
 			code ~= ca.catchBody;
 
 			// wrap it up
-			auto ifCode = new(c) ScopeStmt(c, new(c) BlockStmt(c, ca.catchBody.location, ca.catchBody.endLocation, code.toArray()));
-			stmt = new(c) IfStmt(c, ca.catchVar.location, stmt.endLocation, null, cond, ifCode, stmt);
+			auto ifCode = new(c) ScopeStmt(new(c) BlockStmt(ca.catchBody.location, ca.catchBody.endLocation, code.toArray()));
+			stmt = new(c) IfStmt(ca.catchVar.location, stmt.endLocation, null, cond, ifCode, stmt);
 		}
 
 		s.transformedCatch = stmt;
@@ -1018,7 +1025,7 @@ public:
 		s.rhs = visit(s.rhs);
 
 		if(s.rhs.isConstant() && s.rhs.isNull())
-			return new(c) BlockStmt(c, s.location, s.endLocation, null);
+			return new(c) BlockStmt(s.location, s.endLocation, null);
 
 		return s;
 	}
@@ -1035,7 +1042,7 @@ public:
 		}
 		else
 		{
-			scope dummy = new List!(Expression)(c.alloc);
+			scope dummy = new List!(Expression)(c);
 			dummy ~= s.rhs;
 			s.operands = dummy.toArray();
 		}
@@ -1115,7 +1122,7 @@ public:
 			if(!e.op1.isInt || !e.op2.isInt)
 				c.semException(e.location, "Bitwise Or must be performed on integers");
 
-			return new(c) IntExp(c, e.location, e.op1.asInt() | e.op2.asInt());
+			return new(c) IntExp(e.location, e.op1.asInt() | e.op2.asInt());
 		}
 
 		return e;
@@ -1131,7 +1138,7 @@ public:
 			if(!e.op1.isInt || !e.op2.isInt)
 				c.semException(e.location, "Bitwise Xor must be performed on integers");
 
-			return new(c) IntExp(c, e.location, e.op1.asInt() ^ e.op2.asInt());
+			return new(c) IntExp(e.location, e.op1.asInt() ^ e.op2.asInt());
 		}
 
 		return e;
@@ -1147,7 +1154,7 @@ public:
 			if(!e.op1.isInt || !e.op2.isInt)
 				c.semException(e.location, "Bitwise And must be performed on integers");
 
-			return new(c) IntExp(c, e.location, e.op1.asInt() & e.op2.asInt());
+			return new(c) IntExp(e.location, e.op1.asInt() & e.op2.asInt());
 		}
 
 		return e;
@@ -1163,33 +1170,33 @@ public:
 		if(e.op1.isConstant && e.op2.isConstant)
 		{
 			if(e.op1.isNull && e.op2.isNull)
-				return new(c) BoolExp(c, e.location, isTrue);
+				return new(c) BoolExp(e.location, isTrue);
 
 			if(e.op1.isBool && e.op2.isBool)
-				return new(c) BoolExp(c, e.location, isTrue ? e.op1.asBool() == e.op2.asBool() : e.op1.asBool() != e.op2.asBool());
+				return new(c) BoolExp(e.location, isTrue ? e.op1.asBool() == e.op2.asBool() : e.op1.asBool() != e.op2.asBool());
 
 			if(e.op1.isInt && e.op2.isInt)
-				return new(c) BoolExp(c, e.location, isTrue ? e.op1.asInt() == e.op2.asInt() : e.op1.asInt() != e.op2.asInt());
+				return new(c) BoolExp(e.location, isTrue ? e.op1.asInt() == e.op2.asInt() : e.op1.asInt() != e.op2.asInt());
 
 			if(e.type == AstTag.IsExp || e.type == AstTag.NotIsExp)
 			{
 				if(e.op1.isFloat && e.op2.isFloat)
-					return new(c) BoolExp(c, e.location, isTrue ? e.op1.asFloat() == e.op2.asFloat() : e.op1.asFloat() != e.op2.asFloat());
+					return new(c) BoolExp(e.location, isTrue ? e.op1.asFloat() == e.op2.asFloat() : e.op1.asFloat() != e.op2.asFloat());
 			}
 			else
 			{
 				if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
-					return new(c) BoolExp(c, e.location, isTrue ? e.op1.asFloat() == e.op2.asFloat() : e.op1.asFloat() != e.op2.asFloat());
+					return new(c) BoolExp(e.location, isTrue ? e.op1.asFloat() == e.op2.asFloat() : e.op1.asFloat() != e.op2.asFloat());
 			}
 
 			if(e.op1.isChar && e.op2.isChar)
-				return new(c) BoolExp(c, e.location, isTrue ? e.op1.asChar() == e.op2.asChar() : e.op1.asChar() != e.op2.asChar());
+				return new(c) BoolExp(e.location, isTrue ? e.op1.asChar() == e.op2.asChar() : e.op1.asChar() != e.op2.asChar());
 
 			if(e.op1.isString && e.op2.isString)
-				return new(c) BoolExp(c, e.location, isTrue ? e.op1.asString() == e.op2.asString() : e.op1.asString() != e.op2.asString());
+				return new(c) BoolExp(e.location, isTrue ? e.op1.asString() == e.op2.asString() : e.op1.asString() != e.op2.asString());
 
 			if(e.type == AstTag.IsExp || e.type == AstTag.NotIsExp)
-				return new(c) BoolExp(c, e.location, !isTrue);
+				return new(c) BoolExp(e.location, !isTrue);
 			else
 				c.semException(e.location, "Cannot compare different types");
 		}
@@ -1233,10 +1240,10 @@ public:
 
 			switch(e.type)
 			{
-				case AstTag.LTExp: return new(c) BoolExp(c, e.location, cmpVal < 0);
-				case AstTag.LEExp: return new(c) BoolExp(c, e.location, cmpVal <= 0);
-				case AstTag.GTExp: return new(c) BoolExp(c, e.location, cmpVal > 0);
-				case AstTag.GEExp: return new(c) BoolExp(c, e.location, cmpVal >= 0);
+				case AstTag.LTExp: return new(c) BoolExp(e.location, cmpVal < 0);
+				case AstTag.LEExp: return new(c) BoolExp(e.location, cmpVal <= 0);
+				case AstTag.GTExp: return new(c) BoolExp(e.location, cmpVal > 0);
+				case AstTag.GEExp: return new(c) BoolExp(e.location, cmpVal >= 0);
 				default: assert(false, "BaseCmpExp fold");
 			}
 		}
@@ -1255,7 +1262,7 @@ public:
 		e.op2 = visit(e.op2);
 
 		if(e.op1.isConstant && e.op2.isConstant)
-			return new(c) IntExp(c, e.location, commonCompare(e.op1, e.op2));
+			return new(c) IntExp(e.location, commonCompare(e.op1, e.op2));
 
 		return e;
 	}
@@ -1290,10 +1297,10 @@ public:
 						// for some reason, if I try to return a BoolExp here, DMD inserts a cast to AstNode that I can't get around..
 					}
 
-				return new(c) BoolExp(c, e.location, found);
+				return new(c) BoolExp(e.location, found);
 			}
 			else if(e.op1.isString)
-				return new(c) BoolExp(c, e.location, s.locatePattern(e.op1.asString()) != s.length);
+				return new(c) BoolExp(e.location, s.locatePattern(e.op1.asString()) != s.length);
 			else
 				c.semException(e.location, "'in' must be performed on a string with a character or string");
 		}
@@ -1323,10 +1330,10 @@ public:
 						// for some reason, if I try to return a BoolExp here, DMD inserts a cast to AstNode that I can't get around..
 					}
 
-				return new(c) BoolExp(c, e.location, !found);
+				return new(c) BoolExp(e.location, !found);
 			}
 			else if(e.op1.isString)
-				return new(c) BoolExp(c, e.location, s.locatePattern(e.op1.asString()) == s.length);
+				return new(c) BoolExp(e.location, s.locatePattern(e.op1.asString()) == s.length);
 			else
 				c.semException(e.location, "'!in' must be performed on a string with a character or string");
 		}
@@ -1344,7 +1351,7 @@ public:
 			if(!e.op1.isInt || !e.op2.isInt)
 				c.semException(e.location, "Bitwise left-shift must be performed on integers");
 
-			return new(c) IntExp(c, e.location, e.op1.asInt() << e.op2.asInt());
+			return new(c) IntExp(e.location, e.op1.asInt() << e.op2.asInt());
 		}
 
 		return e;
@@ -1360,7 +1367,7 @@ public:
 			if(!e.op1.isInt || !e.op2.isInt)
 				c.semException(e.location, "Bitwise right-shift must be performed on integers");
 
-			return new(c) IntExp(c, e.location, e.op1.asInt() >> e.op2.asInt());
+			return new(c) IntExp(e.location, e.op1.asInt() >> e.op2.asInt());
 		}
 
 		return e;
@@ -1376,7 +1383,7 @@ public:
 			if(!e.op1.isInt || !e.op2.isInt)
 				c.semException(e.location, "Bitwise unsigned right-shift must be performed on integers");
 
-			return new(c) IntExp(c, e.location, e.op1.asInt() >>> e.op2.asInt());
+			return new(c) IntExp(e.location, e.op1.asInt() >>> e.op2.asInt());
 		}
 
 		return e;
@@ -1390,9 +1397,9 @@ public:
 		if(e.op1.isConstant && e.op2.isConstant)
 		{
 			if(e.op1.isInt && e.op2.isInt)
-				return new(c) IntExp(c, e.location, e.op1.asInt() + e.op2.asInt());
+				return new(c) IntExp(e.location, e.op1.asInt() + e.op2.asInt());
 			else if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
-				return new(c) FloatExp(c, e.location, e.op1.asFloat() + e.op2.asFloat());
+				return new(c) FloatExp(e.location, e.op1.asFloat() + e.op2.asFloat());
 			else
 				c.semException(e.location, "Addition must be performed on numbers");
 		}
@@ -1408,9 +1415,9 @@ public:
 		if(e.op1.isConstant && e.op2.isConstant)
 		{
 			if(e.op1.isInt && e.op2.isInt)
-				return new(c) IntExp(c, e.location, e.op1.asInt() - e.op2.asInt());
+				return new(c) IntExp(e.location, e.op1.asInt() - e.op2.asInt());
 			else if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
-				return new(c) FloatExp(c, e.location, e.op1.asFloat() - e.op2.asFloat());
+				return new(c) FloatExp(e.location, e.op1.asFloat() - e.op2.asFloat());
 			else
 				c.semException(e.location, "Subtraction must be performed on numbers");
 		}
@@ -1430,7 +1437,7 @@ public:
 
 		// Collapse
 		{
-			scope tmp = new List!(Expression)(c.alloc);
+			scope tmp = new List!(Expression)(c);
 
 			if(auto l = e.op1.as!(CatExp))
 				tmp ~= l.operands;
@@ -1446,8 +1453,8 @@ public:
 		}
 
 		// Const fold
-		scope newOperands = new List!(Expression)(c.alloc);
-		scope tempStr = new List!(char)(c.alloc);
+		scope newOperands = new List!(Expression)(c);
+		scope tempStr = new List!(char, 64)(c);
 
 		auto ops = e.operands;
 
@@ -1477,8 +1484,7 @@ public:
 
 					auto dat = tempStr.toArray();
 					auto str = c.newString(dat);
-					c.alloc.freeArray(dat);
-					newOperands ~= new(c) StringExp(c, e.location, str);
+					newOperands ~= new(c) StringExp(e.location, str);
 
 					i = j - 1;
 				}
@@ -1489,15 +1495,8 @@ public:
 				newOperands ~= ops[i];
 		}
 
-		c.alloc.freeArray(e.operands);
-
 		if(newOperands.length == 1)
-		{
-			auto arr = newOperands.toArray();
-			auto ret = arr[0];
-			c.alloc.freeArray(arr);
-			return ret;
-		}
+			return newOperands[0]; // depends on List storing its data on the stack..
 		else
 		{
 			e.operands = newOperands.toArray();
@@ -1513,9 +1512,9 @@ public:
 		if(e.op1.isConstant && e.op2.isConstant)
 		{
 			if(e.op1.isInt && e.op2.isInt)
-				return new(c) IntExp(c, e.location, e.op1.asInt() * e.op2.asInt());
+				return new(c) IntExp(e.location, e.op1.asInt() * e.op2.asInt());
 			else if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
-				return new(c) FloatExp(c, e.location, e.op1.asFloat() * e.op2.asFloat());
+				return new(c) FloatExp(e.location, e.op1.asFloat() * e.op2.asFloat());
 			else
 				c.semException(e.location, "Multiplication must be performed on numbers");
 		}
@@ -1535,10 +1534,10 @@ public:
 				if(e.op2.asInt() == 0)
 					c.semException(e.location, "Division by 0");
 
-				return new(c) IntExp(c, e.location, e.op1.asInt() / e.op2.asInt());
+				return new(c) IntExp(e.location, e.op1.asInt() / e.op2.asInt());
 			}
 			else if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
-				return new(c) FloatExp(c, e.location, e.op1.asFloat() / e.op2.asFloat());
+				return new(c) FloatExp(e.location, e.op1.asFloat() / e.op2.asFloat());
 			else
 				c.semException(e.location, "Division must be performed on numbers");
 		}
@@ -1558,10 +1557,10 @@ public:
 				if(e.op2.asInt() == 0)
 					c.semException(e.location, "Modulo by 0");
 
-				return new(c) IntExp(c, e.location, e.op1.asInt() % e.op2.asInt());
+				return new(c) IntExp(e.location, e.op1.asInt() % e.op2.asInt());
 			}
 			else if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
-				return new(c) FloatExp(c, e.location, e.op1.asFloat() % e.op2.asFloat());
+				return new(c) FloatExp(e.location, e.op1.asFloat() % e.op2.asFloat());
 			else
 				c.semException(e.location, "Modulo must be performed on numbers");
 		}
@@ -1597,32 +1596,32 @@ public:
 		e.op = visit(e.op);
 
 		if(e.op.isConstant)
-			return new(c) BoolExp(c, e.location, !e.op.isTrue);
+			return new(c) BoolExp(e.location, !e.op.isTrue);
 
 		switch(e.op.type)
 		{
-			case AstTag.LTExp:       auto old = e.op.as!(LTExp);       return new(c) GEExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.LEExp:       auto old = e.op.as!(LEExp);       return new(c) GTExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.GTExp:       auto old = e.op.as!(GTExp);       return new(c) LEExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.GEExp:       auto old = e.op.as!(GEExp);       return new(c) LTExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.EqualExp:    auto old = e.op.as!(EqualExp);    return new(c) NotEqualExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.NotEqualExp: auto old = e.op.as!(NotEqualExp); return new(c) EqualExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.IsExp:       auto old = e.op.as!(IsExp);       return new(c) NotIsExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.NotIsExp:    auto old = e.op.as!(NotIsExp);    return new(c) IsExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.InExp:       auto old = e.op.as!(InExp);       return new(c) NotInExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.NotInExp:    auto old = e.op.as!(NotInExp);    return new(c) InExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.LTExp:       auto old = e.op.as!(LTExp);       return new(c) GEExp(e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.LEExp:       auto old = e.op.as!(LEExp);       return new(c) GTExp(e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.GTExp:       auto old = e.op.as!(GTExp);       return new(c) LEExp(e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.GEExp:       auto old = e.op.as!(GEExp);       return new(c) LTExp(e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.EqualExp:    auto old = e.op.as!(EqualExp);    return new(c) NotEqualExp(e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.NotEqualExp: auto old = e.op.as!(NotEqualExp); return new(c) EqualExp(e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.IsExp:       auto old = e.op.as!(IsExp);       return new(c) NotIsExp(e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.NotIsExp:    auto old = e.op.as!(NotIsExp);    return new(c) IsExp(e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.InExp:       auto old = e.op.as!(InExp);       return new(c) NotInExp(e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.NotInExp:    auto old = e.op.as!(NotInExp);    return new(c) InExp(e.location, e.endLocation, old.op1, old.op2);
 
 			case AstTag.AndAndExp:
 				auto old = e.op.as!(AndAndExp);
-				auto op1 = visit(new(c) NotExp(c, old.op1.location, old.op1));
-				auto op2 = visit(new(c) NotExp(c, old.op2.location, old.op2));
-				return new(c) OrOrExp(c, e.location, e.endLocation, op1, op2);
+				auto op1 = visit(new(c) NotExp(old.op1.location, old.op1));
+				auto op2 = visit(new(c) NotExp(old.op2.location, old.op2));
+				return new(c) OrOrExp(e.location, e.endLocation, op1, op2);
 
 			case AstTag.OrOrExp:
 				auto old = e.op.as!(OrOrExp);
-				auto op1 = visit(new(c) NotExp(c, old.op1.location, old.op1));
-				auto op2 = visit(new(c) NotExp(c, old.op2.location, old.op2));
-				return new(c) AndAndExp(c, e.location, e.endLocation, op1, op2);
+				auto op1 = visit(new(c) NotExp(old.op1.location, old.op1));
+				auto op2 = visit(new(c) NotExp(old.op2.location, old.op2));
+				return new(c) AndAndExp(e.location, e.endLocation, op1, op2);
 
 			// TODO: what about multiple 'not's?  "!!x"
 
@@ -1658,7 +1657,7 @@ public:
 		if(e.op.isConstant)
 		{
 			if(e.op.isString)
-				return new(c) IntExp(c, e.location, e.op.asString().length);
+				return new(c) IntExp(e.location, e.op.asString().length);
 			else
 				c.semException(e.location, "Length must be performed on a string at compile time");
 		}
@@ -1730,7 +1729,7 @@ public:
 			if(idx < 0 || idx >= e.op.asString.length)
 				c.semException(e.location, "Invalid string index");
 
-			return new(c) CharExp(c, e.location, e.op.asString[cast(uword)idx]);
+			return new(c) CharExp(e.location, e.op.asString[cast(uword)idx]);
 		}
 
 		return e;
@@ -1779,7 +1778,7 @@ public:
 			if(l > h || l < 0 || l > str.length || h < 0 || h > str.length)
 				c.semException(e.location, "Invalid slice indices");
 
-			return new(c) StringExp(c, e.location, c.newString(str[cast(uword)l .. cast(uword)h]));
+			return new(c) StringExp(e.location, c.newString(str[cast(uword)l .. cast(uword)h]));
 		}
 
 		return e;
@@ -1924,6 +1923,6 @@ private:
 		pushFormat(c.thread, fmt, mDummyNameCounter++);
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
-		return new(c) Identifier(c, loc, str);
+		return new(c) Identifier(loc, str);
 	}
 }

@@ -83,17 +83,15 @@ public:
 		if(c.docDecorators)
 		{
 			// create a "local __doctable = { ... }" as the first statement
-			scope names = new List!(Identifier)(c.alloc);
+			scope names = new List!(Identifier)(c);
 			names ~= doctableIdent(m.location);
-			scope inits = new List!(Expression)(c.alloc);
+			scope inits = new List!(Expression)(c);
 			inits ~= docTableToAST(m.location);
 
-			scope stmts = new List!(Statement)(c.alloc);
-			stmts ~= new(c) VarDecl(c, m.location, m.location, Protection.Local, names.toArray(), inits.toArray());
+			scope stmts = new List!(Statement)(c);
+			stmts ~= new(c) VarDecl(m.location, m.location, Protection.Local, names.toArray(), inits.toArray());
 			stmts ~= b.statements;
-			auto oldStmts = b.statements;
 			b.statements = stmts.toArray();
-			c.alloc.freeArray(oldStmts);
 
 			// put a decorator on the module
 			m.decorator = makeDeco(m.location, m.decorator, false);
@@ -116,17 +114,15 @@ public:
 		if(c.docDecorators)
 		{
 			// create a "local __doctable = { ... }" as the first statement
-			scope names = new List!(Identifier)(c.alloc);
+			scope names = new List!(Identifier)(c);
 			names ~= doctableIdent(d.location);
-			scope inits = new List!(Expression)(c.alloc);
+			scope inits = new List!(Expression)(c);
 			inits ~= docTableToAST(d.location);
 
-			scope stmts = new List!(Statement)(c.alloc);
-			stmts ~= new(c) VarDecl(c, d.location, d.location, Protection.Local, names.toArray(), inits.toArray());
+			scope stmts = new List!(Statement)(c);
+			stmts ~= new(c) VarDecl(d.location, d.location, Protection.Local, names.toArray(), inits.toArray());
 			stmts ~= b.statements;
-			auto oldStmts = b.statements;
 			b.statements = stmts.toArray();
-			c.alloc.freeArray(oldStmts);
 		}
 
 		return d;
@@ -545,11 +541,11 @@ private:
 		{
 			switch(type(t, slot))
 			{
-				case CrocValue.Type.Int:    return new(c) IntExp(c, loc, getInt(t, slot));
-				case CrocValue.Type.String: return new(c) StringExp(c, loc, c.newString(getString(t, slot)));
+				case CrocValue.Type.Int:    return new(c) IntExp(loc, getInt(t, slot));
+				case CrocValue.Type.String: return new(c) StringExp(loc, c.newString(getString(t, slot)));
 
 				case CrocValue.Type.Table:
-					scope fields = new List!(TableCtorExp.Field)(c.alloc);
+					scope fields = new List!(TableCtorExp.Field)(c);
 
 					auto tab = getTable(t, slot);
 
@@ -563,10 +559,10 @@ private:
 						fields ~= TableCtorExp.Field(key, val);
 					}
 
-					return new(c) TableCtorExp(c, loc, loc, fields.toArray());
+					return new(c) TableCtorExp(loc, loc, fields.toArray());
 
 				case CrocValue.Type.Array:
-					scope exps = new List!(Expression)(c.alloc);
+					scope exps = new List!(Expression)(c);
 
 					auto arr = getArray(t, slot);
 
@@ -577,7 +573,7 @@ private:
 						pop(t);
 					}
 
-					return new(c) ArrayCtorExp(c, loc, loc, exps.toArray());
+					return new(c) ArrayCtorExp(loc, loc, exps.toArray());
 
 				default: assert(false);
 			}
@@ -588,12 +584,12 @@ private:
 
 	Identifier docIdent(CompileLoc loc)
 	{
-		return new(c) Identifier(c, loc, c.newString("_doc_"));
+		return new(c) Identifier(loc, c.newString("_doc_"));
 	}
 
 	Identifier doctableIdent(CompileLoc loc)
 	{
-		return new(c) Identifier(c, loc, c.newString(InternalName!("doctable")));
+		return new(c) Identifier(loc, c.newString(InternalName!("doctable")));
 	}
 
 	Decorator makeDeco(CompileLoc loc, Decorator existing, bool lastIndex = true)
@@ -601,17 +597,17 @@ private:
 		if(mDittoDepth > 0)
 			return existing;
 
-		auto f = new(c) IdentExp(c, docIdent(loc));
-		scope args = new List!(Expression)(c.alloc);
-		args ~= new(c) IdentExp(c, doctableIdent(loc));
+		auto f = new(c) IdentExp(docIdent(loc));
+		scope args = new List!(Expression)(c);
+		args ~= new(c) IdentExp(doctableIdent(loc));
 
 		foreach(idx; mChildIndices[0 .. $ - 1])
-			args ~= new(c) IntExp(c, loc, idx);
+			args ~= new(c) IntExp(loc, idx);
 
 		if(lastIndex)
-			args ~= new(c) IntExp(c, loc, mChildIndices[$ - 1] - 1);
+			args ~= new(c) IntExp(loc, mChildIndices[$ - 1] - 1);
 
-		return new(c) Decorator(c, loc, loc, f, null, args.toArray(), existing);
+		return new(c) Decorator(loc, loc, f, null, args.toArray(), existing);
 	}
 
 	Expression makeDocCall(Expression init)
@@ -619,17 +615,17 @@ private:
 		if(mDittoDepth > 0)
 			return init;
 
-		auto f = new(c) IdentExp(c, docIdent(init.location));
-		scope args = new List!(Expression)(c.alloc);
+		auto f = new(c) IdentExp(docIdent(init.location));
+		scope args = new List!(Expression)(c);
 		args ~= init;
-		args ~= new(c) IdentExp(c, doctableIdent(init.location));
+		args ~= new(c) IdentExp(doctableIdent(init.location));
 
 		foreach(idx; mChildIndices[0 .. $ - 1])
-			args ~= new(c) IntExp(c, init.location, idx);
+			args ~= new(c) IntExp(init.location, idx);
 
-		args ~= new(c) IntExp(c, init.location, mChildIndices[$ - 1] - 1);
+		args ~= new(c) IntExp(init.location, mChildIndices[$ - 1] - 1);
 
-		return new(c) CallExp(c, init.endLocation, f, null, args.toArray());
+		return new(c) CallExp(init.endLocation, f, null, args.toArray());
 	}
 
 	void pushTrimmedString(char[] str)

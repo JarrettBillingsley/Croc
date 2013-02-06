@@ -61,86 +61,38 @@ interface ICompiler
 	void loneStmtException(CompileLoc loc, char[] msg, ...);
 	CrocThread* thread();
 	Allocator* alloc();
-	void addNode(IAstNode node);
 	char[] newString(char[] s);
+	void* allocNode(uword size);
+	void addArray(void[] arr);
+	void[] copyArray(void[] arr);
 }
 
-// Common compiler stuff
-template ICompilerMixin()
+// Dynamically-sized list.
+scope class List(T, uword Len = 8)
 {
 private:
-	IAstNode mHead;
-
-public:
-	override void addNode(IAstNode node)
-	{
-		node.next = mHead;
-		mHead = node;
-	}
-}
-
-// Abstract AST nodes for the compiler to be able to deal with them
-interface IAstNode
-{
-	void next(IAstNode n);
-	IAstNode next();
-	void[] toVoidArray();
-	void cleanup(ref Allocator alloc);
-}
-
-// Common AST node stuff
-template IAstNodeMixin()
-{
-private:
-	IAstNode mNext;
-
-public:
-	override void next(IAstNode n)
-	{
-		mNext = n;
-	}
-
-	override IAstNode next()
-	{
-		return mNext;
-	}
-
-	override void[] toVoidArray()
-	{
-		return (cast(void*)this)[0 .. this.classinfo.init.length];
-	}
-}
-
-// Dynamically-sized list. When you use .toArray(), it hands off the reference to its
-// data, meaning that you now own the data and must clean it up.
-scope class List(T)
-{
-private:
-	Allocator* mAlloc;
+	ICompiler c;
+	T[Len] mOwnData;
 	T[] mData;
 	uword mIndex = 0;
 
 package:
-	this(Allocator* alloc)
+	this(ICompiler c)
 	{
-		mAlloc = alloc;
+		this.c = c;
+		mData = mOwnData[];
 	}
 
 	~this()
 	{
-		if(mData.length)
-			mAlloc.freeArray(mData);
+		if(mData.length && mData.ptr !is mOwnData.ptr)
+			c.alloc.freeArray(mData);
 	}
 
 	void add(T item)
 	{
 		if(mIndex >= mData.length)
-		{
-			if(mData.length == 0)
-				mData = mAlloc.allocArray!(T)(10);
-			else
-				mAlloc.resizeArray(mData, mData.length * 2);
-		}
+			resize(mData.length * 2);
 
 		mData[mIndex] = item;
 		mIndex++;
@@ -169,7 +121,7 @@ package:
 		mIndex = l;
 
 		if(mIndex > mData.length)
-			mAlloc.resizeArray(mData, mIndex);
+			resize(mIndex);
 	}
 
 	uword length()
@@ -179,9 +131,18 @@ package:
 
 	T[] toArray()
 	{
-		mAlloc.resizeArray(mData, mIndex);
-		auto ret = mData;
-		mData = null;
+		T[] ret = void;
+
+		if(mData.ptr is mOwnData.ptr)
+			ret = cast(T[])c.copyArray(mData[0 .. mIndex]);
+		else
+		{
+			c.alloc.resizeArray(mData, mIndex);
+			c.addArray(mData);
+			ret = mData;
+		}
+
+		mData = mOwnData[];
 		mIndex = 0;
 		return ret;
 	}
@@ -202,5 +163,73 @@ package:
 				return result;
 
 		return 0;
+	}
+
+	private void resize(uword newSize)
+	{
+		if(mData.ptr is mOwnData.ptr)
+		{
+			auto newData = c.alloc.allocArray!(T)(newSize);
+			newData[0 .. mData.length] = mData[];
+			mData = newData;
+		}
+		else
+			c.alloc.resizeArray(mData, newSize);
+	}
+}
+
+// Little bump allocator.
+struct BumpAllocator(uword PageSize)
+{
+private:
+	Allocator* mAlloc;
+	void[][] mData;
+	uword mPage;
+	uword mOffset;
+
+public:
+	void init(Allocator* alloc)
+	{
+		mAlloc = alloc;
+		mData = alloc.allocArray!(void[])(4);
+	}
+
+	void free()
+	{
+		foreach(arr; mData[0 .. mPage + 1])
+			mAlloc.freeArray(arr);
+
+		mAlloc.freeArray(mData);
+	}
+
+	void* alloc(uword size)
+	{
+		assert(size <= PageSize, "Allocation too big");
+
+		_again:
+
+		if(mPage >= mData.length)
+			mAlloc.resizeArray(mData, mData.length * 2);
+
+		if(mData[mPage].length == 0)
+			mData[mPage] = mAlloc.allocArray!(void)(PageSize);
+
+		auto roundedSize = (size + (uword.sizeof - 1)) & ~(uword.sizeof - 1);
+
+		if(roundedSize > (PageSize - mOffset))
+		{
+			mPage++;
+			mOffset = 0;
+			goto _again;
+		}
+
+		auto ret = cast(void*)mData[mPage].ptr + mOffset;
+		mOffset += roundedSize;
+		return ret;
+	}
+
+	uword size()
+	{
+		return mOffset + (mPage > 0 ? mPage * PageSize : 0);
 	}
 }

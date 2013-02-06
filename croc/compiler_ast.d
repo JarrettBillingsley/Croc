@@ -284,22 +284,19 @@ const char[][] NiceAstTagNames =
 	AstTag.TableComprehension:   "table comprehension"
 ];
 
-abstract class AstNode : IAstNode
+abstract class AstNode
 {
-	mixin IAstNodeMixin;
-
 	CompileLoc location;
 	CompileLoc endLocation;
 	AstTag type;
 
 	new(uword size, ICompiler c)
 	{
-		return c.alloc().allocArray!(void)(size).ptr;
+		return c.allocNode(size);
 	}
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
+	this(CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
-		c.addNode(this);
 		this.location = location;
 		this.endLocation = endLocation;
 		this.type = type;
@@ -322,20 +319,15 @@ abstract class AstNode : IAstNode
 
 		return null;
 	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		// nothing.
-	}
 }
 
 class Identifier : AstNode
 {
 	char[] name;
 
-	this(ICompiler c, CompileLoc location, char[] name)
+	this(CompileLoc location, char[] name)
 	{
-		super(c, location, location, AstTag.Identifier);
+		super(location, location, AstTag.Identifier);
 		this.name = name;
 	}
 }
@@ -358,17 +350,12 @@ class ClassDef : AstNode
 	char[] docs;
 	CompileLoc docsLoc;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseClass, Field[] fields)
+	this(CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseClass, Field[] fields)
 	{
-		super(c, location, endLocation, AstTag.ClassDef);
+		super(location, endLocation, AstTag.ClassDef);
 		this.name = name;
 		this.baseClass = baseClass;
 		this.fields = fields;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(fields);
 	}
 }
 
@@ -418,12 +405,11 @@ class FuncDef : AstNode
 	char[] docs;
 	CompileLoc docsLoc;
 
-	this(ICompiler c, CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code)
+	this(CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code)
 	{
-		if(!code.as!(ReturnStmt) && !code.as!(BlockStmt))
-			c.semException(location, "FuncDef code must be a ReturnStmt or BlockStmt, not a '{}'", code.niceString());
+		assert(code.as!(ReturnStmt) || code.as!(BlockStmt));
 
-		super(c, location, code.endLocation, AstTag.FuncDef);
+		super(location, code.endLocation, AstTag.FuncDef);
 
 		assert(params.length > 0 && params[0].name.name == "this");
 
@@ -431,14 +417,6 @@ class FuncDef : AstNode
 		this.isVararg = isVararg;
 		this.code = code;
 		this.name = name;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		foreach(ref p; params)
-			alloc.freeArray(p.classTypes);
-
-		alloc.freeArray(params);
 	}
 }
 
@@ -458,17 +436,12 @@ class NamespaceDef : AstNode
 	char[] docs;
 	CompileLoc docsLoc;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression parent, Field[] fields)
+	this(CompileLoc location, CompileLoc endLocation, Identifier name, Expression parent, Field[] fields)
 	{
-		super(c, location, endLocation, AstTag.NamespaceDef);
+		super(location, endLocation, AstTag.NamespaceDef);
 		this.name = name;
 		this.parent = parent;
 		this.fields = fields;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(fields);
 	}
 }
 
@@ -480,25 +453,20 @@ class Module : AstNode
 	char[] docs;
 	CompileLoc docsLoc;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[][] names, Statement statements, Decorator decorator)
+	this(CompileLoc location, CompileLoc endLocation, char[][] names, Statement statements, Decorator decorator)
 	{
-		super(c, location, endLocation, AstTag.Module);
+		super(location, endLocation, AstTag.Module);
 		this.names = names;
 		this.statements = statements;
 		this.decorator = decorator;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(names);
 	}
 }
 
 abstract class Statement : AstNode
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
+	this(CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
-		super(c, location, endLocation, type);
+		super(location, endLocation, type);
 	}
 }
 
@@ -517,18 +485,12 @@ class VarDecl : Statement
 	char[] docs;
 	CompileLoc docsLoc;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Protection protection, Identifier[] names, Expression[] initializer)
+	this(CompileLoc location, CompileLoc endLocation, Protection protection, Identifier[] names, Expression[] initializer)
 	{
-		super(c, location, endLocation, AstTag.VarDecl);
+		super(location, endLocation, AstTag.VarDecl);
 		this.protection = protection;
 		this.names = names;
 		this.initializer = initializer;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(names);
-		alloc.freeArray(initializer);
 	}
 }
 
@@ -539,18 +501,13 @@ class Decorator : AstNode
 	Expression[] args;
 	Decorator nextDec;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression func, Expression context, Expression[] args, Decorator nextDec)
+	this(CompileLoc location, CompileLoc endLocation, Expression func, Expression context, Expression[] args, Decorator nextDec)
 	{
-		super(c, location, endLocation, AstTag.Decorator);
+		super(location, endLocation, AstTag.Decorator);
 		this.func = func;
 		this.context = context;
 		this.args = args;
 		this.nextDec = nextDec;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(args);
 	}
 }
 
@@ -560,9 +517,9 @@ class FuncDecl : Statement
 	FuncDef def;
 	Decorator decorator;
 
-	this(ICompiler c, CompileLoc location, Protection protection, FuncDef def, Decorator decorator)
+	this(CompileLoc location, Protection protection, FuncDef def, Decorator decorator)
 	{
-		super(c, location, def.endLocation, AstTag.FuncDecl);
+		super(location, def.endLocation, AstTag.FuncDecl);
 		this.protection = protection;
 		this.def = def;
 		this.decorator = decorator;
@@ -575,9 +532,9 @@ class ClassDecl : Statement
 	ClassDef def;
 	Decorator decorator;
 
-	this(ICompiler c, CompileLoc location, Protection protection, ClassDef def, Decorator decorator)
+	this(CompileLoc location, Protection protection, ClassDef def, Decorator decorator)
 	{
-		super(c, location, def.endLocation, AstTag.ClassDecl);
+		super(location, def.endLocation, AstTag.ClassDecl);
 		this.protection = protection;
 		this.def = def;
 		this.decorator = decorator;
@@ -590,9 +547,9 @@ class NamespaceDecl : Statement
 	NamespaceDef def;
 	Decorator decorator;
 
-	this(ICompiler c, CompileLoc location, Protection protection, NamespaceDef def, Decorator decorator)
+	this(CompileLoc location, Protection protection, NamespaceDef def, Decorator decorator)
 	{
-		super(c, location, def.endLocation, AstTag.NamespaceDecl);
+		super(location, def.endLocation, AstTag.NamespaceDecl);
 		this.protection = protection;
 		this.def = def;
 		this.decorator = decorator;
@@ -604,9 +561,9 @@ class AssertStmt : Statement
 	Expression cond;
 	Expression msg;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression cond, Expression msg = null)
+	this(CompileLoc location, CompileLoc endLocation, Expression cond, Expression msg = null)
 	{
-		super(c, location, endLocation, AstTag.AssertStmt);
+		super(location, endLocation, AstTag.AssertStmt);
 		this.cond = cond;
 		this.msg = msg;
 	}
@@ -619,19 +576,13 @@ class ImportStmt : Statement
 	Identifier[] symbols;
 	Identifier[] symbolNames;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
+	this(CompileLoc location, CompileLoc endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
 	{
-		super(c, location, endLocation, AstTag.ImportStmt);
+		super(location, endLocation, AstTag.ImportStmt);
 		this.importName = importName;
 		this.expr = expr;
 		this.symbols = symbols;
 		this.symbolNames = symbolNames;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(symbols);
-		alloc.freeArray(symbolNames);
 	}
 }
 
@@ -639,15 +590,10 @@ class BlockStmt : Statement
 {
 	Statement[] statements;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement[] statements)
+	this(CompileLoc location, CompileLoc endLocation, Statement[] statements)
 	{
-		super(c, location, endLocation, AstTag.BlockStmt);
+		super(location, endLocation, AstTag.BlockStmt);
 		this.statements = statements;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(statements);
 	}
 }
 
@@ -655,9 +601,9 @@ class ScopeStmt : Statement
 {
 	Statement statement;
 
-	this(ICompiler c, Statement statement)
+	this(Statement statement)
 	{
-		super(c, statement.location, statement.endLocation, AstTag.ScopeStmt);
+		super(statement.location, statement.endLocation, AstTag.ScopeStmt);
 		this.statement = statement;
 	}
 }
@@ -666,15 +612,15 @@ class ExpressionStmt : Statement
 {
 	Expression expr;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression expr)
+	this(CompileLoc location, CompileLoc endLocation, Expression expr)
 	{
-		super(c, location, endLocation, AstTag.ExpressionStmt);
+		super(location, endLocation, AstTag.ExpressionStmt);
 		this.expr = expr;
 	}
 
-	this(ICompiler c, Expression expr)
+	this(Expression expr)
 	{
-		super(c, expr.location, expr.endLocation, AstTag.ExpressionStmt);
+		super(expr.location, expr.endLocation, AstTag.ExpressionStmt);
 		this.expr = expr;
 	}
 }
@@ -686,9 +632,9 @@ class IfStmt : Statement
 	Statement ifBody;
 	Statement elseBody;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, IdentExp condVar, Expression condition, Statement ifBody, Statement elseBody)
+	this(CompileLoc location, CompileLoc endLocation, IdentExp condVar, Expression condition, Statement ifBody, Statement elseBody)
 	{
-		super(c, location, endLocation, AstTag.IfStmt);
+		super(location, endLocation, AstTag.IfStmt);
 
 		this.condVar = condVar;
 		this.condition = condition;
@@ -704,9 +650,9 @@ class WhileStmt : Statement
 	Expression condition;
 	Statement code;
 
-	this(ICompiler c, CompileLoc location, char[] name, IdentExp condVar, Expression condition, Statement code)
+	this(CompileLoc location, char[] name, IdentExp condVar, Expression condition, Statement code)
 	{
-		super(c, location, code.endLocation, AstTag.WhileStmt);
+		super(location, code.endLocation, AstTag.WhileStmt);
 
 		this.name = name;
 		this.condVar = condVar;
@@ -721,9 +667,9 @@ class DoWhileStmt : Statement
 	Statement code;
 	Expression condition;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[] name, Statement code, Expression condition)
+	this(CompileLoc location, CompileLoc endLocation, char[] name, Statement code, Expression condition)
 	{
-		super(c, location, endLocation, AstTag.DoWhileStmt);
+		super(location, endLocation, AstTag.DoWhileStmt);
 
 		this.name = name;
 		this.code = code;
@@ -750,21 +696,15 @@ class ForStmt : Statement
 	Statement[] increment;
 	Statement code;
 
-	this(ICompiler c, CompileLoc location, char[] name, Init[] init, Expression cond, Statement[] inc, Statement code)
+	this(CompileLoc location, char[] name, Init[] init, Expression cond, Statement[] inc, Statement code)
 	{
-		super(c, location, endLocation, AstTag.ForStmt);
+		super(location, endLocation, AstTag.ForStmt);
 
 		this.name = name;
 		this.init = init;
 		this.condition = cond;
 		this.increment = inc;
 		this.code = code;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(init);
-		alloc.freeArray(increment);
 	}
 }
 
@@ -777,9 +717,9 @@ class ForNumStmt : Statement
 	Expression step;
 	Statement code;
 
-	this(ICompiler c, CompileLoc location, char[] name, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
+	this(CompileLoc location, char[] name, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
 	{
-		super(c, location, code.endLocation, AstTag.ForNumStmt);
+		super(location, code.endLocation, AstTag.ForNumStmt);
 
 		this.name = name;
 		this.index = index;
@@ -797,20 +737,14 @@ class ForeachStmt : Statement
 	Expression[] container;
 	Statement code;
 
-	this(ICompiler c, CompileLoc location, char[] name, Identifier[] indices, Expression[] container, Statement code)
+	this(CompileLoc location, char[] name, Identifier[] indices, Expression[] container, Statement code)
 	{
-		super(c, location, code.endLocation, AstTag.ForeachStmt);
+		super(location, code.endLocation, AstTag.ForeachStmt);
 
 		this.name = name;
 		this.indices = indices;
 		this.container = container;
 		this.code = code;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(indices);
-		alloc.freeArray(container);
 	}
 }
 
@@ -821,18 +755,13 @@ class SwitchStmt : Statement
 	CaseStmt[] cases;
 	DefaultStmt caseDefault;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[] name, Expression condition, CaseStmt[] cases, DefaultStmt caseDefault)
+	this(CompileLoc location, CompileLoc endLocation, char[] name, Expression condition, CaseStmt[] cases, DefaultStmt caseDefault)
 	{
-		super(c, location, endLocation, AstTag.SwitchStmt);
+		super(location, endLocation, AstTag.SwitchStmt);
 		this.name = name;
 		this.condition = condition;
 		this.cases = cases;
 		this.caseDefault = caseDefault;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(cases);
 	}
 }
 
@@ -848,17 +777,12 @@ class CaseStmt : Statement
 	Expression highRange;
 	Statement code;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, CaseCond[] conditions, Expression highRange, Statement code)
+	this(CompileLoc location, CompileLoc endLocation, CaseCond[] conditions, Expression highRange, Statement code)
 	{
-		super(c, location, endLocation, AstTag.CaseStmt);
+		super(location, endLocation, AstTag.CaseStmt);
 		this.conditions = conditions;
 		this.highRange = highRange;
 		this.code = code;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(conditions);
 	}
 }
 
@@ -866,9 +790,9 @@ class DefaultStmt : Statement
 {
 	Statement code;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement code)
+	this(CompileLoc location, CompileLoc endLocation, Statement code)
 	{
-		super(c, location, endLocation, AstTag.DefaultStmt);
+		super(location, endLocation, AstTag.DefaultStmt);
 		this.code = code;
 	}
 }
@@ -877,9 +801,9 @@ class ContinueStmt : Statement
 {
 	char[] name;
 
-	this(ICompiler c, CompileLoc location, char[] name)
+	this(CompileLoc location, char[] name)
 	{
-		super(c, location, location, AstTag.ContinueStmt);
+		super(location, location, AstTag.ContinueStmt);
 		this.name = name;
 	}
 }
@@ -888,9 +812,9 @@ class BreakStmt : Statement
 {
 	char[] name;
 
-	this(ICompiler c, CompileLoc location, char[] name)
+	this(CompileLoc location, char[] name)
 	{
-		super(c, location, location, AstTag.BreakStmt);
+		super(location, location, AstTag.BreakStmt);
 		this.name = name;
 	}
 }
@@ -899,15 +823,10 @@ class ReturnStmt : Statement
 {
 	Expression[] exprs;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] exprs)
+	this(CompileLoc location, CompileLoc endLocation, Expression[] exprs)
 	{
-		super(c, location, endLocation, AstTag.ReturnStmt);
+		super(location, endLocation, AstTag.ReturnStmt);
 		this.exprs = exprs;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(exprs);
 	}
 }
 
@@ -925,20 +844,12 @@ class TryCatchStmt : Statement
 	Identifier hiddenCatchVar;
 	Statement transformedCatch;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement tryBody, CatchClause[] catches)
+	this(CompileLoc location, CompileLoc endLocation, Statement tryBody, CatchClause[] catches)
 	{
-		super(c, location, endLocation, AstTag.TryCatchStmt);
+		super(location, endLocation, AstTag.TryCatchStmt);
 
 		this.tryBody = tryBody;
 		this.catches = catches;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		foreach(ref c; catches)
-			alloc.freeArray(c.exTypes);
-
-		alloc.freeArray(catches);
 	}
 }
 
@@ -947,9 +858,9 @@ class TryFinallyStmt : Statement
 	Statement tryBody;
 	Statement finallyBody;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement tryBody, Statement finallyBody)
+	this(CompileLoc location, CompileLoc endLocation, Statement tryBody, Statement finallyBody)
 	{
-		super(c, location, endLocation, AstTag.TryFinallyStmt);
+		super(location, endLocation, AstTag.TryFinallyStmt);
 
 		this.tryBody = tryBody;
 		this.finallyBody = finallyBody;
@@ -961,9 +872,9 @@ class ThrowStmt : Statement
 	Expression exp;
 	bool rethrowing;
 
-	this(ICompiler c, CompileLoc location, Expression exp, bool rethrowing = false)
+	this(CompileLoc location, Expression exp, bool rethrowing = false)
 	{
-		super(c, location, exp.endLocation, AstTag.ThrowStmt);
+		super(location, exp.endLocation, AstTag.ThrowStmt);
 		this.exp = exp;
 		this.rethrowing = rethrowing;
 	}
@@ -981,9 +892,9 @@ class ScopeActionStmt : Statement
 	ubyte type;
 	Statement stmt;
 
-	this(ICompiler c, CompileLoc location, ubyte type, Statement stmt)
+	this(CompileLoc location, ubyte type, Statement stmt)
 	{
-		super(c, location, stmt.endLocation, AstTag.ScopeActionStmt);
+		super(location, stmt.endLocation, AstTag.ScopeActionStmt);
 		this.type = type;
 		this.stmt = stmt;
 	}
@@ -994,17 +905,11 @@ class AssignStmt : Statement
 	Expression[] lhs;
 	Expression[] rhs;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] lhs, Expression[] rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression[] lhs, Expression[] rhs)
 	{
-		super(c, location, endLocation, AstTag.AssignStmt);
+		super(location, endLocation, AstTag.AssignStmt);
 		this.lhs = lhs;
 		this.rhs = rhs;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(lhs);
-		alloc.freeArray(rhs);
 	}
 }
 
@@ -1013,9 +918,9 @@ abstract class OpAssignStmt : Statement
 	Expression lhs;
 	Expression rhs;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, type);
+		super(location, endLocation, type);
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
@@ -1023,17 +928,17 @@ abstract class OpAssignStmt : Statement
 
 class AddAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.AddAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.AddAssignStmt, lhs, rhs);
 	}
 }
 
 class SubAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.SubAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.SubAssignStmt, lhs, rhs);
 	}
 }
 
@@ -1044,96 +949,91 @@ class CatAssignStmt : Statement
 	Expression[] operands;
 	bool collapsed = false;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.CatAssignStmt);
+		super(location, endLocation, AstTag.CatAssignStmt);
 		this.lhs = lhs;
 		this.rhs = rhs;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(operands);
 	}
 }
 
 class MulAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.MulAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.MulAssignStmt, lhs, rhs);
 	}
 }
 
 class DivAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.DivAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.DivAssignStmt, lhs, rhs);
 	}
 }
 
 class ModAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.ModAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.ModAssignStmt, lhs, rhs);
 	}
 }
 
 class OrAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.OrAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.OrAssignStmt, lhs, rhs);
 	}
 }
 
 class XorAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.XorAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.XorAssignStmt, lhs, rhs);
 	}
 }
 
 class AndAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.AndAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.AndAssignStmt, lhs, rhs);
 	}
 }
 
 class ShlAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.ShlAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.ShlAssignStmt, lhs, rhs);
 	}
 }
 
 class ShrAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.ShrAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.ShrAssignStmt, lhs, rhs);
 	}
 }
 
 class UShrAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.UShrAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.UShrAssignStmt, lhs, rhs);
 	}
 }
 
 class CondAssignStmt : OpAssignStmt
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
-		super(c, location, endLocation, AstTag.CondAssignStmt, lhs, rhs);
+		super(location, endLocation, AstTag.CondAssignStmt, lhs, rhs);
 	}
 }
 
@@ -1141,9 +1041,9 @@ class IncStmt : Statement
 {
 	Expression exp;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp)
+	this(CompileLoc location, CompileLoc endLocation, Expression exp)
 	{
-		super(c, location, endLocation, AstTag.IncStmt);
+		super(location, endLocation, AstTag.IncStmt);
 		this.exp = exp;
 	}
 }
@@ -1152,9 +1052,9 @@ class DecStmt : Statement
 {
 	Expression exp;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp)
+	this(CompileLoc location, CompileLoc endLocation, Expression exp)
 	{
-		super(c, location, endLocation, AstTag.DecStmt);
+		super(location, endLocation, AstTag.DecStmt);
 		this.exp = exp;
 	}
 }
@@ -1163,9 +1063,9 @@ class TypecheckStmt : Statement
 {
 	FuncDef def;
 
-	this(ICompiler c, CompileLoc location, FuncDef def)
+	this(CompileLoc location, FuncDef def)
 	{
-		super(c, location, location, AstTag.TypecheckStmt);
+		super(location, location, AstTag.TypecheckStmt);
 		this.def = def;
 	}
 }
@@ -1174,9 +1074,9 @@ abstract class Expression : AstNode
 {
 	char[] sourceStr;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
+	this(CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
-		super(c, location, endLocation, type);
+		super(location, endLocation, type);
 	}
 
 	void checkToNothing(ICompiler c)
@@ -1284,9 +1184,9 @@ class CondExp : Expression
 	Expression op1;
 	Expression op2;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression cond, Expression op1, Expression op2)
+	this(CompileLoc location, CompileLoc endLocation, Expression cond, Expression op1, Expression op2)
 	{
-		super(c, location, endLocation, AstTag.CondExp);
+		super(location, endLocation, AstTag.CondExp);
 		this.cond = cond;
 		this.op1 = op1;
 		this.op2 = op2;
@@ -1303,18 +1203,18 @@ abstract class BinaryExp : Expression
 	Expression op1;
 	Expression op2;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression op1, Expression op2)
+	this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression op1, Expression op2)
 	{
-		super(c, location, endLocation, type);
+		super(location, endLocation, type);
 		this.op1 = op1;
 		this.op2 = op2;
 	}
 }
 
 const BinExpMixin =
-"public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression left, Expression right)"
+"public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)"
 "{"
-	"super(c, location, endLocation, mixin(\"AstTag.\" ~ typeof(this).stringof), left, right);"
+	"super(location, endLocation, mixin(\"AstTag.\" ~ typeof(this).stringof), left, right);"
 "}";
 
 class OrOrExp : BinaryExp
@@ -1354,9 +1254,9 @@ class AndExp : BinaryExp
 
 abstract class BaseEqualExp : BinaryExp
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
+	this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
 	{
-		super(c, location, endLocation, type, left, right);
+		super(location, endLocation, type, left, right);
 	}
 }
 
@@ -1392,9 +1292,9 @@ class NotInExp : BaseEqualExp
 
 abstract class BaseCmpExp : BinaryExp
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
+	this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
 	{
-		super(c, location, endLocation, type, left, right);
+		super(location, endLocation, type, left, right);
 	}
 }
 
@@ -1459,11 +1359,6 @@ class CatExp : BinaryExp
 	bool collapsed = false;
 
 	mixin(BinExpMixin);
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(operands);
-	}
 }
 
 class MulExp : BinaryExp
@@ -1485,17 +1380,17 @@ abstract class UnExp : Expression
 {
 	Expression op;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
+	this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
 	{
-		super(c, location, endLocation, type);
+		super(location, endLocation, type);
 		op = operand;
 	}
 }
 
 const UnExpMixin =
-"public this(ICompiler c, CompileLoc location, Expression operand)"
+"public this(CompileLoc location, Expression operand)"
 "{"
-	"super(c, location, operand.endLocation, mixin(\"AstTag.\" ~ typeof(this).stringof), operand);"
+	"super(location, operand.endLocation, mixin(\"AstTag.\" ~ typeof(this).stringof), operand);"
 "}";
 
 class NegExp : UnExp
@@ -1525,9 +1420,9 @@ class LenExp : UnExp
 
 abstract class PostfixExp : UnExp
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
+	this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
 	{
-		super(c, location, endLocation, type, operand);
+		super(location, endLocation, type, operand);
 	}
 }
 
@@ -1535,9 +1430,9 @@ class DotExp : PostfixExp
 {
 	Expression name;
 
-	this(ICompiler c, Expression operand, Expression name)
+	this(Expression operand, Expression name)
 	{
-		super(c, operand.location, name.endLocation, AstTag.DotExp, operand);
+		super(operand.location, name.endLocation, AstTag.DotExp, operand);
 		this.name = name;
 	}
 
@@ -1549,9 +1444,9 @@ class DotExp : PostfixExp
 
 class DotSuperExp : PostfixExp
 {
-	this(ICompiler c, CompileLoc endLocation, Expression operand)
+	this(CompileLoc endLocation, Expression operand)
 	{
-		super(c, operand.location, endLocation, AstTag.DotSuperExp, operand);
+		super(operand.location, endLocation, AstTag.DotSuperExp, operand);
 	}
 }
 
@@ -1559,9 +1454,9 @@ class IndexExp : PostfixExp
 {
 	Expression index;
 
-	this(ICompiler c, CompileLoc endLocation, Expression operand, Expression index)
+	this(CompileLoc endLocation, Expression operand, Expression index)
 	{
-		super(c, operand.location, endLocation, AstTag.IndexExp, operand);
+		super(operand.location, endLocation, AstTag.IndexExp, operand);
 		this.index = index;
 	}
 
@@ -1576,9 +1471,9 @@ class SliceExp : PostfixExp
 	Expression loIndex;
 	Expression hiIndex;
 
-	this(ICompiler c, CompileLoc endLocation, Expression operand, Expression loIndex, Expression hiIndex)
+	this(CompileLoc endLocation, Expression operand, Expression loIndex, Expression hiIndex)
 	{
-		super(c, operand.location, endLocation, AstTag.SliceExp, operand);
+		super(operand.location, endLocation, AstTag.SliceExp, operand);
 		this.loIndex = loIndex;
 		this.hiIndex = hiIndex;
 	}
@@ -1594,9 +1489,9 @@ class CallExp : PostfixExp
 	Expression context;
 	Expression[] args;
 
-	this(ICompiler c, CompileLoc endLocation, Expression operand, Expression context, Expression[] args)
+	this(CompileLoc endLocation, Expression operand, Expression context, Expression[] args)
 	{
-		super(c, operand.location, endLocation, AstTag.CallExp, operand);
+		super(operand.location, endLocation, AstTag.CallExp, operand);
 		this.context = context;
 		this.args = args;
 	}
@@ -1610,11 +1505,6 @@ class CallExp : PostfixExp
 	{
 		return true;
 	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(args);
-	}
 }
 
 class MethodCallExp : PostfixExp
@@ -1623,9 +1513,9 @@ class MethodCallExp : PostfixExp
 	Expression[] args;
 	bool isSuperCall;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression[] args, bool isSuperCall)
+	this(CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression[] args, bool isSuperCall)
 	{
-		super(c, location, endLocation, AstTag.MethodCallExp, operand);
+		super(location, endLocation, AstTag.MethodCallExp, operand);
 		this.method = method;
 		this.args = args;
 		this.isSuperCall = isSuperCall;
@@ -1640,23 +1530,18 @@ class MethodCallExp : PostfixExp
 	{
 		return true;
 	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(args);
-	}
 }
 
 class PrimaryExp : Expression
 {
-	this(ICompiler c, CompileLoc location, AstTag type)
+	this(CompileLoc location, AstTag type)
 	{
-		super(c, location, location, type);
+		super(location, location, type);
 	}
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
+	this(CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
-		super(c, location, endLocation, type);
+		super(location, endLocation, type);
 	}
 }
 
@@ -1664,9 +1549,9 @@ class IdentExp : PrimaryExp
 {
 	Identifier name;
 
-	this(ICompiler c, Identifier i)
+	this(Identifier i)
 	{
-		super(c, i.location, AstTag.IdentExp);
+		super(i.location, AstTag.IdentExp);
 		this.name = i;
 	}
 
@@ -1678,17 +1563,17 @@ class IdentExp : PrimaryExp
 
 class ThisExp : PrimaryExp
 {
-	this(ICompiler c, CompileLoc location)
+	this(CompileLoc location)
 	{
-		super(c, location, AstTag.ThisExp);
+		super(location, AstTag.ThisExp);
 	}
 }
 
 class NullExp : PrimaryExp
 {
-	this(ICompiler c, CompileLoc location)
+	this(CompileLoc location)
 	{
-		super(c, location, AstTag.NullExp);
+		super(location, AstTag.NullExp);
 	}
 
 	override bool isConstant()
@@ -1711,9 +1596,9 @@ class BoolExp : PrimaryExp
 {
 	bool value;
 
-	this(ICompiler c, CompileLoc location, bool value)
+	this(CompileLoc location, bool value)
 	{
-		super(c, location, AstTag.BoolExp);
+		super(location, AstTag.BoolExp);
 		this.value = value;
 	}
 
@@ -1740,9 +1625,9 @@ class BoolExp : PrimaryExp
 
 class VarargExp : PrimaryExp
 {
-	this(ICompiler c, CompileLoc location)
+	this(CompileLoc location)
 	{
-		super(c, location, AstTag.VarargExp);
+		super(location, AstTag.VarargExp);
 	}
 
 	bool isMultRet()
@@ -1753,9 +1638,9 @@ class VarargExp : PrimaryExp
 
 class VargLenExp : PrimaryExp
 {
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation)
+	this(CompileLoc location, CompileLoc endLocation)
 	{
-		super(c, location, endLocation, AstTag.VargLenExp);
+		super(location, endLocation, AstTag.VargLenExp);
 	}
 }
 
@@ -1763,9 +1648,9 @@ class VargIndexExp : PrimaryExp
 {
 	Expression index;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression index)
+	this(CompileLoc location, CompileLoc endLocation, Expression index)
 	{
-		super(c, location, endLocation, AstTag.VargIndexExp);
+		super(location, endLocation, AstTag.VargIndexExp);
 		this.index = index;
 	}
 
@@ -1780,9 +1665,9 @@ class VargSliceExp : PrimaryExp
 	Expression loIndex;
 	Expression hiIndex;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression loIndex, Expression hiIndex)
+	this(CompileLoc location, CompileLoc endLocation, Expression loIndex, Expression hiIndex)
 	{
-		super(c, location, endLocation, AstTag.VargSliceExp);
+		super(location, endLocation, AstTag.VargSliceExp);
 		this.loIndex = loIndex;
 		this.hiIndex = hiIndex;
 	}
@@ -1797,9 +1682,9 @@ class IntExp : PrimaryExp
 {
 	crocint value;
 
-	this(ICompiler c, CompileLoc location, crocint value)
+	this(CompileLoc location, crocint value)
 	{
-		super(c, location, AstTag.IntExp);
+		super(location, AstTag.IntExp);
 		this.value = value;
 	}
 
@@ -1833,9 +1718,9 @@ class FloatExp : PrimaryExp
 {
 	crocfloat value;
 
-	this(ICompiler c, CompileLoc location, crocfloat value)
+	this(CompileLoc location, crocfloat value)
 	{
-		super(c, location, AstTag.FloatExp);
+		super(location, AstTag.FloatExp);
 		this.value = value;
 	}
 
@@ -1864,9 +1749,9 @@ class CharExp : PrimaryExp
 {
 	dchar value;
 
-	this(ICompiler c, CompileLoc location, dchar value)
+	this(CompileLoc location, dchar value)
 	{
-		super(c, location, AstTag.CharExp);
+		super(location, AstTag.CharExp);
 		this.value = value;
 	}
 
@@ -1895,9 +1780,9 @@ class StringExp : PrimaryExp
 {
 	char[] value;
 
-	this(ICompiler c, CompileLoc location, char[] value)
+	this(CompileLoc location, char[] value)
 	{
-		super(c, location, AstTag.StringExp);
+		super(location, AstTag.StringExp);
 		this.value = value;
 	}
 
@@ -1926,9 +1811,9 @@ class FuncLiteralExp : PrimaryExp
 {
 	FuncDef def;
 
-	this(ICompiler c, CompileLoc location, FuncDef def)
+	this(CompileLoc location, FuncDef def)
 	{
-		super(c, location, def.endLocation, AstTag.FuncLiteralExp);
+		super(location, def.endLocation, AstTag.FuncLiteralExp);
 		this.def = def;
 	}
 }
@@ -1937,9 +1822,9 @@ class ClassLiteralExp : PrimaryExp
 {
 	ClassDef def;
 
-	this(ICompiler c, CompileLoc location, ClassDef def)
+	this(CompileLoc location, ClassDef def)
 	{
-		super(c, location, def.endLocation, AstTag.ClassLiteralExp);
+		super(location, def.endLocation, AstTag.ClassLiteralExp);
 		this.def = def;
 	}
 }
@@ -1948,9 +1833,9 @@ class ParenExp : PrimaryExp
 {
 	Expression exp;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp)
+	this(CompileLoc location, CompileLoc endLocation, Expression exp)
 	{
-		super(c, location, endLocation, AstTag.ParenExp);
+		super(location, endLocation, AstTag.ParenExp);
 		this.exp = exp;
 	}
 }
@@ -1965,15 +1850,10 @@ class TableCtorExp : PrimaryExp
 
 	Field[] fields;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Field[] fields)
+	this(CompileLoc location, CompileLoc endLocation, Field[] fields)
 	{
-		super(c, location, endLocation, AstTag.TableCtorExp);
+		super(location, endLocation, AstTag.TableCtorExp);
 		this.fields = fields;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(fields);
 	}
 }
 
@@ -1983,15 +1863,10 @@ class ArrayCtorExp : PrimaryExp
 
 	protected const uint maxFields = Instruction.MaxArrayFields;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] values)
+	this(CompileLoc location, CompileLoc endLocation, Expression[] values)
 	{
-		super(c, location, endLocation, AstTag.ArrayCtorExp);
+		super(location, endLocation, AstTag.ArrayCtorExp);
 		this.values = values;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(values);
 	}
 }
 
@@ -1999,9 +1874,9 @@ class NamespaceCtorExp : PrimaryExp
 {
 	NamespaceDef def;
 
-	this(ICompiler c, CompileLoc location, NamespaceDef def)
+	this(CompileLoc location, NamespaceDef def)
 	{
-		super(c, location, def.endLocation, AstTag.NamespaceCtorExp);
+		super(location, def.endLocation, AstTag.NamespaceCtorExp);
 		this.def = def;
 	}
 }
@@ -2010,9 +1885,9 @@ class YieldExp : PrimaryExp
 {
 	Expression[] args;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] args)
+	this(CompileLoc location, CompileLoc endLocation, Expression[] args)
 	{
-		super(c, location, endLocation, AstTag.YieldExp);
+		super(location, endLocation, AstTag.YieldExp);
 		this.args = args;
 	}
 
@@ -2025,11 +1900,6 @@ class YieldExp : PrimaryExp
 	{
 		return true;
 	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(args);
-	}
 }
 
 abstract class ForComprehension : AstNode
@@ -2037,9 +1907,9 @@ abstract class ForComprehension : AstNode
 	IfComprehension ifComp;
 	ForComprehension forComp;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag tag)
+	this(CompileLoc location, CompileLoc endLocation, AstTag tag)
 	{
-		super(c, location, endLocation, tag);
+		super(location, endLocation, tag);
 	}
 }
 
@@ -2048,30 +1918,24 @@ class ForeachComprehension : ForComprehension
 	Identifier[] indices;
 	Expression[] container;
 
-	this(ICompiler c, CompileLoc location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
+	this(CompileLoc location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
 		{
 			if(forComp)
-				super(c, location, forComp.endLocation, AstTag.ForeachComprehension);
+				super(location, forComp.endLocation, AstTag.ForeachComprehension);
 			else
-				super(c, location, ifComp.endLocation, AstTag.ForeachComprehension);
+				super(location, ifComp.endLocation, AstTag.ForeachComprehension);
 		}
 		else if(forComp)
-			super(c, location, forComp.endLocation, AstTag.ForeachComprehension);
+			super(location, forComp.endLocation, AstTag.ForeachComprehension);
 		else
-			super(c, location, container[$ - 1].endLocation, AstTag.ForeachComprehension);
+			super(location, container[$ - 1].endLocation, AstTag.ForeachComprehension);
 
 		this.indices = indices;
 		this.container = container;
 		this.ifComp = ifComp;
 		this.forComp = forComp;
-	}
-
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(indices);
-		alloc.freeArray(container);
 	}
 }
 
@@ -2082,21 +1946,21 @@ class ForNumComprehension : ForComprehension
 	Expression hi;
 	Expression step;
 
-	this(ICompiler c, CompileLoc location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
+	this(CompileLoc location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
 		{
 			if(forComp)
-				super(c, location, forComp.endLocation, AstTag.ForNumComprehension);
+				super(location, forComp.endLocation, AstTag.ForNumComprehension);
 			else
-				super(c, location, ifComp.endLocation, AstTag.ForNumComprehension);
+				super(location, ifComp.endLocation, AstTag.ForNumComprehension);
 		}
 		else if(forComp)
-			super(c, location, forComp.endLocation, AstTag.ForNumComprehension);
+			super(location, forComp.endLocation, AstTag.ForNumComprehension);
 		else if(step)
-			super(c, location, step.endLocation, AstTag.ForNumComprehension);
+			super(location, step.endLocation, AstTag.ForNumComprehension);
 		else
-			super(c, location, hi.endLocation, AstTag.ForNumComprehension); // NOT REACHABLE
+			super(location, hi.endLocation, AstTag.ForNumComprehension); // NOT REACHABLE
 
 		this.index = index;
 		this.lo = lo;
@@ -2112,9 +1976,9 @@ class IfComprehension : AstNode
 {
 	Expression condition;
 
-	this(ICompiler c, CompileLoc location, Expression condition)
+	this(CompileLoc location, Expression condition)
 	{
-		super(c, location, condition.endLocation, AstTag.IfComprehension);
+		super(location, condition.endLocation, AstTag.IfComprehension);
 		this.condition = condition;
 	}
 }
@@ -2124,9 +1988,9 @@ class ArrayComprehension : PrimaryExp
 	Expression exp;
 	ForComprehension forComp;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp, ForComprehension forComp)
+	this(CompileLoc location, CompileLoc endLocation, Expression exp, ForComprehension forComp)
 	{
-		super(c, location, endLocation, AstTag.ArrayComprehension);
+		super(location, endLocation, AstTag.ArrayComprehension);
 
 		this.exp = exp;
 		this.forComp = forComp;
@@ -2139,9 +2003,9 @@ class TableComprehension : PrimaryExp
 	Expression value;
 	ForComprehension forComp;
 
-	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression key, Expression value, ForComprehension forComp)
+	this(CompileLoc location, CompileLoc endLocation, Expression key, Expression value, ForComprehension forComp)
 	{
-		super(c, location, endLocation, AstTag.TableComprehension);
+		super(location, endLocation, AstTag.TableComprehension);
 
 		this.key = key;
 		this.value = value;

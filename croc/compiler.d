@@ -46,8 +46,6 @@ This class encapsulates all the functionality needed for compiling Croc code.
 */
 scope class Compiler : ICompiler
 {
-	mixin ICompilerMixin;
-
 	/**
 	An enumeration of flags that can be passed to the compiler to change its behavior.
 	*/
@@ -57,12 +55,12 @@ scope class Compiler : ICompiler
 		Do not generate code for any optional features.
 		*/
 		None = 0,
-		
+
 		/**
 		Generate code to check parameter type constraints.
 		*/
 		TypeConstraints = 1,
-		
+
 		/**
 		Generate code for assert statements.
 		*/
@@ -72,7 +70,7 @@ scope class Compiler : ICompiler
 		Generate debug info. Currently always on.
 		*/
 		Debug = 4,
-		
+
 		/**
 		Extract documentation comments and construct a documentation table that will be
 		left on the stack below the compiled function/module/whatever. Does not attach runtime-
@@ -80,7 +78,7 @@ scope class Compiler : ICompiler
 		docs from the code without having to run it.
 		*/
 		DocTable = 8,
-		
+
 		/**
 		Extract documentation comments and insert decorators on the definitions they're
 		for, to create runtime-inspectable documentation through some base library functions.
@@ -91,7 +89,7 @@ scope class Compiler : ICompiler
 		Turn on all optional features except documentation.
 		*/
 		All = TypeConstraints | Asserts | Debug,
-		
+
 		/**
 		Turn on all optional features including documentation decorators, but does not leave
 		the doc table on the stack.
@@ -109,16 +107,23 @@ private:
 	Parser mParser;
 	word mStringTab;
 
-// ================================================================================================================================================
+	static const uword PageSize = 8192;
+
+	BumpAllocator!(PageSize) mNodes;
+	BumpAllocator!(PageSize) mArrays;
+	void[][] mHeapArrays;
+	uword mHeapArrayIdx;
+
+// =====================================================================================================================
 // Public
-// ================================================================================================================================================
+// =====================================================================================================================
 
 public:
 
 	/**
 	Constructs a compiler. The given thread will be used to hold temporary data structures,
 	to throw exceptions, and to return the functions that result from compilation.
-	
+
 	The compiler is created with either the flags that have been set for this VM with
 	setDefaultFlags, or with the "All" flag if not.
 
@@ -160,20 +165,20 @@ public:
 		mFlags = flags;
 		mLexer = Lexer(this);
 		mParser = Parser(this, &mLexer);
+		mNodes.init(&t.vm.alloc);
+		mArrays.init(&t.vm.alloc);
+		mHeapArrays = t.vm.alloc.allocArray!(void[])(32);
 	}
 
 	~this()
 	{
-		for(auto n = mHead; n !is null; )
-		{
-			auto next = n.next;
+		mNodes.free();
+		mArrays.free();
 
-			n.cleanup(t.vm.alloc);
-			auto arr = n.toVoidArray();
+		foreach(arr; mHeapArrays[0 .. mHeapArrayIdx])
 			t.vm.alloc.freeArray(arr);
 
-			n = next;
-		}
+		t.vm.alloc.freeArray(mHeapArrays);
 	}
 
 	/**
@@ -213,7 +218,7 @@ public:
 	{
 		return (mFlags & TypeConstraints) != 0;
 	}
-	
+
 	/**
 	Returns whether or not documentation will be extracted from doc comments, but does not
 	say what will be done with it.
@@ -243,7 +248,7 @@ public:
 	Returns whether or not the most recently-thrown exception was thrown due to an unexpected end-of-file.
 	As an example, this is used by croc.ex_commandline to detect when more code must be entered
 	to complete a code segment. A simple example of use:
-	
+
 -----
 scope c = new Compiler(t);
 
@@ -252,7 +257,7 @@ try
 catch(CrocException e)
 {
 	auto ex = catchException(t);
-	
+
 	if(c.isEof())
 	{
 		// error was caused by an unexpected end-of-file
@@ -264,7 +269,7 @@ catch(CrocException e)
 	{
 		return mIsEof;
 	}
-	
+
 	/**
 	Returns whether or not the most recently-thrown exception was thrown due to a no-effect expression being used
 	as a statement (yes, this method has a horrible name). Its use is identical to isEof().
@@ -273,7 +278,7 @@ catch(CrocException e)
 	{
 		return mIsLoneStmt;
 	}
-	
+
 	/**
 	Returns whether or not there was a dangling documentation comment at the end of the last-compiled item (that is,
 	a documentation comment that was not attached to anything).
@@ -287,7 +292,7 @@ catch(CrocException e)
 	{
 		vexception(loc, "LexicalException", msg, _arguments, _argptr);
 	}
-	
+
 	override void synException(CompileLoc loc, char[] msg, ...)
 	{
 		vexception(loc, "SyntaxException", msg, _arguments, _argptr);
@@ -327,6 +332,26 @@ catch(CrocException e)
 		pushBool(t, true);
 		idxa(t, mStringTab);
 		return s.toString();
+	}
+
+	override void* allocNode(uword size)
+	{
+		return mNodes.alloc(size);
+	}
+
+	override void[] copyArray(void[] arr)
+	{
+		auto ret = mArrays.alloc(arr.length)[0 .. arr.length];
+		ret[] = arr[];
+		return ret;
+	}
+
+	override void addArray(void[] arr)
+	{
+		if(mHeapArrayIdx >= mHeapArrays.length)
+			t.vm.alloc.resizeArray(mHeapArrays, mHeapArrays.length * 2);
+
+		mHeapArrays[mHeapArrayIdx++] = arr;
 	}
 
 	/**
@@ -383,7 +408,7 @@ catch(CrocException e)
 			{
 				scope doc = new DocGen(this);
 				mod = doc.visit(mod);
-				
+
 				if(!docTable)
 					pop(t);
 			}
@@ -457,12 +482,11 @@ catch(CrocException e)
 		});
 	}
 
-// ================================================================================================================================================
+// =====================================================================================================================
 // Private
-// ================================================================================================================================================
+// =====================================================================================================================
 
 private:
-
 	void vexception(ref CompileLoc loc, char[] exType, char[] msg, TypeInfo[] arguments, va_list argptr)
 	{
 		auto ex = getStdException(t, exType);
@@ -484,7 +508,7 @@ private:
 			setStackSize(t, mStringTab);
 
 		dg();
-		
+
 		if(docTable)
 		{
 			insert(t, -3);

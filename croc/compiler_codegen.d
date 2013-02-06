@@ -94,7 +94,7 @@ public:
 
 			Scope scop = void;
 			fs.pushScope(scop);
-				fs.insertLocal(new(c) Identifier(c, m.location, c.newString("this")));
+				fs.insertLocal(new(c) Identifier(m.location, c.newString("this")));
 				fs.activateLocals(1);
 
 				visit(m.statements);

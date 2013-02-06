@@ -1883,7 +1883,7 @@ private:
 		pushFormat(c.thread, fmt, mDummyNameCounter++);
 		auto str = c.newString(getString(c.thread, -1));
 		.pop(c.thread);
-		return insertLocal(new(c) Identifier(c, loc, str));
+		return insertLocal(new(c) Identifier(loc, str));
 	}
 
 	int searchLocal(char[] name, out uint reg)

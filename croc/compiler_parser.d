@@ -100,7 +100,7 @@ public:
 		{
 			l.next();
 			auto tok = l.expect(Token.Ident);
-			ret = new(c) DotExp(c, ret, new(c) StringExp(c, tok.loc, tok.stringValue));
+			ret = new(c) DotExp(ret, new(c) StringExp(tok.loc, tok.stringValue));
 		}
 
 		return ret;
@@ -111,7 +111,7 @@ public:
 	Identifier parseIdentifier()
 	{
 		with(l.expect(Token.Ident))
-			return new(c) Identifier(c, loc, stringValue);
+			return new(c) Identifier(loc, stringValue);
 	}
 
 	/**
@@ -119,7 +119,7 @@ public:
 	*/
 	Expression[] parseArguments()
 	{
-		scope args = new List!(Expression)(c.alloc);
+		scope args = new List!(Expression)(c);
 		args ~= parseExpression();
 
 		while(l.type == Token.Comma)
@@ -146,7 +146,7 @@ public:
 
 		l.expect(Token.Module);
 
-		scope names = new List!(char[])(c.alloc);
+		scope names = new List!(char[])(c);
 		names ~= parseName();
 
 		while(l.type == Token.Dot)
@@ -158,15 +158,15 @@ public:
 		auto endLocation = l.loc;
 		l.statementTerm();
 
-		scope statements = new List!(Statement)(c.alloc);
+		scope statements = new List!(Statement)(c);
 
 		while(l.type != Token.EOF)
 			statements ~= parseStatement();
 
-		auto stmts = new(c) BlockStmt(c, location, l.loc, statements.toArray());
+		auto stmts = new(c) BlockStmt(location, l.loc, statements.toArray());
 
 		mDanglingDoc = l.expect(Token.EOF).preComment !is null;
-		auto ret = new(c) Module(c, location, l.loc, names.toArray(), stmts, dec);
+		auto ret = new(c) Module(location, l.loc, names.toArray(), stmts, dec);
 
 		// Prevent final docs from being erroneously attached to the module
 		l.tok.postComment = null;
@@ -184,7 +184,7 @@ public:
 	{
 		auto location = l.loc;
 
-		scope statements = new List!(Statement)(c.alloc);
+		scope statements = new List!(Statement)(c);
 
 		while(l.type != Token.EOF)
 			statements ~= parseStatement();
@@ -192,10 +192,10 @@ public:
 		mDanglingDoc = l.expect(Token.EOF).preComment !is null;
 
 		auto endLocation = statements.length > 0 ? statements[statements.length - 1].endLocation : location;
-		auto code = new(c) BlockStmt(c, location, endLocation, statements.toArray());
-		scope params = new List!(FuncDef.Param)(c.alloc);
-		params ~= FuncDef.Param(new(c) Identifier(c, l.loc, c.newString("this")));
-		return new(c) FuncDef(c, location, new(c) Identifier(c, location, c.newString(name)), params.toArray(), true, code);
+		auto code = new(c) BlockStmt(location, endLocation, statements.toArray());
+		scope params = new List!(FuncDef.Param)(c);
+		params ~= FuncDef.Param(new(c) Identifier(l.loc, c.newString("this")));
+		return new(c) FuncDef(location, new(c) Identifier(location, c.newString(name)), params.toArray(), true, code);
 	}
 
 	/**
@@ -209,18 +209,18 @@ public:
 	{
 		auto location = l.loc;
 
-		scope statements = new List!(Statement)(c.alloc);
-		scope exprs = new List!(Expression)(c.alloc);
+		scope statements = new List!(Statement)(c);
+		scope exprs = new List!(Expression)(c);
 		exprs ~= parseExpression();
 
 		if(l.type != Token.EOF)
 			c.synException(l.loc, "Extra unexpected code after expression");
 
-		statements ~= new(c) ReturnStmt(c, exprs[0].location, exprs[0].endLocation, exprs.toArray());
-		auto code = new(c) BlockStmt(c, location, statements[0].endLocation, statements.toArray());
-		scope params = new List!(FuncDef.Param)(c.alloc);
-		params ~= FuncDef.Param(new(c) Identifier(c, l.loc, c.newString("this")));
-		return new(c) FuncDef(c, location, new(c) Identifier(c, location, c.newString(name)), params.toArray(), true, code);
+		statements ~= new(c) ReturnStmt(exprs[0].location, exprs[0].endLocation, exprs.toArray());
+		auto code = new(c) BlockStmt(location, statements[0].endLocation, statements.toArray());
+		scope params = new List!(FuncDef.Param)(c);
+		params ~= FuncDef.Param(new(c) Identifier(l.loc, c.newString("this")));
+		return new(c) FuncDef(location, new(c) Identifier(location, c.newString(name)), params.toArray(), true, code);
 	}
 
 	/**
@@ -272,7 +272,7 @@ public:
 				{
 					// don't inline this; memory management stuff.
 					auto stmt = parseBlockStmt();
-					return new(c) ScopeStmt(c, stmt);
+					return new(c) ScopeStmt(stmt);
 				}
 				else
 					return parseBlockStmt();
@@ -328,7 +328,7 @@ public:
 			{
 				l.next();
 
-				scope args = new List!(Expression)(c.alloc);
+				scope args = new List!(Expression)(c);
 				args ~= parseExpression();
 
 				while(l.type == Token.Comma)
@@ -358,15 +358,12 @@ public:
 				else if(l.type != Token.RParen)
 					argsArr = parseArguments();
 
-				scope(failure)
-					c.alloc.freeArray(argsArr);
-
 				endLocation = l.expect(Token.RParen).loc;
 			}
 			else
 				endLocation = func.endLocation;
 
-			return new(c) Decorator(c, func.location, endLocation, func, context, argsArr, null);
+			return new(c) Decorator(func.location, endLocation, func, context, argsArr, null);
 		}
 
 		auto first = parseDecorator();
@@ -442,7 +439,7 @@ public:
 		else
 			l.expect(Token.Local);
 
-		scope names = new List!(Identifier)(c.alloc);
+		scope names = new List!(Identifier)(c);
 		names ~= parseIdentifier();
 
 		while(l.type == Token.Comma)
@@ -454,15 +451,12 @@ public:
 		auto namesArr = names.toArray();
 		auto endLocation = namesArr[$ - 1].location;
 
-		scope(failure)
-			c.alloc.freeArray(namesArr);
-
 		Expression[] initializer;
 
 		if(l.type == Token.Assign)
 		{
 			l.next();
-			scope exprs = new List!(Expression)(c.alloc);
+			scope exprs = new List!(Expression)(c);
 
 			auto str = capture({exprs ~= parseExpression();});
 
@@ -486,7 +480,7 @@ public:
 			endLocation = initializer[$ - 1].endLocation;
 		}
 
-		return new(c) VarDecl(c, location, endLocation, protection, namesArr, initializer);
+		return new(c) VarDecl(location, endLocation, protection, namesArr, initializer);
 	}
 
 	/**
@@ -509,7 +503,7 @@ public:
 		}
 
 		auto def = parseSimpleFuncDef();
-		return new(c) FuncDecl(c, location, protection, def, deco);
+		return new(c) FuncDecl(location, protection, def, deco);
 	}
 
 	/**
@@ -528,9 +522,6 @@ public:
 		bool isVararg;
 		auto params = parseFuncParams(isVararg);
 
-		scope(failure)
-			c.alloc.freeArray(params);
-
 		l.expect(Token.RParen);
 
 		Statement code;
@@ -539,11 +530,11 @@ public:
 		{
 			l.next;
 
-			scope dummy = new List!(Expression)(c.alloc);
+			scope dummy = new List!(Expression)(c);
 			dummy ~= parseExpression();
 			auto arr = dummy.toArray();
 
-			code = new(c) ReturnStmt(c, arr[0].location, arr[0].endLocation, arr);
+			code = new(c) ReturnStmt(arr[0].location, arr[0].endLocation, arr);
 		}
 		else
 		{
@@ -551,14 +542,14 @@ public:
 
 			if(!code.as!(BlockStmt))
 			{
-				scope dummy = new List!(Statement)(c.alloc);
+				scope dummy = new List!(Statement)(c);
 				dummy ~= code;
 				auto arr = dummy.toArray();
-				code = new(c) BlockStmt(c, code.location, code.endLocation, arr);
+				code = new(c) BlockStmt(code.location, code.endLocation, arr);
 			}
 		}
 
-		return new(c) FuncDef(c, location, name, params, isVararg, code);
+		return new(c) FuncDef(location, name, params, isVararg, code);
 	}
 
 	/**
@@ -574,11 +565,7 @@ public:
 	{
 		alias FuncDef.Param Param;
 		alias FuncDef.TypeMask TypeMask;
-		scope ret = new List!(Param)(c.alloc);
-
-		scope(failure)
-			foreach(ref p; ret)
-				c.alloc.freeArray(p.classTypes);
+		scope ret = new List!(Param)(c);
 
 		void parseParam()
 		{
@@ -623,7 +610,7 @@ public:
 		if(l.type == Token.This)
 		{
 			Param p;
-			p.name = new(c) Identifier(c, l.loc, c.newString("this"));
+			p.name = new(c) Identifier(l.loc, c.newString("this"));
 
 			l.next();
 			l.expect(Token.Colon);
@@ -636,7 +623,7 @@ public:
 		}
 		else
 		{
-			ret ~= Param(new(c) Identifier(c, l.loc, c.newString("this")));
+			ret ~= Param(new(c) Identifier(l.loc, c.newString("this")));
 
 			if(l.type == Token.Ident)
 			{
@@ -664,7 +651,7 @@ public:
 		alias FuncDef.TypeMask TypeMask;
 
 		uint ret = 0;
-		scope objTypes = new List!(Expression)(c.alloc);
+		scope objTypes = new List!(Expression)(c);
 
 		void addConstraint(CrocValue.Type t)
 		{
@@ -678,13 +665,13 @@ public:
 		{
 			l.next();
 			auto t2 = l.expect(Token.Ident);
-			auto exp = new(c) DotExp(c, new(c) IdentExp(c, new(c) Identifier(c, t.loc, t.stringValue)), new(c) StringExp(c, t2.loc, t2.stringValue));
+			auto exp = new(c) DotExp(new(c) IdentExp(new(c) Identifier(t.loc, t.stringValue)), new(c) StringExp(t2.loc, t2.stringValue));
 
 			while(l.type == Token.Dot)
 			{
 				l.next();
 				t2 = l.expect(Token.Ident);
-				exp = new(c) DotExp(c, exp, new(c) StringExp(c, t2.loc, t2.stringValue));
+				exp = new(c) DotExp(exp, new(c) StringExp(t2.loc, t2.stringValue));
 			}
 
 			return exp;
@@ -740,7 +727,7 @@ public:
 									if(l.type == Token.Dot)
 										objTypes ~= parseIdentList(tt);
 									else
-										objTypes ~= new(c) IdentExp(c, new(c) Identifier(c, tt.loc, tt.stringValue));
+										objTypes ~= new(c) IdentExp(new(c) Identifier(tt.loc, tt.stringValue));
 								}
 								else if(l.type != Token.Or && l.type != Token.Comma && l.type != Token.RParen && l.type != Token.Arrow)
 									l.expected("class type");
@@ -749,7 +736,7 @@ public:
 
 							default:
 								addConstraint(CrocValue.Type.Instance);
-								objTypes ~= new(c) IdentExp(c, new(c) Identifier(c, t.loc, t.stringValue));
+								objTypes ~= new(c) IdentExp(new(c) Identifier(t.loc, t.stringValue));
 								break;
 						}
 					}
@@ -767,7 +754,7 @@ public:
 				if(l.type == Token.Dot)
 					customConstraint = parseIdentList(n);
 				else
-					customConstraint = new(c) IdentExp(c, new(c) Identifier(c, n.loc, n.stringValue));
+					customConstraint = new(c) IdentExp(new(c) Identifier(n.loc, n.stringValue));
 
 				ret = TypeMask.Any;
 			}
@@ -842,25 +829,22 @@ public:
 		bool isVararg;
 		auto params = parseFuncParams(isVararg);
 
-		scope(failure)
-			c.alloc.freeArray(params);
-
 		Statement code;
 
 		if(l.type == Token.Arrow)
 		{
 			l.next();
 
-			scope dummy = new List!(Expression)(c.alloc);
+			scope dummy = new List!(Expression)(c);
 			dummy ~= parseExpression();
 			auto arr = dummy.toArray();
 
-			code = new(c) ReturnStmt(c, arr[0].location, arr[0].endLocation, arr);
+			code = new(c) ReturnStmt(arr[0].location, arr[0].endLocation, arr);
 		}
 		else
 			code = parseBlockStmt();
 
-		return new(c) FuncDef(c, location, name, params, isVararg, code);
+		return new(c) FuncDef(location, name, params, isVararg, code);
 	}
 
 	/**
@@ -883,7 +867,7 @@ public:
 		}
 
 		auto def = parseClassDef(false);
-		return new(c) ClassDecl(c, location, protection, def, deco);
+		return new(c) ClassDecl(location, protection, def, deco);
 	}
 
 	/**
@@ -929,7 +913,7 @@ public:
 			mCurrentClassName = oldClassName;
 
 		alias ClassDef.Field Field;
-		scope fields = new List!(Field)(c.alloc);
+		scope fields = new List!(Field)(c);
 
 		void addField(Identifier name, Expression v, bool isMethod, char[] preDocs, CompileLoc preDocsLoc)
 		{
@@ -946,7 +930,7 @@ public:
 
 		void addMethod(FuncDef m, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			addField(m.name, new(c) FuncLiteralExp(c, m.location, m), true, preDocs, preDocsLoc);
+			addField(m.name, new(c) FuncLiteralExp(m.location, m), true, preDocs, preDocsLoc);
 			m.docs = fields[fields.length - 1].docs;
 			m.docsLoc = fields[fields.length - 1].docsLoc;
 		}
@@ -964,7 +948,7 @@ public:
 
 				case Token.This:
 					auto loc = l.expect(Token.This).loc;
-					addMethod(parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor"))), docs, docsLoc);
+					addMethod(parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor"))), docs, docsLoc);
 					break;
 
 				case Token.At:
@@ -983,11 +967,11 @@ public:
 						else
 						{
 							auto loc = l.expect(Token.This).loc;
-							fd = parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor")));
+							fd = parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor")));
 						}
 
 						fieldName = fd.name;
-						init = new(c) FuncLiteralExp(c, fd.location, fd);
+						init = new(c) FuncLiteralExp(fd.location, fd);
 					}
 					else
 					{
@@ -999,7 +983,7 @@ public:
 							init.sourceStr = capture({init = parseExpression();});
 						}
 						else
-							init = new(c) NullExp(c, fieldName.location);
+							init = new(c) NullExp(fieldName.location);
 
 						l.statementTerm();
 					}
@@ -1018,7 +1002,7 @@ public:
 						v.sourceStr = capture({v = parseExpression();});
 					}
 					else
-						v = new(c) NullExp(c, id.location);
+						v = new(c) NullExp(id.location);
 
 					l.statementTerm();
 					addField(id, v, false, docs, docsLoc);
@@ -1033,7 +1017,7 @@ public:
 		}
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) ClassDef(c, location, endLocation, className, baseClass, fields.toArray());
+		return new(c) ClassDef(location, endLocation, className, baseClass, fields.toArray());
 	}
 
 	/**
@@ -1056,7 +1040,7 @@ public:
 		}
 
 		auto def = parseNamespaceDef();
-		return new(c) NamespaceDecl(c, location, protection, def, deco);
+		return new(c) NamespaceDecl(location, protection, def, deco);
 	}
 
 	/**
@@ -1088,7 +1072,7 @@ public:
 			pop(c.thread);
 
 		alias NamespaceDef.Field Field;
-		scope fields = new List!(Field)(c.alloc);
+		scope fields = new List!(Field)(c);
 
 		void addField(char[] name, Expression v, char[] preDocs, CompileLoc preDocsLoc)
 		{
@@ -1119,7 +1103,7 @@ public:
 			{
 				case Token.Function:
 					auto fd = parseSimpleFuncDef();
-					addField(fd.name.name, new(c) FuncLiteralExp(c, fd.location, fd), docs, docsLoc);
+					addField(fd.name.name, new(c) FuncLiteralExp(fd.location, fd), docs, docsLoc);
 					break;
 
 				case Token.At:
@@ -1132,7 +1116,7 @@ public:
 					{
 						auto fd = parseSimpleFuncDef();
 						fieldName = fd.name;
-						init = new(c) FuncLiteralExp(c, fd.location, fd);
+						init = new(c) FuncLiteralExp(fd.location, fd);
 					}
 					else
 					{
@@ -1144,7 +1128,7 @@ public:
 							init.sourceStr = capture({init = parseExpression();});
 						}
 						else
-							init = new(c) NullExp(c, fieldName.location);
+							init = new(c) NullExp(fieldName.location);
 
 						l.statementTerm();
 					}
@@ -1165,7 +1149,7 @@ public:
 						v.sourceStr = capture({v = parseExpression();});
 					}
 					else
-						v = new(c) NullExp(c, loc);
+						v = new(c) NullExp(loc);
 
 					l.statementTerm();
 					addField(fieldName, v, docs, docsLoc);
@@ -1181,7 +1165,7 @@ public:
 
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) NamespaceDef(c, location, endLocation, name, parent, fields.toArray());
+		return new(c) NamespaceDef(location, endLocation, name, parent, fields.toArray());
 	}
 
 	/**
@@ -1190,13 +1174,13 @@ public:
 	{
 		auto location = l.expect(Token.LBrace).loc;
 
-		scope statements = new List!(Statement)(c.alloc);
+		scope statements = new List!(Statement)(c);
 
 		while(l.type != Token.RBrace)
 			statements ~= parseStatement();
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) BlockStmt(c, location, endLocation, statements.toArray());
+		return new(c) BlockStmt(location, endLocation, statements.toArray());
 	}
 
 	/**
@@ -1218,7 +1202,7 @@ public:
 		auto endLocation = l.expect(Token.RParen).loc;
 		l.statementTerm();
 
-		return new(c) AssertStmt(c, location, endLocation, cond, msg);
+		return new(c) AssertStmt(location, endLocation, cond, msg);
 	}
 
 	/**
@@ -1235,7 +1219,7 @@ public:
 		}
 
 		l.statementTerm();
-		return new(c) BreakStmt(c, location, name);
+		return new(c) BreakStmt(location, name);
 	}
 
 	/**
@@ -1252,7 +1236,7 @@ public:
 		}
 
 		l.statementTerm();
-		return new(c) ContinueStmt(c, location, name);
+		return new(c) ContinueStmt(location, name);
 	}
 
 	/**
@@ -1276,7 +1260,7 @@ public:
 
 		auto condition = parseExpression();
 		auto endLocation = l.expect(Token.RParen).loc;
-		return new(c) DoWhileStmt(c, location, endLocation, name, doBody, condition);
+		return new(c) DoWhileStmt(location, endLocation, name, doBody, condition);
 	}
 
 	/**
@@ -1297,7 +1281,7 @@ public:
 		l.expect(Token.LParen);
 
 		alias ForStmt.Init Init;
-		scope init = new List!(Init)(c.alloc);
+		scope init = new List!(Init)(c);
 
 		void parseInitializer()
 		{
@@ -1337,12 +1321,12 @@ public:
 				step = parseExpression();
 			}
 			else
-				step = new(c) IntExp(c, l.loc, 1);
+				step = new(c) IntExp(l.loc, 1);
 
 			l.expect(Token.RParen);
 
 			auto code = parseStatement();
-			return new(c) ForNumStmt(c, location, name, index, lo, hi, step, code);
+			return new(c) ForNumStmt(location, name, index, lo, hi, step, code);
 		}
 		else
 		{
@@ -1367,7 +1351,7 @@ public:
 			l.expect(Token.Semicolon);
 		}
 
-		scope increment = new List!(Statement)(c.alloc);
+		scope increment = new List!(Statement)(c);
 
 		if(l.type == Token.RParen)
 			l.next();
@@ -1385,7 +1369,7 @@ public:
 		}
 
 		auto code = parseStatement(false);
-		return new(c) ForStmt(c, location, name, init.toArray(), condition, increment.toArray(), code);
+		return new(c) ForStmt(location, name, init.toArray(), condition, increment.toArray(), code);
 	}
 
 	/**
@@ -1403,7 +1387,7 @@ public:
 
 		l.expect(Token.LParen);
 
-		scope indices = new List!(Identifier)(c.alloc);
+		scope indices = new List!(Identifier)(c);
 		indices ~= parseIdentifier();
 
 		while(l.type == Token.Comma)
@@ -1427,12 +1411,9 @@ public:
 		else
 			indicesArr = indices.toArray();
 
-		scope(failure)
-			c.alloc.freeArray(indicesArr);
-
 		l.expect(Token.Semicolon);
 
-		scope container = new List!(Expression)(c.alloc);
+		scope container = new List!(Expression)(c);
 		container ~= parseExpression();
 
 		while(l.type == Token.Comma)
@@ -1447,7 +1428,7 @@ public:
 		l.expect(Token.RParen);
 
 		auto code = parseStatement();
-		return new(c) ForeachStmt(c, location, name, indicesArr, container.toArray(), code);
+		return new(c) ForeachStmt(location, name, indicesArr, container.toArray(), code);
 	}
 
 	/**
@@ -1481,7 +1462,7 @@ public:
 			endLocation = elseBody.endLocation;
 		}
 
-		return new(c) IfStmt(c, location, endLocation, condVar, condition, ifBody, elseBody);
+		return new(c) IfStmt(location, endLocation, condVar, condition, ifBody, elseBody);
 	}
 
 	/**
@@ -1504,7 +1485,7 @@ public:
 		}
 		else
 		{
-			scope name = new List!(char)(c.alloc);
+			scope name = new List!(char, 32)(c);
 
 			name ~= parseName();
 
@@ -1516,8 +1497,7 @@ public:
 			}
 
 			auto arr = name.toArray();
-			expr = new(c) StringExp(c, location, c.newString(arr));
-			c.alloc.freeArray(arr);
+			expr = new(c) StringExp(location, c.newString(arr));
 		}
 
 		if(l.type == Token.As)
@@ -1526,8 +1506,8 @@ public:
 			importName = parseIdentifier();
 		}
 
-		scope symbols = new List!(Identifier)(c.alloc);
-		scope symbolNames = new List!(Identifier)(c.alloc);
+		scope symbols = new List!(Identifier)(c);
+		scope symbolNames = new List!(Identifier)(c);
 
 		void parseSelectiveImport()
 		{
@@ -1561,7 +1541,7 @@ public:
 
 		auto endLocation = l.loc;
 		l.statementTerm();
-		return new(c) ImportStmt(c, location, endLocation, importName, expr, symbols.toArray(), symbolNames.toArray());
+		return new(c) ImportStmt(location, endLocation, importName, expr, symbols.toArray(), symbolNames.toArray());
 	}
 
 	/**
@@ -1574,13 +1554,13 @@ public:
 		{
 			auto endLocation = l.loc;
 			l.statementTerm();
-			return new(c) ReturnStmt(c, location, endLocation, null);
+			return new(c) ReturnStmt(location, endLocation, null);
 		}
 		else
 		{
 			assert(l.loc.line == location.line);
 
-			scope exprs = new List!(Expression)(c.alloc);
+			scope exprs = new List!(Expression)(c);
 			exprs ~= parseExpression();
 
 			while(l.type == Token.Comma)
@@ -1592,11 +1572,8 @@ public:
 			auto arr = exprs.toArray();
 			auto endLocation = arr[$ - 1].endLocation;
 
-			scope(failure)
-				c.alloc.freeArray(arr);
-
 			l.statementTerm();
-			return new(c) ReturnStmt(c, location, endLocation, arr);
+			return new(c) ReturnStmt(location, endLocation, arr);
 		}
 	}
 
@@ -1620,7 +1597,7 @@ public:
 		l.expect(Token.RParen);
 		l.expect(Token.LBrace);
 
-		scope cases = new List!(CaseStmt)(c.alloc);
+		scope cases = new List!(CaseStmt)(c);
 
 		cases ~= parseCaseStmt();
 
@@ -1633,7 +1610,7 @@ public:
 			caseDefault = parseDefaultStmt();
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) SwitchStmt(c, location, endLocation, name, condition, cases.toArray(), caseDefault);
+		return new(c) SwitchStmt(location, endLocation, name, condition, cases.toArray(), caseDefault);
 	}
 
 	/**
@@ -1643,7 +1620,7 @@ public:
 		auto location = l.expect(Token.Case).loc;
 
 		alias CaseStmt.CaseCond CaseCond;
-		scope conditions = new List!(CaseCond)(c.alloc);
+		scope conditions = new List!(CaseCond)(c);
 		conditions ~= CaseCond(parseExpression());
 		Expression highRange;
 
@@ -1660,15 +1637,15 @@ public:
 
 		l.expect(Token.Colon);
 
-		scope statements = new List!(Statement)(c.alloc);
+		scope statements = new List!(Statement)(c);
 
 		while(l.type != Token.Case && l.type != Token.Default && l.type != Token.RBrace)
 			statements ~= parseStatement();
 
 		auto endLocation = l.loc;
 
-		auto code = new(c) ScopeStmt(c, new(c) BlockStmt(c, location, endLocation, statements.toArray()));
-		return new(c) CaseStmt(c, location, endLocation, conditions.toArray(), highRange, code);
+		auto code = new(c) ScopeStmt(new(c) BlockStmt(location, endLocation, statements.toArray()));
+		return new(c) CaseStmt(location, endLocation, conditions.toArray(), highRange, code);
 	}
 
 	/**
@@ -1680,15 +1657,15 @@ public:
 		l.expect(Token.Default);
 		l.expect(Token.Colon);
 
-		scope statements = new List!(Statement)(c.alloc);
+		scope statements = new List!(Statement)(c);
 
 		while(l.type != Token.RBrace)
 			statements ~= parseStatement();
 
 		auto endLocation = l.loc;
 
-		auto code = new(c) ScopeStmt(c, new(c) BlockStmt(c, location, endLocation, statements.toArray()));
-		return new(c) DefaultStmt(c, location, endLocation, code);
+		auto code = new(c) ScopeStmt(new(c) BlockStmt(location, endLocation, statements.toArray()));
+		return new(c) DefaultStmt(location, endLocation, code);
 	}
 
 	/**
@@ -1698,7 +1675,7 @@ public:
 		auto location = l.expect(Token.Throw).loc;
 		auto exp = parseExpression();
 		l.statementTerm();
-		return new(c) ThrowStmt(c, location, exp);
+		return new(c) ThrowStmt(location, exp);
 	}
 
 	/**
@@ -1723,7 +1700,7 @@ public:
 		l.expect(Token.RParen);
 		auto stmt = parseStatement();
 
-		return new(c) ScopeActionStmt(c, location, type, stmt);
+		return new(c) ScopeActionStmt(location, type, stmt);
 	}
 
 	/**
@@ -1733,15 +1710,9 @@ public:
 		alias TryCatchStmt.CatchClause CC;
 
 		auto location = l.expect(Token.Try).loc;
-		auto tryBody = new(c) ScopeStmt(c, parseStatement());
+		auto tryBody = new(c) ScopeStmt(parseStatement());
 
-		scope catches = new List!(CC)(c.alloc);
-
-		scope(failure)
-		{
-			foreach(ref ca; catches)
-				c.alloc.freeArray(ca.exTypes);
-		}
+		scope catches = new List!(CC)(c);
 
 		while(l.type == Token.Catch)
 		{
@@ -1752,7 +1723,7 @@ public:
 			cc.catchVar = parseIdentifier();
 			l.expect(Token.Colon);
 
-			scope types = new List!(Expression)(c.alloc);
+			scope types = new List!(Expression)(c);
 			types ~= parseDottedName();
 
 			while(l.type == Token.Or)
@@ -1763,7 +1734,7 @@ public:
 
 			l.expect(Token.RParen);
 
-			cc.catchBody = new(c) ScopeStmt(c, parseStatement());
+			cc.catchBody = new(c) ScopeStmt(parseStatement());
 			cc.exTypes = types.toArray();
 			catches ~= cc;
 		}
@@ -1773,7 +1744,7 @@ public:
 		if(l.type == Token.Finally)
 		{
 			l.next();
-			finallyBody = new(c) ScopeStmt(c, parseStatement());
+			finallyBody = new(c) ScopeStmt(parseStatement());
 		}
 
 		if(catches.length > 0)
@@ -1782,16 +1753,16 @@ public:
 
 			if(finallyBody)
 			{
-				auto tmp = new(c) TryCatchStmt(c, location, catchArr[$ - 1].catchBody.endLocation, tryBody, catchArr);
-				return new(c) TryFinallyStmt(c, location, finallyBody.endLocation, tmp, finallyBody);
+				auto tmp = new(c) TryCatchStmt(location, catchArr[$ - 1].catchBody.endLocation, tryBody, catchArr);
+				return new(c) TryFinallyStmt(location, finallyBody.endLocation, tmp, finallyBody);
 			}
 			else
 			{
-				return new(c) TryCatchStmt(c, location, catchArr[$ - 1].catchBody.endLocation, tryBody, catchArr);
+				return new(c) TryCatchStmt(location, catchArr[$ - 1].catchBody.endLocation, tryBody, catchArr);
 			}
 		}
 		else if(finallyBody)
-			return new(c) TryFinallyStmt(c, location, finallyBody.endLocation, tryBody, finallyBody);
+			return new(c) TryFinallyStmt(location, finallyBody.endLocation, tryBody, finallyBody);
 		else
 			c.eofException(location, "Try statement must be followed by catches, finally, or both");
 
@@ -1825,7 +1796,7 @@ public:
 		auto condition = parseExpression();
 		l.expect(Token.RParen);
 		auto code = parseStatement(false);
-		return new(c) WhileStmt(c, location, name, condVar, condition, code);
+		return new(c) WhileStmt(location, name, condVar, condition, code);
 	}
 
 	/**
@@ -1841,13 +1812,13 @@ public:
 		{
 			l.next();
 			auto exp = parsePrimaryExp();
-			return new(c) IncStmt(c, location, location, exp);
+			return new(c) IncStmt(location, location, exp);
 		}
 		else if(l.type == Token.Dec)
 		{
 			l.next();
 			auto exp = parsePrimaryExp();
-			return new(c) DecStmt(c, location, location, exp);
+			return new(c) DecStmt(location, location, exp);
 		}
 
 		Expression exp;
@@ -1864,12 +1835,12 @@ public:
 		else if(l.type == Token.Inc)
 		{
 			l.next();
-			return new(c) IncStmt(c, location, location, exp);
+			return new(c) IncStmt(location, location, exp);
 		}
 		else if(l.type == Token.Dec)
 		{
 			l.next();
-			return new(c) DecStmt(c, location, location, exp);
+			return new(c) DecStmt(location, location, exp);
 		}
 		else if(l.type == Token.OrOr)
 			exp = parseOrOrExp(exp);
@@ -1879,7 +1850,7 @@ public:
 			exp = parseCondExp(exp);
 
 		exp.checkToNothing(c);
-		return new(c) ExpressionStmt(c, exp);
+		return new(c) ExpressionStmt(exp);
 	}
 
 	/**
@@ -1895,7 +1866,7 @@ public:
 	{
 		auto location = l.loc;
 
-		scope lhs = new List!(Expression)(c.alloc);
+		scope lhs = new List!(Expression)(c);
 		lhs ~= firstLHS;
 
 		while(l.type == Token.Comma)
@@ -1910,7 +1881,7 @@ public:
 
 		l.expect(Token.Assign);
 
-		scope rhs = new List!(Expression)(c.alloc);
+		scope rhs = new List!(Expression)(c);
 		rhs ~= parseExpression();
 
 		while(l.type == Token.Comma)
@@ -1923,7 +1894,7 @@ public:
 			c.semException(location, "Assignment has fewer destinations than sources");
 
 		auto rhsArr = rhs.toArray();
-		return new(c) AssignStmt(c, location, rhsArr[$ - 1].endLocation, lhs.toArray(), rhsArr);
+		return new(c) AssignStmt(location, rhsArr[$ - 1].endLocation, lhs.toArray(), rhsArr);
 	}
 
 	/**
@@ -1944,7 +1915,7 @@ public:
 			"case Token." ~ tok ~ ":"
 				"l.next();"
 				"auto exp2 = parseExpression();"
-				"return new(c) " ~ type ~ "(c, location, exp2.endLocation, exp1, exp2);";
+				"return new(c) " ~ type ~ "(location, exp2.endLocation, exp1, exp2);";
 		}
 
 		mixin(
@@ -2001,7 +1972,7 @@ public:
 			exp2 = parseExpression();
 			l.expect(Token.Colon);
 			exp3 = parseCondExp();
-			exp1 = new(c) CondExp(c, location, exp3.endLocation, exp1, exp2, exp3);
+			exp1 = new(c) CondExp(location, exp3.endLocation, exp1, exp2, exp3);
 
 			location = l.loc;
 		}
@@ -2032,7 +2003,7 @@ public:
 			l.next();
 
 			exp2 = parseAndAndExp();
-			exp1 = new(c) OrOrExp(c, location, exp2.endLocation, exp1, exp2);
+			exp1 = new(c) OrOrExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
 		}
@@ -2063,7 +2034,7 @@ public:
 			l.next();
 
 			exp2 = parseOrExp();
-			exp1 = new(c) AndAndExp(c, location, exp2.endLocation, exp1, exp2);
+			exp1 = new(c) AndAndExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
 		}
@@ -2087,7 +2058,7 @@ public:
 			l.next();
 
 			exp2 = parseXorExp();
-			exp1 = new(c) OrExp(c, location, exp2.endLocation, exp1, exp2);
+			exp1 = new(c) OrExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
 		}
@@ -2111,7 +2082,7 @@ public:
 			l.next();
 
 			exp2 = parseAndExp();
-			exp1 = new(c) XorExp(c, location, exp2.endLocation, exp1, exp2);
+			exp1 = new(c) XorExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
 		}
@@ -2135,7 +2106,7 @@ public:
 			l.next();
 
 			exp2 = parseCmpExp();
-			exp1 = new(c) AndExp(c, location, exp2.endLocation, exp1, exp2);
+			exp1 = new(c) AndExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
 		}
@@ -2159,13 +2130,13 @@ public:
 			case Token.EQ:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) EqualExp(c, location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) EqualExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.NE:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) NotEqualExp(c, location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) NotEqualExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.Not:
@@ -2174,14 +2145,14 @@ public:
 					l.next();
 					l.next();
 					exp2 = parseShiftExp();
-					exp1 = new(c) NotIsExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) NotIsExp(location, exp2.endLocation, exp1, exp2);
 				}
 				else if(l.peek.type == Token.In)
 				{
 					l.next();
 					l.next();
 					exp2 = parseShiftExp();
-					exp1 = new(c) NotInExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) NotInExp(location, exp2.endLocation, exp1, exp2);
 				}
 				// no, there should not be an 'else' here
 
@@ -2190,49 +2161,49 @@ public:
 			case Token.Is:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) IsExp(c, location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) IsExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.LT:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) LTExp(c, location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) LTExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.LE:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) LEExp(c, location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) LEExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.GT:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) GTExp(c, location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) GTExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.GE:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) GEExp(c, location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) GEExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.As:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) AsExp(c, location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) AsExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.In:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) InExp(c, location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) InExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.Cmp3:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) Cmp3Exp(c, location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) Cmp3Exp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			default:
@@ -2258,19 +2229,19 @@ public:
 				case Token.Shl:
 					l.next();
 					exp2 = parseAddExp();
-					exp1 = new(c) ShlExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) ShlExp(location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.Shr:
 					l.next();
 					exp2 = parseAddExp();
-					exp1 = new(c) ShrExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) ShrExp(location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.UShr:
 					l.next();
 					exp2 = parseAddExp();
-					exp1 = new(c) UShrExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) UShrExp(location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				default:
@@ -2301,19 +2272,19 @@ public:
 				case Token.Add:
 					l.next();
 					exp2 = parseMulExp();
-					exp1 = new(c) AddExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) AddExp(location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.Sub:
 					l.next();
 					exp2 = parseMulExp();
-					exp1 = new(c) SubExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) SubExp(location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.Cat:
 					l.next();
 					exp2 = parseMulExp();
-					exp1 = new(c) CatExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) CatExp(location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				default:
@@ -2342,19 +2313,19 @@ public:
 				case Token.Mul:
 					l.next();
 					exp2 = parseUnExp();
-					exp1 = new(c) MulExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) MulExp(location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.Div:
 					l.next();
 					exp2 = parseUnExp();
-					exp1 = new(c) DivExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) DivExp(location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.Mod:
 					l.next();
 					exp2 = parseUnExp();
-					exp1 = new(c) ModExp(c, location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) ModExp(location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				default:
@@ -2382,19 +2353,19 @@ public:
 			case Token.Sub:
 				l.next();
 				exp = parseUnExp();
-				exp = new(c) NegExp(c, location, exp);
+				exp = new(c) NegExp(location, exp);
 				break;
 
 			case Token.Not:
 				l.next();
 				exp = parseUnExp();
-				exp = new(c) NotExp(c, location, exp);
+				exp = new(c) NotExp(location, exp);
 				break;
 
 			case Token.Cat:
 				l.next();
 				exp = parseUnExp();
-				exp = new(c) ComExp(c, location, exp);
+				exp = new(c) ComExp(location, exp);
 				break;
 
 			case Token.Length:
@@ -2402,9 +2373,9 @@ public:
 				exp = parseUnExp();
 
 				if(exp.as!(VarargExp))
-					exp = new(c) VargLenExp(c, location, exp.endLocation);
+					exp = new(c) VargLenExp(location, exp.endLocation);
 				else
-					exp = new(c) LenExp(c, location, exp);
+					exp = new(c) LenExp(location, exp);
 				break;
 
 			default:
@@ -2458,7 +2429,7 @@ public:
 	IdentExp parseIdentExp()
 	{
 		auto id = parseIdentifier();
-		return new(c) IdentExp(c, id);
+		return new(c) IdentExp(id);
 	}
 
 	/**
@@ -2466,7 +2437,7 @@ public:
 	ThisExp parseThisExp()
 	{
 		with(l.expect(Token.This))
-			return new(c) ThisExp(c, loc);
+			return new(c) ThisExp(loc);
 	}
 
 	/**
@@ -2474,7 +2445,7 @@ public:
 	NullExp parseNullExp()
 	{
 		with(l.expect(Token.Null))
-			return new(c) NullExp(c, loc);
+			return new(c) NullExp(loc);
 	}
 
 	/**
@@ -2486,12 +2457,12 @@ public:
 		if(l.type == Token.True)
 		{
 			l.expect(Token.True);
-			return new(c) BoolExp(c, loc, true);
+			return new(c) BoolExp(loc, true);
 		}
 		else
 		{
 			l.expect(Token.False);
-			return new(c) BoolExp(c, loc, false);
+			return new(c) BoolExp(loc, false);
 		}
 	}
 
@@ -2500,7 +2471,7 @@ public:
 	VarargExp parseVarargExp()
 	{
 		with(l.expect(Token.Vararg))
-			return new(c) VarargExp(c, loc);
+			return new(c) VarargExp(loc);
 	}
 
 	/**
@@ -2508,7 +2479,7 @@ public:
 	CharExp parseCharExp()
 	{
 		with(l.expect(Token.CharLiteral))
-			return new(c) CharExp(c, loc, cast(dchar)intValue);
+			return new(c) CharExp(loc, cast(dchar)intValue);
 	}
 
 	/**
@@ -2516,7 +2487,7 @@ public:
 	IntExp parseIntExp()
 	{
 		with(l.expect(Token.IntLiteral))
-			return new(c) IntExp(c, loc, intValue);
+			return new(c) IntExp(loc, intValue);
 	}
 
 	/**
@@ -2524,7 +2495,7 @@ public:
 	FloatExp parseFloatExp()
 	{
 		with(l.expect(Token.FloatLiteral))
-			return new(c) FloatExp(c, loc, floatValue);
+			return new(c) FloatExp(loc, floatValue);
 	}
 
 	/**
@@ -2532,7 +2503,7 @@ public:
 	StringExp parseStringExp()
 	{
 		with(l.expect(Token.StringLiteral))
-			return new(c) StringExp(c, loc, stringValue);
+			return new(c) StringExp(loc, stringValue);
 	}
 
 	/**
@@ -2541,7 +2512,7 @@ public:
 	{
 		auto location = l.loc;
 		auto def = parseFuncLiteral();
-		return new(c) FuncLiteralExp(c, location, def);
+		return new(c) FuncLiteralExp(location, def);
 	}
 
 	/**
@@ -2550,7 +2521,7 @@ public:
 	{
 		auto location = l.loc;
 		auto def = parseHaskellFuncLiteral();
-		return new(c) FuncLiteralExp(c, location, def);
+		return new(c) FuncLiteralExp(location, def);
 	}
 
 	/**
@@ -2559,7 +2530,7 @@ public:
 	{
 		auto location = l.loc;
 		auto def = parseClassDef(true);
-		return new(c) ClassLiteralExp(c, location, def);
+		return new(c) ClassLiteralExp(location, def);
 	}
 
 	/**
@@ -2570,7 +2541,7 @@ public:
 		auto location = l.expect(Token.LParen).loc;
 		auto exp = parseExpression();
 		auto endLocation = l.expect(Token.RParen).loc;
-		return new(c) ParenExp(c, location, endLocation, exp);
+		return new(c) ParenExp(location, endLocation, exp);
 	}
 
 	/**
@@ -2580,7 +2551,7 @@ public:
 		auto location = l.expect(Token.LBrace).loc;
 
 		alias TableCtorExp.Field Field;
-		scope fields = new List!(Field)(c.alloc);
+		scope fields = new List!(Field)(c);
 
 		if(l.type != Token.RBrace)
 		{
@@ -2603,14 +2574,14 @@ public:
 
 					case Token.Function:
 						auto fd = parseSimpleFuncDef();
-						k = new(c) StringExp(c, fd.location, fd.name.name);
-						v = new(c) FuncLiteralExp(c, fd.location, fd);
+						k = new(c) StringExp(fd.location, fd.name.name);
+						v = new(c) FuncLiteralExp(fd.location, fd);
 						break;
 
 					default:
 						Identifier id = parseIdentifier();
 						l.expect(Token.Assign);
-						k = new(c) StringExp(c, id.location, id.name);
+						k = new(c) StringExp(id.location, id.name);
 						v = parseExpression();
 						break;
 				}
@@ -2629,9 +2600,8 @@ public:
 				auto dummy = fields.toArray();
 				auto key = dummy[0].key;
 				auto value = dummy[0].value;
-				c.alloc.freeArray(dummy);
 
-				return new(c) TableComprehension(c, location, endLocation, key, value, forComp);
+				return new(c) TableComprehension(location, endLocation, key, value, forComp);
 			}
 
 			if(l.type == Token.Comma)
@@ -2647,7 +2617,7 @@ public:
 		}
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) TableCtorExp(c, location, endLocation, fields.toArray());
+		return new(c) TableCtorExp(location, endLocation, fields.toArray());
 	}
 
 	/**
@@ -2656,7 +2626,7 @@ public:
 	{
 		auto location = l.expect(Token.LBracket).loc;
 
-		scope values = new List!(Expression)(c.alloc);
+		scope values = new List!(Expression)(c);
 
 		if(l.type != Token.RBracket)
 		{
@@ -2666,7 +2636,7 @@ public:
 			{
 				auto forComp = parseForComprehension();
 				auto endLocation = l.expect(Token.RBracket).loc;
-				return new(c) ArrayComprehension(c, location, endLocation, exp, forComp);
+				return new(c) ArrayComprehension(location, endLocation, exp, forComp);
 			}
 			else
 			{
@@ -2686,7 +2656,7 @@ public:
 		}
 
 		auto endLocation = l.expect(Token.RBracket).loc;
-		return new(c) ArrayCtorExp(c, location, endLocation, values.toArray());
+		return new(c) ArrayCtorExp(location, endLocation, values.toArray());
 	}
 
 	/**
@@ -2695,7 +2665,7 @@ public:
 	{
 		auto location = l.loc;
 		auto def = parseNamespaceDef();
-		return new(c) NamespaceCtorExp(c, location, def);
+		return new(c) NamespaceCtorExp(location, def);
 	}
 
 	/**
@@ -2710,11 +2680,8 @@ public:
 		if(l.type != Token.RParen)
 			args = parseArguments();
 
-		scope(failure)
-			c.alloc.freeArray(args);
-
 		auto endLocation = l.expect(Token.RParen).loc;
-		return new(c) YieldExp(c, location, endLocation, args);
+		return new(c) YieldExp(location, endLocation, args);
 	}
 
 	/**
@@ -2732,7 +2699,7 @@ public:
 			if(l.type == Token.Ident)
 			{
 				with(l.expect(Token.Ident))
-					method = new(c) StringExp(c, location, stringValue);
+					method = new(c) StringExp(location, stringValue);
 			}
 			else
 			{
@@ -2742,7 +2709,7 @@ public:
 			}
 		}
 		else
-			method = new(c) StringExp(c, location, c.newString("constructor"));
+			method = new(c) StringExp(location, c.newString("constructor"));
 
 		Expression[] args;
 		CompileLoc endLocation;
@@ -2754,16 +2721,13 @@ public:
 			if(l.type != Token.RParen)
 				args = parseArguments();
 
-			scope(failure)
-				c.alloc.freeArray(args);
-
 			endLocation = l.expect(Token.RParen).loc;
 		}
 		else
 		{
 			l.expect(Token.Dollar);
 
-			scope a = new List!(Expression)(c.alloc);
+			scope a = new List!(Expression)(c);
 			a ~= parseExpression();
 
 			while(l.type == Token.Comma)
@@ -2776,7 +2740,7 @@ public:
 			endLocation = args[$ - 1].endLocation;
 		}
 
-		return new(c) MethodCallExp(c, location, endLocation, null, method, args, true);
+		return new(c) MethodCallExp(location, endLocation, null, method, args, true);
 	}
 
 	/**
@@ -2793,13 +2757,13 @@ public:
 			l.next();
 			auto exp = parseExpression();
 			endLoc = l.expect(Token.RParen).loc;
-			return new(c) DotExp(c, new(c) ThisExp(c, loc), exp);
+			return new(c) DotExp(new(c) ThisExp(loc), exp);
 		}
 		else if(l.type == Token.Super)
 		{
 			endLoc = l.loc;
 			l.next();
-			return new(c) DotSuperExp(c, endLoc, new(c) ThisExp(c, loc));
+			return new(c) DotSuperExp(endLoc, new(c) ThisExp(loc));
 		}
 		else
 		{
@@ -2809,7 +2773,7 @@ public:
 			if(mCurrentClassName !is null && isPrivateFieldName(name))
 				name = makePrivateFieldName(mCurrentClassName, name);
 
-			return new(c) DotExp(c, new(c) ThisExp(c, loc), new(c) StringExp(c, endLoc, name));
+			return new(c) DotExp(new(c) ThisExp(loc), new(c) StringExp(endLoc, name));
 		}
 	}
 
@@ -2839,27 +2803,27 @@ public:
 						if(mCurrentClassName !is null && isPrivateFieldName(name))
 							name = makePrivateFieldName(mCurrentClassName, name);
 
-						exp = new(c) DotExp(c, exp, new(c) StringExp(c, loc, name));
+						exp = new(c) DotExp(exp, new(c) StringExp(loc, name));
 					}
 					else if(l.type == Token.Super)
 					{
 						auto endLocation = l.loc;
 						l.next();
-						exp = new(c) DotSuperExp(c, endLocation, exp);
+						exp = new(c) DotSuperExp(endLocation, exp);
 					}
 					else
 					{
 						l.expect(Token.LParen);
 						auto subExp = parseExpression();
 						l.expect(Token.RParen);
-						exp = new(c) DotExp(c, exp, subExp);
+						exp = new(c) DotExp(exp, subExp);
 					}
 					continue;
 
 				case Token.Dollar:
 					l.next();
 
-					scope args = new List!(Expression)(c.alloc);
+					scope args = new List!(Expression)(c);
 					args ~= parseExpression();
 
 					while(l.type == Token.Comma)
@@ -2871,9 +2835,9 @@ public:
 					auto arr = args.toArray();
 
 					if(auto dot = exp.as!(DotExp))
-						exp = new(c) MethodCallExp(c, dot.location, arr[$ - 1].endLocation, dot.op, dot.name, arr, false);
+						exp = new(c) MethodCallExp(dot.location, arr[$ - 1].endLocation, dot.op, dot.name, arr, false);
 					else
-						exp = new(c) CallExp(c, arr[$ - 1].endLocation, exp, null, arr);
+						exp = new(c) CallExp(arr[$ - 1].endLocation, exp, null, arr);
 					continue;
 
 				case Token.LParen:
@@ -2903,18 +2867,12 @@ public:
 					else if(l.type != Token.RParen)
 						args = parseArguments();
 
-					{
-					scope(failure)
-						c.alloc.freeArray(args);
-
 					auto endLocation = l.expect(Token.RParen).loc;
 
 					if(auto dot = exp.as!(DotExp))
-						exp = new(c) MethodCallExp(c, dot.location, endLocation, dot.op, dot.name, args, false);
+						exp = new(c) MethodCallExp(dot.location, endLocation, dot.op, dot.name, args, false);
 					else
-						exp = new(c) CallExp(c, endLocation, exp, context, args);
-					}
-
+						exp = new(c) CallExp(endLocation, exp, context, args);
 					continue;
 
 				case Token.LBracket:
@@ -2927,19 +2885,19 @@ public:
 					if(l.type == Token.RBracket)
 					{
 						// a[]
-						loIndex = new(c) NullExp(c, l.loc);
-						hiIndex = new(c) NullExp(c, l.loc);
+						loIndex = new(c) NullExp(l.loc);
+						hiIndex = new(c) NullExp(l.loc);
 						endLocation = l.expect(Token.RBracket).loc;
 					}
 					else if(l.type == Token.DotDot)
 					{
-						loIndex = new(c) NullExp(c, l.loc);
+						loIndex = new(c) NullExp(l.loc);
 						l.next();
 
 						if(l.type == Token.RBracket)
 						{
 							// a[ .. ]
-							hiIndex = new(c) NullExp(c, l.loc);
+							hiIndex = new(c) NullExp(l.loc);
 							endLocation = l.expect(Token.RBracket).loc;
 						}
 						else
@@ -2960,7 +2918,7 @@ public:
 							if(l.type == Token.RBracket)
 							{
 								// a[0 .. ]
-								hiIndex = new(c) NullExp(c, l.loc);
+								hiIndex = new(c) NullExp(l.loc);
 								endLocation = l.expect(Token.RBracket).loc;
 							}
 							else
@@ -2976,9 +2934,9 @@ public:
 							endLocation = l.expect(Token.RBracket).loc;
 
 							if(exp.as!(VarargExp))
-								exp = new(c) VargIndexExp(c, location, endLocation, loIndex);
+								exp = new(c) VargIndexExp(location, endLocation, loIndex);
 							else
-								exp = new(c) IndexExp(c, endLocation, exp, loIndex);
+								exp = new(c) IndexExp(endLocation, exp, loIndex);
 
 							// continue here since this isn't a slice
 							continue;
@@ -2986,9 +2944,9 @@ public:
 					}
 
 					if(exp.as!(VarargExp))
-						exp = new(c) VargSliceExp(c, location, endLocation, loIndex, hiIndex);
+						exp = new(c) VargSliceExp(location, endLocation, loIndex, hiIndex);
 					else
-						exp = new(c) SliceExp(c, endLocation, exp, loIndex, hiIndex);
+						exp = new(c) SliceExp(endLocation, exp, loIndex, hiIndex);
 					continue;
 
 				default:
@@ -3039,15 +2997,15 @@ public:
 				step = parseExpression();
 			}
 			else
-				step = new(c) IntExp(c, l.loc, 1);
+				step = new(c) IntExp(l.loc, 1);
 
 			parseNextComp();
-			return new(c) ForNumComprehension(c, loc, name, exp, exp2, step, ifComp, forComp);
+			return new(c) ForNumComprehension(loc, name, exp, exp2, step, ifComp, forComp);
 		}
 		else if(l.type == Token.Foreach)
 		{
 			l.next();
-			scope names = new List!(Identifier)(c.alloc);
+			scope names = new List!(Identifier)(c);
 			names ~= parseIdentifier();
 
 			while(l.type == Token.Comma)
@@ -3058,7 +3016,7 @@ public:
 
 			l.expect(Token.Semicolon);
 
-			scope container = new List!(Expression)(c.alloc);
+			scope container = new List!(Expression)(c);
 			container ~= parseExpression();
 
 			while(l.type == Token.Comma)
@@ -3085,11 +3043,8 @@ public:
 			else
 				namesArr = names.toArray();
 
-			scope(failure)
-				c.alloc.freeArray(namesArr);
-
 			parseNextComp();
-			return new(c) ForeachComprehension(c, loc, namesArr, container.toArray(), ifComp, forComp);
+			return new(c) ForeachComprehension(loc, namesArr, container.toArray(), ifComp, forComp);
 
 		}
 		else
@@ -3104,7 +3059,7 @@ public:
 	{
 		auto loc = l.expect(Token.If).loc;
 		auto condition = parseExpression();
-		return new(c) IfComprehension(c, loc, condition);
+		return new(c) IfComprehension(loc, condition);
 	}
 
 // ================================================================================================================================================
@@ -3118,7 +3073,7 @@ private:
 		pushFormat(c.thread, InternalName!("dummy{}"), mDummyNameCounter++);
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
-		return new(c) Identifier(c, loc, str);
+		return new(c) Identifier(loc, str);
 	}
 
 	Identifier dummyFuncLiteralName(CompileLoc loc)
@@ -3126,7 +3081,7 @@ private:
 		pushFormat(c.thread, "<literal at {}({}:{})>", loc.file, loc.line, loc.col);
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
-		return new(c) Identifier(c, loc, str);
+		return new(c) Identifier(loc, str);
 	}
 
 	Identifier dummyClassLiteralName(CompileLoc loc)
@@ -3134,7 +3089,7 @@ private:
 		pushFormat(c.thread, "<class at {}({}:{})>", loc.file, loc.line, loc.col);
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
-		return new(c) Identifier(c, loc, str);
+		return new(c) Identifier(loc, str);
 	}
 
 	bool isPrivateFieldName(char[] name)
@@ -3176,7 +3131,7 @@ private:
 
 	Expression decoToExp(Decorator dec, Expression exp)
 	{
-		scope args = new List!(Expression)(c.alloc);
+		scope args = new List!(Expression)(c);
 
 		if(dec.nextDec)
 			args ~= decoToExp(dec.nextDec, exp);
@@ -3186,17 +3141,14 @@ private:
 		args ~= dec.args;
 		auto argsArray = args.toArray();
 
-		scope(failure)
-			c.alloc.freeArray(argsArray);
-
 		if(auto f = dec.func.as!(DotExp))
 		{
 			if(dec.context !is null)
 				c.semException(dec.location, "'with' is disallowed for method calls");
 
-			return new(c) MethodCallExp(c, dec.location, dec.endLocation, f.op, f.name, argsArray, false);
+			return new(c) MethodCallExp(dec.location, dec.endLocation, f.op, f.name, argsArray, false);
 		}
 		else
-			return new(c) CallExp(c, dec.endLocation, dec.func, dec.context, argsArray);
+			return new(c) CallExp(dec.endLocation, dec.func, dec.context, argsArray);
 	}
 }
