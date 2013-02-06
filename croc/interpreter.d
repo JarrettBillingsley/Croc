@@ -738,7 +738,7 @@ void unwindEH(CrocThread* t)
 word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 {
 	// ORDER CROCVALUE TYPE
-	if(v.type <= CrocValue.Type.String)
+	if(v.type < CrocValue.Type.FirstRefType)
 	{
 		char[80] buffer = void;
 
@@ -777,6 +777,9 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 
 			case CrocValue.Type.String:
 				return push(t, v);
+
+			case CrocValue.Type.NativeObj, CrocValue.Type.WeakRef:
+				return pushFormat(t, "{} 0x{:X8}", CrocValue.typeStrings[v.type], cast(void*)v.mBaseObj);
 
 			default: assert(false);
 		}
