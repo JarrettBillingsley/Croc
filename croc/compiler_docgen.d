@@ -593,7 +593,7 @@ private:
 
 	Identifier doctableIdent(CompileLoc loc)
 	{
-		return new(c) Identifier(c, loc, c.newString("__doctable"));
+		return new(c) Identifier(c, loc, c.newString(InternalName!("doctable")));
 	}
 
 	Decorator makeDeco(CompileLoc loc, Decorator existing, bool lastIndex = true)

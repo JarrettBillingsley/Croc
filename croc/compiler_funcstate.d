@@ -591,9 +591,9 @@ package:
 		pushNewLocals(3);
 		dg();
 		assign(loc, 3, containerSize);
-		insertDummyLocal(loc, "__hidden{}");
-		insertDummyLocal(loc, "__hidden{}");
-		insertDummyLocal(loc, "__hidden{}");
+		insertDummyLocal(loc, InternalName!("hidden{}"));
+		insertDummyLocal(loc, InternalName!("hidden{}"));
+		insertDummyLocal(loc, InternalName!("hidden{}"));
 		activateLocals(3);
 
 		ret.beginJump = codeRD(loc, opcode, ret.baseReg); codeImm(NoJump);

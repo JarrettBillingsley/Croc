@@ -29,6 +29,12 @@ module croc.compiler_types;
 import croc.base_alloc;
 import croc.types;
 
+// Template for generating internal variable names
+template InternalName(char[] name)
+{
+	const InternalName = "$" ~ name;
+}
+
 // Location, duh.
 struct CompileLoc
 {
@@ -98,7 +104,7 @@ public:
 	{
 		return mNext;
 	}
-	
+
 	override void[] toVoidArray()
 	{
 		return (cast(void*)this)[0 .. this.classinfo.init.length];
@@ -152,7 +158,7 @@ package:
 	{
 		return mData[index];
 	}
-	
+
 	T opIndexAssign(T t, uword index)
 	{
 		return mData[index] = t;
@@ -185,16 +191,16 @@ package:
 		foreach(ref v; mData[0 .. mIndex])
 			if(auto result = dg(v))
 				return result;
-		
+
 		return 0;
 	}
-	
+
 	int opApply(int delegate(uword, ref T) dg)
 	{
 		foreach(i, ref v; mData[0 .. mIndex])
 			if(auto result = dg(i, v))
 				return result;
-		
+
 		return 0;
 	}
 }

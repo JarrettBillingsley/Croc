@@ -55,27 +55,27 @@ public:
 	{
 		c.alloc.freeArray(mFinallyDepths);
 	}
-	
+
 	bool isTopLevel()
 	{
 		return mFinallyDepths.length == 1;
 	}
 
 	alias Visitor.visit visit;
-	
+
 	override Module visit(Module m)
 	{
 		m.statements = visit(m.statements);
-		
+
 		if(m.decorator)
 			m.decorator = visit(m.decorator);
 
 		return m;
 	}
-	
+
 	FuncDef visitStatements(FuncDef d)
 	{
-		return visitFuncDef(d);	
+		return visitFuncDef(d);
 	}
 
 	override FuncDef visit(FuncDef d)
@@ -87,17 +87,17 @@ public:
 
 		return visitFuncDef(d);
 	}
-	
+
 	void enterFinally()
 	{
 		mFinallyDepths[$ - 1]++;
 	}
-	
+
 	void leaveFinally()
 	{
 		mFinallyDepths[$ - 1]--;
 	}
-	
+
 	bool inFinally()
 	{
 		return mFinallyDepths[$ - 1] > 0;
@@ -142,7 +142,7 @@ public:
 			if(!(p.typeMask & (1 << type)))
 				c.semException(p.defValue.location, "Parameter {}: Default parameter of type '{}' is not allowed", i - 1, CrocValue.typeStrings[type]);
 		}
-		
+
 		d.code = visit(d.code);
 
 		scope extra = new List!(Statement)(c.alloc);
@@ -163,7 +163,7 @@ public:
 
 		return d;
 	}
-	
+
 	override ClassDef visit(ClassDef d)
 	{
 		if(d.baseClass)
@@ -262,7 +262,7 @@ public:
 				// First put the import into a temporary local.
 				scope names = new List!(Identifier)(c.alloc);
 				scope inits = new List!(Expression)(c.alloc);
-				auto ident = new(c) Identifier(c, s.location, c.newString("__tempimport"));
+				auto ident = new(c) Identifier(c, s.location, c.newString(InternalName!("tempimport")));
 				names ~= ident;
 				inits ~= call;
 				stmts2 ~= new(c) VarDecl(c, s.location, s.endLocation, Protection.Local, names.toArray(), inits.toArray());
@@ -291,13 +291,13 @@ public:
 		// Wrap it all up in a (non-scoped) block.
 		return new(c) BlockStmt(c, s.location, s.endLocation, stmts.toArray());
 	}
-	
+
 	override ScopeStmt visit(ScopeStmt s)
 	{
 		s.statement = visit(s.statement);
 		return s;
 	}
-	
+
 	override ExpressionStmt visit(ExpressionStmt s)
 	{
 		s.expr = visit(s.expr);
@@ -314,11 +314,11 @@ public:
 
 		return d;
 	}
-	
+
 	override Decorator visit(Decorator d)
 	{
 		d.func = visit(d.func);
-		
+
 		if(d.context)
 			d.context = visit(d.context);
 
@@ -429,7 +429,7 @@ public:
 					*/
 
 					// local __dummy = true
-					auto finishedVar = genDummyVar(ss.endLocation, "__scope{}");
+					auto finishedVar = genDummyVar(ss.endLocation, InternalName!("scope{}"));
 					auto finishedVarExp = new(c) IdentExp(c, finishedVar);
 					Statement declStmt;
 					{
@@ -441,7 +441,7 @@ public:
 					}
 
 					// catch(__dummy2: Throwable) { __dummy = false; throw __dummy2 }
-					auto catchVar = genDummyVar(ss.location, "__scope{}");
+					auto catchVar = genDummyVar(ss.location, InternalName!("scope{}"));
 					TryCatchStmt catchStmt;
 					{
 						scope types = new List!(Expression)(c.alloc);
@@ -491,7 +491,7 @@ public:
 					try { rest }
 					catch(__dummy: Throwable) { ss.stmt; throw __dummy }
 					*/
-					auto catchVar = genDummyVar(ss.location, "__scope{}");
+					auto catchVar = genDummyVar(ss.location, InternalName!("scope{}"));
 					scope types = new List!(Expression)(c.alloc);
 					types ~= new(c) IdentExp(c, new(c) Identifier(c, ss.location, c.newString("Throwable")));
 
@@ -575,7 +575,7 @@ public:
 		// Jarrett, stop rewriting do-while statements with constant conditions. you did this before. it fucks up breaks/continues inside them. STOP IT.
 		return s;
 	}
-	
+
 	override Statement visit(ForStmt s)
 	{
 		foreach(ref i; s.init)
@@ -621,7 +621,7 @@ public:
 
 		return s;
 	}
-	
+
 	override Statement visit(ForNumStmt s)
 	{
 		s.lo = visit(s.lo);
@@ -646,7 +646,7 @@ public:
 		s.code = visit(s.code);
 		return s;
 	}
-	
+
 	override ForeachStmt visit(ForeachStmt s)
 	{
 		foreach(ref c; s.container)
@@ -655,21 +655,21 @@ public:
 		s.code = visit(s.code);
 		return s;
 	}
-	
+
 	override SwitchStmt visit(SwitchStmt s)
 	{
 		s.condition = visit(s.condition);
-		
+
 		scope rangeCases = new List!(CaseStmt)(c.alloc);
 
 		foreach(ref c; s.cases)
 		{
 			c = visit(c);
-			
+
 			if(c.highRange !is null && c.conditions[0].exp.isConstant && c.highRange.isConstant)
 				rangeCases ~= c;
 		}
-		
+
 		foreach(rc; rangeCases)
 		{
 			auto lo = rc.conditions[0].exp;
@@ -769,7 +769,7 @@ public:
 						{
 							auto lo2Val = lo2.asString;
 							auto hi2Val = hi2.asString;
-							
+
 							if( (loVal >= lo2Val && loVal <= hi2Val) ||
 								(hiVal >= lo2Val && hiVal <= hi2Val) ||
 								(lo2Val >= loVal && lo2Val <= hiVal) ||
@@ -799,14 +799,14 @@ public:
 	{
 		foreach(ref cond; s.conditions)
 			cond.exp = visit(cond.exp);
-			
+
 		if(s.highRange)
 		{
 			s.highRange = visit(s.highRange);
-			
+
 			auto lo = s.conditions[0].exp;
 			auto hi = s.highRange;
-			
+
 			if(lo.isConstant && hi.isConstant)
 			{
 				if(lo.isInt && hi.isInt)
@@ -849,7 +849,7 @@ public:
 		s.code = visit(s.code);
 		return s;
 	}
-	
+
 	override ContinueStmt visit(ContinueStmt s)
 	{
 		if(inFinally())
@@ -876,7 +876,7 @@ public:
 
 		return s;
 	}
-	
+
 	override TryCatchStmt visit(TryCatchStmt s)
 	{
 		s.tryBody = visit(s.tryBody);
@@ -892,16 +892,16 @@ public:
 		/*
 		Now we have to do some fancy transformation of the catch statements into a single statement that switches
 		on the type of the caught exception.
-		
+
 		try
 			...
 		catch(e: E1)
 			catch1()
 		catch(f: E2|E3)
 			catch2()
-		
-		=> 
-		
+
+		=>
+
 		try
 			...
 		catch(__catch0)
@@ -913,10 +913,10 @@ public:
 		*/
 
 		// catch(__catch0)
-		auto cvar = genDummyVar(s.catches[0].catchVar.location, "__catch{}");
+		auto cvar = genDummyVar(s.catches[0].catchVar.location, InternalName!("catch{}"));
 		auto cvarExp = new(c) IdentExp(c, cvar);
 		s.hiddenCatchVar = cvar;
-		
+
 		// else throw __catch0
 		Statement stmt = new(c) ThrowStmt(c, s.endLocation, cvarExp, true);
 
@@ -967,7 +967,7 @@ public:
 		s.exp = visit(s.exp);
 		return s;
 	}
-	
+
 	override ScopeActionStmt visit(ScopeActionStmt s)
 	{
 		if(s.type == ScopeActionStmt.Exit || s.type == ScopeActionStmt.Success)
@@ -981,12 +981,12 @@ public:
 
 		return s;
 	}
-	
+
 	override AssignStmt visit(AssignStmt s)
 	{
 		foreach(ref exp; s.lhs)
 			exp = visit(exp);
-			
+
 		foreach(ref exp; s.rhs)
 			exp = visit(exp);
 
@@ -999,7 +999,7 @@ public:
 		s.rhs = visit(s.rhs);
 		return s;
 	}
-	
+
 	override AddAssignStmt visit(AddAssignStmt s)   { return visitOpAssign(s); }
 	override SubAssignStmt visit(SubAssignStmt s)   { return visitOpAssign(s); }
 	override MulAssignStmt visit(MulAssignStmt s)   { return visitOpAssign(s); }
@@ -1043,13 +1043,13 @@ public:
 		s.collapsed = true;
 		return s;
 	}
-	
+
 	override IncStmt visit(IncStmt s)
 	{
 		s.exp = visit(s.exp);
 		return s;
 	}
-	
+
 	override DecStmt visit(DecStmt s)
 	{
 		s.exp = visit(s.exp);
@@ -1072,7 +1072,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(OrOrExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1088,7 +1088,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(AndAndExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1104,7 +1104,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(OrExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1120,7 +1120,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(XorExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1196,7 +1196,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(EqualExp e)    { return visitEquality(e); }
 	override Expression visit(NotEqualExp e) { return visitEquality(e); }
 	override Expression visit(IsExp e)       { return visitEquality(e); }
@@ -1218,7 +1218,7 @@ public:
 			cmpVal = scmp(op1.asString(), op2.asString());
 		else
 			c.semException(op1.location, "Invalid compile-time comparison");
-			
+
 		return cmpVal;
 	}
 
@@ -1243,7 +1243,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(LTExp e) { return visitComparison(e); }
 	override Expression visit(LEExp e) { return visitComparison(e); }
 	override Expression visit(GTExp e) { return visitComparison(e); }
@@ -1267,7 +1267,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(InExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1330,7 +1330,7 @@ public:
 			else
 				c.semException(e.location, "'!in' must be performed on a string with a character or string");
 		}
-		
+
 		return e;
 	}
 
@@ -1349,7 +1349,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(ShrExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1365,7 +1365,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(UShrExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1381,7 +1381,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(AddExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1417,7 +1417,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(CatExp e)
 	{
 		if(e.collapsed)
@@ -1522,7 +1522,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(DivExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1568,7 +1568,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(NegExp e)
 	{
 		e.op = visit(e.op);
@@ -1591,7 +1591,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(NotExp e)
 	{
 		e.op = visit(e.op);
@@ -1650,7 +1650,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(LenExp e)
 	{
 		e.op = visit(e.op);
@@ -1665,7 +1665,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(DotExp e)
 	{
 		e.op = visit(e.op);
@@ -1676,7 +1676,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(DotSuperExp e)
 	{
 		e.op = visit(e.op);
@@ -1698,7 +1698,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(CallExp e)
 	{
 		e.op = visit(e.op);
@@ -1711,7 +1711,7 @@ public:
 
 		return e;
 	}
-	
+
 	override Expression visit(IndexExp e)
 	{
 		e.op = visit(e.op);
@@ -1798,19 +1798,19 @@ public:
 
 		return e;
 	}
-	
+
 	override FuncLiteralExp visit(FuncLiteralExp e)
 	{
 		e.def = visit(e.def);
 		return e;
 	}
-	
+
 	override ClassLiteralExp visit(ClassLiteralExp e)
 	{
 		e.def = visit(e.def);
 		return e;
 	}
-	
+
 	override NamespaceCtorExp visit(NamespaceCtorExp e)
 	{
 		e.def = visit(e.def);
@@ -1837,7 +1837,7 @@ public:
 
 		return e;
 	}
-	
+
 	override ArrayCtorExp visit(ArrayCtorExp e)
 	{
 		foreach(ref value; e.values)
@@ -1845,7 +1845,7 @@ public:
 
 		return e;
 	}
-	
+
 	override YieldExp visit(YieldExp e)
 	{
 		foreach(ref arg; e.args)
@@ -1853,7 +1853,7 @@ public:
 
 		return e;
 	}
-	
+
 	override TableComprehension visit(TableComprehension e)
 	{
 		e.key = visit(e.key);
@@ -1894,7 +1894,7 @@ public:
 
 		return e;
 	}
-	
+
 	override ForNumComprehension visit(ForNumComprehension e)
 	{
 		e.lo = visit(e.lo);
@@ -1911,7 +1911,7 @@ public:
 
 		return e;
 	}
-	
+
 	override IfComprehension visit(IfComprehension e)
 	{
 		e.condition = visit(e.condition);

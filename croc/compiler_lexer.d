@@ -1611,9 +1611,6 @@ private:
 
 						auto s = mCompiler.newString(arr);
 
-						if(s.startsWith("__"))
-							mCompiler.lexException(mTok.loc, "'{}': Identifiers starting with two underscores are reserved", s);
-
 						if(auto t = (s in Token.stringToType))
 							mTok.type = *t;
 						else

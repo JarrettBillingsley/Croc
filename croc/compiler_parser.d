@@ -3115,7 +3115,7 @@ private:
 
 	Identifier dummyForeachIndex(CompileLoc loc)
 	{
-		pushFormat(c.thread, "__dummy{}", mDummyNameCounter++);
+		pushFormat(c.thread, InternalName!("dummy{}"), mDummyNameCounter++);
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
 		return new(c) Identifier(c, loc, str);
