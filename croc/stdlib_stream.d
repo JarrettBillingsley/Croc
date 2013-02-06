@@ -666,9 +666,8 @@ class Stream
 These are meant to be used as custom parameter type constraints, to ensure that a stream parameter supports certain
 operations.
 
-All of these ensure that \tt{s} is derived from \link{Stream}. The \tt{in} functions ensure that \tt{s.readable()}
-returns true; the \tt{out} functions ensure that \tt{s.writable()} returns true; and the \tt{seek} functions ensure that
-\tt{s.seekable()} returns true. An example of use:
+The \tt{in} functions ensure that \tt{s.readable()} returns true; the \tt{out} functions ensure that \tt{s.writable()}
+returns true; and the \tt{seek} functions ensure that \tt{s.seekable()} returns true. An example of use:
 
 \code
 // Expects the dest stream to be writable and the src stream to be readable
@@ -684,22 +683,22 @@ to the stream, don't use an \tt{out} function.
 \param[s] the stream object to test.
 \returns a bool telling whether or not it satisfies the constraints.
 */
-function InStream(s) =        s as Stream && s.readable()
-function OutStream(s) =       s as Stream &&                 s.writable()                 /// ditto
-function InoutStream(s) =     s as Stream && s.readable() && s.writable()                 /// ditto
-function SeekStream(s) =      s as Stream &&                                 s.seekable() /// ditto
-function InSeekStream(s) =    s as Stream && s.readable() &&                 s.seekable() /// ditto
-function OutSeekStream(s) =   s as Stream &&                 s.writable() && s.seekable() /// ditto
-function InoutSeekStream(s) = s as Stream && s.readable() && s.writable() && s.seekable() /// ditto
+function InStream(s) =        s.readable()
+function OutStream(s) =                       s.writable()                 /// ditto
+function InoutStream(s) =     s.readable() && s.writable()                 /// ditto
+function SeekStream(s) =                                      s.seekable() /// ditto
+function InSeekStream(s) =    s.readable() &&                 s.seekable() /// ditto
+function OutSeekStream(s) =                   s.writable() && s.seekable() /// ditto
+function InoutSeekStream(s) = s.readable() && s.writable() && s.seekable() /// ditto
 
 /**
-This is meant to be used as a custom parameter type constraint. It ensures that its parameter is derived from
-\link{Stream} and that its \link[Stream.isOpen]{\tt{isOpen} method} returns \tt{true}.
+This is meant to be used as a custom parameter type constraint. It ensures that its parameter's
+\link[Stream.isOpen]{\tt{isOpen} method} returns \tt{true}.
 
 \param[s] the stream object to test.
 \returns a bool telling whether or not it satisfies the constraints.
 */
-function OpenStream(s) = s as Stream && s.isOpen()
+function OpenStream(s) = s.isOpen()
 
 /**
 Implements a readable, writable, seekable stream that uses a memblock as its data backing store.

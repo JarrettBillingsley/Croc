@@ -1,6 +1,75 @@
 module samples.simple
 
+/*
+Three protection levels: public, protected, private.
+
+Public can be accessed from anywhere.
+Private can only be accessed if the member's owner is the same as the owner of the currently-executing function.
+Protected can only be accessed if the member's owner is a subclass of the owner of the currently-executing function.
+
+Public and protected members have their owners changed upon inheritance; private members keep theirs.
+
+Public and protected members are undecorated; private members are decorated with their defining class's name.
+
+public
+_protected
+__private
+
+:__stream =
+
+function bindMethod(C: class, name: string)
+{
+	local value, proto, privacy = class.getField(C, name)
+
+	if(privacy !is "public")
+		error
+
+	return function(self, vararg)
+	{
+		make a call using value as the function, proto as the proto, with self as slot 0; return all results
+	}
+}
+
+*/
+
 function main()
 {
 
 }
+
+/* import net
+
+function httpGet(page: string)
+{
+	if(page.startsWith("http://"))
+		page = page[#"http://" ..]
+
+	local slash = page.find("/")
+	local server = page[.. slash]
+	page = page[slash ..]
+
+	if(#page == 0)
+		page = "/"
+
+	local sock = net.connect(server, 80)
+	sock.write("GET ", page, " HTTP/1.1\r\nHost: ", server, "\r\nConnection: close\r\n\r\n")
+
+	local v = memblock.new("u8", 0)
+	local vs = stream.MemOutStream(v)
+	vs.copy(sock)
+	sock.close()
+	local ret = string.fromRawAscii(v)
+
+	local beginning = ret.find("\r\n\r\n") + 4
+
+	if(beginning > #ret)
+		return ""
+	else
+		return ret[beginning ..]
+}
+
+function main()
+{
+	writeln(httpGet("www.google.com"))
+}
+ */
