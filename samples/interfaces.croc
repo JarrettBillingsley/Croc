@@ -1,0 +1,106 @@
+module samples.interfaces
+
+import exceptions: TypeException
+
+class Method
+{
+	_name
+	_numParams
+
+	this(name: string, numParams: int)
+	{
+		:_name = name
+		:_numParams = numParams
+	}
+
+	function name() =
+		:_name
+
+	function implements(f: function) =
+		f.numParams() == :_numParams
+
+	function toString() =
+		"{} ({} params)".format(:_name, :_numParams)
+}
+
+class Interface
+{
+	_name
+	_methods
+	_implementors
+
+	this(name: string, methods: array)
+	{
+		if(!methods.all(\m -> m as Method))
+			throw TypeException("All methods must be Methods")
+
+		:_name = name
+		:_methods = methods.dup()
+		:_implementors = {}
+	}
+
+	function implement(T: class)
+	{
+		foreach(m; :_methods)
+		{
+			local name = m.name()
+
+			if(!hasMethod(T, name) || !m.implements(T.(name)))
+				throw TypeException("Class {} does not implement method '{}' from {}".format(nameOf(T), m, :_name))
+		}
+
+		:_implementors[T] = true
+	}
+
+	function opCall(val: instance)
+	{
+		return true
+
+		if(:_implementors[val.super])
+			return true
+
+		:implement(val.super)
+		return true
+	}
+}
+
+function implements(T: class, vararg)
+{
+	for(i: 0 .. #vararg)
+	{
+		local p = vararg[i]
+
+		if(!(p as Interface))
+			throw TypeException("All varargs must be Interfaces")
+
+		p.implement(T)
+	}
+
+	return T
+}
+
+local IStream = Interface("IStream",
+[
+	Method("read", 3)
+	Method("write", 3)
+	Method("seek", 2)
+])
+
+class DerpStream
+{
+	function read(m, offset, size) {}
+	function write(m, offset, size) {}
+	function seek(offset, whence) {}
+}
+
+function streamSomething(s: @IStream)
+{
+	s.read()
+	writeln("yay!")
+}
+
+function main()
+{
+	local d = DerpStream()
+	streamSomething(d)
+}
