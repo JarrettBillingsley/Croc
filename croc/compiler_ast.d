@@ -34,7 +34,6 @@ import croc.types;
 
 const char[][] AstTagNames =
 [
-	"Unknown",
 	"Identifier",
 
 	"ClassDef",
@@ -167,7 +166,6 @@ mixin("enum AstTag {" ~ genEnumMembers() ~ "}");
 
 const char[][] NiceAstTagNames =
 [
-	AstTag.Unknown:              "<unknown node type>",
 	AstTag.Identifier:           "identifier",
 
 	AstTag.ClassDef:             "class definition",
@@ -328,15 +326,6 @@ abstract class AstNode : IAstNode
 	override void cleanup(ref Allocator alloc)
 	{
 		// nothing.
-	}
-}
-
-class Unknown : AstNode
-{
-	this(ICompiler c)
-	{
-		super(c, CompileLoc.init, CompileLoc.init, AstTag.Unknown);
-		//assert(false);
 	}
 }
 
