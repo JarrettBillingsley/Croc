@@ -1029,7 +1029,7 @@ package:
 	}
 
 	// [Local Const src] => []
-	void addClassField(ref CompileLoc loc, bool isPublic)
+	void addClassField(ref CompileLoc loc, ubyte privacy)
 	{
 		auto cls = getExp(-3);
 		auto name = getExp(-2);
@@ -1042,13 +1042,13 @@ package:
 		codeRD(loc, Op.AddField, cls);
 		codeRC(name);
 		codeRC(src);
-		codeUImm(isPublic ? 1 : 0);
+		codeUImm(cast(ushort)privacy);
 
 		pop(3);
 	}
 
 	// [Local Const src] => []
-	void addClassMethod(ref CompileLoc loc, bool isPublic)
+	void addClassMethod(ref CompileLoc loc, ubyte privacy)
 	{
 		auto cls = getExp(-3);
 		auto name = getExp(-2);
@@ -1061,7 +1061,7 @@ package:
 		codeRD(loc, Op.AddMethod, cls);
 		codeRC(name);
 		codeRC(src);
-		codeUImm(isPublic ? 1 : 0);
+		codeUImm(cast(ushort)privacy);
 
 		pop(3);
 	}

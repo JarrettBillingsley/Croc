@@ -107,7 +107,7 @@ uword _fieldsOf(CrocThread* t)
 
 		while(classobj.nextField(c, index, key, value))
 		{
-			if(value.isPublic)
+			if(value.privacy is Privacy.Public)
 			{
 				pushInt(t, index);
 				setUpval(t, Idx);
@@ -135,7 +135,7 @@ uword _fieldsOf(CrocThread* t)
 
 		while(instance.nextField(c, index, key, value))
 		{
-			if(value.isPublic)
+			if(value.privacy is Privacy.Public)
 			{
 				pushInt(t, index);
 				setUpval(t, Idx);
@@ -182,7 +182,7 @@ uword _methodsOf(CrocThread* t)
 
 		while(classobj.nextMethod(c, index, key, value))
 		{
-			if(value.isPublic)
+			if(value.privacy is Privacy.Public)
 			{
 				pushInt(t, index);
 				setUpval(t, Idx);

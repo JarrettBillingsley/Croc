@@ -171,26 +171,26 @@ local _encodeInto, _decodeRange = _internal.asciiEncodeInternal, _internal.ascii
 
 local class AsciiIncrementalEncoder : IncrementalEncoder
 {
-	_errors
+	__errors
 
 	this(errors: string = "strict")
-		:_errors = errors
+		:__errors = errors
 
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
-		_encodeInto(str, dest, start, :_errors)
+		_encodeInto(str, dest, start, :__errors)
 
 	function reset() {}
 }
 
 local class AsciiIncrementalDecoder : IncrementalDecoder
 {
-	_errors
+	__errors
 
 	this(errors: string = "strict")
-		:_errors = errors
+		:__errors = errors
 
 	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false) =
-		_decodeRange(src, lo, hi, :_errors)
+		_decodeRange(src, lo, hi, :__errors)
 
 	function reset() {}
 }

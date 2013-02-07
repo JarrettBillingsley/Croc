@@ -88,6 +88,14 @@ package:
 
 	void freeze(CrocClass* c)
 	{
+		foreach(ref value; c.fields)
+			if(value.privacy == Privacy.Protected)
+				value.proto = c;
+
+		foreach(ref value; c.methods)
+			if(value.privacy == Privacy.Protected)
+				value.proto = c;
+
 		c.isFrozen = true;
 	}
 
@@ -137,7 +145,7 @@ package:
 		}
 	}
 
-	bool commonAddField(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value, bool isPublic)
+	bool commonAddField(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value, ubyte privacy)
 	{
 		assert(!c.isFrozen);
 
@@ -156,7 +164,7 @@ package:
 		auto slot = mixin("c." ~ member).insertNode(alloc, name);
 		slot.value.value = *value;
 		slot.value.proto = c;
-		slot.value.isPublic = isPublic;
+		slot.value.privacy = privacy;
 		slot.modified |= KeyModified | (value.isGCObject() ? ValModified : 0);
 
 		return true;

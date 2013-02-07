@@ -163,9 +163,9 @@ public:
 			fs.toSource(field.initializer.location);
 
 			if(field.isMethod)
-				fs.addClassMethod(field.initializer.location, field.isPublic);
+				fs.addClassMethod(field.initializer.location, field.privacy);
 			else
-				fs.addClassField(field.initializer.location, field.isPublic);
+				fs.addClassField(field.initializer.location, field.privacy);
 		}
 	}
 

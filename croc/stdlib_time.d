@@ -205,15 +205,15 @@ static:
 	static struct Timer
 	{
 	static:
-		const Start = "Timer_start";
-		const Time = "Timer_time";
+		const Start = "Timer__start";
+		const Time = "Timer__time";
 
 		void init(CrocThread* t)
 		{
 			CreateClass(t, "Timer", (CreateClass* c)
 			{
-				pushInt(t, 0); c.field("_start");
-				pushInt(t, 0); c.field("_time");
+				pushInt(t, 0); c.field("__start");
+				pushInt(t, 0); c.field("__time");
 				c.method("start",       0, &start);
 				c.method("stop",        0, &stop);
 				c.method("seconds",     0, &seconds);

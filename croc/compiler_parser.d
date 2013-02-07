@@ -32,6 +32,7 @@ import croc.compiler_ast;
 import croc.compiler_lexer;
 import croc.compiler_types;
 import croc.types;
+import croc.utils;
 
 struct Parser
 {
@@ -917,10 +918,12 @@ public:
 
 		void addField(Identifier name, Expression v, bool isMethod, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			if(isPrivateFieldName(name.name))
-				fields ~= Field(makePrivateFieldName(className.name, name.name), v, false, isMethod);
+			auto privacy = getFieldPrivacy(name.name);
+
+			if(privacy is Privacy.Private)
+				fields ~= Field(makePrivateFieldName(className.name, name.name), v, cast(ubyte)privacy, isMethod);
 			else
-				fields ~= Field(name.name, v, true, isMethod);
+				fields ~= Field(name.name, v, cast(ubyte)privacy, isMethod);
 
 			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
 			auto tmp = fields[fields.length - 1];
@@ -3092,9 +3095,19 @@ private:
 		return new(c) Identifier(loc, str);
 	}
 
+	Privacy getFieldPrivacy(char[] name)
+	{
+		if(name.startsWith("__"))
+			return Privacy.Private;
+		else if(name.startsWith("_"))
+			return Privacy.Protected;
+		else
+			return Privacy.Public;
+	}
+
 	bool isPrivateFieldName(char[] name)
 	{
-		return name.length >= 2 && name[0] == '_' && name[1] != '_';
+		return getFieldPrivacy(name) == Privacy.Private;
 	}
 
 	char[] makePrivateFieldName(char[] className, char[] fieldName)

@@ -612,13 +612,13 @@ private:
 			newClass(t, "ExitObj");
 
 			pushNull(t);
-			addField(t, -2, "_goober");
+			addField(t, -2, "__goober");
 
 			newFunction(t, 1, function uword(CrocThread* t)
 			{
 				checkParam(t, 1, CrocValue.Type.NativeObj);
 				dup(t, 1);
-				fielda(t, 0, "ExitObj_goober");
+				fielda(t, 0, "ExitObj__goober");
 				return 0;
 			}, "constructor");
 			addMethod(t, -2, "constructor");
@@ -632,7 +632,7 @@ private:
 
 			newFunction(t, 0, function uword(CrocThread* t)
 			{
-				field(t, 0, "ExitObj_goober");
+				field(t, 0, "ExitObj__goober");
 				auto g = cast(Goober)getNativeObj(t, -1);
 				g.self.mRunning = false;
 				return 0;

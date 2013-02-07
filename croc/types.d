@@ -534,11 +534,18 @@ package:
 	}
 }
 
+enum Privacy
+{
+	Public,
+	Protected,
+	Private
+}
+
 struct FieldValue
 {
 	CrocValue value;
 	CrocClass* proto;
-	bool isPublic;
+	ubyte privacy;
 }
 
 struct CrocClass

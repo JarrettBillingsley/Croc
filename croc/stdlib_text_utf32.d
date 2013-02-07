@@ -166,49 +166,49 @@ import exceptions: ValueException, UnicodeException
 
 local class Utf32IncrementalEncoder : IncrementalEncoder
 {
-	_errors
-	_first = true
+	__errors
+	__first = true
 
 	this(errors: string = "strict")
-		:_errors = errors
+		:__errors = errors
 
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
 	{
-		if(!:_first)
-			_encodeInto(str, dest, start, :_errors)
+		if(!:__first)
+			_encodeInto(str, dest, start, :__errors)
 		else
 		{
-			:_first = false
+			:__first = false
 
 			if(start + #BOM_UTF32 > #dest)
 				#dest = start + #BOM_UTF32
 
 			dest.copy(start, BOM_UTF32, 0, #BOM_UTF32)
-			_encodeInto(str, dest, start + #BOM_UTF32, :_errors)
+			_encodeInto(str, dest, start + #BOM_UTF32, :__errors)
 		}
 	}
 
 	function reset()
 	{
-		:_first = true
+		:__first = true
 	}
 }
 
 local class Utf32IncrementalDecoder : BufferedIncrementalDecoder
 {
-	_first = true
-	_order = 'n'
+	__first = true
+	__order = 'n'
 
-	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 	{
 		local prefix = 0
 
-		if(:_first)
+		if(:__first)
 		{
 			if(hi - lo < #BOM_UTF32)
 				return "", 0
 
-			:_first = false
+			:__first = false
 
 			if(BOM_UTF32.compare(0, src, lo, #BOM_UTF32) == 0)
 			{
@@ -219,21 +219,21 @@ local class Utf32IncrementalDecoder : BufferedIncrementalDecoder
 			{
 				lo += #BOM_UTF32_BS
 				prefix = #BOM_UTF32_BS
-				:_order = 's'
+				:__order = 's'
 			}
 			else
 				throw UnicodeException("UTF-32 encoded text has no BOM")
 		}
 
-		local ret, eaten = _decodeRange(src, lo, hi, errors, :_order)
+		local ret, eaten = _decodeRange(src, lo, hi, errors, :__order)
 		return ret, prefix + eaten
 	}
 
 	function reset()
 	{
 		super.reset()
-		:_first = true
-		:_order = 'n'
+		:__first = true
+		:__order = 'n'
 	}
 }
 
@@ -287,20 +287,20 @@ aliasCodec("utf-32", "utf32")
 
 local class Utf32LEIncrementalEncoder : IncrementalEncoder
 {
-	_errors
+	__errors
 
 	this(errors: string = "strict")
-		:_errors = errors
+		:__errors = errors
 
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
-		_encodeInto(str, dest, start, :_errors, 'l')
+		_encodeInto(str, dest, start, :__errors, 'l')
 
 	function reset() {}
 }
 
 local class Utf32LEIncrementalDecoder : BufferedIncrementalDecoder
 {
-	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 		return _decodeRange(src, lo, hi, errors, 'l')
 }
 
@@ -336,20 +336,20 @@ aliasCodec("utf-32-le", "utf32le")
 
 local class Utf32BEIncrementalEncoder : IncrementalEncoder
 {
-	_errors
+	__errors
 
 	this(errors: string = "strict")
-		:_errors = errors
+		:__errors = errors
 
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
-		_encodeInto(str, dest, start, :_errors, 'b')
+		_encodeInto(str, dest, start, :__errors, 'b')
 
 	function reset() {}
 }
 
 local class Utf32BEIncrementalDecoder : BufferedIncrementalDecoder
 {
-	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 		return _decodeRange(src, lo, hi, errors, 'b')
 }
 

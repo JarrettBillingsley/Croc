@@ -50,9 +50,9 @@ void initVector(CrocThread* t)
 {
 	CreateClass(t, "Vector", (CreateClass* c)
 	{
-		pushNull(t);   c.field("_data");
-		pushInt(t, 0); c.field("_kind");
-		pushInt(t, 0); c.field("_itemLength");
+		pushNull(t);   c.field("__data");
+		pushInt(t, 0); c.field("__kind");
+		pushInt(t, 0); c.field("__itemLength");
 
 		c.method("constructor",    3, &_constructor);
 		c.method("fromArray",      2, &_fromArray);
@@ -176,9 +176,9 @@ const TypeStruct[] _typeStructs =
 	TypeCode.f64: { TypeCode.f64, 8, 3, "f64" }
 ];
 
-const Data = "Vector_data";
-const Kind = "Vector_kind";
-const ItemLength = "Vector_itemLength";
+const Data = "Vector__data";
+const Kind = "Vector__kind";
+const ItemLength = "Vector__itemLength";
 
 struct Members
 {

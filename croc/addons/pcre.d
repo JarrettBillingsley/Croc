@@ -121,23 +121,23 @@ static:
 
 	alias word[] GroupIdxType;
 
-	const Ptrs = "Regex_ptrs";
-	const Names = "Regex_names";
-	const GroupIdx = "Regex_groupIdx";
-	const Subject = "Regex_subject";
-	const NumGroups = "Regex_numGroups";
-	const NextStart = "Regex_nextStart";
+	const Ptrs = "Regex__ptrs";
+	const Names = "Regex__names";
+	const GroupIdx = "Regex__groupIdx";
+	const Subject = "Regex__subject";
+	const NumGroups = "Regex__numGroups";
+	const NextStart = "Regex__nextStart";
 
 	void init(CrocThread* t)
 	{
 		CreateClass(t, "Regex", (CreateClass* c)
 		{
-			pushNull(t);   c.field("_ptrs");      // memblock
-			pushNull(t);   c.field("_names");     // table
-			pushNull(t);   c.field("_groupIdx");  // memblock
-			pushNull(t);   c.field("_subject");   // string
-			pushInt(t, 0); c.field("_numGroups"); // int
-			pushInt(t, 0); c.field("_nextStart"); // int
+			pushNull(t);   c.field("__ptrs");      // memblock
+			pushNull(t);   c.field("__names");     // table
+			pushNull(t);   c.field("__groupIdx");  // memblock
+			pushNull(t);   c.field("__subject");   // string
+			pushInt(t, 0); c.field("__numGroups"); // int
+			pushInt(t, 0); c.field("__nextStart"); // int
 
 			c.method("constructor",   &constructor);
 			c.method("numGroups",     &numGroups);

@@ -338,7 +338,7 @@ class ClassDef : AstNode
 	{
 		char[] name;
 		Expression initializer;
-		bool isPublic;
+		ubyte privacy;
 		bool isMethod;
 		char[] docs;
 		CompileLoc docsLoc;

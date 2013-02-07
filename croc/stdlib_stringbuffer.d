@@ -53,8 +53,8 @@ void initStringBuffer(CrocThread* t)
 {
 	CreateClass(t, "StringBuffer", (CreateClass* c)
 	{
-		pushNull(t);   c.field("_data");
-		pushInt(t, 0); c.field("_length");
+		pushNull(t);   c.field("__data");
+		pushInt(t, 0); c.field("__length");
 
 		c.method("constructor",    1, &_constructor);
 		c.method("dup",            0, &_dup);
@@ -140,8 +140,8 @@ private:
 // =============================================================
 // Helpers
 
-const Data = "StringBuffer_data";
-const Length = "StringBuffer_length";
+const Data = "StringBuffer__data";
+const Length = "StringBuffer__length";
 
 CrocMemblock* _getData(CrocThread* t, word idx = 0)
 {

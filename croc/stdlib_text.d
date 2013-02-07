@@ -464,17 +464,17 @@ class IncrementalDecoder
 A base class for incremental decoders which share a common behavior: needing to save partial character encodings from
 the end of a data block for use in the next call.
 
-Subclasses need only implement the \link{bufferedDecode_} method.
+Subclasses need only implement the \link{_bufferedDecode} method.
 */
 class BufferedIncrementalDecoder : IncrementalDecoder
 {
-	_errors
-	_scratch
+	__errors
+	__scratch
 
 	this(errors: string = "strict")
 	{
-		:_errors = errors
-		:_scratch = memblock.new(0)
+		:__errors = errors
+		:__scratch = memblock.new(0)
 	}
 
 	/**
@@ -500,22 +500,23 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 	\returns two values: the decoded string (or an empty string if nothing was decoded) and the number of bytes consumed
 		from the given slice of the memblock.
 	*/
-	function bufferedDecode_(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 		throw NotImplementedException()
 
 	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
 	{
-		if(#:_scratch > 0)
+		if(#:__scratch > 0)
 		{
-			local m = memblock.new(#:_scratch + (hi - lo))
-			m.copy(0, :_scratch, 0, #:_scratch)
-			m.copy(#:_scratch, src, lo, hi - lo)
+			local m = memblock.new(#:__scratch + (hi - lo))
+			m.copy(0, :__scratch, 0, #:__scratch)
+			m.copy(#:__scratch, src, lo, hi - lo)
 			src = m
 			lo = 0
 			hi = #src
 		}
 
-		local ret, eaten = :bufferedDecode_(src, lo, hi, :_errors, final)
+		writeln("bout to call it weeee")
+		local ret, eaten = :_bufferedDecode(src, lo, hi, :__errors, final)
 		local sliceLen = hi - lo
 
 		if(eaten < sliceLen)
@@ -523,18 +524,18 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 			if(final)
 				throw ValueException("Incomplete text at end of data")
 
-			#:_scratch = sliceLen - eaten
-			:_scratch.copy(0, src, lo + eaten, #:_scratch)
+			#:__scratch = sliceLen - eaten
+			:__scratch.copy(0, src, lo + eaten, #:__scratch)
 		}
 		else
-			#:_scratch = 0
+			#:__scratch = 0
 
 		return ret
 	}
 
 	function reset()
 	{
-		#:_scratch = 0
+		#:__scratch = 0
 	}
 }
 `;

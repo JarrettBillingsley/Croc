@@ -2404,11 +2404,11 @@ private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
 
 	auto name = getStringObj(t, -2);
 	auto nameStr = name.toString();
-	bool isPublic = true;
+	ubyte privacy = cast(ubyte)Privacy.Public;
 
-	if(nameStr.length >= 2 && nameStr[0] == '_' && nameStr[1] != '_')
+	if(nameStr.startsWith("__"))
 	{
-		isPublic = false;
+		privacy = cast(ubyte)Privacy.Private;
 		push(t, CrocValue(c.name));
 		push(t, CrocValue(name));
 		cat(t, 2);
@@ -2416,15 +2416,17 @@ private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
 		pop(t);
 		name = getStringObj(t, -2);
 	}
+	else if(nameStr.startsWith("_"))
+		privacy = cast(ubyte)Privacy.Protected;
 
 	if(isMethod)
 	{
-		if(!classobj.addMethod(t.vm.alloc, c, name, getValue(t, -1), isPublic))
+		if(!classobj.addMethod(t.vm.alloc, c, name, getValue(t, -1), privacy))
 			throwStdException(t, "FieldException", __FUNCTION__ ~ " - Attempting to add a method '{}' which already exists to class '{}'", name.toString(), c.name.toString());
 	}
 	else
 	{
-		if(!classobj.addField(t.vm.alloc, c, name, getValue(t, -1), isPublic))
+		if(!classobj.addField(t.vm.alloc, c, name, getValue(t, -1), privacy))
 			throwStdException(t, "FieldException", __FUNCTION__ ~ " - Attempting to add a field '{}' which already exists to class '{}'", name.toString(), c.name.toString());
 	}
 

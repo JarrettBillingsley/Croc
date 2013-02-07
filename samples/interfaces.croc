@@ -4,59 +4,59 @@ import exceptions: TypeException
 
 class Method
 {
-	_name
-	_numParams
+	__name
+	__numParams
 
 	this(name: string, numParams: int)
 	{
-		:_name = name
-		:_numParams = numParams
+		:__name = name
+		:__numParams = numParams
 	}
 
 	function name() =
-		:_name
+		:__name
 
 	function implements(f: function) =
-		f.numParams() == :_numParams
+		f.numParams() == :__numParams
 
 	function toString() =
-		"{} ({} params)".format(:_name, :_numParams)
+		"{} ({} params)".format(:__name, :__numParams)
 }
 
 class Interface
 {
-	_name
-	_methods
-	_implementors
+	__name
+	__methods
+	__implementors
 
 	this(name: string, methods: array)
 	{
 		if(!methods.all(\m -> m as Method))
 			throw TypeException("All methods must be Methods")
 
-		:_name = name
-		:_methods = methods.dup()
-		:_implementors = {}
+		:__name = name
+		:__methods = methods.dup()
+		:__implementors = {}
 	}
 
 	function implement(T: class)
 	{
-		foreach(m; :_methods)
+		foreach(m; :__methods)
 		{
 			local name = m.name()
 
 			if(!hasMethod(T, name) || !m.implements(T.(name)))
-				throw TypeException("Class {} does not implement method '{}' from {}".format(nameOf(T), m, :_name))
+				throw TypeException("Class {} does not implement method '{}' from {}".format(nameOf(T), m, :__name))
 		}
 
-		:_implementors[T] = true
+		:__implementors[T] = true
 	}
 
 	function opCall(val: instance)
 	{
 		return true
 
-		if(:_implementors[val.super])
+		if(:__implementors[val.super])
 			return true
 
 		:implement(val.super)

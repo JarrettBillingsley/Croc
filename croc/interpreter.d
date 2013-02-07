@@ -213,6 +213,18 @@ bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* 
 	}
 }
 
+bool checkAccess(ref FieldValue val, ActRecord* AR)
+{
+	if(val.privacy is Privacy.Public)
+		return true;
+	else if(AR is null)
+		return false;
+	else if(val.privacy is Privacy.Private)
+		return val.proto is AR.proto;
+	else
+		return AR.proto !is null && (val.proto is AR.proto || classobj.derivesFrom(val.proto, AR.proto));
+}
+
 CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocClass* proto)
 {
 	switch(v.type)
@@ -220,8 +232,9 @@ CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocCl
 		case CrocValue.Type.Class:
 			if(auto ret = classobj.getMethod(v.mClass, name))
 			{
-				if(!ret.value.isPublic && ret.value.proto !is t.currentAR.proto)
-					throwStdException(t, "MethodException", "Attempting to call private method '{}' from outside class '{}'", name.toString(), ret.value.proto.name.toString());
+				if(!checkAccess(ret.value, t.currentAR))
+					throwStdException(t, "MethodException", "Attempting to call {} method '{}' from outside class '{}'",
+						ret.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), ret.value.proto.name.toString());
 
 				proto = ret.value.proto;
 				return ret.value.value;
@@ -251,8 +264,9 @@ CrocValue getInstanceMethod(CrocThread* t, CrocInstance* inst, CrocString* name,
 {
 	if(auto ret = instance.getMethod(inst, name))
 	{
-		if(!ret.value.isPublic && ret.value.proto !is t.currentAR.proto)
-			throwStdException(t, "MethodException", "Attempting to call private method '{}' from outside class '{}'", name.toString(), ret.value.proto.name.toString());
+		if(!checkAccess(ret.value, t.currentAR))
+			throwStdException(t, "MethodException", "Attempting to call {} method '{}' from outside class '{}'",
+				ret.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), ret.value.proto.name.toString());
 
 		proto = ret.value.proto;
 		return ret.value.value;
@@ -1079,8 +1093,9 @@ void fieldImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocString* n
 					throwStdException(t, "FieldException", "Attempting to access nonexistent field '{}' from class '{}'", name.toString(), c.name.toString());
 			}
 
-			if(!v.value.isPublic && t.currentAR.proto !is v.value.proto)
-				throwStdException(t, "FieldException", "Attempting to access private field '{}' from outside class '{}'", name.toString(), v.value.proto.name.toString());
+			if(!checkAccess(v.value, t.currentAR))
+				throwStdException(t, "FieldException", "Attempting to access {} field '{}' from outside class '{}'",
+					v.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), v.value.proto.name.toString());
 
 			return t.stack[dest] = v.value.value;
 
@@ -1101,8 +1116,9 @@ void fieldImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocString* n
 				}
 			}
 
-			if(!v.value.isPublic && t.currentAR.proto !is v.value.proto)
-				throwStdException(t, "FieldException", "Attempting to access private field '{}' from outside class '{}'", name.toString(), v.value.proto.name.toString());
+			if(!checkAccess(v.value, t.currentAR))
+				throwStdException(t, "FieldException", "Attempting to access {} field '{}' from outside class '{}'",
+					v.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), v.value.proto.name.toString());
 
 			return t.stack[dest] = v.value.value;
 
@@ -1139,15 +1155,17 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 
 			if(auto slot = classobj.getField(c, name))
 			{
-				if(!slot.value.isPublic && t.currentAR.proto !is slot.value.proto)
-					throwStdException(t, "FieldException", "Attempting to access private field '{}' from outside class '{}'", name.toString(), slot.value.proto.name.toString());
+				if(!checkAccess(slot.value, t.currentAR))
+					throwStdException(t, "FieldException", "Attempting to access {} field '{}' from outside class '{}'",
+						slot.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), slot.value.proto.name.toString());
 
 				classobj.setField(t.vm.alloc, c, slot, value);
 			}
 			else if(auto slot = classobj.getMethod(c, name))
 			{
-				if(!slot.value.isPublic && t.currentAR.proto !is slot.value.proto)
-					throwStdException(t, "FieldException", "Attempting to access private method '{}' from outside class '{}'", name.toString(), slot.value.proto.name.toString());
+				if(!checkAccess(slot.value, t.currentAR))
+					throwStdException(t, "FieldException", "Attempting to access {} method '{}' from outside class '{}'",
+						slot.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), slot.value.proto.name.toString());
 
 				if(c.isFrozen)
 					throwStdException(t, "FieldException", "Attempting to change method '{}' in class '{}' after it has been frozen", name.toString(), c.name.toString());
@@ -1164,8 +1182,9 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 
 			if(auto slot = instance.getField(i, name))
 			{
-				if(!slot.value.isPublic && t.currentAR.proto !is slot.value.proto)
-					throwStdException(t, "FieldException", "Attempting to access private field '{}' from outside class '{}'", name.toString(), slot.value.proto.name.toString());
+				if(!checkAccess(slot.value, t.currentAR))
+					throwStdException(t, "FieldException", "Attempting to access {} field '{}' from outside class '{}'",
+						slot.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), slot.value.proto.name.toString());
 
 				instance.setField(t.vm.alloc, i, slot, value);
 			}
@@ -3661,12 +3680,12 @@ void execute(CrocThread* t, uword depth = 1)
 					auto cls = &t.stack[stackBase + rd];
 					mixin(GetRS);
 					mixin(GetRT);
-					auto isPublic = cast(bool)mixin(GetUImm);
+					auto privacy = cast(ubyte)mixin(GetUImm);
 
 					// should be guaranteed this by codegen
 					assert(cls.type == CrocValue.Type.Class && RS.type == CrocValue.Type.String);
 
-					if(!classobj.addField(t.vm.alloc, cls.mClass, RS.mString, RT, isPublic))
+					if(!classobj.addField(t.vm.alloc, cls.mClass, RS.mString, RT, privacy))
 					{
 						auto name = RS.mString.toString();
 						auto clsName = cls.mClass.name.toString();
@@ -3678,12 +3697,12 @@ void execute(CrocThread* t, uword depth = 1)
 					auto cls = &t.stack[stackBase + rd];
 					mixin(GetRS);
 					mixin(GetRT);
-					auto isPublic = cast(bool)mixin(GetUImm);
+					auto privacy = cast(ubyte)mixin(GetUImm);
 
 					// should be guaranteed this by codegen
 					assert(cls.type == CrocValue.Type.Class && RS.type == CrocValue.Type.String);
 
-					if(!classobj.addMethod(t.vm.alloc, cls.mClass, RS.mString, RT, isPublic))
+					if(!classobj.addMethod(t.vm.alloc, cls.mClass, RS.mString, RT, privacy))
 					{
 						auto name = RS.mString.toString();
 						auto clsName = cls.mClass.name.toString();

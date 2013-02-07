@@ -53,10 +53,10 @@ local StdlibLookup =
 
 class CrocWikiLinkTranslator : LinkTranslator
 {
-	_errors
+	__errors
 
 	this()
-		:_errors = []
+		:__errors = []
 
 	function translateLink(mod: string, item: string)
 	{
@@ -89,20 +89,20 @@ class CrocWikiLinkTranslator : LinkTranslator
 
 	function invalidLink(link: string)
 	{
-		:_errors.append(link)
+		:__errors.append(link)
 
 		return ""
 	}
 
 	function printErrors()
 	{
-		if(#:_errors == 0)
+		if(#:__errors == 0)
 			return
 
 		writeln()
 		writeln("!!!!!!! Link resolution failures !!!!!!!")
 
-		foreach(err; :_errors)
+		foreach(err; :__errors)
 			writeln("   ", err)
 	}
 }

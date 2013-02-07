@@ -234,11 +234,11 @@ This class is used automatically by the default doc outputters, but you are free
 class LinkResolver
 {
 	// struct ItemDesc { string name, fqn; DocTable docTable; ItemDesc[string] children; }
-	_modules // ItemDesc[string]
-	_globals // ItemDesc[string]
-	_curModule = null // ItemDesc
-	_item = null // ItemDesc
-	_trans
+	__modules // ItemDesc[string]
+	__globals // ItemDesc[string]
+	__curModule = null // ItemDesc
+	__item = null // ItemDesc
+	__trans
 
 	/**
 	Constructs a resolver with the given link translator.
@@ -253,30 +253,30 @@ class LinkResolver
 	*/
 	this(trans: LinkTranslator)
 	{
-		:_trans = trans
+		:__trans = trans
 
 		// Setup modules
-		:_modules = {}
+		:__modules = {}
 
 		foreach(name, m; modules.loaded)
 		{
 			if(local dt = docsOf(m))
-				:_modules[name] = :_makeMapRec(dt)
+				:__modules[name] = :__makeMapRec(dt)
 		}
 
 		// Setup globals
 		if(local dt = docsOf(_G))
-			:_globals = :_makeMapRec(dt).children
+			:__globals = :__makeMapRec(dt).children
 		else
-			:_globals = {}
+			:__globals = {}
 
 		// Might be some globals added by user code that aren't in docsOf(_G).children
 		foreach(name, val; _G)
 		{
-			if(name !is "_G" && name !in :_globals && name !in modules.loaded)
+			if(name !is "_G" && name !in :__globals && name !in modules.loaded)
 			{
 				if(local dt = docsOf(val))
-					:_globals[name] = :_makeMapRec(dt)
+					:__globals[name] = :__makeMapRec(dt)
 			}
 		}
 	}
@@ -289,9 +289,9 @@ class LinkResolver
 	*/
 	function currentScope()
 	{
-		if(:_item is null)
+		if(:__item is null)
 		{
-			if(:_module is null)
+			if(:__module is null)
 				return "global"
 			else
 				return "module"
@@ -310,11 +310,11 @@ class LinkResolver
 	*/
 	function enterModule(name: string)
 	{
-		if(:_item !is null || :_curModule !is null)
+		if(:__item !is null || :__curModule !is null)
 			throw StateException("Attempting to enter a module from {} scope".format(:currentScope()))
 
-		if(local m = :_modules[name])
-			:_curModule = m
+		if(local m = :__modules[name])
+			:__curModule = m
 		else
 			throw ValueException("No module named '{}' (did you import it after creating this resolver?)".format(name))
 	}
@@ -328,10 +328,10 @@ class LinkResolver
 	*/
 	function leaveModule()
 	{
-		if(:_item !is null || :_curModule is null)
+		if(:__item !is null || :__curModule is null)
 			throw StateException("Attempting to leave a module from {} scope".format(:currentScope()))
 
-		:_curModule = null
+		:__curModule = null
 	}
 
 	/**
@@ -345,13 +345,13 @@ class LinkResolver
 	*/
 	function enterItem(name: string)
 	{
-		if(:_item !is null || :_curModule is null)
+		if(:__item !is null || :__curModule is null)
 			throw StateException("Attempting to enter an item from {} scope".format(:currentScope()))
 
-		if(local i = :_curModule.children[name])
-			:_item = i
+		if(local i = :__curModule.children[name])
+			:__item = i
 		else
-			throw ValueException("No item named '{}' in {}".format(name, _curModule.name))
+			throw ValueException("No item named '{}' in {}".format(name, __curModule.name))
 	}
 
 	/**
@@ -363,10 +363,10 @@ class LinkResolver
 	*/
 	function leaveItem()
 	{
-		if(:_item is null || :_curModule is null)
+		if(:__item is null || :__curModule is null)
 			throw StateException("Attempting to leave an item from {} scope".format(:currentScope()))
 
-		:_item = null
+		:__item = null
 	}
 
 	/**
@@ -383,7 +383,7 @@ class LinkResolver
 		{
 			// URI; no further processing necessary. If someone writes something like "www.example.com" it's ambiguous
 			// and it's their fault when it doesn't resolve :P
-			return :_trans.translateURI(link)
+			return :__trans.translateURI(link)
 		}
 		else
 		{
@@ -397,33 +397,33 @@ class LinkResolver
 
 			local isDotted = "." in link
 
-			if(!isDotted && :_inItem(link)) // not dotted, could be item name
-				return :_trans.translateLink(:_curModule.name, :_item.name ~ "." ~ link)
-			else if(:_inCurModule(link)) // maybe it's something in the current module
-				return :_trans.translateLink(:_curModule.name, link)
+			if(!isDotted && :__inItem(link)) // not dotted, could be item name
+				return :__trans.translateLink(:__curModule.name, :__item.name ~ "." ~ link)
+			else if(:__inCurModule(link)) // maybe it's something in the current module
+				return :__trans.translateLink(:__curModule.name, link)
 			else
 			{
 				// tryyyy all the modules!
-				local isFQN, modName, itemName = :_inModules(link)
+				local isFQN, modName, itemName = :__inModules(link)
 
 				if(isFQN)
-					return :_trans.translateLink(modName, itemName)
+					return :__trans.translateLink(modName, itemName)
 
 				// um. um. global?!
 				// it might be a member of a global class or something, or just a plain old global
-				if(:_inGlobalItem(link) || :_inGlobals(link))
-					return :_trans.translateLink("", link)
+				if(:__inGlobalItem(link) || :__inGlobals(link))
+					return :__trans.translateLink("", link)
 			}
 		}
 
 		// noooooo nothing matched :(
-		return :_trans.invalidLink(link)
+		return :__trans.invalidLink(link)
 	}
 
 	// =================================================================================================================
 	// Private
 
-	function _inGlobalItem(link: string)
+	function __inGlobalItem(link: string)
 	{
 		local dot = link.find(".")
 
@@ -432,23 +432,23 @@ class LinkResolver
 
 		local n = link[0 .. dot]
 		local f = link[dot + 1 ..]
-		local i = :_globals[n]
+		local i = :__globals[n]
 
 		return i !is null && i.children && f in i.children
 	}
 
-	function _inItem(link: string) =
-		:_item !is null && link in :_item.children
+	function __inItem(link: string) =
+		:__item !is null && link in :__item.children
 
-	function _inCurModule(link: string) =
-		:_curModule !is null && :_inModule(:_curModule, link)
+	function __inCurModule(link: string) =
+		:__curModule !is null && :__inModule(:__curModule, link)
 
-	function _inGlobals(link: string) =
-		link in :_globals
+	function __inGlobals(link: string) =
+		link in :__globals
 
-	function _inModules(link: string)
+	function __inModules(link: string)
 	{
-		if(link in :_modules)
+		if(link in :__modules)
 			return true, link, ""
 
 		// What we're doing here is trying every possible prefix as a module name. So for the name "a.b.c.d" we try
@@ -460,7 +460,7 @@ class LinkResolver
 			lastDot = dot
 			local modName = link[0 .. dot]
 
-			if(local m = :_modules[modName])
+			if(local m = :__modules[modName])
 			{
 				// There can only be ONE match to the module name. Once you find it, there can't be any other modules
 				// with names that are a prefix, since that's enforced by the module system. So if the item doesn't
@@ -468,7 +468,7 @@ class LinkResolver
 
 				local itemName = link[dot + 1 ..]
 
-				if(:_inModule(m, itemName))
+				if(:__inModule(m, itemName))
 					return true, modName, itemName
 				else
 					return false
@@ -478,7 +478,7 @@ class LinkResolver
 		return false
 	}
 
-	function _inModule(mod: table, item: string)
+	function __inModule(mod: table, item: string)
 	{
 		local t = mod
 
@@ -496,7 +496,7 @@ class LinkResolver
 		return true
 	}
 
-	function _makeMapRec(dt: table)
+	function __makeMapRec(dt: table)
 	{
 		local ret = { name = dt.name }
 
@@ -506,7 +506,7 @@ class LinkResolver
 
 			foreach(child; dt.children)
 			{
-				local c = :_makeMapRec(child)
+				local c = :__makeMapRec(child)
 				ret.children[child.name] = c
 
 				if(local dit = child.dittos)
@@ -646,15 +646,15 @@ local function validSpanName(name: string) =
 
 class BaseDocOutput
 {
-	_sectionOrder = [stdSections[i] for i: 0 .. #stdSections] // can't use .dup or foreach here as the arraylib has not yet been loaded
-	_sectionHandlers =
+	__sectionOrder = [stdSections[i] for i: 0 .. #stdSections] // can't use .dup or foreach here as the arraylib has not yet been loaded
+	__sectionHandlers =
 	{
     	docs = "handleSection_docs",
     	params = "handleSection_params",
     	throws = "handleSection_throws"
 	}
 
-	_spanHandlers =
+	__spanHandlers =
 	{
     	b = "handleSpan_b",
     	em = "handleSpan_em",
@@ -665,29 +665,29 @@ class BaseDocOutput
     	u = "handleSpan_u"
 	}
 
-	_linkResolver
+	__linkResolver
 
 	// =================================================================================================
 	// Constructor
 
 	this(lr: LinkResolver)
 	{
-		:_sectionOrder = :_sectionOrder.dup()
-		:_sectionHandlers = hash.dup(:_sectionHandlers)
-		:_spanHandlers = hash.dup(:_spanHandlers)
-		:_linkResolver = lr
+		:__sectionOrder = :__sectionOrder.dup()
+		:__sectionHandlers = hash.dup(:__sectionHandlers)
+		:__spanHandlers = hash.dup(:__spanHandlers)
+		:__linkResolver = lr
 	}
 
 	// =================================================================================================
 	// Section ordering
 
 	function insertSectionBefore(sec: string, before: string)
-		:_insertSectionImpl(sec, before, false)
+		:__insertSectionImpl(sec, before, false)
 
 	function insertSectionAfter(sec: string, after: string)
-		:_insertSectionImpl(sec, after, true)
+		:__insertSectionImpl(sec, after, true)
 
-	function _insertSectionImpl(sec: string, target: string, after: bool)
+	function __insertSectionImpl(sec: string, target: string, after: bool)
 	{
 		if(!validSectionName(sec))
 			throw ValueException("Invalid section name '{}'".format(sec))
@@ -696,7 +696,7 @@ class BaseDocOutput
 		else if(sec == target)
 			throw ValueException("Section names must be different")
 
-		local ord = :_sectionOrder
+		local ord = :__sectionOrder
 
 		// Check if this section is already in the order. It's possible for it not to be,
 		// if it's a custom section.
@@ -715,7 +715,7 @@ class BaseDocOutput
 	}
 
 	function getSectionOrder() =
-		:_sectionOrder.dup()
+		:__sectionOrder.dup()
 
 	function setSectionOrder(order: array)
 	{
@@ -733,7 +733,7 @@ class BaseDocOutput
 			if(sec !in order)
 				throw ValueException("Standard section '{}' does not exist in the given order".format(sec))
 
-		:_sectionOrder = order.dup()
+		:__sectionOrder = order.dup()
 	}
 
 	// =================================================================================================
@@ -741,7 +741,7 @@ class BaseDocOutput
 
 	function getSectionHandler(name: string)
 	{
-		if(local handler = :_sectionHandlers[name])
+		if(local handler = :__sectionHandlers[name])
 			return handler
 		else
 			return "defaultSectionHandler"
@@ -749,13 +749,13 @@ class BaseDocOutput
 
 	function setSectionHandler(name: string, handlerName: string)
 	{
-		if(name !in :_sectionOrder)
+		if(name !in :__sectionOrder)
 			throw ValueException("Section '{}' does not appear in the section order".format(name))
 
 		if(!hasMethod(this, handlerName))
 			throw ValueException("No method named '{}' exists in this class".format(handlerName))
 
-		:_sectionHandlers[name] = handlerName
+		:__sectionHandlers[name] = handlerName
 	}
 
 	function defaultSectionHandler(name: string, contents: array)
@@ -862,7 +862,7 @@ class BaseDocOutput
 
 	function outputDocSections(doctable: table)
 	{
-		foreach(section; :_sectionOrder)
+		foreach(section; :__sectionOrder)
 			:outputSection(section, doctable)
 	}
 
@@ -871,7 +871,7 @@ class BaseDocOutput
 
 	function getSpanHandler(name: string)
 	{
-		if(local handler = :_spanHandlers[name])
+		if(local handler = :__spanHandlers[name])
 			return handler
 		else
 			return "defaultSpanHandler"
@@ -885,7 +885,7 @@ class BaseDocOutput
 		if(!hasMethod(this, handlerName))
 			throw ValueException("No method named '{}' exists in this class".format(handlerName))
 
-		:_spanHandlers[name] = handlerName
+		:__spanHandlers[name] = handlerName
 	}
 
 	function defaultSpanHandler(contents: array)
@@ -1033,7 +1033,7 @@ class BaseDocOutput
 	// Link handling
 
 	function resolveLink(link: string) =
-		:_linkResolver.resolveLink(link)
+		:__linkResolver.resolveLink(link)
 
 	// =================================================================================================
 	// Element-level output functions
@@ -1270,9 +1270,9 @@ class BaseDocOutput
 		:beginItem(doctable, parentFQN)
 
 		if(doctable.kind is "module")
-			:_linkResolver.enterModule(doctable.name)
+			:__linkResolver.enterModule(doctable.name)
 		else if(doctable.kind is "class" || doctable.kind is "namespace")
-			:_linkResolver.enterItem(doctable.name)
+			:__linkResolver.enterItem(doctable.name)
 
 		if(doctable.dittos)
 		{
@@ -1302,9 +1302,9 @@ class BaseDocOutput
 		}
 
 		if(doctable.kind is "module")
-			:_linkResolver.leaveModule()
+			:__linkResolver.leaveModule()
 		else if(doctable.kind is "class" || doctable.kind is "namespace")
-			:_linkResolver.leaveItem()
+			:__linkResolver.leaveItem()
 
 		:endItem()
 	}
@@ -1315,9 +1315,9 @@ class BaseDocOutput
 
 class TracWikiDocOutput : BaseDocOutput
 {
-	_listType = []
-	_inTable = false
-	_itemDepth = 0
+	__listType = []
+	__inTable = false
+	__itemDepth = 0
 
 	function beginBold() :outputText("'''")
 	function endBold()  :outputText("'''")
@@ -1356,34 +1356,34 @@ class TracWikiDocOutput : BaseDocOutput
 	function beginBulletList()
 	{
 		:checkNotInTable()
-		:_listType.append("*")
+		:__listType.append("*")
 		:outputText("\n")
 	}
 
 	function endBulletList()
 	{
-		:_listType.pop()
+		:__listType.pop()
 		:outputText("\n")
 	}
 
 	function beginNumList(type: string)
 	{
 		:checkNotInTable()
-		:_listType.append(type ~ ".")
+		:__listType.append(type ~ ".")
 		:outputText("\n")
 	}
 
 	function endNumList()
 	{
-		:_listType.pop()
+		:__listType.pop()
 		:outputText("\n")
 	}
 
 	function beginListItem()
 	{
-		assert(#:_listType > 0)
+		assert(#:__listType > 0)
 		:outputIndent()
-		:outputText(:_listType[-1], " ")
+		:outputText(:__listType[-1], " ")
 	}
 
 	function endListItem()
@@ -1392,19 +1392,19 @@ class TracWikiDocOutput : BaseDocOutput
 	function beginDefList()
 	{
 		:checkNotInTable()
-		:_listType.append(null)
+		:__listType.append(null)
 		:outputText("\n")
 	}
 
 	function endDefList()
 	{
-		:_listType.pop()
+		:__listType.pop()
 		:outputText("\n")
 	}
 
 	function beginDefTerm()
 	{
-		assert(#:_listType > 0)
+		assert(#:__listType > 0)
 		:outputIndent()
 	}
 
@@ -1419,16 +1419,16 @@ class TracWikiDocOutput : BaseDocOutput
 
 	function beginTable()
 	{
-		if(#:_listType > 0)
+		if(#:__listType > 0)
 			throw ValueException("Sorry, tables inside lists are unsupported in Trac wiki markup")
 
-		:_inTable = true
+		:__inTable = true
 		:outputText("\n")
 	}
 
 	function endTable()
 	{
-		:_inTable = false
+		:__inTable = false
 		:outputText("\n")
 	}
 
@@ -1445,7 +1445,7 @@ class TracWikiDocOutput : BaseDocOutput
 
 	function beginParagraph()
 	{
-		if(!:_inTable)
+		if(!:__inTable)
 		{
 			:outputText("\n")
 			:outputIndent()
@@ -1454,7 +1454,7 @@ class TracWikiDocOutput : BaseDocOutput
 
 	function endParagraph()
 	{
-		if(:_inTable)
+		if(:__inTable)
 			:outputText(" ")
 		else
 			:outputText("\n")
@@ -1476,18 +1476,18 @@ class TracWikiDocOutput : BaseDocOutput
 		else
 			:outputWikiHeader(doctable, parentFQN)
 
-		:_itemDepth++
+		:__itemDepth++
 	}
 
 	function endItem()
 	{
 		:outputText("\n")
-		:_itemDepth--
+		:__itemDepth--
 	}
 
 	function outputWikiHeader(doctable: table, parentFQN: string)
 	{
-		local h = "=".repeat(:_itemDepth + 1)
+		local h = "=".repeat(:__itemDepth + 1)
 
 		:outputText(h, " ")
 		:beginMonospace()
@@ -1512,14 +1512,14 @@ class TracWikiDocOutput : BaseDocOutput
 
 	function checkNotInTable()
 	{
-		if(:_inTable)
+		if(:__inTable)
 			throw ValueException("Sorry, text structures inside tables are unsupported in Trac wiki markup")
 	}
 
 	function outputIndent()
 	{
-		if(#:_listType > 0)
-			:outputText(" ".repeat(#:_listType * 2 - 1))
+		if(#:__listType > 0)
+			:outputText(" ".repeat(#:__listType * 2 - 1))
 	}
 }
 

@@ -99,19 +99,19 @@ static:
 	struct ProcessObj
 	{
 	static:
-		const processField = "Process_process";
-		const stdinField = "Process_stdin";
-		const stdoutField = "Process_stdout";
-		const stderrField = "Process_stderr";
+		const processField = "Process__process";
+		const stdinField = "Process__stdin";
+		const stdoutField = "Process__stdout";
+		const stderrField = "Process__stderr";
 
 		static void init(CrocThread* t)
 		{
 			CreateClass(t, "Process", (CreateClass* c)
 			{
-				pushNull(t); c.field("_process");
-				pushNull(t); c.field("_stdin");
-				pushNull(t); c.field("_stdout");
-				pushNull(t); c.field("_stderr");
+				pushNull(t); c.field("__process");
+				pushNull(t); c.field("__stdin");
+				pushNull(t); c.field("__stdout");
+				pushNull(t); c.field("__stderr");
 
 				c.method("constructor", &constructor);
 				c.method("isRunning",   &isRunning);
