@@ -1558,7 +1558,7 @@ void sliceaImpl(CrocThread* t, CrocValue* container, CrocValue* lo, CrocValue* h
 	}
 }
 
-void binOpImpl(CrocThread* t, MM operation, AbsStack dest, CrocValue* RS, CrocValue* RT)
+void binOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* RS, CrocValue* RT)
 {
 	crocfloat f1 = void;
 	crocfloat f2 = void;
@@ -1572,17 +1572,17 @@ void binOpImpl(CrocThread* t, MM operation, AbsStack dest, CrocValue* RS, CrocVa
 
 			switch(operation)
 			{
-				case MM.Add: return t.stack[dest] = i1 + i2;
-				case MM.Sub: return t.stack[dest] = i1 - i2;
-				case MM.Mul: return t.stack[dest] = i1 * i2;
+				case Op.Add: return t.stack[dest] = i1 + i2;
+				case Op.Sub: return t.stack[dest] = i1 - i2;
+				case Op.Mul: return t.stack[dest] = i1 * i2;
 
-				case MM.Div:
+				case Op.Div:
 					if(i2 == 0)
 						throwStdException(t, "ValueException", "Integer divide by zero");
 
 					return t.stack[dest] = i1 / i2;
 
-				case MM.Mod:
+				case Op.Mod:
 					if(i2 == 0)
 						throwStdException(t, "ValueException", "Integer modulo by zero");
 
@@ -1615,11 +1615,11 @@ void binOpImpl(CrocThread* t, MM operation, AbsStack dest, CrocValue* RS, CrocVa
 			_float:
 			switch(operation)
 			{
-				case MM.Add: return t.stack[dest] = f1 + f2;
-				case MM.Sub: return t.stack[dest] = f1 - f2;
-				case MM.Mul: return t.stack[dest] = f1 * f2;
-				case MM.Div: return t.stack[dest] = f1 / f2;
-				case MM.Mod: return t.stack[dest] = f1 % f2;
+				case Op.Add: return t.stack[dest] = f1 + f2;
+				case Op.Sub: return t.stack[dest] = f1 - f2;
+				case Op.Mul: return t.stack[dest] = f1 * f2;
+				case Op.Div: return t.stack[dest] = f1 / f2;
+				case Op.Mod: return t.stack[dest] = f1 % f2;
 
 				default:
 					assert(false);
@@ -1627,80 +1627,25 @@ void binOpImpl(CrocThread* t, MM operation, AbsStack dest, CrocValue* RS, CrocVa
 		}
 	}
 
-	return commonBinOpMM(t, operation, dest, RS, RT);
-}
+	char[] name;
 
-void commonBinOpMM(CrocThread* t, MM operation, AbsStack dest, CrocValue* RS, CrocValue* RT)
-{
-	bool swap = false;
-	CrocClass* proto;
-
-	auto method = getMM(t, RS, operation, proto);
-
-	if(method is null)
+	switch(operation)
 	{
-		method = getMM(t, RT, MMRev[operation], proto);
-
-		if(method !is null)
-			swap = true;
-		else
-		{
-			if(!MMCommutative[operation])
-			{
-				auto RTsave = *RT;
-				typeString(t, RS);
-				typeString(t, &RTsave);
-				throwStdException(t, "TypeException", "Cannot perform the arithmetic operation '{}' on a '{}' and a '{}'", MetaNames[operation], getString(t, -2), getString(t, -1));
-			}
-
-			method = getMM(t, RS, MMRev[operation], proto);
-
-			if(method is null)
-			{
-				method = getMM(t, RT, operation, proto);
-
-				if(method is null)
-				{
-					auto RTsave = *RT;
-					typeString(t, RS);
-					typeString(t, &RTsave);
-					throwStdException(t, "TypeException", "Cannot perform the arithmetic operation '{}' on a '{}' and a '{}'", MetaNames[operation], getString(t, -2), getString(t, -1));
-				}
-
-				swap = true;
-			}
-		}
+		case Op.Add: name = "add"; break;
+		case Op.Sub: name = "subtract"; break;
+		case Op.Mul: name = "multiply"; break;
+		case Op.Div: name = "divide"; break;
+		case Op.Mod: name = "modulo"; break;
+		default: assert(false);
 	}
 
-// 	bool shouldLoad = void;
-// 	savePtr(t, dest, shouldLoad);
-
-	auto RSsave = *RS;
 	auto RTsave = *RT;
-
-	auto funcSlot = push(t, CrocValue(method));
-
-	if(swap)
-	{
-		push(t, RTsave);
-		push(t, RSsave);
-	}
-	else
-	{
-		push(t, RSsave);
-		push(t, RTsave);
-	}
-
-	commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2, proto));
-
-// 	if(shouldLoad)
-// 		loadPtr(t, dest);
-
-	t.stack[dest] = t.stack[t.stackIndex - 1];
-	pop(t);
+	typeString(t, RS);
+	typeString(t, &RTsave);
+	throwStdException(t, "TypeException", "Attempting to {} a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
 }
 
-void reflBinOpImpl(CrocThread* t, MM operation, AbsStack dest, CrocValue* src)
+void reflBinOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* src)
 {
 	crocfloat f1 = void;
 	crocfloat f2 = void;
@@ -1713,17 +1658,17 @@ void reflBinOpImpl(CrocThread* t, MM operation, AbsStack dest, CrocValue* src)
 
 			switch(operation)
 			{
-				case MM.AddEq: return t.stack[dest].mInt += i2;
-				case MM.SubEq: return t.stack[dest].mInt -= i2;
-				case MM.MulEq: return t.stack[dest].mInt *= i2;
+				case Op.AddEq: return t.stack[dest].mInt += i2;
+				case Op.SubEq: return t.stack[dest].mInt -= i2;
+				case Op.MulEq: return t.stack[dest].mInt *= i2;
 
-				case MM.DivEq:
+				case Op.DivEq:
 					if(i2 == 0)
 						throwStdException(t, "ValueException", "Integer divide by zero");
 
 					return t.stack[dest].mInt /= i2;
 
-				case MM.ModEq:
+				case Op.ModEq:
 					if(i2 == 0)
 						throwStdException(t, "ValueException", "Integer modulo by zero");
 
@@ -1757,126 +1702,103 @@ void reflBinOpImpl(CrocThread* t, MM operation, AbsStack dest, CrocValue* src)
 
 			switch(operation)
 			{
-				case MM.AddEq: return t.stack[dest].mFloat = f1 + f2;
-				case MM.SubEq: return t.stack[dest].mFloat = f1 - f2;
-				case MM.MulEq: return t.stack[dest].mFloat = f1 * f2;
-				case MM.DivEq: return t.stack[dest].mFloat = f1 / f2;
-				case MM.ModEq: return t.stack[dest].mFloat = f1 % f2;
+				case Op.AddEq: return t.stack[dest].mFloat = f1 + f2;
+				case Op.SubEq: return t.stack[dest].mFloat = f1 - f2;
+				case Op.MulEq: return t.stack[dest].mFloat = f1 * f2;
+				case Op.DivEq: return t.stack[dest].mFloat = f1 / f2;
+				case Op.ModEq: return t.stack[dest].mFloat = f1 % f2;
 
 				default: assert(false);
 			}
 		}
 	}
 
-	if(tryMM!(2, false)(t, operation, &t.stack[dest], src))
-		return;
+	char[] name;
+
+	switch(operation)
+	{
+		case Op.AddEq: name = "add"; break;
+		case Op.SubEq: name = "subtract"; break;
+		case Op.MulEq: name = "multiply"; break;
+		case Op.DivEq: name = "divide"; break;
+		case Op.ModEq: name = "modulo"; break;
+		default: assert(false);
+	}
 
 	auto srcsave = *src;
 	typeString(t, &t.stack[dest]);
 	typeString(t, &srcsave);
-	throwStdException(t, "TypeException", "Cannot perform the reflexive arithmetic operation '{}' on a '{}' and a '{}'", MetaNames[operation], getString(t, -2), getString(t, -1));
+	throwStdException(t, "TypeException", "Attempting to {}-assign a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
 }
 
-void negImpl(CrocThread* t, AbsStack dest, CrocValue* src)
-{
-	if(src.type == CrocValue.Type.Int)
-		return t.stack[dest] = -src.mInt;
-	else if(src.type == CrocValue.Type.Float)
-		return t.stack[dest] = -src.mFloat;
-
-	if(tryMM!(1, true)(t, MM.Neg, &t.stack[dest], src))
-		return;
-
-	typeString(t, src);
-	throwStdException(t, "TypeException", "Cannot perform negation on a '{}'", getString(t, -1));
-}
-
-void binaryBinOpImpl(CrocThread* t, MM operation, AbsStack dest, CrocValue* RS, CrocValue* RT)
+void binaryBinOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* RS, CrocValue* RT)
 {
 	if(RS.type == CrocValue.Type.Int && RT.type == CrocValue.Type.Int)
 	{
 		switch(operation)
 		{
-			case MM.And:  return t.stack[dest] = RS.mInt & RT.mInt;
-			case MM.Or:   return t.stack[dest] = RS.mInt | RT.mInt;
-			case MM.Xor:  return t.stack[dest] = RS.mInt ^ RT.mInt;
-			case MM.Shl:  return t.stack[dest] = RS.mInt << RT.mInt;
-			case MM.Shr:  return t.stack[dest] = RS.mInt >> RT.mInt;
-			case MM.UShr: return t.stack[dest] = RS.mInt >>> RT.mInt;
+			case Op.And:  return t.stack[dest] = RS.mInt & RT.mInt;
+			case Op.Or:   return t.stack[dest] = RS.mInt | RT.mInt;
+			case Op.Xor:  return t.stack[dest] = RS.mInt ^ RT.mInt;
+			case Op.Shl:  return t.stack[dest] = RS.mInt << RT.mInt;
+			case Op.Shr:  return t.stack[dest] = RS.mInt >> RT.mInt;
+			case Op.UShr: return t.stack[dest] = RS.mInt >>> RT.mInt;
 			default: assert(false);
 		}
 	}
 
-	return commonBinOpMM(t, operation, dest, RS, RT);
+	char[] name;
+
+	switch(operation)
+	{
+		case Op.And:  name = "and"; break;
+		case Op.Or:   name = "or"; break;
+		case Op.Xor:  name = "xor"; break;
+		case Op.Shl:  name = "left-shift"; break;
+		case Op.Shr:  name = "right-shift"; break;
+		case Op.UShr: name = "unsigned right-shift"; break;
+		default: assert(false);
+	}
+
+	auto RTsave = *RT;
+	typeString(t, RS);
+	typeString(t, &RTsave);
+	throwStdException(t, "TypeException", "Attempting to bitwise {} a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
 }
 
-void reflBinaryBinOpImpl(CrocThread* t, MM operation, AbsStack dest, CrocValue* src)
+void reflBinaryBinOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* src)
 {
 	if(t.stack[dest].type == CrocValue.Type.Int && src.type == CrocValue.Type.Int)
 	{
 		switch(operation)
 		{
-			case MM.AndEq:  return t.stack[dest].mInt &= src.mInt;
-			case MM.OrEq:   return t.stack[dest].mInt |= src.mInt;
-			case MM.XorEq:  return t.stack[dest].mInt ^= src.mInt;
-			case MM.ShlEq:  return t.stack[dest].mInt <<= src.mInt;
-			case MM.ShrEq:  return t.stack[dest].mInt >>= src.mInt;
-			case MM.UShrEq: return t.stack[dest].mInt >>>= src.mInt;
+			case Op.AndEq:  return t.stack[dest].mInt &= src.mInt;
+			case Op.OrEq:   return t.stack[dest].mInt |= src.mInt;
+			case Op.XorEq:  return t.stack[dest].mInt ^= src.mInt;
+			case Op.ShlEq:  return t.stack[dest].mInt <<= src.mInt;
+			case Op.ShrEq:  return t.stack[dest].mInt >>= src.mInt;
+			case Op.UShrEq: return t.stack[dest].mInt >>>= src.mInt;
 			default: assert(false);
 		}
 	}
 
-	if(tryMM!(2, false)(t, operation, &t.stack[dest], src))
-		return;
+	char[] name;
+
+	switch(operation)
+	{
+		case Op.AndEq:  name = "and"; break;
+		case Op.OrEq:   name = "or"; break;
+		case Op.XorEq:  name = "xor"; break;
+		case Op.ShlEq:  name = "left-shift"; break;
+		case Op.ShrEq:  name = "right-shift"; break;
+		case Op.UShrEq: name = "unsigned right-shift"; break;
+		default: assert(false);
+	}
 
 	auto srcsave = *src;
 	typeString(t, &t.stack[dest]);
 	typeString(t, &srcsave);
-	throwStdException(t, "TypeException", "Cannot perform reflexive binary operation '{}' on a '{}' and a '{}'", MetaNames[operation], getString(t, -2), getString(t, -1));
-}
-
-void comImpl(CrocThread* t, AbsStack dest, CrocValue* src)
-{
-	if(src.type == CrocValue.Type.Int)
-		return t.stack[dest] = ~src.mInt;
-
-	if(tryMM!(1, true)(t, MM.Com, &t.stack[dest], src))
-		return;
-
-	typeString(t, src);
-	throwStdException(t, "TypeException", "Cannot perform bitwise complement on a '{}'", getString(t, -1));
-}
-
-void incImpl(CrocThread* t, AbsStack dest)
-{
-	if(t.stack[dest].type == CrocValue.Type.Int)
-		t.stack[dest].mInt++;
-	else if(t.stack[dest].type == CrocValue.Type.Float)
-		t.stack[dest].mFloat++;
-	else
-	{
-		if(tryMM!(1, false)(t, MM.Inc, &t.stack[dest]))
-			return;
-
-		typeString(t, &t.stack[dest]);
-		throwStdException(t, "TypeException", "Cannot increment a '{}'", getString(t, -1));
-	}
-}
-
-void decImpl(CrocThread* t, AbsStack dest)
-{
-	if(t.stack[dest].type == CrocValue.Type.Int)
-		t.stack[dest].mInt--;
-	else if(t.stack[dest].type == CrocValue.Type.Float)
-		t.stack[dest].mFloat--;
-	else
-	{
-		if(tryMM!(1, false)(t, MM.Dec, &t.stack[dest]))
-			return;
-
-		typeString(t, &t.stack[dest]);
-		throwStdException(t, "TypeException", "Cannot decrement a '{}'", getString(t, -1));
-	}
+	throwStdException(t, "TypeException", "Attempting to bitwise {}-assign a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
 }
 
 void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
@@ -1885,9 +1807,6 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 	auto endSlot = slot + num;
 	auto endSlotm1 = endSlot - 1;
 	auto stack = t.stack;
-
-// 	bool shouldLoad = void;
-// 	savePtr(t, dest, shouldLoad);
 
 	while(slot < endSlotm1)
 	{
@@ -2052,9 +1971,6 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 		break;
 	}
 
-// 	if(shouldLoad)
-// 		loadPtr(t, dest);
-
 	t.stack[dest] = stack[slot];
 }
 
@@ -2164,14 +2080,7 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 			}
 
 			auto first = t.stack[dest];
-// 			bool shouldLoad = void;
-// 			savePtr(t, dest, shouldLoad);
-
 			stringConcat(t, first, stack[slot .. endSlot], len);
-
-// 			if(shouldLoad)
-// 				loadPtr(t, dest);
-
 			t.stack[dest] = stack[endSlot - 1];
 			return;
 
@@ -2188,13 +2097,7 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 				throwStdException(t, "TypeException", "Can't append to a value of type '{}'", getString(t, -1));
 			}
 
-// 			bool shouldLoad = void;
-// 			savePtr(t, dest, shouldLoad);
-
 			checkStack(t, t.stackIndex);
-
-// 			if(shouldLoad)
-// 				loadPtr(t, dest);
 
 			for(auto i = t.stackIndex; i > firstSlot; i--)
 				t.stack[i] = t.stack[i - 1];
@@ -2240,6 +2143,9 @@ void arrayAppend(CrocThread* t, CrocArray* a, CrocValue[] vals)
 		}
 	}
 }
+
+// ============================================================================
+// Exception gunk
 
 word pushTraceback(CrocThread* t)
 {
@@ -2327,6 +2233,9 @@ void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 	t.vm.isThrowing = true;
 	throw t.vm.dexception;
 }
+
+// ============================================================================
+// Class stuff
 
 bool asImpl(CrocThread* t, CrocValue* o, CrocValue* p)
 {
@@ -2809,27 +2718,24 @@ void execute(CrocThread* t, uword depth = 1)
 
 			oldPC = *pc;
 
-			auto opcode = mixin(Instruction.GetOpcode("i"));
+			auto opcode = cast(Op)mixin(Instruction.GetOpcode("i"));
 			auto rd = mixin(Instruction.GetRD("i"));
 
 			switch(opcode)
 			{
-				// ====================================================================
-				// These opcodes match up with the MM enum to avoid a second lookup.
-
 				// Binary Arithmetic
 				case Op.Add:
 				case Op.Sub:
 				case Op.Mul:
 				case Op.Div:
-				case Op.Mod: mixin(GetRS); mixin(GetRT); binOpImpl(t, cast(MM)opcode, stackBase + rd, RS, RT); break;
+				case Op.Mod: mixin(GetRS); mixin(GetRT); binOpImpl(t, opcode, stackBase + rd, RS, RT); break;
 
 				// Reflexive Arithmetic
 				case Op.AddEq:
 				case Op.SubEq:
 				case Op.MulEq:
 				case Op.DivEq:
-				case Op.ModEq: mixin(GetRS); reflBinOpImpl(t, cast(MM)opcode, stackBase + rd, RS); break;
+				case Op.ModEq: mixin(GetRS); reflBinOpImpl(t, opcode, stackBase + rd, RS); break;
 
 				// Binary Bitwise
 				case Op.And:
@@ -2837,7 +2743,7 @@ void execute(CrocThread* t, uword depth = 1)
 				case Op.Xor:
 				case Op.Shl:
 				case Op.Shr:
-				case Op.UShr: mixin(GetRS); mixin(GetRT); binaryBinOpImpl(t, cast(MM)opcode, stackBase + rd, RS, RT); break;
+				case Op.UShr: mixin(GetRS); mixin(GetRT); binaryBinOpImpl(t, opcode, stackBase + rd, RS, RT); break;
 
 				// Reflexive Bitwise
 				case Op.AndEq:
@@ -2845,18 +2751,63 @@ void execute(CrocThread* t, uword depth = 1)
 				case Op.XorEq:
 				case Op.ShlEq:
 				case Op.ShrEq:
-				case Op.UShrEq: mixin(GetRS); reflBinaryBinOpImpl(t, cast(MM)opcode, stackBase + rd, RS); break;
-
-				// ====================================================================
-				// From here on, there is no correlation between Op and MM.
+				case Op.UShrEq: mixin(GetRS); reflBinaryBinOpImpl(t, opcode, stackBase + rd, RS); break;
 
 				// Unary ops
-				case Op.Neg: mixin(GetRS); negImpl(t, stackBase + rd, RS); break;
-				case Op.Com: mixin(GetRS); comImpl(t, stackBase + rd, RS); break;
+				case Op.Neg:
+					mixin(GetRS);
+
+					if(RS.type == CrocValue.Type.Int)
+						t.stack[stackBase + rd] = -RS.mInt;
+					else if(RS.type == CrocValue.Type.Float)
+						t.stack[stackBase + rd] = -RS.mFloat;
+					else
+					{
+						typeString(t, RS);
+						throwStdException(t, "TypeException", "Cannot perform negation on a '{}'", getString(t, -1));
+					}
+					break;
+
+				case Op.Com:
+					mixin(GetRS);
+
+					if(RS.type == CrocValue.Type.Int)
+						t.stack[stackBase + rd] = ~RS.mInt;
+					else
+					{
+						typeString(t, RS);
+						throwStdException(t, "TypeException", "Cannot perform bitwise complement on a '{}'", getString(t, -1));
+					}
+					break;
 
 				// Crements
-				case Op.Inc: incImpl(t, stackBase + rd); break;
-				case Op.Dec: decImpl(t, stackBase + rd); break;
+				case Op.Inc:
+					auto dest = stackBase + rd;
+
+					if(t.stack[dest].type == CrocValue.Type.Int)
+						t.stack[dest].mInt++;
+					else if(t.stack[dest].type == CrocValue.Type.Float)
+						t.stack[dest].mFloat++;
+					else
+					{
+						typeString(t, &t.stack[dest]);
+						throwStdException(t, "TypeException", "Cannot increment a '{}'", getString(t, -1));
+					}
+					break;
+
+				case Op.Dec:
+					auto dest = stackBase + rd;
+
+					if(t.stack[dest].type == CrocValue.Type.Int)
+						t.stack[dest].mInt--;
+					else if(t.stack[dest].type == CrocValue.Type.Float)
+						t.stack[dest].mFloat--;
+					else
+					{
+						typeString(t, &t.stack[dest]);
+						throwStdException(t, "TypeException", "Cannot decrement a '{}'", getString(t, -1));
+					}
+					break;
 
 				// Data Transfer
 				case Op.Move: mixin(GetRS); t.stack[stackBase + rd] = *RS; break;

@@ -99,28 +99,26 @@ void initVector(CrocThread* t)
 		c.method("opCat_r",        1, &_opCat_r);
 		c.method("opCatAssign",       &_opCatAssign);
 
-		c.method("opAdd",          1, &_opAdd);
-		c.method("opAddAssign",    1, &_opAddAssign);
-		c.method("opSub",          1, &_opSub);
-		c.method("opSub_r",        1, &_opSub_r);
-		c.method("opSubAssign",    1, &_opSubAssign);
-		c.method("revSub",         1, &_revSub);
-		c.method("opMul",          1, &_opMul);
-		c.method("opMulAssign",    1, &_opMulAssign);
-		c.method("opDiv",          1, &_opDiv);
-		c.method("opDiv_r",        1, &_opDiv_r);
-		c.method("opDivAssign",    1, &_opDivAssign);
-		c.method("revDiv",         1, &_revDiv);
-		c.method("opMod",          1, &_opMod);
-		c.method("opMod_r",        1, &_opMod_r);
-		c.method("opModAssign",    1, &_opModAssign);
-		c.method("revMod",         1, &_revMod);
+		c.method("add",            1, &_add);
+		c.method("sub",            1, &_sub);
+		c.method("mul",            1, &_mul);
+		c.method("div",            1, &_div);
+		c.method("mod",            1, &_mod);
+		c.method("addeq",          1, &_addeq);
+		c.method("subeq",          1, &_subeq);
+		c.method("muleq",          1, &_muleq);
+		c.method("diveq",          1, &_diveq);
+		c.method("modeq",          1, &_modeq);
+		c.method("revsub",         1, &_revsub);
+		c.method("revdiv",         1, &_revdiv);
+		c.method("revmod",         1, &_revmod);
+		c.method("revsubeq",       1, &_revsubeq);
+		c.method("revdiveq",       1, &_revdiveq);
+		c.method("revmodeq",       1, &_revmodeq);
 	});
 
 	field(t, -1, "fillRange");   addMethod(t, -2, "opSliceAssign");
 	field(t, -1, "opCatAssign"); addMethod(t, -2, "append");
-	field(t, -1, "opAdd");       addMethod(t, -2, "opAdd_r");
-	field(t, -1, "opMul");       addMethod(t, -2, "opMul_r");
 
 	newGlobal(t, "Vector");
 }
@@ -1611,7 +1609,7 @@ uword _opCatAssign(CrocThread* t)
 
 char[] opAssign(char[] name, char[] op)
 {
-	return `uword _op` ~ name ~ `Assign(CrocThread* t)
+	return `uword _` ~ name ~ `eq(CrocThread* t)
 	{
 		auto m = _getMembers(t);
 		checkAnyParam(t, 1);
@@ -1665,16 +1663,16 @@ char[] opAssign(char[] name, char[] op)
 	}`;
 }
 
-mixin(opAssign("Add", "+"));
-mixin(opAssign("Sub", "-"));
-mixin(opAssign("Mul", "*"));
-mixin(opAssign("Div", "/"));
-mixin(opAssign("Mod", "%"));
+mixin(opAssign("add", "+"));
+mixin(opAssign("sub", "-"));
+mixin(opAssign("mul", "*"));
+mixin(opAssign("div", "/"));
+mixin(opAssign("mod", "%"));
 
 // These are implemented like this because "a[] + b[]" will allocate on the D heap... bad.
 char[] op(char[] name)
 {
-	return `uword _op` ~ name ~ `(CrocThread* t)
+	return `uword _` ~ name ~ `(CrocThread* t)
 	{
 		auto m = _getMembers(t);
 		checkAnyParam(t, 1);
@@ -1692,15 +1690,15 @@ char[] op(char[] name)
 	}`;
 }
 
-mixin(op("Add"));
-mixin(op("Sub"));
-mixin(op("Mul"));
-mixin(op("Div"));
-mixin(op("Mod"));
+mixin(op("add"));
+mixin(op("sub"));
+mixin(op("mul"));
+mixin(op("div"));
+mixin(op("mod"));
 
 char[] op_rev(char[] name)
 {
-	return `uword _op` ~ name ~ `_r(CrocThread* t)
+	return `uword _rev` ~ name ~ `(CrocThread* t)
 	{
 		auto m = _getMembers(t);
 		checkAnyParam(t, 1);
@@ -1718,16 +1716,16 @@ char[] op_rev(char[] name)
 	}`;
 }
 
-mixin(op_rev("Sub"));
-mixin(op_rev("Div"));
-mixin(op_rev("Mod"));
+mixin(op_rev("sub"));
+mixin(op_rev("div"));
+mixin(op_rev("mod"));
 
 // BUG 2434: Compiler generates code that does not pass with -w for some array operations
 // namely, for the [u](byte|short) cases for div and mod.
 
-char[] rev_func(char[] name, char[] op)
+char[] op_reveq(char[] name, char[] op)
 {
-	return `uword _rev` ~ name ~ `(CrocThread* t)
+	return `uword _rev` ~ name ~ `eq(CrocThread* t)
 	{
 		auto m = _getMembers(t);
 		checkAnyParam(t, 1);
@@ -1869,9 +1867,9 @@ char[] rev_func(char[] name, char[] op)
 	}`;
 }
 
-mixin(rev_func("Sub", "-"));
-mixin(rev_func("Div", "/"));
-mixin(rev_func("Mod", "%"));
+mixin(op_reveq("sub", "-"));
+mixin(op_reveq("div", "/"));
+mixin(op_reveq("mod", "%"));
 
 version(CrocBuiltinDocs)
 {
@@ -2327,7 +2325,7 @@ foreach(i, val; v, "reverse") write(val) // prints 54321
 		\throws[exceptions.ValueException] if one of the varargs is a Vector whose type differs from \tt{this}'s.
 		\throws[exceptions.RangeException] if this memblock grows too large.`},
 
-		{kind: "function", name: "opAdd",
+		{kind: "function", name: "add",
 		params: [Param("other", "int|float|Vector")],
 		docs:
 		`These all implement binary mathematical operators on Vectors. All return new Vector objects as the results.
@@ -2340,46 +2338,55 @@ foreach(i, val; v, "reverse") write(val) // prints 54321
 		\returns the new Vector whos values are the result of the operation.
 		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
 
-		{kind: "function", name: "opSub",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opMul",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opDiv",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opMod",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opAdd_r", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opSub_r", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opMul_r", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opDiv_r", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opMod_r", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "sub",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "mul",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "div",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "mod",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
 
-		{kind: "function", name: "opAddAssign",
+		{kind: "function", name: "revsub",
 		params: [Param("other", "int|float|Vector")],
 		docs:
-		`These all implement reflexive mathematical operators on Vectors. All operate in-place on this Vector.
+		`These allow you to perform binary mathematical operations where this Vector will be used as the second operand
+		instead of the first.
 
-		The behavior is otherwise identical to the binary operator metamethods.
+		For example, doing \\tt{"v.sub(5)"} will return a Vector with 5 subtracted from each element in \tt{v}, but
+		doing \tt{"v.revsub(5)"} will instead give a Vector with each element in \tt{v} subtracted from 5.
 
-		\param[other] is the right-hand side of the operation.
-		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
-
-		{kind: "function", name: "opSubAssign", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opMulAssign", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opDivAssign", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "opModAssign", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-
-		{kind: "function", name: "revSub",
-		params: [Param("other", "int|float|Vector")],
-		docs:
-		`These allow you to perform in-place reflexive operations where this Vector will be used as the second operand instead
-		of as the first.
-
-		For example, doing \tt{"v -= 5"} will subtract 5 from each element in \tt{v}, but doing \tt{"v.revSub(5)"} will instead
-		subtract each element in \tt{v} from 5.
-
-		The behavior is otherwise identical to the reflexive operator metamethods.
+		The behavior is otherwise identical to the regular mathematical operations.
 
 		\param[other] is the left-hand side of the operation.
 		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
 
-		{kind: "function", name: "revDiv", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
-		{kind: "function", name: "revMod", docs: `ditto`, params: [Param("other", "int|float|Vector")]}
+		{kind: "function", name: "revdiv", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "revmod", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+
+		{kind: "function", name: "addeq",
+		params: [Param("other", "int|float|Vector")],
+		docs:
+		`These all implement reflexive mathematical operators on Vectors. All operate in-place on this Vector.
+
+		The behavior is otherwise identical to the binary mathematical operations.
+
+		\param[other] is the right-hand side of the operation.
+		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
+
+		{kind: "function", name: "subeq", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "muleq", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "diveq", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "modeq", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+
+		{kind: "function", name: "revsubeq",
+		params: [Param("other", "int|float|Vector")],
+		docs:
+		`These allow you to perform in-place reflexive operations where this Vector will be used as the second operand
+		instead of as the first.
+
+		The behavior is otherwise identical to the reflexive mathematical operations.
+
+		\param[other] is the left-hand side of the operation.
+		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
+
+		{kind: "function", name: "revdiveq", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
+		{kind: "function", name: "revmodeq", docs: `ditto`, params: [Param("other", "int|float|Vector")]}
 	];
 }

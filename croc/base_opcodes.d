@@ -64,8 +64,6 @@ enum Op
 	ShrEq,
 	UShrEq,
 
-	LAST_MM_OPCODE = UShrEq,
-
 	Neg,
 	Com,
 
@@ -152,8 +150,6 @@ enum Op
 	AddField,
 	AddMethod
 }
-
-static assert(Op.Add == MM.Add && Op.LAST_MM_OPCODE == MM.LAST_OPCODE_MM, "MMs and opcodes are out of sync!");
 
 // Make sure we don't add too many instructions!
 static assert(Op.max <= Instruction.opcodeMax, "Too many opcodes");

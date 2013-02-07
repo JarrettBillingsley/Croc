@@ -27,15 +27,9 @@ syn keyword crocStatement    return yield assert
 syn keyword crocReserved     in vararg this super with is as
 syn keyword crocStorageClass local global
 if exists("croc_hl_operator_overload")
-	syn keyword crocOpOverload opAdd opAdd_r opAddAssign opAnd opAnd_r opAndAssign
-	syn keyword crocOpOverload opApply opCall opCat opCat_r opCatAssign opCmp opCom
-	syn keyword crocOpOverload opDec opDiv opDiv_r opDivAssign opEquals opField
-	syn keyword crocOpOverload opFieldAssign opIn opInc opIndex opIndexAssign
-	syn keyword crocOpOverload opLength opLengthAssign opMethod opMod opMod_r opModAssign
-	syn keyword crocOpOverload opMul opMul_r opMulAssign opNeg opOr opOr_r opOrAssign
-	syn keyword crocOpOverload opShl opShl_r opShlAssign opShr opShr_r opShrAssign
-	syn keyword crocOpOverload opSlice opSliceAssign opSub opSub_r opSubAssign
-	syn keyword crocOpOverload opUShr opUShr_r opUShrAssign opXor opXor_r opXorAssign
+	syn keyword crocOpOverload opApply opCall opCat opCat_r opCatAssign opCmp
+	syn keyword crocOpOverload opEquals opField opFieldAssign opIn opIndex opIndexAssign
+	syn keyword crocOpOverload opLength opLengthAssign opMethod opSlice opSliceAssign
 endif
 
 " Comments
