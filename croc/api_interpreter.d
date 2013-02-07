@@ -280,12 +280,23 @@ void removeRef(CrocThread* t, ulong r)
 		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Reference '{}' does not exist", r);
 }
 
+/**
+Pushes the 'Throwable' class which forms the root of the Croc exception hierarchy.
 
+Returns:
+	The stack index of the pushed class.
+*/
 word pushThrowableClass(CrocThread* t)
 {
 	return push(t, CrocValue(t.vm.throwable));
 }
 
+/**
+Pushes the 'exceptions.Location' class, which is used often in exceptions and tracebacks.
+
+Returns:
+	The stack index of the pushed class.
+*/
 word pushLocationClass(CrocThread* t)
 {
 	return push(t, CrocValue(t.vm.location));
@@ -2317,7 +2328,7 @@ word getFinalizer(CrocThread* t, word cls)
 }
 
 /**
-Gets the name of the class at the given stack index.
+Gets the name of the class at the given stack index. This string points into Croc's heap; do not modify it!
 */
 char[] className(CrocThread* t, word cls)
 {
@@ -2333,7 +2344,13 @@ char[] className(CrocThread* t, word cls)
 }
 
 /**
+Given a value at the top of the stack, creates a field named name in the class in slot cls, puts the value in it, and
+pops the value off the stack.
 
+Params:
+	cls = The class to which the field will be added.
+	name = The name of the field to add. Can begin with one or two underscores in which case the field will be protected
+		or private, just like in Croc code.
 */
 void addField(CrocThread* t, word cls, char[] name)
 {
@@ -2345,7 +2362,8 @@ void addField(CrocThread* t, word cls, char[] name)
 }
 
 /**
-
+Same as above, but expects two values on the stack: the field's value on the top, and the name of the field below it.
+Pops both.
 */
 void addField(CrocThread* t, word cls)
 {
@@ -2353,7 +2371,7 @@ void addField(CrocThread* t, word cls)
 }
 
 /**
-
+Same as addField, but for methods.
 */
 void addMethod(CrocThread* t, word cls, char[] name)
 {
@@ -2365,7 +2383,8 @@ void addMethod(CrocThread* t, word cls, char[] name)
 }
 
 /**
-
+Same as above, but expects two values on the stack: the method's value on the top, and the name of the method below it.
+Pops both.
 */
 void addMethod(CrocThread* t, word cls)
 {
@@ -2434,7 +2453,7 @@ private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
 }
 
 /**
-
+Removes a field or method named name from the class in slot cls.
 */
 void removeMember(CrocThread* t, word cls, char[] name)
 {
@@ -2444,7 +2463,7 @@ void removeMember(CrocThread* t, word cls, char[] name)
 }
 
 /**
-
+Same as above, but expects the name of the field to be on top of the stack, which is popped.
 */
 void removeMember(CrocThread* t, word cls)
 {
@@ -2470,7 +2489,7 @@ void removeMember(CrocThread* t, word cls)
 	auto name = getStringObj(t, -1);
 	auto nameStr = name.toString();
 
-	if(nameStr.length >= 2 && nameStr[0] == '_' && nameStr[1] != '_')
+	if(nameStr.startsWith("__"))
 	{
 		push(t, CrocValue(c.name));
 		push(t, CrocValue(name));
@@ -2487,7 +2506,7 @@ void removeMember(CrocThread* t, word cls)
 }
 
 /**
-
+Freezes the class in slot cls.
 */
 void freezeClass(CrocThread* t, word cls)
 {
@@ -2503,7 +2522,7 @@ void freezeClass(CrocThread* t, word cls)
 }
 
 /**
-
+Checks whether the class in slot cls is frozen.
 */
 bool isClassFrozen(CrocThread* t, word cls)
 {
@@ -2520,7 +2539,11 @@ bool isClassFrozen(CrocThread* t, word cls)
 }
 
 /**
+Given a class cls and the _name of a member, pushes the owner of that member (that is, the class in which it was
+defined).
 
+Returns:
+	The stack index of the pushed class.
 */
 word getMemberOwner(CrocThread* t, word cls, char[] name)
 {
@@ -2530,7 +2553,7 @@ word getMemberOwner(CrocThread* t, word cls, char[] name)
 }
 
 /**
-
+Same as above, but expects the name to be on top of the stack. The name is popped and the class is pushed in its place.
 */
 word getMemberOwner(CrocThread* t, word cls)
 {
@@ -2550,17 +2573,6 @@ word getMemberOwner(CrocThread* t, word cls)
 
 	auto c = getClass(t, cls);
 	auto name = getStringObj(t, -1);
-	auto nameStr = name.toString();
-
-	if(nameStr.length >= 2 && nameStr[0] == '_' && nameStr[1] != '_')
-	{
-		push(t, CrocValue(c.name));
-		push(t, CrocValue(name));
-		cat(t, 2);
-		swap(t, -3);
-		pop(t);
-		name = getStringObj(t, -2);
-	}
 
 	if(auto slot = classobj.getField(c, name))
 		push(t, CrocValue(slot.value.proto));
@@ -2573,9 +2585,6 @@ word getMemberOwner(CrocThread* t, word cls)
 	pop(t);
 	return stackSize(t) - 1;
 }
-
-// ================================================================================================================================================
-// Instance-related functions
 
 // ================================================================================================================================================
 // Namespace-related functions
@@ -3941,7 +3950,10 @@ uword superCall(CrocThread* t, word slot, word numReturns)
 // Reflective functions
 
 /**
+Gets the name of the object in slot obj. Works for functions, classes, namespaces, and funcdefs.
 
+Returns:
+	The name of the object. This string points into the Croc heap; don't modify it!
 */
 char[] nameOf(CrocThread* t, word obj)
 {
