@@ -254,8 +254,6 @@ const uword VSplitMax = 20;
 
 uword _constructor(CrocThread* t)
 {
-	checkInstParam(t, 0, "StringBuffer");
-
 	char[] data = void;
 	uword length = void;
 
@@ -1433,8 +1431,6 @@ uword _opSerialize(CrocThread* t)
 
 uword _opDeserialize(CrocThread* t)
 {
-	checkInstParam(t, 0, "StringBuffer");
-
 	dup(t, 2);
 	pushNull(t);
 	rawCall(t, -2, 1);

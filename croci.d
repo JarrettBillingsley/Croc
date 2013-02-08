@@ -321,7 +321,7 @@ bool doNormal(CrocThread* t, ref Params params)
 	if(!params.safe)
 	{
 		version(CrocGlAddon)    GlLib.init(t);
-		version(CrocNetAddon)   NetLib.init(t);
+		version(CrocNetAddon)   initNetLib(t);
 		version(CrocDevilAddon) DevilLib.init(t);
 
 		if(params.debugEnabled)

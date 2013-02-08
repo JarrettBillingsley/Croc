@@ -194,7 +194,6 @@ static:
 
 	PtrStruct* getThis(CrocThread* t)
 	{
-		checkInstParam(t, 0, "Regex");
 		field(t, 0, Ptrs);
 
 		if(isNull(t, -1))
@@ -325,7 +324,6 @@ static:
 
 	uword constructor(CrocThread* t)
 	{
-		checkInstParam(t, 0, "Regex");
 		field(t, 0, Ptrs);
 
 		if(!isNull(t, -1))

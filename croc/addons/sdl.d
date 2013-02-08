@@ -745,7 +745,6 @@ static:
 
 	SDL_Surface* getThis(CrocThread* t)
 	{
-		checkInstParam(t, 0, "SdlSurface");
 		auto ret = *(cast(SDL_Surface**)getExtraBytes(t, 0).ptr);
 
 		if(ret is null)
@@ -844,7 +843,6 @@ static:
 
 	uword free(CrocThread* t)
 	{
-		checkInstParam(t, 0, "SdlSurface");
 		auto psfc = cast(SDL_Surface**)getExtraBytes(t, 0).ptr;
 
 		if(*psfc)

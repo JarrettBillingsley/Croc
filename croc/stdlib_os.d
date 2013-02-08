@@ -129,7 +129,6 @@ static:
 
 		Process getProcess(CrocThread* t)
 		{
-			checkInstParam(t, 0, "Process");
 			field(t, 0, processField);
 			auto ret = cast(Process)getNativeObj(t, -1);
 			assert(ret !is null);
@@ -140,7 +139,6 @@ static:
 		uword constructor(CrocThread* t)
 		{
 			auto numParams = stackSize(t) - 1;
-			checkInstParam(t, 0, "Process");
 
 			field(t, 0, processField);
 

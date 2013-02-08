@@ -22,7 +22,6 @@ version(CrocAllAddons)
 }
 
 /*
-	Socket       (certainly gonna be changed)
 	SdlSurface   (1 pointer. C pointers could just be cast to integers in D and use nativeobjs in C)
 */
 
@@ -42,7 +41,7 @@ void main()
 		version(CrocPcreAddon) PcreLib.init(t);
 		version(CrocSdlAddon) SdlLib.init(t);
 		version(CrocGlAddon) GlLib.init(t);
-		version(CrocNetAddon) NetLib.init(t);
+		version(CrocNetAddon) initNetLib(t);
 		version(CrocDevilAddon) DevilLib.init(t);
 
 		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
