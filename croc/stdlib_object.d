@@ -58,8 +58,8 @@ void initObjectLib(CrocThread* t)
 		scope doc = new CrocDoc(t, __FILE__);
 		doc.push(Docs("module", "object",
 		`The \tt{object} library provides access to aspects of the object model not covered by Croc's syntax. This
-		includes adding and removing fields and methods of classes, reflecting over the members of classes and
-		instances, and marking classes as finalizable.`));
+		includes adding and removing fields and methods of classes and reflecting over the members of classes and
+		instances.`));
 
 		docFields(t, doc, _globalFuncDocs);
 		doc.pop(-1);
@@ -80,7 +80,6 @@ const RegisterFunc[] _globalFuncs =
 	{"methodsOf",    &_methodsOf,    maxParams: 1},
 	{"rawSetField",  &_rawSetField,  maxParams: 3},
 	{"rawGetField",  &_rawGetField,  maxParams: 2},
-	{"Finalizable",  &_Finalizable,  maxParams: 1},
 	{"memberOwner",  &_memberOwner,  maxParams: 2},
 	{"addMethod",    &_addMethod,    maxParams: 3},
 	{"addField",     &_addField,     maxParams: 3},
@@ -231,26 +230,6 @@ uword _rawGetField(CrocThread* t)
 	return 1;
 }
 
-uword _Finalizable(CrocThread* t)
-{
-	checkParam(t, 1, CrocValue.Type.Class);
-
-	if(!hasMethod(t, 1, "finalizer"))
-		throwStdException(t, "FieldException", "Class {} does not have a 'finalizer' method", className(t, 1));
-
-	field(t, 1, "finalizer");
-
-	if(!isFunction(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", "{}.finalizer is a '{}', not a function", className(t, 1), getString(t, -1));
-	}
-
-	setFinalizer(t, 1);
-	dup(t, 1);
-	return 1;
-}
-
 uword _memberOwner(CrocThread* t)
 {
 	checkAnyParam(t, 1);
@@ -372,19 +351,6 @@ z = 30 (Derived)
 	params: [Param("o", "instance"), Param("name", "string")],
 	docs:
 	`Gets a field from an instance bypassing any \b{\tt{opField}} metamethods.`},
-
-	{kind: "function", name: "Finalizable",
-	params: [Param("cls", "class")],
-	docs:
-	`Used as a class decorator to make classes have finalizers.
-
-	The class should have a method called "finalizer". This method will be set as the class finalizer, and will be
-	called on instances of this class when they are about to be collected.
-
-	\param[cls] is the class to have its finalizer set.
-	\returns \tt{cls} as per the decorator protocol.
-	\throws[exceptions.FieldException] if \tt{cls} has no field named "finalizer".
-	\throws[exceptions.TypeException] if the "finalizer" field is not a function.`},
 
 	{kind: "function", name: "memberOwner",
 	params: [Param("o", "class|instance"), Param("name", "string")],

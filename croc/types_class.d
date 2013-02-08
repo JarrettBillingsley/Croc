@@ -48,8 +48,8 @@ package:
 
 		if(parent)
 		{
-			freeze(parent);
-			c.finalizer = parent.finalizer;
+			assert(parent.isFrozen);
+			assert(parent.finalizer is null);
 
 			if(parent.fields.length)
 			{
@@ -97,17 +97,6 @@ package:
 				value.proto = c;
 
 		c.isFrozen = true;
-	}
-
-	void setFinalizer(ref Allocator alloc, CrocClass* c, CrocFunction* f)
-	{
-		assert(!c.isFrozen);
-
-		if(c.finalizer !is f)
-		{
-			mixin(writeBarrier!("alloc", "c"));
-			c.finalizer = f;
-		}
 	}
 
 	bool derivesFrom(CrocClass* c, CrocClass* other)

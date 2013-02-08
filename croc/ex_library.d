@@ -162,7 +162,7 @@ newGlobal(t, "DerivedClass");
 If you pop the class inside the callback delegate accidentally, it'll check for that and
 throw an error.
 
-You can, of course, modify the class object after creating it, like if you need to add a finalizer or allocator.
+You can, of course, modify the class object after creating it.
 */
 struct CreateClass
 {
@@ -246,22 +246,6 @@ public:
 	void field(char[] name)
 	{
 		addField(t, idx, name);
-	}
-
-	/**
-	Set this class's finalizer function.
-
-	Params:
-		name = Function name. This will just be used for the name of the function object, and will be
-			prepended with the class's name, just like methods.
-		f = The native finalizer function.
-		numUpvals = How many upvalues this function needs. There should be this many values sitting on
-			the stack.
-	*/
-	void finalizer(char[] name, NativeFunc f, uword numUpvals = 0)
-	{
-		newFunction(t, f, this.name ~ '.' ~ name, numUpvals);
-		setFinalizer(t, idx);
 	}
 }
 

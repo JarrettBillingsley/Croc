@@ -96,13 +96,15 @@ void openVMImpl(CrocVM* vm, MemFunc memFunc, void* ctx = null)
 	vm.mainThread = thread.create(vm);
 	auto t = vm.mainThread;
 
-	vm.metaStrings = vm.alloc.allocArray!(CrocString*)(MetaNames.length + 1);
+	vm.metaStrings = vm.alloc.allocArray!(CrocString*)(MetaNames.length + 2);
 
 	foreach(i, str; MetaNames)
 		vm.metaStrings[i] = createString(t, str);
 
 	vm.ctorString = createString(t, "constructor");
-	vm.metaStrings[$ - 1] = vm.ctorString;
+	vm.finalizerString = createString(t, "finalizer");
+	vm.metaStrings[$ - 2] = vm.ctorString;
+	vm.metaStrings[$ - 1] = vm.finalizerString;
 
 	vm.curThread = vm.mainThread;
 	vm.globals = namespace.create(vm.alloc, createString(t, ""));

@@ -225,7 +225,6 @@ import exceptions:
 	ValueException
 
 import math: min, intMax
-import object: Finalizable
 import text
 
 local utf8Codec = text.getCodec("utf-8")
@@ -1461,7 +1460,6 @@ This class wraps objects of one of three of Tango's IO interfaces: \tt{InputStre
 \tt{IConduit}. It also provides a "closability" option to prevent script code from closing streams it shouldn't have
 permission to.
 */
-@Finalizable
 class NativeStream : Stream
 {
 	__stream

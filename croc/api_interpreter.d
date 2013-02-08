@@ -876,7 +876,7 @@ word newClass(CrocThread* t, word base, char[] name)
 	}
 
 	maybeGC(t);
-	return push(t, CrocValue(classobj.create(t.vm.alloc, createString(t, name), b)));
+	return push(t, CrocValue(newClassImpl(t, createString(t, name), b)));
 }
 
 /**
@@ -886,66 +886,7 @@ word newClass(CrocThread* t, char[] name)
 {
 	mixin(FuncNameMix);
 	maybeGC(t);
-	return push(t, CrocValue(classobj.create(t.vm.alloc, createString(t, name), null)));
-}
-
-/**
-Creates an instance of a class and pushes it onto the stack. This does $(I not) call any
-constructors defined for the class; this simply allocates an instance.
-
-Croc instances can have two kinds of extra data associated with them for use by the host: extra
-Croc values and arbitrary bytes. The structure of a Croc instance is something like this:
-
------
-// ---------
-// |       |
-// |       | The data that's part of every instance - its parent class, fields, and finalizer.
-// |       |
-// +-------+
-// |0: "x" | Extra Croc values which can point into the Croc heap.
-// |1: 5   |
-// +-------+
-// |...   | Arbitrary byte data.
-// ---------
------
-
-Both extra sections are optional, and no instances created from script classes will have them.
-
-Extra Croc values are useful for adding "members" to the instance which are not visible to the
-scripts but which can still hold Croc objects. They will be scanned by the GC, so objects
-referenced by these members will not be collected. If you want to hold a reference to a native
-D object, for instance, this would be the place to put it (wrapped in a NativeObject).
-
-The arbitrary bytes associated with an instance are not scanned by either the D or the Croc GC,
-so don'_t store references to GC'ed objects there. These bytes are useable for just about anything,
-such as storing values which can'_t be stored in Croc values -- structs, complex numbers, long
-integers, whatever.
-
-A clarification: You can store references to $(B heap) objects in the extra bytes, but you must not
-store references to $(B GC'ed) objects there. That is, you can 'malloc' some data and store the pointer
-in the extra bytes, since that's not GC'ed memory. You must however perform your own memory management for
-such memory. You can set up a finalizer function for instances in which you can perform memory management
-for these references.
-
-Params:
-	base = The class from which this instance will be created.
-	numValues = How many extra Croc values will be associated with the instance. See above.
-	extraBytes = How many extra bytes to attach to the instance. See above.
-*/
-word newInstance(CrocThread* t, word base)
-{
-	mixin(FuncNameMix);
-
-	auto b = getClass(t, base);
-
-	if(b is null)
-	{
-		pushTypeString(t, base);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'class' for base, not '{}'", getString(t, -1));
-	}
-
-	maybeGC(t);
-	return push(t, CrocValue(instance.create(t.vm, b)));
+	return push(t, CrocValue(newClassImpl(t, createString(t, name), null)));
 }
 
 /**
@@ -2258,76 +2199,6 @@ bool funcIsNative(CrocThread* t, word func)
 // Class-related functions
 
 /**
-Sets the finalizer function for the given class. The finalizer of a class is called when an instance of that class
-is about to be collected by the garbage collector and is used to clean up limited resources associated with it
-(i.e. memory allocated on the C heap, file handles, etc.). The finalizer function should be short and to-the-point
-as to make finalization as quick as possible. It should also not allocate very much memory, if any, as the
-garbage collector is effectively disabled during execution of finalizers. The finalizer function will only
-ever be called once for each instance. If the finalizer function causes the instance to be "resurrected", that is
-the instance is reattached to the application's memory graph, it will still eventually be collected but its finalizer
-function will $(B not) be run again.
-
-You can only set a class's finalizer once. Once it has been set, it cannot be unset or changed.
-
-This function expects the finalizer function to be on the top of the stack. The function is popped from the stack.
-
-Params:
-	cls = The class whose finalizer is to be set.
-*/
-void setFinalizer(CrocThread* t, word cls)
-{
-	mixin(apiCheckNumParams!("1"));
-
-	if(!isFunction(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function' for finalizer, not '{}'", getString(t, -1));
-	}
-
-	auto c = getClass(t, cls);
-
-	if(c is null)
-	{
-		pushTypeString(t, cls);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
-	}
-
-	if(c.isFrozen)
-		throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to change the finalizer of class {} which has been frozen", className(t, cls));
-
-	classobj.setFinalizer(t.vm.alloc, c, getFunction(t, -1));
-	pop(t);
-}
-
-/**
-Pushes the finalizer function associated with the given class, or null if no finalizer is set for
-that class.
-
-Params:
-	cls = The class whose finalizer is to be retrieved.
-
-Returns:
-	The stack index of the newly-pushed finalizer function (or null if the class has none).
-*/
-word getFinalizer(CrocThread* t, word cls)
-{
-	mixin(FuncNameMix);
-
-	if(auto c = getClass(t, cls))
-	{
-		if(c.finalizer)
-			return push(t, CrocValue(c.finalizer));
-		else
-			return pushNull(t);
-	}
-
-	pushTypeString(t, cls);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
-
-	assert(false);
-}
-
-/**
 Gets the name of the class at the given stack index. This string points into Croc's heap; do not modify it!
 */
 char[] className(CrocThread* t, word cls)
@@ -2513,7 +2384,7 @@ void freezeClass(CrocThread* t, word cls)
 	mixin(FuncNameMix);
 
 	if(auto c = getClass(t, cls))
-		classobj.freeze(c);
+		freezeImpl(t, c);
 	else
 	{
 		pushTypeString(t, cls);

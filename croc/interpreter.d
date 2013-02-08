@@ -105,9 +105,9 @@ void runFinalizers(CrocThread* t)
 
 		try
 		{
-			push(t, CrocValue(i.parent.finalizer));
+			push(t, CrocValue(i.parent.finalizer.value));
 			push(t, CrocValue(i));
-			commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, i.parent));
+			commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, i.parent.finalizer.proto));
 		}
 		catch(CrocException e)
 		{
@@ -387,26 +387,25 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 
 		case CrocValue.Type.Class:
 			auto cls = func.mClass;
+
+			if(!cls.isFrozen)
+				freezeImpl(t, cls);
+
+			if(cls.constructor is null && numParams > 1)
+				throwStdException(t, "ParamException", "Class '{}' has no constructor but was called with {} parameters", cls.name.toString(), numParams - 1);
+
 			auto inst = instance.create(t.vm, cls);
 
 			// call any constructor
-			auto ctor = classobj.getMethod(cls, t.vm.ctorString);
-
-			if(ctor !is null)
+			if(cls.constructor)
 			{
-				if(ctor.value.value.type != CrocValue.Type.Function)
-				{
-					typeString(t, &ctor.value.value);
-					throwStdException(t, "TypeException", "class constructor expected to be a 'function', not '{}'", getString(t, -1));
-				}
-
 				t.nativeCallDepth++;
 				scope(exit) t.nativeCallDepth--;
-				t.stack[slot] = ctor.value.value.mFunction;
+				t.stack[slot] = cls.constructor.value.mFunction;
 				t.stack[slot + 1] = inst;
 
 				// do this instead of rawCall so the proto is set correctly
-				if(callPrologue(t, slot, 0, numParams, ctor.value.proto))
+				if(callPrologue(t, slot, 0, numParams, cls.constructor.proto))
 					execute(t);
 			}
 
@@ -2277,6 +2276,51 @@ CrocValue superOfImpl(CrocThread* t, CrocValue* v)
 	assert(false);
 }
 
+CrocClass* newClassImpl(CrocThread* t, CrocString* name, CrocClass* base)
+{
+	if(base)
+	{
+		freezeImpl(t, base);
+
+		if(base.finalizer)
+			throwStdException(t, "ValueException", "Attempting to derive from class '{}' which has a finalizer", base.name.toString());
+	}
+
+	return classobj.create(t.vm.alloc, name, base);
+}
+
+void freezeImpl(CrocThread* t, CrocClass* c)
+{
+	if(c.isFrozen)
+		return;
+
+	if(auto ctor = classobj.getMethod(c, t.vm.ctorString))
+	{
+		if(ctor.value.value.type != CrocValue.Type.Function)
+		{
+			typeString(t, &ctor.value.value);
+			throwStdException(t, "TypeException", "Class constructor must be of type 'function', not '{}'", getString(t, -1));
+		}
+
+		c.constructor = &ctor.value;
+	}
+
+	if(auto finalizer = classobj.getMethod(c, t.vm.finalizerString))
+	{
+		if(finalizer.value.value.type != CrocValue.Type.Function)
+		{
+			typeString(t, &finalizer.value.value);
+			throwStdException(t, "TypeException", "Class finalizer must be of type 'function', not '{}'", getString(t, -1));
+		}
+
+		finalizer.value.privacy = Privacy.Private;
+
+		c.finalizer = &finalizer.value;
+	}
+
+	classobj.freeze(c);
+}
+
 // ============================================================================
 // Helper functions
 
@@ -3575,9 +3619,9 @@ void execute(CrocThread* t, uword depth = 1)
 					mixin(GetRT);
 
 					if(RT.type == CrocValue.Type.Null)
-						t.stack[stackBase + rd] = classobj.create(t.vm.alloc, RS.mString, null);
+						t.stack[stackBase + rd] = newClassImpl(t, RS.mString, null);
 					else if(RT.type == CrocValue.Type.Class)
-						t.stack[stackBase + rd] = classobj.create(t.vm.alloc, RS.mString, RT.mClass);
+						t.stack[stackBase + rd] = newClassImpl(t, RS.mString, RT.mClass);
 					else
 					{
 						typeString(t, RT);

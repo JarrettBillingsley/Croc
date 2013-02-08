@@ -249,8 +249,6 @@ void visitClass(CrocClass* o, void delegate(GCObject*) callback, bool isModifyPh
 			mixin(ValueCallback!("val.value"));
 		}
 	}
-
-	mixin(CondCallback!("o.finalizer"));
 }
 
 // Visit an instance.

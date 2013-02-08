@@ -140,6 +140,7 @@ static:
 			pushInt(t, 0); c.field("__nextStart"); // int
 
 			c.method("constructor",   &constructor);
+			c.method("finalizer",     &finalizer);
 			c.method("numGroups",     &numGroups);
 			c.method("groupNames",    &groupNames);
 			c.method("test",          &test);
@@ -161,9 +162,6 @@ static:
 
 		field(t, -1, "match");
 		addMethod(t, -2, "opIndex");
-
-		newFunction(t, &finalizer, "Regex.finalizer");
-		setFinalizer(t, -2);
 
 		newGlobal(t, "Regex");
 	}

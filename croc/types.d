@@ -558,7 +558,8 @@ package:
 	bool visitedOnce;
 	Hash!(CrocString*, FieldValue, true) methods;
 	Hash!(CrocString*, FieldValue, true) fields;
-	CrocFunction* finalizer;
+	FieldValue* constructor;
+	FieldValue* finalizer;
 }
 
 struct CrocInstance
@@ -797,6 +798,7 @@ package:
 	Hash!(CrocThread*, bool) allThreads;
 	ulong currentRef;
 	CrocString* ctorString; // also stored in metaStrings, don't have to scan it as a root
+	CrocString* finalizerString; // also stored in metaStrings, don't have to scan it as a root
 	CrocThread* curThread;
 	bool isThrowing;
 

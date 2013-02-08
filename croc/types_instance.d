@@ -46,8 +46,7 @@ package:
 
 	CrocInstance* create(CrocVM* vm, CrocClass* parent)
 	{
-		if(!parent.isFrozen)
-			classobj.freeze(parent);
+		assert(parent.isFrozen);
 
 		CrocInstance* i;
 
