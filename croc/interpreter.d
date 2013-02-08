@@ -584,7 +584,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		ar.numReturns = numReturns;
 		ar.firstResult = 0;
 		ar.numResults = 0;
-		ar.proto = proto is null ? null : proto;
+		ar.proto = proto;
 		ar.numTailcalls = 0;
 		ar.savedTop = ar.base + funcDef.stackSize;
 		ar.unwindCounter = 0;
@@ -621,7 +621,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		ar.firstResult = 0;
 		ar.numResults = 0;
 		ar.savedTop = t.stackIndex;
-		ar.proto = proto is null ? null : proto;
+		ar.proto = proto;
 		ar.numTailcalls = 0;
 		ar.unwindCounter = 0;
 		ar.unwindReturn = null;
@@ -3178,17 +3178,7 @@ void execute(CrocThread* t, uword depth = 1)
 
 					mixin(AdjustParams);
 
-					auto self = &t.stack[stackBase + rd + 1];
-					CrocClass* proto = void;
-
-					if(self.type == CrocValue.Type.Instance)
-						proto = self.mInstance.parent;
-					else if(self.type == CrocValue.Type.Class)
-						proto = self.mClass;
-					else
-						proto = null;
-
-					isScript = callPrologue(t, stackBase + rd, numResults, numParams, proto);
+					isScript = callPrologue(t, stackBase + rd, numResults, numParams, null);
 
 					if(opcode == Op.TailCall)
 						goto _commonTailcall;

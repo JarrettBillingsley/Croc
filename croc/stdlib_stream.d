@@ -73,20 +73,12 @@ const RegisterFunc[] _funcs =
 
 uword _streamCtor(CrocThread* t)
 {
-	checkParam(t, 1, CrocValue.Type.NativeObj);
 	auto stream = getNativeObj(t, 1);
-	auto closable = optBoolParam(t, 2, true);
-	auto haveReadable = isValidIndex(t, 3);
-	auto readable = haveReadable ? checkBoolParam(t, 3) : false;
-	auto haveWritable = isValidIndex(t, 4);
-	auto writable = haveWritable ? checkBoolParam(t, 4) : false;
-
-	field(t, 0, "NativeStream__stream");
-
-	if(!isNull(t, -1))
-		throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized stream");
-
-	pop(t);
+	auto closable = getBool(t, 2);
+	auto haveReadable = isBool(t, 3);
+	auto readable = haveReadable ? getBool(t, 3) : false;
+	auto haveWritable = isBool(t, 4);
+	auto writable = haveWritable ? getBool(t, 4) : false;
 
 	if(cast(IConduit)stream)
 	{
@@ -100,22 +92,13 @@ uword _streamCtor(CrocThread* t)
 	else
 		throwStdException(t, "TypeException", "stream parameter does not implement any of the valid Tango interfaces");
 
-	dup(t, 1);             fielda(t, 0, "NativeStream__stream");
-	pushBool(t, readable); fielda(t, 0, "NativeStream__readable");
-	pushBool(t, writable); fielda(t, 0, "NativeStream__writable");
-	pushBool(t, closable); fielda(t, 0, "NativeStream__closable");
+	dup(t, 1);
+	pushBool(t, closable);
+	pushBool(t, readable);
+	pushBool(t, writable);
+	pushBool(t, (cast(IConduit.Seek)stream) !is null);
 
-	if(cast(IConduit.Seek)stream)
-	{
-		pushBool(t, true);
-		fielda(t, 0, "NativeStream__seekable");
-	}
-
-	pushNull(t);
-	pushNull(t);
-	superCall(t, -2, "constructor", 0);
-
-	return 0;
+	return 5;
 }
 
 uword _streamRead(CrocThread* t)
@@ -1487,7 +1470,15 @@ class NativeStream : Stream
 	\param[writable] see the \tt{stream} parameter.
 	*/
 	this(stream: nativeobj, closable: bool = true, readable: null|bool, writable: null|bool)
-		streamCtor(with this, stream, closable, readable, writable)
+	{
+		if(:__stream !is null)
+			throw StateException("Attempting to call constructor on an already-initialized stream")
+
+		:__stream, :__closable, :__readable, :__writable, :__seekable =
+			streamCtor(stream, closable, readable, writable)
+
+		super()
+	}
 
 	/**
 	Finalizer. If the stream is writable, it will be flushed, and if it is closable, it will be closed.
