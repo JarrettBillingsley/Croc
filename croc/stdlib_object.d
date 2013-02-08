@@ -279,7 +279,8 @@ uword _freeze(CrocThread* t)
 {
 	checkParam(t, 1, CrocValue.Type.Class);
 	freezeClass(t, 1);
-	return 0;
+	dup(t, 1);
+	return 1;
 }
 
 uword _isFrozen(CrocThread* t)
