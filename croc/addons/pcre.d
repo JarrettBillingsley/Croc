@@ -32,6 +32,19 @@ module croc.addons.pcre;
 version(CrocAllAddons)
 	version = CrocPcreAddon;
 
+version(CrocPcreAddon){}else
+{
+	import croc.api;
+
+	struct PcreLib
+	{
+		static void init(CrocThread* t)
+		{
+			throwStdException(t, "ApiError", "Attempting to load the PCRE library, but it was not compiled in");
+		}
+	}
+}
+
 version(CrocPcreAddon)
 {
 

@@ -28,6 +28,19 @@ module croc.addons.gl;
 version(CrocAllAddons)
 	version = CrocGlAddon;
 
+version(CrocGlAddon){}else
+{
+	import croc.api;
+
+	struct GlLib
+	{
+		static void init(CrocThread* t)
+		{
+			throwStdException(t, "ApiError", "Attempting to load the GL library, but it was not compiled in");
+		}
+	}
+}
+
 version(CrocGlAddon)
 {
 
@@ -186,7 +199,7 @@ static:
 		GLint len = src.length;
 
 		glShaderSource(shader, 1, &str, &len);
-		
+
 		version(CrocGLCheckErrors)
 			checkError(t, "glShaderSource");
 
@@ -227,7 +240,7 @@ static:
 
 		return 1;
 	}
-	
+
 	version(CrocGLCheckErrors)
 	{
 		void checkError(CrocThread* t, char[] funcName)
@@ -235,11 +248,11 @@ static:
 			getRegistryVar(t, "gl.insideBeginEnd");
 			bool insideBeginEnd = getBool(t, -1);
 			pop(t);
-	
+
 			if(!insideBeginEnd)
 			{
 				auto err = glGetError();
-	
+
 				if(err != GL_NO_ERROR)
 					throwNamedException(t, "GLException", "{} - {}", funcName, fromStringz(cast(char*)gluErrorString(err)));
 			}
@@ -1176,7 +1189,7 @@ static:
 		register(t, &wrapGL!(gluScaleImage), "gluScaleImage");
 		register(t, &wrapGL!(gluUnProject), "gluUnProject");
 	//	register(t, &wrapGL!(gluUnProject4), "gluUnProject4");
-	
+
 		pushInt(t, GLU_VERSION); newGlobal(t, "GLU_VERSION");
 		pushInt(t, GLU_EXTENSIONS); newGlobal(t, "GLU_EXTENSIONS");
 		pushInt(t, GLU_INVALID_ENUM); newGlobal(t, "GLU_INVALID_ENUM");

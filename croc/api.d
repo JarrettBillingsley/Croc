@@ -68,6 +68,21 @@ import croc.stdlib_text;
 import croc.stdlib_thread;
 import croc.stdlib_time;
 
+import croc.addons.pcre;
+import croc.addons.sdl;
+import croc.addons.gl;
+import croc.addons.net;
+import croc.addons.devil;
+
+version(CrocAllAddons)
+{
+	version = CrocPcreAddon;
+	version = CrocSdlAddon;
+	version = CrocGlAddon;
+	version = CrocNetAddon;
+	version = CrocDevilAddon;
+}
+
 // ================================================================================================================================================
 // Public
 // ================================================================================================================================================
@@ -223,4 +238,66 @@ void loadUnsafeLibs(CrocThread* t, uint libs = CrocUnsafeLib.All)
 	if(libs & CrocUnsafeLib.File)  FileLib.init(t);
 	if(libs & CrocUnsafeLib.OS)    OSLib.init(t);
 	if(libs & CrocUnsafeLib.Debug) DebugLib.init(t);
+}
+
+/**
+This enum lists the addon libraries to be used with loadAddons. You can choose which addons you want to load by bitwise-
+ORing together multiple flags. See loadAddons for more info.
+*/
+enum CrocAddons
+{
+	None =  0,  /// No addon libraries
+	Pcre =  1,  /// Perl-compatible regexes
+	Sdl =   2,  /// SDL
+	Devil = 4,  /// DevIL (image library)
+	Gl =    8,  /// OpenGL
+	Net =   16, /// TCP/IP Sockets
+
+	/** All the safe addons (PCRE and SDL). */
+	Safe = Pcre | Sdl,
+
+	/** All the unsafe addons (DevIL, OpenGL, and networking). */
+	Unsafe = Devil | Gl | Net,
+
+	/** All available addons. */
+	All = Safe | Unsafe
+}
+
+/**
+Load the addon libraries into the given thread's VM.
+
+Note that even though you are free to specify any addon library in the libs parameter, you must actually enable the
+addons that you want with the appropriate conditional compilation flags. If you don't, you'll get a runtime error when
+attempting to load an addon that wasn't compiled in.
+
+Params:
+	libs = An ORing together of any addon libraries you want to load (see the CrocAddons enum).
+*/
+void loadAddons(CrocThread* t, uint libs)
+{
+	if(libs & CrocAddons.Pcre)  PcreLib.init(t);
+	if(libs & CrocAddons.Sdl)   SdlLib.init(t);
+	if(libs & CrocAddons.Devil) DevilLib.init(t);
+	if(libs & CrocAddons.Gl)    GlLib.init(t);
+	if(libs & CrocAddons.Net)   initNetLib(t);
+}
+
+/**
+Loads all available addon libraries into the given thread's VM.
+
+This is a shortcut for a common case where which addons you want to load is entirely specified by the conditional
+compilation flags. For instance, if you use the CrocSdlAddon and CrocGlAddon versions, this function will load those
+two addons and nothing else.
+
+Params:
+	exclude = An ORing together of any addon libraries you $(B don't) want to load (see the CrocAddons enum). Defaults
+		to CrocAddons.None, in which case none will be excluded.
+*/
+void loadAvailableAddons(CrocThread* t, uint exclude = CrocAddons.None)
+{
+	version(CrocPcreAddon)  if(!(exclude & CrocAddons.Pcre))  PcreLib.init(t);
+	version(CrocSdlAddon)   if(!(exclude & CrocAddons.Sdl))   SdlLib.init(t);
+	version(CrocDevilAddon) if(!(exclude & CrocAddons.Devil)) DevilLib.init(t);
+	version(CrocGlAddon)    if(!(exclude & CrocAddons.Gl))    GlLib.init(t);
+	version(CrocNetAddon)   if(!(exclude & CrocAddons.Net))   initNetLib(t);
 }

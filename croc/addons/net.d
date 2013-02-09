@@ -28,6 +28,16 @@ module croc.addons.net;
 version(CrocAllAddons)
 	version = CrocNetAddon;
 
+version(CrocNetAddon){}else
+{
+	import croc.api;
+
+	void initNetLib(CrocThread* t)
+	{
+		throwStdException(t, "ApiError", "Attempting to load the Net library, but it was not compiled in");
+	}
+}
+
 version(CrocNetAddon)
 {
 

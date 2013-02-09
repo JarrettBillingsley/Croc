@@ -28,6 +28,19 @@ module croc.addons.sdl;
 version(CrocAllAddons)
 	version = CrocSdlAddon;
 
+version(CrocSdlAddon){}else
+{
+	import croc.api;
+
+	struct SdlLib
+	{
+		static void init(CrocThread* t)
+		{
+			throwStdException(t, "ApiError", "Attempting to load the SDL library, but it was not compiled in");
+		}
+	}
+}
+
 version(CrocSdlAddon)
 {
 

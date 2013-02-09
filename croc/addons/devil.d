@@ -29,6 +29,19 @@ module croc.addons.devil;
 version(CrocAllAddons)
 	version = CrocDevilAddon;
 
+version(CrocDevilAddon){}else
+{
+	import croc.api;
+
+	struct DevilLib
+	{
+		static void init(CrocThread* t)
+		{
+			throwStdException(t, "ApiError", "Attempting to load the DevIL library, but it was not compiled in");
+		}
+	}
+}
+
 version(CrocDevilAddon)
 {
 
@@ -251,7 +264,7 @@ static:
 			pushInt(t, info.NumLayers);  fielda(t, -2, "NumLayers");
 		return 1;
 	}
-	
+
 	uword crociluRegionfv(CrocThread* t)
 	{
 		checkParam(t, 1, CrocValue.Type.Array);
@@ -282,7 +295,7 @@ static:
 				pushTypeString(t, -1);
 				throwStdException(t, "TypeException", "Array element {}'s 'x' field is a '{}', not a number", i, getString(t, -1));
 			}
-			
+
 			pop(t);
 			field(t, -1, "y");
 
@@ -295,7 +308,7 @@ static:
 				pushTypeString(t, -1);
 				throwStdException(t, "TypeException", "Array element {}'s 'y' field is a '{}', not a number", i, getString(t, -1));
 			}
-			
+
 			pop(t, 2);
 		}
 
@@ -788,7 +801,7 @@ static:
 	    registerConst(t, "ILU_SCALE_BSPLINE", 0x2607);
 	    registerConst(t, "ILU_SCALE_LANCZOS3", 0x2608);
 	    registerConst(t, "ILU_SCALE_MITCHELL", 0x2609);
-	
+
 	    // Error types
 	    registerConst(t, "ILU_INVALID_ENUM", 0x0501);
 	    registerConst(t, "ILU_OUT_OF_MEMORY", 0x0502);

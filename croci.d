@@ -35,21 +35,6 @@ import croc.compiler;
 import croc.ex_commandline;
 import croc.ex_json;
 
-version(CrocAllAddons)
-{
-	version = CrocSdlAddon;
-	version = CrocGlAddon;
-	version = CrocNetAddon;
-	version = CrocPcreAddon;
-	version = CrocDevilAddon;
-}
-
-import croc.addons.sdl;
-import croc.addons.gl;
-import croc.addons.net;
-import croc.addons.pcre;
-import croc.addons.devil;
-
 const char[] ShortUsage =
 "Usage:
     croci [flags] [filename [args]]
@@ -315,14 +300,11 @@ bool doNormal(CrocThread* t, ref Params params)
 	if(!params.safe)
 		loadUnsafeLibs(t, CrocUnsafeLib.All);
 
-	version(CrocSdlAddon)  SdlLib.init(t);
-	version(CrocPcreAddon) PcreLib.init(t);
+	loadAvailableAddons(t, CrocAddons.Unsafe);
 
 	if(!params.safe)
 	{
-		version(CrocGlAddon)    GlLib.init(t);
-		version(CrocNetAddon)   initNetLib(t);
-		version(CrocDevilAddon) DevilLib.init(t);
+		loadAvailableAddons(t, CrocAddons.Safe);
 
 		if(params.debugEnabled)
 			loadUnsafeLibs(t, CrocUnsafeLib.Debug);

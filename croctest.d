@@ -6,21 +6,6 @@ import tango.io.Stdout;
 import croc.api;
 import croc.compiler;
 
-import croc.addons.pcre;
-import croc.addons.sdl;
-import croc.addons.gl;
-import croc.addons.net;
-import croc.addons.devil;
-
-version(CrocAllAddons)
-{
-	version = CrocPcreAddon;
-	version = CrocSdlAddon;
-	version = CrocGlAddon;
-	version = CrocNetAddon;
-	version = CrocDevilAddon;
-}
-
 /*
 	SdlSurface   (1 pointer. C pointers could just be cast to integers in D and use nativeobjs in C)
 */
@@ -37,13 +22,7 @@ void main()
 	{
 		t = openVM(&vm);
 		loadUnsafeLibs(t, CrocUnsafeLib.ReallyAll);
-
-		version(CrocPcreAddon) PcreLib.init(t);
-		version(CrocSdlAddon) SdlLib.init(t);
-		version(CrocGlAddon) GlLib.init(t);
-		version(CrocNetAddon) initNetLib(t);
-		version(CrocDevilAddon) DevilLib.init(t);
-
+		loadAvailableAddons(t);
 		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
 		runModule(t, "samples.simple");
 	}
