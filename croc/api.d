@@ -276,7 +276,7 @@ Params:
 void loadAddons(CrocThread* t, uint libs)
 {
 	if(libs & CrocAddons.Pcre)  PcreLib.init(t);
-	if(libs & CrocAddons.Sdl)   SdlLib.init(t);
+	if(libs & CrocAddons.Sdl)   initSdlLib(t);
 	if(libs & CrocAddons.Devil) DevilLib.init(t);
 	if(libs & CrocAddons.Gl)    GlLib.init(t);
 	if(libs & CrocAddons.Net)   initNetLib(t);
@@ -296,7 +296,7 @@ Params:
 void loadAvailableAddons(CrocThread* t, uint exclude = CrocAddons.None)
 {
 	version(CrocPcreAddon)  if(!(exclude & CrocAddons.Pcre))  PcreLib.init(t);
-	version(CrocSdlAddon)   if(!(exclude & CrocAddons.Sdl))   SdlLib.init(t);
+	version(CrocSdlAddon)   if(!(exclude & CrocAddons.Sdl))   initSdlLib(t);
 	version(CrocDevilAddon) if(!(exclude & CrocAddons.Devil)) DevilLib.init(t);
 	version(CrocGlAddon)    if(!(exclude & CrocAddons.Gl))    GlLib.init(t);
 	version(CrocNetAddon)   if(!(exclude & CrocAddons.Net))   initNetLib(t);

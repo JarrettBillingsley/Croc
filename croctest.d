@@ -6,10 +6,6 @@ import tango.io.Stdout;
 import croc.api;
 import croc.compiler;
 
-/*
-	SdlSurface   (1 pointer. C pointers could just be cast to integers in D and use nativeobjs in C)
-*/
-
 void main()
 {
 	scope(exit) Stdout.flush;

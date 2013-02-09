@@ -32,12 +32,9 @@ version(CrocSdlAddon){}else
 {
 	import croc.api;
 
-	struct SdlLib
+	void initSdlLib(CrocThread* t)
 	{
-		static void init(CrocThread* t)
-		{
-			throwStdException(t, "ApiError", "Attempting to load the SDL library, but it was not compiled in");
-		}
+		throwStdException(t, "ApiError", "Attempting to load the SDL library, but it was not compiled in");
 	}
 }
 
@@ -50,715 +47,796 @@ import derelict.sdl.sdl;
 import derelict.sdl.image;
 
 import croc.api;
+import croc.ex_library;
 import croc.utf;
 
-private void register(CrocThread* t, NativeFunc func, char[] name)
-{
-	newFunction(t, func, name);
-	newGlobal(t, name);
-}
+// =====================================================================================================================
+// Public
+// =====================================================================================================================
 
-private void constGlobal(CrocThread* t, int x, char[] name)
-{
-	pushInt(t, x);
-	newGlobal(t, name);
-}
+public:
 
-private void regField(CrocThread* t, NativeFunc func, char[] name)
+void initSdlLib(CrocThread* t)
 {
-	newFunction(t, func, name);
-	fielda(t, -2, name);
-}
-
-private void constField(CrocThread* t, int x, char[] name)
-{
-	pushInt(t, x);
-	fielda(t, -2, name);
-}
-
-struct SdlLib
-{
-static:
-	void init(CrocThread* t)
+	makeModule(t, "sdl", function uword(CrocThread* t)
 	{
-		makeModule(t, "sdl", function uword(CrocThread* t)
+		CreateClass(t, "SdlException", "exceptions.Exception", (CreateClass*){});
+		newGlobal(t, "SdlException");
+
+		safeCode(t, "SdlException", DerelictSDL.load());
+		safeCode(t, "SdlException", DerelictSDLImage.load());
+
+		registerGlobals(t, _globalFuncs);
+		constGlobals(t, _globalConsts);
+
+		newNamespace(t, "gl");
+			registerFields(t, _glFuncs);
+			constFields(t, _glConsts);
+		newGlobal(t, "gl");
+
+		newNamespace(t, "event");
+			registerFields(t, _eventFuncs);
+			constFields(t, _eventConsts);
+		newGlobal(t, "event");
+
+		newNamespace(t, "joystick");
+			registerFields(t, _joyFuncs);
+		newGlobal(t, "joystick");
+
+		newNamespace(t, "image");
+			registerFields(t, _imageFuncs);
+			constFields(t, _imageConsts);
+			pushFormat(t, "{}.{}.{}", SDL_IMAGE_MAJOR_VERSION, SDL_IMAGE_MINOR_VERSION, SDL_IMAGE_PATCHLEVEL);
+			fielda(t, -2, "version");
+		newGlobal(t, "image");
+
+		_pushKeyNamespace(t);
+		dup(t);
+		newGlobal(t, "key");
+
+		auto rev = newTable(t);
+		dup(t, -2);
+
+		foreach(word k, word v; foreachLoop(t, 1))
 		{
-			CreateClass(t, "SdlException", "exceptions.Exception", (CreateClass*){});
-			newGlobal(t, "SdlException");
-
-			safeCode(t, "SdlException", DerelictSDL.load());
-			safeCode(t, "SdlException", DerelictSDLImage.load());
-
-			register(t, &sdlinit,       "init");
-			register(t, &quit,          "quit");
-			register(t, &wasInit,       "wasInit");
-			register(t, &getError,      "getError");
-			register(t, &initSubSystem, "initSubSystem");
-			register(t, &quitSubSystem, "quitSubSystem");
-			register(t, &videoModeOK,   "videoModeOK");
-			register(t, &setVideoMode,  "setVideoMode");
-
-			register(t, &showCursor, "showCursor");
-			register(t, &grabInput,  "grabInput");
-			register(t, &warpMouse,  "warpMouse");
-			register(t, &caption,    "caption");
-
-			constGlobal(t, SDL_INIT_AUDIO,    "initAudio");
-			constGlobal(t, SDL_INIT_VIDEO,    "initVideo");
-			constGlobal(t, SDL_INIT_JOYSTICK, "initJoystick");
-			constGlobal(t, SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK, "initEverything");
-
-			constGlobal(t, SDL_SWSURFACE,  "swSurface");
-			constGlobal(t, SDL_HWSURFACE,  "hwSurface");
-			constGlobal(t, SDL_ASYNCBLIT,  "asyncBlit");
-			constGlobal(t, SDL_ANYFORMAT,  "anyFormat");
-			constGlobal(t, SDL_DOUBLEBUF,  "doubleBuf");
-			constGlobal(t, SDL_FULLSCREEN, "fullscreen");
-			constGlobal(t, SDL_OPENGL,     "opengl");
-			constGlobal(t, SDL_OPENGLBLIT, "openglBlit");
-			constGlobal(t, SDL_RESIZABLE,  "resizable");
-			constGlobal(t, SDL_NOFRAME,    "noFrame");
-
-			newNamespace(t, "gl");
-				regField(t, &glSetAttribute, "setAttribute");
-				regField(t, &glGetAttribute, "getAttribute");
-				regField(t, &glSwapBuffers,  "swapBuffers");
-
-				constField(t, SDL_GL_RED_SIZE,           "redSize");
-				constField(t, SDL_GL_GREEN_SIZE,         "greenSize");
-				constField(t, SDL_GL_BLUE_SIZE,          "blueSize");
-				constField(t, SDL_GL_ALPHA_SIZE,         "alphaSize");
-				constField(t, SDL_GL_DOUBLEBUFFER,       "doubleBuffer");
-				constField(t, SDL_GL_BUFFER_SIZE,        "bufferSize");
-				constField(t, SDL_GL_DEPTH_SIZE,         "depthSize");
-				constField(t, SDL_GL_STENCIL_SIZE,       "stencilSize");
-				constField(t, SDL_GL_ACCUM_RED_SIZE,     "accumRedSize");
-				constField(t, SDL_GL_ACCUM_GREEN_SIZE,   "accumGreenSize");
-				constField(t, SDL_GL_ACCUM_BLUE_SIZE,    "accumBlueSize");
-				constField(t, SDL_GL_ACCUM_ALPHA_SIZE,   "accumAlphaSize");
-				constField(t, SDL_GL_STEREO,             "stereo");
-				constField(t, SDL_GL_MULTISAMPLEBUFFERS, "multiSampleBuffers");
-				constField(t, SDL_GL_MULTISAMPLESAMPLES, "multiSampleSamples");
-				constField(t, SDL_GL_ACCELERATED_VISUAL, "acceleratedVisual");
-				constField(t, SDL_GL_SWAP_CONTROL,       "swapControl");
-			newGlobal(t, "gl");
-
-			newNamespace(t, "event");
-				constField(t, SDL_APPMOUSEFOCUS, "mouseFocus");
-				constField(t, SDL_APPINPUTFOCUS, "inputFocus");
-				constField(t, SDL_APPACTIVE,     "active");
-
-				regField(t, &evtPump,          "pump");
-				regField(t, &evtPoll,          "poll");
-				regField(t, &evtWait,          "wait");
-				regField(t, &evtPush,          "push");
-				regField(t, &evtEnableUnicode, "enableUnicode");
-				regField(t, &evtKeyRepeat,     "keyRepeat");
-			newGlobal(t, "event");
-
-			newNamespace(t, "joystick");
-				regField(t, &joyCount,        "count");
-				regField(t, &joyOpen,         "open");
-				regField(t, &joyClose,        "close");
-				regField(t, &joyIsOpen,       "isOpen");
-				regField(t, &joyInfo,         "info");
-				regField(t, &joyEnableEvents, "enableEvents");
-			newGlobal(t, "joystick");
-
-			newNamespace(t, "image");
-				pushFormat(t, "{}.{}.{}", SDL_IMAGE_MAJOR_VERSION, SDL_IMAGE_MINOR_VERSION, SDL_IMAGE_PATCHLEVEL); fielda(t, -2, "version");
-				constField(t, IMG_INIT_JPG, "initJPG");
-				constField(t, IMG_INIT_PNG, "initPNG");
-				constField(t, IMG_INIT_TIF, "initTIF");
-				constField(t, IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF, "initAll");
-
-				regField(t, &imgInit, "init");
-				regField(t, &imgQuit, "quit");
-				regField(t, &imgLoad, "load");
-			newGlobal(t, "image");
-
-			pushKeyNamespace(t);
-			dup(t);
-			newGlobal(t, "key");
-
-			auto rev = newTable(t);
-			dup(t, -2);
-
-			foreach(word k, word v; foreachLoop(t, 1))
-			{
-				dup(t, v);
-				dup(t, k);
-				idxa(t, rev);
-			}
-
-			newGlobal(t, "niceKey");
-			pop(t);
-
-			SdlSurfaceObj.init(t);
-
-			return 0;
-		});
-	}
-
-	void checkError(CrocThread* t, lazy int dg, char[] msg)
-	{
-		if(dg() == -1)
-			throwNamedException(t, "SdlException", "{}: {}", msg, fromStringz(SDL_GetError()));
-	}
-
-	uword sdlinit(CrocThread* t)
-	{
-		auto flags = cast(uword)checkIntParam(t, 1);
-		checkError(t, SDL_Init(flags), "Could not initialize SDL");
-		SDL_EventState(SDL_SYSWMEVENT, SDL_IGNORE);
-		return 0;
-	}
-
-	uword quit(CrocThread* t)
-	{
-		SDL_Quit();
-		return 0;
-	}
-
-	uword wasInit(CrocThread* t)
-	{
-		pushInt(t, SDL_WasInit(cast(uword)checkIntParam(t, 1)));
-		return 1;
-	}
-
-	uword getError(CrocThread* t)
-	{
-		pushString(t, fromStringz(SDL_GetError()));
-		return 1;
-	}
-
-	uword initSubSystem(CrocThread* t)
-	{
-		auto flags = cast(uword)checkIntParam(t, 1);
-		checkError(t, SDL_InitSubSystem(flags), "Could not initialize subsystem");
-		return 0;
-	}
-
-	uword quitSubSystem(CrocThread* t)
-	{
-		auto flags = cast(uword)checkIntParam(t, 1);
-		SDL_QuitSubSystem(flags);
-		return 0;
-	}
-
-	uword videoModeOK(CrocThread* t)
-	{
-		auto w = cast(word)checkIntParam(t, 1);
-		auto h = cast(word)checkIntParam(t, 2);
-		auto bpp = cast(word)checkIntParam(t, 3);
-		auto flags = cast(uword)checkIntParam(t, 4);
-
-		pushBool(t, SDL_VideoModeOK(w, h, bpp, flags) >= 16);
-		return 1;
-	}
-
-	uword setVideoMode(CrocThread* t)
-	{
-		auto w = cast(word)checkIntParam(t, 1);
-		auto h = cast(word)checkIntParam(t, 2);
-		auto bpp = cast(word)checkIntParam(t, 3);
-		auto flags = cast(uword)checkIntParam(t, 4);
-
-		pushBool(t, SDL_SetVideoMode(w, h, bpp, flags) !is null);
-		return 1;
-	}
-
-	uword showCursor(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		if(numParams == 0)
-		{
-			pushBool(t, SDL_ShowCursor(SDL_QUERY) == SDL_ENABLE);
-			return 1;
+			dup(t, v);
+			dup(t, k);
+			idxa(t, rev);
 		}
+
+		newGlobal(t, "niceKey");
+		pop(t);
+
+		SdlSurfaceObj.init(t);
+
+		return 0;
+	});
+}
+
+// =====================================================================================================================
+// Private
+// =====================================================================================================================
+
+private:
+
+struct RegisterConst
+{
+	char[] name;
+	int val;
+}
+
+void constGlobal(CrocThread* t, RegisterConst c)
+{
+	pushInt(t, c.val);
+	newGlobal(t, c.name);
+}
+
+void constField(CrocThread* t, RegisterConst c)
+{
+	pushInt(t, c.val);
+	fielda(t, -2, c.name);
+}
+
+void constGlobals(CrocThread* t, RegisterConst[] arr)
+{
+	foreach(c; arr)
+		constGlobal(t, c);
+}
+
+void constFields(CrocThread* t, RegisterConst[] arr)
+{
+	foreach(c; arr)
+		constField(t, c);
+}
+
+// =====================================================================================================================
+// Global funcs
+
+const RegisterFunc[] _globalFuncs =
+[
+	{"init",          &_init,          maxParams: 1},
+	{"quit",          &_quit,          maxParams: 0},
+	{"wasInit",       &_wasInit,       maxParams: 1},
+	{"getError",      &_getError,      maxParams: 0},
+	{"initSubSystem", &_initSubSystem, maxParams: 1},
+	{"quitSubSystem", &_quitSubSystem, maxParams: 1},
+	{"videoModeOK",   &_videoModeOK,   maxParams: 4},
+	{"setVideoMode",  &_setVideoMode,  maxParams: 4},
+
+	{"showCursor",    &_showCursor,    maxParams: 1},
+	{"grabInput",     &_grabInput,     maxParams: 1},
+	{"warpMouse",     &_warpMouse,     maxParams: 2},
+	{"caption",       &_caption,       maxParams: 1},
+];
+
+const RegisterConst[] _globalConsts =
+[
+	{"initAudio",      SDL_INIT_AUDIO    },
+	{"initVideo",      SDL_INIT_VIDEO    },
+	{"initJoystick",   SDL_INIT_JOYSTICK },
+	{"initEverything", SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK },
+	{"swSurface",      SDL_SWSURFACE     },
+	{"hwSurface",      SDL_HWSURFACE     },
+	{"asyncBlit",      SDL_ASYNCBLIT     },
+	{"anyFormat",      SDL_ANYFORMAT     },
+	{"doubleBuf",      SDL_DOUBLEBUF     },
+	{"fullscreen",     SDL_FULLSCREEN    },
+	{"opengl",         SDL_OPENGL        },
+	{"openglBlit",     SDL_OPENGLBLIT    },
+	{"resizable",      SDL_RESIZABLE     },
+	{"noFrame",        SDL_NOFRAME       },
+];
+
+void checkError(CrocThread* t, lazy int dg, char[] msg)
+{
+	if(dg() == -1)
+		throwNamedException(t, "SdlException", "{}: {}", msg, fromStringz(SDL_GetError()));
+}
+
+uword _init(CrocThread* t)
+{
+	auto flags = cast(uword)checkIntParam(t, 1);
+	checkError(t, SDL_Init(flags), "Could not initialize SDL");
+	SDL_EventState(SDL_SYSWMEVENT, SDL_IGNORE);
+	return 0;
+}
+
+uword _quit(CrocThread* t)
+{
+	SDL_Quit();
+	return 0;
+}
+
+uword _wasInit(CrocThread* t)
+{
+	pushInt(t, SDL_WasInit(cast(uword)checkIntParam(t, 1)));
+	return 1;
+}
+
+uword _getError(CrocThread* t)
+{
+	pushString(t, fromStringz(SDL_GetError()));
+	return 1;
+}
+
+uword _initSubSystem(CrocThread* t)
+{
+	auto flags = cast(uword)checkIntParam(t, 1);
+	checkError(t, SDL_InitSubSystem(flags), "Could not initialize subsystem");
+	return 0;
+}
+
+uword _quitSubSystem(CrocThread* t)
+{
+	auto flags = cast(uword)checkIntParam(t, 1);
+	SDL_QuitSubSystem(flags);
+	return 0;
+}
+
+uword _videoModeOK(CrocThread* t)
+{
+	auto w = cast(word)checkIntParam(t, 1);
+	auto h = cast(word)checkIntParam(t, 2);
+	auto bpp = cast(word)checkIntParam(t, 3);
+	auto flags = cast(uword)checkIntParam(t, 4);
+
+	pushBool(t, SDL_VideoModeOK(w, h, bpp, flags) >= 16);
+	return 1;
+}
+
+uword _setVideoMode(CrocThread* t)
+{
+	auto w = cast(word)checkIntParam(t, 1);
+	auto h = cast(word)checkIntParam(t, 2);
+	auto bpp = cast(word)checkIntParam(t, 3);
+	auto flags = cast(uword)checkIntParam(t, 4);
+
+	pushBool(t, SDL_SetVideoMode(w, h, bpp, flags) !is null);
+	return 1;
+}
+
+uword _showCursor(CrocThread* t)
+{
+	auto numParams = stackSize(t) - 1;
+	if(numParams == 0)
+	{
+		pushBool(t, SDL_ShowCursor(SDL_QUERY) == SDL_ENABLE);
+		return 1;
+	}
+	else
+	{
+		if(checkBoolParam(t, 1))
+			SDL_ShowCursor(SDL_ENABLE);
 		else
-		{
-			if(checkBoolParam(t, 1))
-				SDL_ShowCursor(SDL_ENABLE);
+			SDL_ShowCursor(SDL_DISABLE);
+	}
+
+	return 0;
+}
+
+uword _grabInput(CrocThread* t)
+{
+	auto numParams = stackSize(t) - 1;
+	if(numParams == 0)
+	{
+		pushInt(t, SDL_WM_GrabInput(SDL_GRAB_QUERY));
+		return 1;
+	}
+	else
+	{
+		if(checkBoolParam(t, 1))
+			SDL_WM_GrabInput(SDL_GRAB_ON);
+		else
+			SDL_WM_GrabInput(SDL_GRAB_OFF);
+	}
+
+	return 0;
+}
+
+uword _warpMouse(CrocThread* t)
+{
+	auto x = cast(Uint16)checkIntParam(t, 1);
+	auto y = cast(Uint16)checkIntParam(t, 2);
+	SDL_WarpMouse(x, y);
+	return 0;
+}
+
+uword _caption(CrocThread* t)
+{
+	auto numParams = stackSize(t) - 1;
+
+	if(numParams == 0)
+	{
+		char* cap;
+		SDL_WM_GetCaption(&cap, null);
+		pushString(t, fromStringz(cap));
+		return 1;
+	}
+	else
+	{
+		auto cap = checkStringParam(t, 1);
+		SDL_WM_SetCaption(toStringz(cap), null);
+		return 0;
+	}
+}
+
+// =====================================================================================================================
+// GL stuff
+
+const RegisterFunc[] _glFuncs =
+[
+	{"setAttribute", &_glSetAttribute, maxParams: 1},
+	{"getAttribute", &_glGetAttribute, maxParams: 2},
+	{"swapBuffers",  &_glSwapBuffers,  maxParams: 0},
+];
+
+const RegisterConst[] _glConsts =
+[
+	{"redSize",            SDL_GL_RED_SIZE           },
+	{"greenSize",          SDL_GL_GREEN_SIZE         },
+	{"blueSize",           SDL_GL_BLUE_SIZE          },
+	{"alphaSize",          SDL_GL_ALPHA_SIZE         },
+	{"doubleBuffer",       SDL_GL_DOUBLEBUFFER       },
+	{"bufferSize",         SDL_GL_BUFFER_SIZE        },
+	{"depthSize",          SDL_GL_DEPTH_SIZE         },
+	{"stencilSize",        SDL_GL_STENCIL_SIZE       },
+	{"accumRedSize",       SDL_GL_ACCUM_RED_SIZE     },
+	{"accumGreenSize",     SDL_GL_ACCUM_GREEN_SIZE   },
+	{"accumBlueSize",      SDL_GL_ACCUM_BLUE_SIZE    },
+	{"accumAlphaSize",     SDL_GL_ACCUM_ALPHA_SIZE   },
+	{"stereo",             SDL_GL_STEREO             },
+	{"multiSampleBuffers", SDL_GL_MULTISAMPLEBUFFERS },
+	{"multiSampleSamples", SDL_GL_MULTISAMPLESAMPLES },
+	{"acceleratedVisual",  SDL_GL_ACCELERATED_VISUAL },
+	{"swapControl",        SDL_GL_SWAP_CONTROL       },
+];
+
+uword _glGetAttribute(CrocThread* t)
+{
+	auto attr = cast(word)checkIntParam(t, 1);
+	int val;
+	checkError(t, SDL_GL_GetAttribute(attr, &val), "Could not get attribute");
+	pushInt(t, val);
+	return 1;
+}
+
+uword _glSetAttribute(CrocThread* t)
+{
+	auto attr = cast(word)checkIntParam(t, 1);
+	auto val = cast(word)checkIntParam(t, 2);
+	checkError(t, SDL_GL_SetAttribute(attr, val), "Could not set attribute");
+	return 0;
+}
+
+uword _glSwapBuffers(CrocThread* t)
+{
+	SDL_GL_SwapBuffers();
+	return 0;
+}
+
+// =====================================================================================================================
+// Event stuff
+
+const RegisterFunc[] _eventFuncs =
+[
+	{"pump",          &_evtPump,          maxParams: 0},
+	{"poll",          &_evtPoll,          maxParams: 1},
+	{"wait",          &_evtWait,          maxParams: 1},
+	{"push",          &_evtPush,          maxParams: 5},
+	{"enableUnicode", &_evtEnableUnicode, maxParams: 1},
+	{"keyRepeat",     &_evtKeyRepeat,     maxParams: 2},
+];
+
+const RegisterConst[] _eventConsts =
+[
+	{"mouseFocus", SDL_APPMOUSEFOCUS },
+	{"inputFocus", SDL_APPINPUTFOCUS },
+	{"active",     SDL_APPACTIVE     },
+];
+
+uword _pushEvent(CrocThread* t, ref SDL_Event ev)
+{
+	switch(ev.type)
+	{
+		case SDL_ACTIVEEVENT:
+			pushString(t, "active");
+			pushBool(t, cast(bool)ev.active.gain);
+			pushInt(t, ev.active.state);
+			return 3;
+
+		case SDL_KEYDOWN:
+			pushString(t, "keyDown");
+			pushInt(t, ev.key.keysym.sym);
+			pushInt(t, ev.key.keysym.mod);
+
+			if(isValidChar(cast(dchar)ev.key.keysym.unicode))
+				pushChar(t, cast(dchar)ev.key.keysym.unicode);
 			else
-				SDL_ShowCursor(SDL_DISABLE);
-		}
-
-		return 0;
-	}
-
-	uword grabInput(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		if(numParams == 0)
-		{
-			pushInt(t, SDL_WM_GrabInput(SDL_GRAB_QUERY));
-			return 1;
-		}
-		else
-		{
-			if(checkBoolParam(t, 1))
-				SDL_WM_GrabInput(SDL_GRAB_ON);
-			else
-				SDL_WM_GrabInput(SDL_GRAB_OFF);
-		}
-
-		return 0;
-	}
-
-	uword warpMouse(CrocThread* t)
-	{
-		auto x = cast(Uint16)checkIntParam(t, 1);
-		auto y = cast(Uint16)checkIntParam(t, 2);
-		SDL_WarpMouse(x, y);
-		return 0;
-	}
-
-	uword caption(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-
-		if(numParams == 0)
-		{
-			char* cap;
-			SDL_WM_GetCaption(&cap, null);
-			pushString(t, fromStringz(cap));
-			return 1;
-		}
-		else
-		{
-			auto cap = checkStringParam(t, 1);
-			SDL_WM_SetCaption(toStringz(cap), null);
-			return 0;
-		}
-	}
-
-	uword glGetAttribute(CrocThread* t)
-	{
-		auto attr = cast(word)checkIntParam(t, 1);
-		int val;
-		checkError(t, SDL_GL_GetAttribute(attr, &val), "Could not get attribute");
-		pushInt(t, val);
-		return 1;
-	}
-
-	uword glSetAttribute(CrocThread* t)
-	{
-		auto attr = cast(word)checkIntParam(t, 1);
-		auto val = cast(word)checkIntParam(t, 2);
-		checkError(t, SDL_GL_SetAttribute(attr, val), "Could not set attribute");
-		return 0;
-	}
-
-	uword glSwapBuffers(CrocThread* t)
-	{
-		SDL_GL_SwapBuffers();
-		return 0;
-	}
-
-	uword pushEvent(CrocThread* t, ref SDL_Event ev)
-	{
-		switch(ev.type)
-		{
-			case SDL_ACTIVEEVENT:
-				pushString(t, "active");
-				pushBool(t, cast(bool)ev.active.gain);
-				pushInt(t, ev.active.state);
-				return 3;
-
-			case SDL_KEYDOWN:
-				pushString(t, "keyDown");
-				pushInt(t, ev.key.keysym.sym);
-				pushInt(t, ev.key.keysym.mod);
-
-				if(isValidChar(cast(dchar)ev.key.keysym.unicode))
-					pushChar(t, cast(dchar)ev.key.keysym.unicode);
-				else
-					pushChar(t, '\0');
-
-				return 4;
-
-			case SDL_KEYUP:
-				pushString(t, "keyUp");
-				pushInt(t, ev.key.keysym.sym);
-				pushInt(t, ev.key.keysym.mod);
-				return 3;
-
-			case SDL_MOUSEMOTION:
-				pushString(t, "mouseMotion");
-				pushInt(t, ev.motion.x);
-				pushInt(t, ev.motion.y);
-				pushInt(t, ev.motion.xrel);
-				pushInt(t, ev.motion.yrel);
-				return 5;
-
-			case SDL_MOUSEBUTTONDOWN:
-				pushString(t, "mouseDown");
-				pushInt(t, ev.button.button);
-				return 2;
-
-			case SDL_MOUSEBUTTONUP:
-				pushString(t, "mouseUp");
-				pushInt(t, ev.button.button);
-				return 2;
-
-			case SDL_JOYAXISMOTION:
-				pushString(t, "joyAxis");
-				pushInt(t, ev.jaxis.which);
-				pushInt(t, ev.jaxis.axis);
-				pushInt(t, ev.jaxis.value);
-				return 4;
-
-			case SDL_JOYBALLMOTION:
-				pushString(t, "joyBall");
-				pushInt(t, ev.jball.which);
-				pushInt(t, ev.jball.ball);
-				pushInt(t, ev.jball.xrel);
-				pushInt(t, ev.jball.yrel);
-				return 5;
-
-			case SDL_JOYHATMOTION:
-				pushString(t, "joyHat");
-				pushInt(t, ev.jhat.which);
-				pushInt(t, ev.jhat.hat);
-				pushInt(t, ev.jhat.value);
-				return 4;
-
-			case SDL_JOYBUTTONDOWN:
-				pushString(t, "joyButtonDown");
-				pushInt(t, ev.jbutton.which);
-				pushInt(t, ev.jbutton.button);
-				return 3;
-
-			case SDL_JOYBUTTONUP:
-				pushString(t, "joyButtonUp");
-				pushInt(t, ev.jbutton.which);
-				pushInt(t, ev.jbutton.button);
-				return 3;
-
-			case SDL_QUIT:
-				pushString(t, "quit");
-				return 1;
-
-			case SDL_VIDEORESIZE:
-				pushString(t, "resize");
-				pushInt(t, ev.resize.w);
-				pushInt(t, ev.resize.h);
-				return 3;
-
-			case SDL_VIDEOEXPOSE:
-				pushString(t, "expose");
-				return 1;
-
-			default:
-				return 0;
-		}
-	}
-
-	void popEvent(CrocThread* t, ref SDL_Event ev)
-	{
-		auto name = checkStringParam(t, 1);
-
-		switch(name)
-		{
-			case "active":
-				ev.type = SDL_ACTIVEEVENT;
-				ev.active.gain = checkBoolParam(t, 2);
-				ev.active.state = cast(ubyte)checkIntParam(t, 3);
-				return;
-
-			case "keyDown":
-				ev.type = SDL_KEYDOWN;
-				ev.key.keysym.sym = cast(int)checkIntParam(t, 2);
-				ev.key.keysym.mod = cast(int)checkIntParam(t, 3);
-				ev.key.keysym.unicode = optCharParam(t, 4, '\0');
-				return;
-
-			case "keyUp":
-				ev.type = SDL_KEYUP;
-				ev.key.keysym.sym = cast(int)checkIntParam(t, 2);
-				ev.key.keysym.mod = cast(int)checkIntParam(t, 3);
-				return;
-
-			case "mouseMotion":
-				ev.type = SDL_MOUSEMOTION;
-				ev.motion.x = cast(ushort)checkIntParam(t, 2);
-				ev.motion.y = cast(ushort)checkIntParam(t, 3);
-				ev.motion.xrel = cast(short)checkIntParam(t, 4);
-				ev.motion.yrel = cast(short)checkIntParam(t, 5);
-				return;
-
-			case "mouseDown":
-				ev.type = SDL_MOUSEBUTTONDOWN;
-				ev.button.button = cast(ubyte)checkIntParam(t, 2);
-				return;
-
-			case "mouseUp":
-				ev.type = SDL_MOUSEBUTTONUP;
-				ev.button.button = cast(ubyte)checkIntParam(t, 2);
-				return;
-
-			case "joyAxis":
-				ev.type = SDL_JOYAXISMOTION;
-				ev.jaxis.which = cast(ubyte)checkIntParam(t, 2);
-				ev.jaxis.axis = cast(ubyte)checkIntParam(t, 3);
-				ev.jaxis.value = cast(short)checkIntParam(t, 4);
-				return;
-
-			case "joyBall":
-				ev.type = SDL_JOYBALLMOTION;
-				ev.jball.which = cast(ubyte)checkIntParam(t, 2);
-				ev.jball.ball = cast(ubyte)checkIntParam(t, 3);
-				ev.jball.xrel = cast(short)checkIntParam(t, 4);
-				ev.jball.yrel = cast(short)checkIntParam(t, 5);
-				return;
-
-			case "joyHat":
-				ev.type = SDL_JOYHATMOTION;
-				ev.jhat.which = cast(ubyte)checkIntParam(t, 2);
-				ev.jhat.hat = cast(ubyte)checkIntParam(t, 3);
-				ev.jhat.value = cast(ubyte)checkIntParam(t, 4);
-				return;
-
-			case "joyButtonDown":
-				ev.type = SDL_JOYBUTTONDOWN;
-				ev.jbutton.which = cast(ubyte)checkIntParam(t, 2);
-				ev.jbutton.button = cast(ubyte)checkIntParam(t, 3);
-				return;
-
-			case "joyButtonUp":
-				ev.type = SDL_JOYBUTTONUP;
-				ev.jbutton.which = cast(ubyte)checkIntParam(t, 2);
-				ev.jbutton.button = cast(ubyte)checkIntParam(t, 3);
-				return;
-
-			case "quit":
-				ev.type = SDL_QUIT;
-				return;
-
-			case "resize":
-				ev.type = SDL_VIDEORESIZE;
-				ev.resize.w = cast(int)checkIntParam(t, 2);
-				ev.resize.h = cast(int)checkIntParam(t, 3);
-				return;
-
-			case "expose":
-				ev.type = SDL_VIDEOEXPOSE;
-				return;
-
-			default:
-				throwStdException(t, "ValueException", "Invalid event name: '{}'", name);
-		}
-	}
-
-	uword evtPump(CrocThread* t)
-	{
-		SDL_PumpEvents();
-		return 0;
-	}
-
-	uword evtPoll(CrocThread* t)
-	{
-		SDL_Event ev = void;
-
-		while(SDL_PollEvent(&ev))
-		{
-			if(auto ret = pushEvent(t, ev))
-				return ret;
-		}
-
-		return 0;
-	}
-
-	uword evtWait(CrocThread* t)
-	{
-		SDL_Event ev = void;
-
-		while(SDL_WaitEvent(&ev) != 0)
-		{
-			if(auto ret = pushEvent(t, ev))
-				return ret;
-		}
-
-		throwNamedException(t, "SdlException", "Error waiting for event: {}", fromStringz(SDL_GetError()));
-		return 0;
-	}
-
-	uword evtPush(CrocThread* t)
-	{
-		SDL_Event ev;
-		popEvent(t, ev);
-		checkError(t, SDL_PushEvent(&ev), "Could not push event");
-		return 0;
-	}
-
-	uword evtEnableUnicode(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-
-		if(numParams == 0)
-		{
-			pushInt(t, SDL_EnableUNICODE(-1));
-			return 1;
-		}
-		else
-		{
-			SDL_EnableUNICODE(cast(int)checkBoolParam(t, 1));
-			return 0;
-		}
-	}
-
-	uword evtKeyRepeat(CrocThread* t)
-	{
-		auto delay = optIntParam(t, 1, SDL_DEFAULT_REPEAT_DELAY);
-		auto interval = optIntParam(t, 2, SDL_DEFAULT_REPEAT_INTERVAL);
-		checkError(t, SDL_EnableKeyRepeat(cast(int)delay, cast(int)interval), "Could not set key repeat");
-		return 0;
-	}
-
-	uword joyCount(CrocThread* t)
-	{
-		pushInt(t, SDL_NumJoysticks());
-		return 1;
-	}
-
-	uword joyOpen(CrocThread* t)
-	{
-		auto idx = cast(int)checkIntParam(t, 1);
-
-		if(SDL_JoystickOpened(idx))
-			return 0;
-
-		if(SDL_JoystickOpen(idx) is null)
-			throwNamedException(t, "SdlException", "Could not open joystick {}: {}", idx, fromStringz(SDL_GetError()));
-
-		return 0;
-	}
-
-	uword joyClose(CrocThread* t)
-	{
-		auto idx = cast(int)checkIntParam(t, 1);
-
-		if(SDL_JoystickOpened(idx))
-		{
-			auto j = SDL_JoystickOpen(idx);
-
-			// Yes, twice. Why? Cause SDL seems to keep a ref count of how many times you've opened a joystick, and since we
-			// called open on this stick before, it's ref was already at 1, and now it's at 2. So we close it twice.
-			SDL_JoystickClose(j);
-			SDL_JoystickClose(j);
-		}
-
-		return 0;
-	}
-
-	uword joyIsOpen(CrocThread* t)
-	{
-		auto idx = cast(int)checkIntParam(t, 1);
-		pushBool(t, cast(bool)SDL_JoystickOpened(idx));
-		return 1;
-	}
-
-	uword joyInfo(CrocThread* t)
-	{
-		auto idx = cast(int)checkIntParam(t, 1);
-
-		if(auto ret = SDL_JoystickName(idx))
-		{
-			pushString(t, fromStringz(ret));
-
-			auto j = SDL_JoystickOpen(idx);
-			pushInt(t, SDL_JoystickNumAxes(j));
-			pushInt(t, SDL_JoystickNumButtons(j));
-			pushInt(t, SDL_JoystickNumHats(j));
-			pushInt(t, SDL_JoystickNumBalls(j));
-			SDL_JoystickClose(j);
-
+				pushChar(t, '\0');
+
+			return 4;
+
+		case SDL_KEYUP:
+			pushString(t, "keyUp");
+			pushInt(t, ev.key.keysym.sym);
+			pushInt(t, ev.key.keysym.mod);
+			return 3;
+
+		case SDL_MOUSEMOTION:
+			pushString(t, "mouseMotion");
+			pushInt(t, ev.motion.x);
+			pushInt(t, ev.motion.y);
+			pushInt(t, ev.motion.xrel);
+			pushInt(t, ev.motion.yrel);
 			return 5;
-		}
 
-		throwNamedException(t, "SdlException", "Could not get info of joystick {}: {}", idx, fromStringz(SDL_GetError()));
-		return 0;
-	}
+		case SDL_MOUSEBUTTONDOWN:
+			pushString(t, "mouseDown");
+			pushInt(t, ev.button.button);
+			return 2;
 
-	uword joyEnableEvents(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
+		case SDL_MOUSEBUTTONUP:
+			pushString(t, "mouseUp");
+			pushInt(t, ev.button.button);
+			return 2;
 
-		if(numParams == 0)
-		{
-			pushBool(t, SDL_JoystickEventState(SDL_QUERY) == SDL_ENABLE);
+		case SDL_JOYAXISMOTION:
+			pushString(t, "joyAxis");
+			pushInt(t, ev.jaxis.which);
+			pushInt(t, ev.jaxis.axis);
+			pushInt(t, ev.jaxis.value);
+			return 4;
+
+		case SDL_JOYBALLMOTION:
+			pushString(t, "joyBall");
+			pushInt(t, ev.jball.which);
+			pushInt(t, ev.jball.ball);
+			pushInt(t, ev.jball.xrel);
+			pushInt(t, ev.jball.yrel);
+			return 5;
+
+		case SDL_JOYHATMOTION:
+			pushString(t, "joyHat");
+			pushInt(t, ev.jhat.which);
+			pushInt(t, ev.jhat.hat);
+			pushInt(t, ev.jhat.value);
+			return 4;
+
+		case SDL_JOYBUTTONDOWN:
+			pushString(t, "joyButtonDown");
+			pushInt(t, ev.jbutton.which);
+			pushInt(t, ev.jbutton.button);
+			return 3;
+
+		case SDL_JOYBUTTONUP:
+			pushString(t, "joyButtonUp");
+			pushInt(t, ev.jbutton.which);
+			pushInt(t, ev.jbutton.button);
+			return 3;
+
+		case SDL_QUIT:
+			pushString(t, "quit");
 			return 1;
-		}
-		else
-		{
-			SDL_JoystickEventState(checkBoolParam(t, 1) ? SDL_ENABLE : SDL_DISABLE);
+
+		case SDL_VIDEORESIZE:
+			pushString(t, "resize");
+			pushInt(t, ev.resize.w);
+			pushInt(t, ev.resize.h);
+			return 3;
+
+		case SDL_VIDEOEXPOSE:
+			pushString(t, "expose");
+			return 1;
+
+		default:
 			return 0;
-		}
-	}
-
-	uword imgInit(CrocThread* t)
-	{
-		auto flags = cast(int)checkIntParam(t, 1);
-		IMG_Init(flags);
-		return 0;
-	}
-
-	uword imgQuit(CrocThread* t)
-	{
-		IMG_Quit();
-		return 0;
-	}
-
-	uword imgLoad(CrocThread* t)
-	{
-		auto name = checkStringParam(t, 1);
-		auto sfc = IMG_Load(toStringz(name));
-
-		if(sfc is null)
-			throwNamedException(t, "SdlException", "Error loading image '{}': {}", name, fromStringz(SDL_GetError()));
-
-		lookup(t, "SdlSurface");
-		pushNull(t);
-		rawCall(t, -2, 1);
-
-		auto psfc = cast(SDL_Surface**)getExtraBytes(t, -1).ptr;
-		*psfc = sfc;
-
-		return 1;
 	}
 }
+
+void _popEvent(CrocThread* t, ref SDL_Event ev)
+{
+	auto name = checkStringParam(t, 1);
+
+	switch(name)
+	{
+		case "active":
+			ev.type = SDL_ACTIVEEVENT;
+			ev.active.gain = checkBoolParam(t, 2);
+			ev.active.state = cast(ubyte)checkIntParam(t, 3);
+			return;
+
+		case "keyDown":
+			ev.type = SDL_KEYDOWN;
+			ev.key.keysym.sym = cast(int)checkIntParam(t, 2);
+			ev.key.keysym.mod = cast(int)checkIntParam(t, 3);
+			ev.key.keysym.unicode = optCharParam(t, 4, '\0');
+			return;
+
+		case "keyUp":
+			ev.type = SDL_KEYUP;
+			ev.key.keysym.sym = cast(int)checkIntParam(t, 2);
+			ev.key.keysym.mod = cast(int)checkIntParam(t, 3);
+			return;
+
+		case "mouseMotion":
+			ev.type = SDL_MOUSEMOTION;
+			ev.motion.x = cast(ushort)checkIntParam(t, 2);
+			ev.motion.y = cast(ushort)checkIntParam(t, 3);
+			ev.motion.xrel = cast(short)checkIntParam(t, 4);
+			ev.motion.yrel = cast(short)checkIntParam(t, 5);
+			return;
+
+		case "mouseDown":
+			ev.type = SDL_MOUSEBUTTONDOWN;
+			ev.button.button = cast(ubyte)checkIntParam(t, 2);
+			return;
+
+		case "mouseUp":
+			ev.type = SDL_MOUSEBUTTONUP;
+			ev.button.button = cast(ubyte)checkIntParam(t, 2);
+			return;
+
+		case "joyAxis":
+			ev.type = SDL_JOYAXISMOTION;
+			ev.jaxis.which = cast(ubyte)checkIntParam(t, 2);
+			ev.jaxis.axis = cast(ubyte)checkIntParam(t, 3);
+			ev.jaxis.value = cast(short)checkIntParam(t, 4);
+			return;
+
+		case "joyBall":
+			ev.type = SDL_JOYBALLMOTION;
+			ev.jball.which = cast(ubyte)checkIntParam(t, 2);
+			ev.jball.ball = cast(ubyte)checkIntParam(t, 3);
+			ev.jball.xrel = cast(short)checkIntParam(t, 4);
+			ev.jball.yrel = cast(short)checkIntParam(t, 5);
+			return;
+
+		case "joyHat":
+			ev.type = SDL_JOYHATMOTION;
+			ev.jhat.which = cast(ubyte)checkIntParam(t, 2);
+			ev.jhat.hat = cast(ubyte)checkIntParam(t, 3);
+			ev.jhat.value = cast(ubyte)checkIntParam(t, 4);
+			return;
+
+		case "joyButtonDown":
+			ev.type = SDL_JOYBUTTONDOWN;
+			ev.jbutton.which = cast(ubyte)checkIntParam(t, 2);
+			ev.jbutton.button = cast(ubyte)checkIntParam(t, 3);
+			return;
+
+		case "joyButtonUp":
+			ev.type = SDL_JOYBUTTONUP;
+			ev.jbutton.which = cast(ubyte)checkIntParam(t, 2);
+			ev.jbutton.button = cast(ubyte)checkIntParam(t, 3);
+			return;
+
+		case "quit":
+			ev.type = SDL_QUIT;
+			return;
+
+		case "resize":
+			ev.type = SDL_VIDEORESIZE;
+			ev.resize.w = cast(int)checkIntParam(t, 2);
+			ev.resize.h = cast(int)checkIntParam(t, 3);
+			return;
+
+		case "expose":
+			ev.type = SDL_VIDEOEXPOSE;
+			return;
+
+		default:
+			throwStdException(t, "ValueException", "Invalid event name: '{}'", name);
+	}
+}
+
+uword _evtPump(CrocThread* t)
+{
+	SDL_PumpEvents();
+	return 0;
+}
+
+uword _evtPoll(CrocThread* t)
+{
+	SDL_Event ev = void;
+
+	while(SDL_PollEvent(&ev))
+	{
+		if(auto ret = _pushEvent(t, ev))
+			return ret;
+	}
+
+	return 0;
+}
+
+uword _evtWait(CrocThread* t)
+{
+	SDL_Event ev = void;
+
+	while(SDL_WaitEvent(&ev) != 0)
+	{
+		if(auto ret = _pushEvent(t, ev))
+			return ret;
+	}
+
+	throwNamedException(t, "SdlException", "Error waiting for event: {}", fromStringz(SDL_GetError()));
+	return 0;
+}
+
+uword _evtPush(CrocThread* t)
+{
+	SDL_Event ev;
+	_popEvent(t, ev);
+	checkError(t, SDL_PushEvent(&ev), "Could not push event");
+	return 0;
+}
+
+uword _evtEnableUnicode(CrocThread* t)
+{
+	auto numParams = stackSize(t) - 1;
+
+	if(numParams == 0)
+	{
+		pushInt(t, SDL_EnableUNICODE(-1));
+		return 1;
+	}
+	else
+	{
+		SDL_EnableUNICODE(cast(int)checkBoolParam(t, 1));
+		return 0;
+	}
+}
+
+uword _evtKeyRepeat(CrocThread* t)
+{
+	auto delay = optIntParam(t, 1, SDL_DEFAULT_REPEAT_DELAY);
+	auto interval = optIntParam(t, 2, SDL_DEFAULT_REPEAT_INTERVAL);
+	checkError(t, SDL_EnableKeyRepeat(cast(int)delay, cast(int)interval), "Could not set key repeat");
+	return 0;
+}
+
+// =====================================================================================================================
+// Joystick stuff
+
+const RegisterFunc[] _joyFuncs =
+[
+	{"count",        &_joyCount,        maxParams: 0},
+	{"open",         &_joyOpen,         maxParams: 1},
+	{"close",        &_joyClose,        maxParams: 1},
+	{"isOpen",       &_joyIsOpen,       maxParams: 1},
+	{"info",         &_joyInfo,         maxParams: 1},
+	{"enableEvents", &_joyEnableEvents, maxParams: 1},
+];
+
+uword _joyCount(CrocThread* t)
+{
+	pushInt(t, SDL_NumJoysticks());
+	return 1;
+}
+
+uword _joyOpen(CrocThread* t)
+{
+	auto idx = cast(int)checkIntParam(t, 1);
+
+	if(SDL_JoystickOpened(idx))
+		return 0;
+
+	if(SDL_JoystickOpen(idx) is null)
+		throwNamedException(t, "SdlException", "Could not open joystick {}: {}", idx, fromStringz(SDL_GetError()));
+
+	return 0;
+}
+
+uword _joyClose(CrocThread* t)
+{
+	auto idx = cast(int)checkIntParam(t, 1);
+
+	if(SDL_JoystickOpened(idx))
+	{
+		auto j = SDL_JoystickOpen(idx);
+
+		// Yes, twice. Why? Cause SDL seems to keep a ref count of how many times you've opened a joystick, and since we
+		// called open on this stick before, it's ref was already at 1, and now it's at 2. So we close it twice.
+		SDL_JoystickClose(j);
+		SDL_JoystickClose(j);
+	}
+
+	return 0;
+}
+
+uword _joyIsOpen(CrocThread* t)
+{
+	auto idx = cast(int)checkIntParam(t, 1);
+	pushBool(t, cast(bool)SDL_JoystickOpened(idx));
+	return 1;
+}
+
+uword _joyInfo(CrocThread* t)
+{
+	auto idx = cast(int)checkIntParam(t, 1);
+
+	if(auto ret = SDL_JoystickName(idx))
+	{
+		pushString(t, fromStringz(ret));
+
+		auto j = SDL_JoystickOpen(idx);
+		pushInt(t, SDL_JoystickNumAxes(j));
+		pushInt(t, SDL_JoystickNumButtons(j));
+		pushInt(t, SDL_JoystickNumHats(j));
+		pushInt(t, SDL_JoystickNumBalls(j));
+		SDL_JoystickClose(j);
+
+		return 5;
+	}
+
+	throwNamedException(t, "SdlException", "Could not get info of joystick {}: {}", idx, fromStringz(SDL_GetError()));
+	return 0;
+}
+
+uword _joyEnableEvents(CrocThread* t)
+{
+	auto numParams = stackSize(t) - 1;
+
+	if(numParams == 0)
+	{
+		pushBool(t, SDL_JoystickEventState(SDL_QUERY) == SDL_ENABLE);
+		return 1;
+	}
+	else
+	{
+		SDL_JoystickEventState(checkBoolParam(t, 1) ? SDL_ENABLE : SDL_DISABLE);
+		return 0;
+	}
+}
+
+// =====================================================================================================================
+// Image stuff
+
+const RegisterFunc[] _imageFuncs =
+[
+	{"init", &_imgInit, maxParams: 1},
+	{"quit", &_imgQuit, maxParams: 0},
+	{"load", &_imgLoad, maxParams: 1},
+];
+
+const RegisterConst[] _imageConsts =
+[
+	{"initJPG", IMG_INIT_JPG },
+	{"initPNG", IMG_INIT_PNG },
+	{"initTIF", IMG_INIT_TIF },
+	{"initAll", IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF },
+];
+
+const SdlImagePtr = "sdl.image.ptr";
+
+uword _imgInit(CrocThread* t)
+{
+	auto flags = cast(int)checkIntParam(t, 1);
+	IMG_Init(flags);
+	return 0;
+}
+
+uword _imgQuit(CrocThread* t)
+{
+	IMG_Quit();
+	return 0;
+}
+
+uword _imgLoad(CrocThread* t)
+{
+	auto name = checkStringParam(t, 1);
+	auto sfc = IMG_Load(toStringz(name));
+
+	if(sfc is null)
+		throwNamedException(t, "SdlException", "Error loading image '{}': {}", name, fromStringz(SDL_GetError()));
+
+	pushInt(t, cast(crocint)sfc);
+	setRegistryVar(t, SdlImagePtr);
+
+	lookup(t, "SdlSurface");
+	pushNull(t);
+	return rawCall(t, -2, 1);
+}
+
+// =====================================================================================================================
+// class SdlSurface
 
 struct SdlSurfaceObj
 {
 static:
+	class Holder
+	{
+		SDL_Surface* ptr;
+		this(SDL_Surface* ptr) { this.ptr = ptr; }
+	}
+
+	const Ptr = "SdlSurface__ptr";
+
 	void init(CrocThread* t)
 	{
 		CreateClass(t, "SdlSurface", (CreateClass* c)
 		{
-			c.method("constructor", &constructor);
-			c.method("width",       &width);
-			c.method("height",      &height);
-			c.method("pitch",       &pitch);
-			c.method("format",      &format);
-			c.method("pixels",      &pixels);
-			c.method("lock",        &lock);
-			c.method("unlock",      &unlock);
-			c.method("free",        &free);
+			pushInt(t, 0); c.field("__ptr");
+
+			c.method("constructor", &_constructor);
+			c.method("finalizer",   &_finalizer);
+			c.method("width",       &_width);
+			c.method("height",      &_height);
+			c.method("pitch",       &_pitch);
+			c.method("format",      &_format);
+			c.method("pixels",      &_pixels);
+			c.method("lock",        &_lock);
+			c.method("unlock",      &_unlock);
+			c.method("free",        &_free);
 		});
-
-		newFunction(t, &allocator, "SdlSurface.allocator");
-		setAllocator(t, -2);
-
-		newFunction(t, &finalizer, "SdlSurface.finalizer");
-		setFinalizer(t, -2);
 
 		newGlobal(t, "SdlSurface");
 	}
 
-	SDL_Surface* getThis(CrocThread* t)
+	SDL_Surface* _getThis(CrocThread* t)
 	{
-		auto ret = *(cast(SDL_Surface**)getExtraBytes(t, 0).ptr);
+		field(t, 0, Ptr);
+		auto ret = cast(SDL_Surface*)getInt(t, -1);
+		pop(t);
 
 		if(ret is null)
 			throwStdException(t, "StateException", "Attempting to call a method on a freed surface");
@@ -766,57 +844,66 @@ static:
 		return ret;
 	}
 
-	uword allocator(CrocThread* t)
+	uword _constructor(CrocThread* t)
 	{
-		newInstance(t, 0, 0, (SDL_Surface*).sizeof);
-		*(cast(SDL_Surface**)getExtraBytes(t, -1).ptr) = null;
+		auto reg = getRegistry(t);
 
-		dup(t);
-		pushNull(t);
-		rotateAll(t, 3);
-		methodCall(t, 2, "constructor", 0);
-		return 1;
+		if(hasField(t, reg, SdlImagePtr))
+		{
+			field(t, reg, SdlImagePtr);
+			auto ptr = cast(SDL_Surface*)getInt(t, -1);
+
+			if(ptr !is null)
+			{
+				dup(t);
+				fielda(t, 0, Ptr);
+				pushInt(t, 0);
+				fielda(t, reg, SdlImagePtr);
+				return 0;
+			}
+		}
+
+		throwStdException(t, "StateException", "Attempting to instantiate SdlSurface directly; use sdl.image.load");
+		assert(false);
 	}
 
-	uword finalizer(CrocThread* t)
+	uword _finalizer(CrocThread* t)
 	{
-		auto psfc = cast(SDL_Surface**)getExtraBytes(t, 0).ptr;
+		field(t, 0, Ptr);
+		auto sfc = cast(SDL_Surface*)getInt(t, -1);
+		pop(t);
 
-		if(*psfc)
+		if(sfc)
 		{
-			SDL_FreeSurface(*psfc);
-			*psfc = null;
+			SDL_FreeSurface(sfc);
+			pushInt(t, 0);
+			fielda(t, 0, Ptr);
 		}
 
 		return 0;
 	}
 
-	uword constructor(CrocThread* t)
+	uword _width(CrocThread* t)
 	{
-		return 0;
-	}
-
-	uword width(CrocThread* t)
-	{
-		pushInt(t, getThis(t).w);
+		pushInt(t, _getThis(t).w);
 		return 1;
 	}
 
-	uword height(CrocThread* t)
+	uword _height(CrocThread* t)
 	{
-		pushInt(t, getThis(t).h);
+		pushInt(t, _getThis(t).h);
 		return 1;
 	}
 
-	uword pitch(CrocThread* t)
+	uword _pitch(CrocThread* t)
 	{
-		pushInt(t, getThis(t).pitch);
+		pushInt(t, _getThis(t).pitch);
 		return 1;
 	}
 
-	uword format(CrocThread* t)
+	uword _format(CrocThread* t)
 	{
-		auto f = getThis(t).format;
+		auto f = _getThis(t).format;
 
 		newTable(t);
 		pushInt(t, f.BytesPerPixel); fielda(t, -2, "bpp");
@@ -828,47 +915,54 @@ static:
 		pushInt(t, f.Gmask);         fielda(t, -2, "gmask");
 		pushInt(t, f.Bmask);         fielda(t, -2, "bmask");
 		pushInt(t, f.Amask);         fielda(t, -2, "amask");
+		pushInt(t, f.Rloss);         fielda(t, -2, "rloss");
+		pushInt(t, f.Gloss);         fielda(t, -2, "gloss");
+		pushInt(t, f.Bloss);         fielda(t, -2, "bloss");
+		pushInt(t, f.Aloss);         fielda(t, -2, "aloss");
 		return 1;
 	}
 
-	uword pixels(CrocThread* t)
+	uword _pixels(CrocThread* t)
 	{
-		pushInt(t, cast(crocint)getThis(t).pixels);
+		pushInt(t, cast(crocint)_getThis(t).pixels);
 		return 1;
 	}
 
-	uword lock(CrocThread* t)
+	uword _lock(CrocThread* t)
 	{
-		auto s = getThis(t);
+		auto s = _getThis(t);
 
 		if(SDL_LockSurface(s) < 0)
 			throwNamedException(t, "SdlException", "Could not lock surface: {}", fromStringz(SDL_GetError()));
 
-		memblockViewDArray(t, (cast(ubyte*)s.pixels)[0 .. s.w * s.h * s.format.BytesPerPixel]);
+		memblockViewNativeArray(t, (cast(ubyte*)s.pixels)[0 .. s.pitch * s.h]);
 		return 1;
 	}
 
-	uword unlock(CrocThread* t)
+	uword _unlock(CrocThread* t)
 	{
-		SDL_UnlockSurface(getThis(t));
+		SDL_UnlockSurface(_getThis(t));
 		return 0;
 	}
 
-	uword free(CrocThread* t)
+	uword _free(CrocThread* t)
 	{
-		auto psfc = cast(SDL_Surface**)getExtraBytes(t, 0).ptr;
+		field(t, 0, Ptr);
+		auto sfc = cast(SDL_Surface*)getInt(t, -1);
+		pop(t);
 
-		if(*psfc)
+		if(sfc)
 		{
-			SDL_FreeSurface(*psfc);
-			*psfc = null;
+			SDL_FreeSurface(sfc);
+			pushInt(t, 0);
+			fielda(t, 0, Ptr);
 		}
 
 		return 0;
 	}
 }
 
-private void pushKeyNamespace(CrocThread* t)
+void _pushKeyNamespace(CrocThread* t)
 {
 	newNamespace(t, "key");
 
