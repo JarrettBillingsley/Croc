@@ -25,6 +25,7 @@ subject to the following restrictions:
 
 module croc.stdlib_memblock;
 
+import tango.core.Array;
 import tango.core.Traits;
 import tango.math.Math;
 import tango.stdc.string;
@@ -162,6 +163,10 @@ const RegisterFunc[] _methodFuncs =
 	{"writeFloat64", &_rawWrite!(double),  maxParams: 2},
 	{"copy",         &_copy,               maxParams: 4},
 	{"compare",      &_compare,            maxParams: 4},
+	{"findItem",     &_findItem,           maxParams: 2},
+	{"rfindItem",    &_rfindItem,          maxParams: 2},
+	{"find",         &_find,               maxParams: 2},
+	{"rfind",        &_rfind,              maxParams: 2},
 	{"opEquals",     &_opEquals,           maxParams: 1},
 	{"opCmp",        &_opCmp,              maxParams: 1},
 	{"opCat",        &_opCat,              maxParams: 1},
@@ -327,6 +332,76 @@ uword _compare(CrocThread* t)
 	pushInt(t, memcmp(lhsPtr, rhsPtr, cast(uword)size));
 	return 1;
 }
+
+uword _commonFindItem(bool reverse)(CrocThread* t)
+{
+	// Source (search) memblock
+	checkParam(t, 0, CrocValue.Type.Memblock);
+	auto src = getMemblock(t, 0);
+
+	// Item to search for
+	auto item = checkIntParam(t, 1);
+
+	if(item < 0 || item > 255)
+		throwStdException(t, "RangeException", "Invalid search value: {}", item);
+
+	// Start index
+	static if(reverse)
+		auto start = optIntParam(t, 2, src.data.length - 1);
+	else
+		auto start = optIntParam(t, 2, 0);
+
+	if(start < 0)
+		start += src.data.length;
+
+	if(start < 0 || start > src.data.length)
+		throwStdException(t, "BoundsException", "Invalid start index {}", start);
+
+	// Search
+	static if(reverse)
+		pushInt(t, src.data[0 .. cast(uword)start].rfind(cast(ubyte)item));
+	else
+		pushInt(t, src.data[cast(uword)start .. $].find(cast(ubyte)item) + start);
+
+	return 1;
+}
+
+alias _commonFindItem!(false) _findItem;
+alias _commonFindItem!(true) _rfindItem;
+
+uword _commonFind(bool reverse)(CrocThread* t)
+{
+	// Source (search) memblock
+	checkParam(t, 0, CrocValue.Type.Memblock);
+	auto src = getMemblock(t, 0);
+
+	// Pattern to search for
+	checkParam(t, 1, CrocValue.Type.Memblock);
+	auto pat = getMemblock(t, 1);
+
+	// Start index
+	static if(reverse)
+		auto start = optIntParam(t, 2, src.data.length - 1);
+	else
+		auto start = optIntParam(t, 2, 0);
+
+	if(start < 0)
+		start += src.data.length;
+
+	if(start < 0 || start > src.data.length)
+		throwStdException(t, "BoundsException", "Invalid start index {}", start);
+
+	// Search
+	static if(reverse)
+		pushInt(t, src.data[0 .. cast(uword)start].rfind(pat.data));
+	else
+		pushInt(t, src.data[cast(uword)start .. $].find(pat.data) + start);
+
+	return 1;
+}
+
+alias _commonFind!(false) _find;
+alias _commonFind!(true) _rfind;
 
 uword _opEquals(CrocThread* t)
 {
