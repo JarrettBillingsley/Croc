@@ -45,30 +45,15 @@ public:
 
 void initDocsLib(CrocThread* t)
 {
-	auto docs = importModuleFromString(t, "docs", docsSource, "docs.croc");
+	newTable(t);
+		registerFields(t, _funcs);
+	newGlobal(t, "_docstmp");
 
-	// docs.processComment = _doc_(<d func>, docs.docsOf(docs.processComment))
-	auto f = pushGlobal(t, "_doc_");
-	pushNull(t);
-	newFunction(t, 2, &_processComment, "processComment");
-	lookup(t, "docs.docsOf");
-	pushNull(t);
-	lookup(t, "docs.processComment");
-	rawCall(t, -3, 1);
-	rawCall(t, f, 1);
-	fielda(t, docs, "processComment");
+	importModuleFromStringNoNS(t, "docs", docsSource, "docs.croc");
 
-	// docs.parseCommentText = _doc_(<d func>, docs.docsOf(docs.parseCommentText))
-	f = pushGlobal(t, "_doc_");
-	pushNull(t);
-	newFunction(t, 2, &_parseCommentText, "parseCommentText");
-	lookup(t, "docs.docsOf");
-	pushNull(t);
-	lookup(t, "docs.parseCommentText");
-	rawCall(t, -3, 1);
-	rawCall(t, f, 1);
-	fielda(t, docs, "parseCommentText");
-
+	pushGlobal(t, "_G");
+	pushString(t, "_docstmp");
+	removeKey(t, -2);
 	pop(t);
 }
 
@@ -77,6 +62,12 @@ void initDocsLib(CrocThread* t)
 // ================================================================================================================================================
 
 private:
+
+const RegisterFunc[] _funcs =
+[
+	{"processComment",   &_processComment,   maxParams: 2},
+	{"parseCommentText", &_parseCommentText, maxParams: 2},
+];
 
 uword _processComment(CrocThread* t)
 {
@@ -116,6 +107,7 @@ import exceptions:
 	NotImplementedException
 
 local docTables = {}
+local _processComment, _parseCommentText = _docstmp.processComment, _docstmp.parseCommentText
 
 // Neat: we can actually use doc comments on _doc_ because of the way decorators work. The global _doc_ is
 // defined before the decorator is called. So _doc_ can be used on itself!
@@ -197,7 +189,8 @@ extra kind-specific members as defined in the doc comment spec), but there must 
 \throws[exceptions.SyntaxException] if parsing the comment failed. Note that in this case the \tt{doctable} may be
 partially filled-in.
 */
-function processComment(comment: string, doctable: table) {} // Dummy function which will be replaced after loading
+function processComment(comment: string, doctable: table) =
+	_processComment(comment, doctable)
 
 /**
 Takes a string containing Croc doc comment markup, and parses it into a paragraph list.
@@ -209,7 +202,8 @@ commands are not allowed to appear in the text. Span and text structure commands
 \returns an array which is a paragraph list as defined in the doc comment spec.
 \throws[exceptions.SyntaxException] if parsing failed.
 */
-function parseCommentText(comment: string) {} // Dummy function which will be replaced after loading
+function parseCommentText(comment: string) =
+	_parseCommentText(comment)
 
 /**
 This class defines a default behavior for mapping documentation links (made with the \tt{\\link} command) to the things
