@@ -151,8 +151,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	// Safe libs
 	initBaseLib(t);
 	initStringLib(t);
-	HashLib.init(t);
-	initDocsLib(t); // depends on hash (needs weak table to hold docs)
+	initDocsLib(t); // implicitly depends on the stringlib because of how ex_doccomments is implemented
 
 	// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later.. OR IS IT)
 	version(CrocBuiltinDocs)
@@ -162,10 +161,10 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 		docGCLib(t);
 		docBaseLib(t);
 		docStringLib(t);
-		// docHashLib(t);
 	}
 
 	// Finish up the safe libs.
+	HashLib.init(t);
 	MathLib.init(t);
 	initObjectLib(t);
 	initMemblockLib(t);

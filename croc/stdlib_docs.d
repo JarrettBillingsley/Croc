@@ -115,9 +115,7 @@ import exceptions:
 	ValueException,
 	NotImplementedException
 
-import hash: WeakKeyTable
-
-local docTables = WeakKeyTable()
+local docTables = {}
 
 // Neat: we can actually use doc comments on _doc_ because of the way decorators work. The global _doc_ is
 // defined before the decorator is called. So _doc_ can be used on itself!
