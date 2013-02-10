@@ -1807,10 +1807,17 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 
 				for(; idx < endSlot; idx++)
 				{
-					if(stack[idx].type == CrocValue.Type.String)
-						len += stack[idx].mString.length;
-					else
+					auto val = &stack[idx];
+
+					if(val.type != CrocValue.Type.String)
 						break;
+
+					len += val.mString.length;
+
+					// fucking dmd
+					// seriously this is because with -O, DMD optimizes out the += above
+					// I can't get it to evaluate that statement unless I use 'len' after it.
+					debug{}else auto dummy = len;
 				}
 
 				if(idx > (slot + 1))
@@ -1987,7 +1994,6 @@ void arrayConcat(CrocThread* t, CrocValue[] vals, uword len)
 void stringConcat(CrocThread* t, CrocValue first, CrocValue[] vals, uword len)
 {
 	auto tmpBuffer = t.vm.alloc.allocArray!(char)(len);
-	scope(exit) t.vm.alloc.freeArray(tmpBuffer);
 	uword i = 0;
 
 	void add(ref CrocValue v)
@@ -2003,6 +2009,7 @@ void stringConcat(CrocThread* t, CrocValue first, CrocValue[] vals, uword len)
 		add(v);
 
 	vals[$ - 1] = createString(t, tmpBuffer);
+	t.vm.alloc.freeArray(tmpBuffer);
 }
 
 void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)

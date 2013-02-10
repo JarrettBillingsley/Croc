@@ -76,7 +76,6 @@ Flags:
         is of the form -name, then stdin will be read, but the name
         following the dash will be used as the filename of the module.
 ";
-/+ fff" +/
 
 const char[] LongUsage =
 "croci can be run in two modes: file mode or interactive mode.
