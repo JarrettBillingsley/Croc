@@ -261,7 +261,7 @@ debug
 package:
 
 // don't call this if t.calldepth == 0 or with depth >= t.calldepth
-// returns null if the given index is a tailcall
+// returns null if the given index is a tailcall or if depth is deeper than the current call depth
 ActRecord* getActRec(CrocThread* t, uword depth)
 {
 	assert(t.arIndex != 0);
@@ -279,7 +279,7 @@ ActRecord* getActRec(CrocThread* t, uword depth)
 		depth -= (t.actRecs[cast(uword)idx].numTailcalls + 1);
 	}
 
-	assert(false);
+	return null;
 }
 
 int pcToLine(ActRecord* ar, Instruction* pc)

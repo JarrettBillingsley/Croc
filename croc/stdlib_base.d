@@ -35,6 +35,7 @@ alias tango.text.convert.Float.toFloat Float_toFloat;
 alias tango.text.convert.Integer.format Integer_format;
 alias tango.text.convert.Integer.toLong Integer_toLong;
 
+import croc.api_debug;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
@@ -290,9 +291,10 @@ uword _bindMethod(CrocThread* t)
 	checkStringParam(t, 2);
 	auto name = getStringObj(t, 2);
 
+	auto AR = getActRec(t, 1);
 	auto slot = classobj.getMethod(cls, name);
 
-	if(slot.value.privacy !is Privacy.Public)
+	if(!checkAccess(slot.value, AR))
 	{
 		throwStdException(t, "MethodException", "Attempting to bind method '{}' from outside class '{}'",
 			name.toString(), cls.name.toString());
