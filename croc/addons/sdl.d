@@ -412,7 +412,7 @@ uword _pushEvent(CrocThread* t, ref SDL_Event ev)
 			if(isValidChar(cast(dchar)ev.key.keysym.unicode))
 				pushChar(t, cast(dchar)ev.key.keysym.unicode);
 			else
-				pushChar(t, '\0');
+				pushString(t, "\0");
 
 			return 4;
 

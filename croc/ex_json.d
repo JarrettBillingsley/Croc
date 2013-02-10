@@ -205,12 +205,6 @@ void toJSON(CrocThread* t, word root, bool pretty, void delegate(char[]) output,
 				printf("{}", getFloat(t, idx));
 				break;
 
-			case CrocValue.Type.Char:
-				output("\"");
-				outputChar(getChar(t, idx));
-				output("\"");
-				break;
-
 			case CrocValue.Type.String:
 				output("\"");
 

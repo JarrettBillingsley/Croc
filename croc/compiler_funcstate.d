@@ -542,8 +542,6 @@ package:
 			val = v.asInt();
 		else if(v.isFloat())
 			val = v.asFloat();
-		else if(v.isChar())
-			val = v.asChar();
 		else if(v.isString())
 			val = createString(t, v.asString()); // this is safe, since v's string value is already held by the compiler's string table
 		else
@@ -555,7 +553,7 @@ package:
 			.push(t, val);
 			pushToString(t, -1);
 			insertAndPop(t, -2);
-			.pushChar(t, '\'');
+			.pushString(t, "'");
 			cat(t, 3);
 			c.semException(loc, getString(t, -1));
 		}
@@ -678,12 +676,6 @@ package:
 	void pushFloat(crocfloat value)
 	{
 		pushConst(addFloatConst(value));
-	}
-
-	// [] => [Const]
-	void pushChar(dchar value)
-	{
-		pushConst(addCharConst(value));
 	}
 
 	// [] => [Const]
@@ -1946,11 +1938,6 @@ private:
 		return addConst(CrocValue(x));
 	}
 
-	uint addCharConst(dchar x)
-	{
-		return addConst(CrocValue(x));
-	}
-
 	uint addStringConst(char[] s)
 	{
 		return addConst(CrocValue(createString(t, s)));
@@ -2433,7 +2420,6 @@ package:
 				case CrocValue.Type.Bool:   Stdout.formatln("\tConst {}: {}", i, c.mBool); break;
 				case CrocValue.Type.Int:    Stdout.formatln("\tConst {}: {}", i, c.mInt); break;
 				case CrocValue.Type.Float:  Stdout.formatln("\tConst {}: {:f6}f", i, c.mFloat); break;
-				case CrocValue.Type.Char:   Stdout.formatln("\tConst {}: '{}'", i, c.mChar); break;
 				case CrocValue.Type.String: Stdout.formatln("\tConst {}: \"{}\"", i, c.mString.toString()); break;
 				default: assert(false);
 			}

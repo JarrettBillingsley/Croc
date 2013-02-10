@@ -68,8 +68,8 @@ void initAsciiLib(CrocThread* t)
 		has been provided as a lightweight alternative, useful for quick programs and situations where perfect
 		multilingual string support is not needed.
 
-		Note that these functions (except for \link{isAscii}) will only work on ASCII strings. If passed strings or
-		characters which contain codepoints above U+00007F, they will throw an exception.`));
+		Note that these functions (except for \link{isAscii}) will only work on ASCII strings. If passed strings which
+		contain codepoints above U+00007F, they will throw an exception.`));
 
 		docFields(t, doc, _globalFuncDocs);
 		doc.pop(-1);
@@ -98,33 +98,25 @@ const RegisterFunc[] _globalFuncs =
 	{"toUpper",      &_toUpper,           maxParams: 1},
 	{"istartsWith",  &_istartsWith,       maxParams: 2},
 	{"iendsWith",    &_iendsWith,         maxParams: 2},
-	{"isAlpha",      &_isImpl!(isalpha),  maxParams: 1},
-	{"isAlNum",      &_isImpl!(isalnum),  maxParams: 1},
-	{"isLower",      &_isImpl!(islower),  maxParams: 1},
-	{"isUpper",      &_isImpl!(isupper),  maxParams: 1},
-	{"isDigit",      &_isImpl!(isdigit),  maxParams: 1},
-	{"isHexDigit",   &_isImpl!(isxdigit), maxParams: 1},
-	{"isCtrl",       &_isImpl!(iscntrl),  maxParams: 1},
-	{"isPunct",      &_isImpl!(ispunct),  maxParams: 1},
-	{"isSpace",      &_isImpl!(isspace),  maxParams: 1},
+	{"isAlpha",      &_isImpl!(isalpha),  maxParams: 2},
+	{"isAlNum",      &_isImpl!(isalnum),  maxParams: 2},
+	{"isLower",      &_isImpl!(islower),  maxParams: 2},
+	{"isUpper",      &_isImpl!(isupper),  maxParams: 2},
+	{"isDigit",      &_isImpl!(isdigit),  maxParams: 2},
+	{"isHexDigit",   &_isImpl!(isxdigit), maxParams: 2},
+	{"isCtrl",       &_isImpl!(iscntrl),  maxParams: 2},
+	{"isPunct",      &_isImpl!(ispunct),  maxParams: 2},
+	{"isSpace",      &_isImpl!(isspace),  maxParams: 2},
 ];
 
 uword _isAscii(CrocThread* t)
 {
-	checkAnyParam(t, 1);
+	checkStringParam(t, 1);
+	auto str = getStringObj(t, 1);
 
-	if(isString(t, 1))
-	{
-		auto str = getStringObj(t, 1);
-		// Take advantage of the fact that we're using UTF-8... ASCII strings will have a codepoint length
-		// exactly equal to their data length
-		pushBool(t, str.length == str.cpLength);
-	}
-	else if(isChar(t, 1))
-		pushBool(t, getChar(t, 1) <= 0x7F);
-	else
-		paramTypeError(t, 1, "char|string");
-
+	// Take advantage of the fact that we're using UTF-8... ASCII strings will have a codepoint length
+	// exactly equal to their data length
+	pushBool(t, str.length == str.cpLength);
 	return 1;
 }
 
@@ -142,20 +134,7 @@ uword _ifind(CrocThread* t)
 	auto src = _checkAsciiString(t, 1);
 
 	// Pattern (searched) string/char
-	checkAnyParam(t, 2);
-
-	char[1] buf = void;
-	char[] pat;
-
-	if(isString(t, 2))
-		pat = _checkAsciiString(t, 2);
-	else if(isChar(t, 2))
-	{
-		buf[0] = _checkAsciiChar(t, 2);
-		pat = buf[];
-	}
-	else
-		paramTypeError(t, 2, "char|string");
+	auto pat = _checkAsciiString(t, 2);
 
 	if(src.length < pat.length)
 	{
@@ -197,20 +176,7 @@ uword _irfind(CrocThread* t)
 	auto src = _checkAsciiString(t, 1);
 
 	// Pattern (searched) string/char
-	checkAnyParam(t, 2);
-
-	char[1] buf = void;
-	char[] pat;
-
-	if(isString(t, 2))
-		pat = _checkAsciiString(t, 2);
-	else if(isChar(t, 2))
-	{
-		buf[0] = _checkAsciiChar(t, 2);
-		pat = buf[];
-	}
-	else
-		paramTypeError(t, 2, "char|string");
+	auto pat = _checkAsciiString(t, 2);
 
 	if(src.length < pat.length)
 	{
@@ -254,44 +220,25 @@ uword _irfind(CrocThread* t)
 
 uword _toLower(CrocThread* t)
 {
-	checkAnyParam(t, 1);
+	auto src = _checkAsciiString(t, 1);
+	auto buf = StrBuffer(t);
 
-	if(isString(t, 1))
-	{
-		auto src = _checkAsciiString(t, 1);
-		auto buf = StrBuffer(t);
+	foreach(c; src)
+		buf.addChar(ctolower(c));
 
-		foreach(c; src)
-			buf.addChar(ctolower(c));
-
-		buf.finish();
-	}
-	else if(isChar(t, 1))
-		pushChar(t, ctolower(_checkAsciiChar(t, 1)));
-	else
-		paramTypeError(t, 1, "char|string");
-
+	buf.finish();
 	return 1;
 }
 
 uword _toUpper(CrocThread* t)
 {
-	checkAnyParam(t, 1);
+	auto src = _checkAsciiString(t, 1);
+	auto buf = StrBuffer(t);
 
-	if(isString(t, 1))
-	{
-		auto src = _checkAsciiString(t, 1);
-		auto buf = StrBuffer(t);
+	foreach(c; src)
+		buf.addChar(ctoupper(c));
 
-		foreach(c; src)
-			buf.addChar(ctoupper(c));
-
-		buf.finish();
-	}
-	else if(isChar(t, 1))
-		pushChar(t, ctoupper(_checkAsciiChar(t, 1)));
-	else
-		paramTypeError(t, 1, "char|string");
+	buf.finish();
 
 	return 1;
 }
@@ -328,7 +275,19 @@ uword _iendsWith(CrocThread* t)
 
 uword _isImpl(alias func)(CrocThread* t)
 {
-	pushBool(t, cast(bool)func(_checkAsciiChar(t, 1)));
+	auto str = _checkAsciiString(t, 1);
+	auto idx = optIntParam(t, 2, 0);
+
+	if(str.length == 0)
+		throwStdException(t, "ValueException", "String must be at least one character long");
+
+	if(idx < 0)
+		idx += str.length;
+
+	if(idx < 0 || idx >= str.length)
+		throwStdException(t, "BoundsException", "Invalid index {} for string of length {}", idx, str.length);
+
+	pushBool(t, cast(bool)func(str[cast(uword)idx]));
 	return 1;
 }
 
@@ -342,16 +301,6 @@ char[] _checkAsciiString(CrocThread* t, word idx)
 
 	if(obj.length != obj.cpLength)
 		throwStdException(t, "ValueException", "Parameter {} is not an ASCII string", idx);
-
-	return ret;
-}
-
-char _checkAsciiChar(CrocThread* t, word idx)
-{
-	auto ret = checkCharParam(t, idx);
-
-	if(ret > 0x7F)
-		throwStdException(t, "ValueException", "Parameter {} is not an ASCII character", idx);
 
 	return ret;
 }
@@ -378,13 +327,9 @@ version(CrocBuiltinDocs)
 	const Docs[] _globalFuncDocs =
 	[
 		{kind: "function", name: "isAscii",
-		params: [Param("val", "char|string")],
+		params: [Param("val", "string")],
 		docs:
-		`Checks to see if the given \tt{char} or \tt{string} is ASCII.
-
-		If \tt{val} is a \tt{char}, it is ASCII if it's below codepoint U+000080.
-
-		If \tt{val} is a \tt{string}, it is ASCII if all of its characters are below codepoint U+000080.`},
+		`Checks to see if the given \tt{string} is ASCII. (all its codepoints are below U+000080).`},
 
 		{kind: "function", name: "icompare",
 		params: [Param("str1", "string"), Param("str2", "string")],
@@ -399,7 +344,7 @@ version(CrocBuiltinDocs)
 		and 0 if they compare equal.`},
 
 		{kind: "function", name: "ifind",
-		params: [Param("str", "string"), Param("sub", "string|char"), Param("start", "int", "0")],
+		params: [Param("str", "string"), Param("sub", "string"), Param("start", "int", "0")],
 		docs:
 		`Searches for an instance of the string \tt{sub} in the string \tt{str} in a case-insensitive manner.
 
@@ -407,8 +352,6 @@ version(CrocBuiltinDocs)
 		progresses from there to the right; if an instance of \tt{sub} (ignoring case) is found in \tt{str}, the character index of the match
 		in \tt{str} is returned. If the search reaches the end of the string without finding a match, returns the length of \tt{str}. Note
 		that many other libraries would return -1 in this case; however, returning the length of the string works better with string slicing.
-
-		The \tt{sub} parameter can also be a character, in which case it's simply treated like a one-character string.
 
 		The \tt{start} parameter can be negative to mean from the end of the string. The search begins \em{at} the \tt{start} index, so if there
 		is a match starting there, the same index will be returned. The \tt{start} parameter can be used to find multiple instances of a
@@ -419,7 +362,7 @@ version(CrocBuiltinDocs)
 		\throws[exceptions.BoundsException] if the \tt{start} parameter is invalid.`},
 
 		{kind: "function", name: "irfind",
-		params: [Param("str", "string"), Param("sub", "string|char"), Param("start", "int", "#s - 1")],
+		params: [Param("str", "string"), Param("sub", "string"), Param("start", "int", "#s - 1")],
 		docs:
 		`The same as \link{ifind}, but works in reverse, starting from the right and searching left.
 
@@ -431,22 +374,22 @@ version(CrocBuiltinDocs)
 		\throws[exceptions.BoundsException] if the \tt{start} parameter is invalid.`},
 
 		{kind: "function", name: "toLower",
-		params: [Param("val", "char|string")],
+		params: [Param("val", "string")],
 		docs:
-		`Converts a string or character to lowercase.
+		`Converts a string to lowercase.
 
-		If \tt{val} is a \tt{string}, the return value is a new string with any uppercase letters converted to lowercase. Non-uppercase letters
-		and non-letters are not affected. If \tt{val} is a \tt{char}, the return value will be a \tt{char} converted in the same way.
+		\returns a new string with any uppercase letters converted to lowercase. Non-uppercase letters and non-letters
+		are not affected.
 
 		\throws[exceptions.ValueException] if \tt{val} is not ASCII.`},
 
 		{kind: "function", name: "toUpper",
-		params: [Param("val", "char|string")],
+		params: [Param("val", "string")],
 		docs:
-		`Converts a string or character to uppercase.
+		`Converts a string to uppercase.
 
-		If \tt{val} is a \tt{string}, the return value is a new string with any lowercase letters converted to uppercase. Non-lowercase letters
-		and non-letters are not affected. If \tt{val} is a \tt{char}, the return value will be a \tt{char} converted in the same way.
+		\returns a new string with any lowercase letters converted to uppercase. Non-lowercase letters and non-letters
+		are not affected.
 
 		\throws[exceptions.ValueException] if \tt{val} is not ASCII.`},
 
@@ -467,48 +410,48 @@ version(CrocBuiltinDocs)
 		\returns a bool.`},
 
 		{kind: "function", name: "c.isAlpha",
-		params: [Param("c", "char")],
+		params: [Param("c", "string"), Param("idx", "int", "0")],
 		docs:
-		`\returns \tt{true} if \tt{c} is an alphabetic character; \tt{false} otherwise.`},
+		`\returns \tt{true} if \tt{c[idx]} is an alphabetic character; \tt{false} otherwise.`},
 
 		{kind: "function", name: "isAlNum",
-		params: [Param("c", "char")],
+		params: [Param("c", "string")],
 		docs:
-		`\returns \tt{true} if \tt{c} is an alphanumeric character; \tt{false} otherwise.`},
+		`\returns \tt{true} if \tt{c[idx]} is an alphanumeric character; \tt{false} otherwise.`},
 
 		{kind: "function", name: "isLower",
-		params: [Param("c", "char")],
+		params: [Param("c", "string")],
 		docs:
-		`\returns \tt{true} if \tt{c} is a lowercase alphabetic character; \tt{false} otherwise.`},
+		`\returns \tt{true} if \tt{c[idx]} is a lowercase alphabetic character; \tt{false} otherwise.`},
 
 		{kind: "function", name: "isUpper",
-		params: [Param("c", "char")],
+		params: [Param("c", "string")],
 		docs:
-		`\returns \tt{true} if \tt{c} is an uppercase alphabetic character; \tt{false} otherwise.`},
+		`\returns \tt{true} if \tt{c[idx]} is an uppercase alphabetic character; \tt{false} otherwise.`},
 
 		{kind: "function", name: "isDigit",
-		params: [Param("c", "char")],
+		params: [Param("c", "string")],
 		docs:
-		`\returns \tt{true} if \tt{c} is a decimal digit (0 - 9); \tt{false} otherwise.`},
+		`\returns \tt{true} if \tt{c[idx]} is a decimal digit (0 - 9); \tt{false} otherwise.`},
 
 		{kind: "function", name: "isHexDigit",
-		params: [Param("c", "char")],
+		params: [Param("c", "string")],
 		docs:
-		`Returns \tt{true} if \tt{c} is a hexadecimal digit (0 - 9, A - F, a - f); \tt{false} otherwise.`},
+		`Returns \tt{true} if \tt{c[idx]} is a hexadecimal digit (0 - 9, A - F, a - f); \tt{false} otherwise.`},
 
 		{kind: "function", name: "isCtrl",
-		params: [Param("c", "char")],
+		params: [Param("c", "string")],
 		docs:
-		`\returns \tt{true} if \tt{c} is a control character (characters 0x0 to 0x1f and character 0x7f); \tt{false} otherwise.`},
+		`\returns \tt{true} if \tt{c[idx]} is a control character (characters 0x0 to 0x1f and character 0x7f); \tt{false} otherwise.`},
 
 		{kind: "function", name: "isPunct",
-		params: [Param("c", "char")],
+		params: [Param("c", "string")],
 		docs:
-		`Returns \tt{true} if \tt{c} is a punctuation character; \tt{false} otherwise.`},
+		`Returns \tt{true} if \tt{c[idx]} is a punctuation character; \tt{false} otherwise.`},
 
 		{kind: "function", name: "isSpace",
-		params: [Param("c", "char")],
+		params: [Param("c", "string")],
 		docs:
-		`Returns \tt{true} if \tt{c} is a whitespace character; \tt{false} otherwise.`}
+		`Returns \tt{true} if \tt{c[idx]} is a whitespace character; \tt{false} otherwise.`}
 	];
 }

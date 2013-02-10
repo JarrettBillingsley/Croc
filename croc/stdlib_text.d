@@ -187,9 +187,12 @@ function hasCodec(name: string) =
 Returns the number of bytes needed to encode the given codepoint in UTF-8, or 0 if the codepoint is out of the valid
 range of Unicode.
 */
-function charUtf8Length(c: char)
+function charUtf8Length(c: string)
 {
-	local i = toInt(c)
+	if(#c != 1)
+		throw ValueException("One-character string expected")
+
+	local i = c.ord(0)
 
 	if(i < 0x80)
 		return 1
@@ -197,7 +200,7 @@ function charUtf8Length(c: char)
 		return 2
 	else if(i < 0x10000)
 		return 3
-	else if(c <= 0x10FFFF)
+	else if(i <= 0x10FFFF)
 		return 4
 	else
 		return 0

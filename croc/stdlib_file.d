@@ -133,16 +133,16 @@ static:
 	uword outFile(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
-		auto mode = optCharParam(t, 2, 'c');
+		auto mode = optStringParam(t, 2, "c");
 		auto bufSize = optIntParam(t, 3, 4096);
 
 		File.Style style;
 
 		switch(mode)
 		{
-			case 'e': style = File.WriteExisting;  break;
-			case 'a': style = File.WriteAppending; break;
-			case 'c': style = File.WriteCreate;    break;
+			case "e": style = File.WriteExisting;  break;
+			case "a": style = File.WriteAppending; break;
+			case "c": style = File.WriteCreate;    break;
 			default:
 				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
 		}
@@ -174,16 +174,16 @@ static:
 		static const File.Style ReadWriteAppending = { File.Access.ReadWrite, File.Open.Append };
 
 		auto name = checkStringParam(t, 1);
-		auto mode = optCharParam(t, 2, 'e');
+		auto mode = optStringParam(t, 2, "e");
 		auto bufSize = optIntParam(t, 3, 4096);
 
 		File.Style style;
 
 		switch(mode)
 		{
-			case 'e': style = File.ReadWriteExisting; break;
-			case 'a': style = ReadWriteAppending;     break;
-			case 'c': style = File.ReadWriteCreate;   break;
+			case "e": style = File.ReadWriteExisting; break;
+			case "a": style = ReadWriteAppending;     break;
+			case "c": style = File.ReadWriteCreate;   break;
 			default:
 				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
 		}

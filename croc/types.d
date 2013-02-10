@@ -157,26 +157,25 @@ align(1) struct CrocValue
 		Bool,       // 1
 		Int,        // 2
 		Float,      // 3
-		Char,       // 4
 
 		// Quasi-value (GC'ed but still value)
-		NativeObj,  // 5
-		String,     // 6
-		WeakRef,    // 7
+		NativeObj,  // 4
+		String,     // 5
+		WeakRef,    // 6
 
 		// Ref
-		Table,      // 8
-		Namespace,  // 9
-		Array,      // 10
-		Memblock,   // 11
-		Function,   // 12
-		FuncDef,    // 13
-		Class,      // 14
-		Instance,   // 15
-		Thread,     // 16
+		Table,      // 7
+		Namespace,  // 8
+		Array,      // 9
+		Memblock,   // 10
+		Function,   // 11
+		FuncDef,    // 12
+		Class,      // 13
+		Instance,   // 14
+		Thread,     // 15
 
 		// Internal
-		Upvalue,    // 17
+		Upvalue,    // 16
 
 		// Other
 		FirstGCType = Type.NativeObj,
@@ -192,7 +191,6 @@ package:
 		Type.Bool:      "bool",
 		Type.Int:       "int",
 		Type.Float:     "float",
-		Type.Char:      "char",
 
 		Type.NativeObj: "nativeobj",
 		Type.String:    "string",
@@ -220,7 +218,6 @@ package:
 		bool mBool;
 		crocint mInt;
 		crocfloat mFloat;
-		dchar mChar;
 
 		CrocBaseObject* mBaseObj;
 		CrocString* mString;
@@ -255,7 +252,6 @@ package:
 			case Type.Bool: return this.mBool == other.mBool;
 			case Type.Int: return this.mInt == other.mInt;
 			case Type.Float: return this.mFloat == other.mFloat;
-			case Type.Char: return this.mChar == other.mChar;
 			default: return (this.mBaseObj is other.mBaseObj);
 		}
 	}
@@ -266,8 +262,7 @@ package:
 			(type == Type.Null) ||
 			(type == Type.Bool && mBool == false) ||
 			(type == Type.Int && mInt == 0) ||
-			(type == Type.Float && mFloat == 0.0) ||
-			(type == Type.Char && mChar == 0);
+			(type == Type.Float && mFloat == 0.0);
 	}
 
 	void opAssign(bool src)
@@ -286,12 +281,6 @@ package:
 	{
 		type = Type.Float;
 		mFloat = src;
-	}
-
-	void opAssign(dchar src)
-	{
-		type = Type.Char;
-		mChar = src;
 	}
 
 	void opAssign(CrocString* src)
@@ -402,7 +391,6 @@ package:
 			case Type.Bool:      return Format("{}", mBool);
 			case Type.Int:       return Format("{}", mInt);
 			case Type.Float:     return Format("{}", mFloat);
-			case Type.Char:      return Format("'{}'", mChar);
 
 			case Type.String:    return Format("\"{}\"", mString.toString());
 			case Type.Table:     return Format("table {:X8}", cast(void*)mTable);
@@ -429,7 +417,6 @@ package:
 			case Type.Bool:   return typeid(typeof(mBool)).getHash(&mBool);
 			case Type.Int:    return typeid(typeof(mInt)).getHash(&mInt);
 			case Type.Float:  return typeid(typeof(mFloat)).getHash(&mFloat);
-			case Type.Char:   return typeid(typeof(mChar)).getHash(&mChar);
 			case Type.String: return mString.hash;
 			default:          return cast(hash_t)cast(void*)mBaseObj;
 		}

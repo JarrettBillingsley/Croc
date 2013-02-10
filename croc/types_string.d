@@ -81,16 +81,6 @@ package:
 		return scmp(a.toString(), b.toString());
 	}
 
-	// See if the string contains the given character.
-	bool contains(CrocString* s, dchar c)
-	{
-		foreach(dchar ch; s.toString())
-			if(c == ch)
-				return true;
-
-		return false;
-	}
-
 	// See if the string contains the given substring.
 	bool contains(CrocString* s, char[] sub)
 	{

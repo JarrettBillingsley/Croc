@@ -669,7 +669,6 @@ static:
 			case "bool":      getTypeMT(t, CrocValue.Type.Bool);      break;
 			case "int":       getTypeMT(t, CrocValue.Type.Int);       break;
 			case "float":     getTypeMT(t, CrocValue.Type.Float);     break;
-			case "char":      getTypeMT(t, CrocValue.Type.Char);      break;
 			case "string":    getTypeMT(t, CrocValue.Type.String);    break;
 			case "table":     getTypeMT(t, CrocValue.Type.Table);     break;
 			case "array":     getTypeMT(t, CrocValue.Type.Array);     break;
@@ -707,7 +706,6 @@ static:
 			case "bool":      setTypeMT(t, CrocValue.Type.Bool);      break;
 			case "int":       setTypeMT(t, CrocValue.Type.Int);       break;
 			case "float":     setTypeMT(t, CrocValue.Type.Float);     break;
-			case "char":      setTypeMT(t, CrocValue.Type.Char);      break;
 			case "string":    setTypeMT(t, CrocValue.Type.String);    break;
 			case "table":     setTypeMT(t, CrocValue.Type.Table);     break;
 			case "array":     setTypeMT(t, CrocValue.Type.Array);     break;

@@ -76,10 +76,10 @@ uword _utf16EncodeInternal(CrocThread* t)
 {
 	mixin(encodeIntoHeader);
 
-	auto byteOrder = optCharParam(t, 5, 'n');
+	auto byteOrder = optStringParam(t, 5, "n");
 	auto toUtf16 = &Utf8ToUtf16!(false);
 
-	if(byteOrder == 's' || (byteOrder == 'b' && isLittleEndian) || (byteOrder == 'l' && !isLittleEndian))
+	if(byteOrder == "s" || (byteOrder == "b" && isLittleEndian) || (byteOrder == "l" && !isLittleEndian))
 		toUtf16 = &Utf8ToUtf16BS;
 
 	// this initial sizing might not be enough.. but it's probably enough for most text. only trans-BMP chars will
@@ -110,11 +110,11 @@ uword _utf16DecodeInternal(CrocThread* t)
 {
 	mixin(decodeRangeHeader);
 
-	auto byteOrder = optCharParam(t, 5, 'n');
+	auto byteOrder = optStringParam(t, 5, "n");
 	auto toUtf8 = &Utf16ToUtf8;
 	auto skipBadChar = &skipBadUtf16Char!(false);
 
-	if(byteOrder == 's' || (byteOrder == 'b' && isLittleEndian) || (byteOrder == 'l' && !isLittleEndian))
+	if(byteOrder == "s" || (byteOrder == "b" && isLittleEndian) || (byteOrder == "l" && !isLittleEndian))
 	{
 		toUtf8 = &Utf16ToUtf8BS;
 		skipBadChar = &skipBadUtf16CharBS;

@@ -169,7 +169,7 @@ Params parseArguments(CrocThread* t, char[][] args)
 
 				pushGlobal(t, "modules");
 				field(t, -1, "path");
-				pushChar(t, ';');
+				pushString(t, ";");
 				pushString(t, args[i]);
 				cateq(t, -3, 2);
 				fielda(t, -2, "path");

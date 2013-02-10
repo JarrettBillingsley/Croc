@@ -250,7 +250,7 @@ public:
 	}
 
 	/**
-	Add the value on top of the stack to the buffer. It must be a string or char, and it will be popped.
+	Add the value on top of the stack to the buffer. It must be a string, and it will be popped.
 	*/
 	void addTop()
 	{
@@ -275,12 +275,6 @@ public:
 			data[pos .. pos + s.length] = s[];
 			pos += s.length;
 			pop(t);
-		}
-		else if(isChar(t, -1))
-		{
-			auto c = getChar(t, -1);
-			pop(t);
-			addChar(c);
 		}
 		else
 		{
@@ -1046,17 +1040,6 @@ crocfloat checkFloatParam(CrocThread* t, word index)
 }
 
 /// ditto
-dchar checkCharParam(CrocThread* t, word index)
-{
-	checkAnyParam(t, index);
-
-	if(!isChar(t, index))
-		paramTypeError(t, index, "char");
-
-	return getChar(t, index);
-}
-
-/// ditto
 char[] checkStringParam(CrocThread* t, word index)
 {
 	checkAnyParam(t, index);
@@ -1065,6 +1048,21 @@ char[] checkStringParam(CrocThread* t, word index)
 		paramTypeError(t, index, "string");
 
 	return getString(t, index);
+}
+
+/**
+Checks that the parameter at the given index is a string that is exactly one character long, and returns that character.
+*/
+dchar checkCharParam(CrocThread* t, word index)
+{
+	checkAnyParam(t, index);
+
+	if(!isChar(t, index))
+		paramTypeError(t, index, "string");
+
+	auto s = getString(t, index);
+	auto ptr = s.ptr;
+	return fastDecodeUtf8Char(ptr);
 }
 
 /**
@@ -1244,18 +1242,6 @@ crocfloat optFloatParam(CrocThread* t, word index, crocfloat def)
 }
 
 /// ditto
-dchar optCharParam(CrocThread* t, word index, dchar def)
-{
-	if(!isValidIndex(t, index) || isNull(t, index))
-		return def;
-
-	if(!isChar(t, index))
-		paramTypeError(t, index, "char");
-
-	return getChar(t, index);
-}
-
-/// ditto
 char[] optStringParam(CrocThread* t, word index, char[] def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
@@ -1265,6 +1251,22 @@ char[] optStringParam(CrocThread* t, word index, char[] def)
 		paramTypeError(t, index, "string");
 
 	return getString(t, index);
+}
+
+/**
+Same as above, but expects a one-character string.
+*/
+dchar optCharParam(CrocThread* t, word index, dchar def)
+{
+	if(!isValidIndex(t, index) || isNull(t, index))
+		return def;
+
+	if(!isChar(t, index))
+		paramTypeError(t, index, "string");
+
+	auto s = getString(t, index);
+	auto ptr = s.ptr;
+	return fastDecodeUtf8Char(ptr);
 }
 
 /**

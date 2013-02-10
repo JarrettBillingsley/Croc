@@ -175,8 +175,7 @@ uword _deref(CrocThread* t)
 			CrocValue.Type.Null,
 			CrocValue.Type.Bool,
 			CrocValue.Type.Int,
-			CrocValue.Type.Float,
-			CrocValue.Type.Char:
+			CrocValue.Type.Float:
 
 			dup(t, 1);
 			return 1;
@@ -186,7 +185,7 @@ uword _deref(CrocThread* t)
 			return 1;
 
 		default:
-			paramTypeError(t, 1, "null|bool|int|float|char|weakref");
+			paramTypeError(t, 1, "null|bool|int|float|weakref");
 	}
 
 	assert(false);
@@ -209,7 +208,6 @@ const RegisterFunc[] _reflFuncs =
 	{"isBool",      &_isBool,      maxParams: 1},
 	{"isInt",       &_isInt,       maxParams: 1},
 	{"isFloat",     &_isFloat,     maxParams: 1},
-	{"isChar",      &_isChar,      maxParams: 1},
 	{"isString",    &_isString,    maxParams: 1},
 	{"isTable",     &_isTable,     maxParams: 1},
 	{"isArray",     &_isArray,     maxParams: 1},
@@ -350,7 +348,6 @@ alias _isParam!(CrocValue.Type.Null)      _isNull;
 alias _isParam!(CrocValue.Type.Bool)      _isBool;
 alias _isParam!(CrocValue.Type.Int)       _isInt;
 alias _isParam!(CrocValue.Type.Float)     _isFloat;
-alias _isParam!(CrocValue.Type.Char)      _isChar;
 alias _isParam!(CrocValue.Type.String)    _isString;
 alias _isParam!(CrocValue.Type.Table)     _isTable;
 alias _isParam!(CrocValue.Type.Array)     _isArray;
@@ -374,7 +371,6 @@ const RegisterFunc[] _convFuncs =
 	{"toBool",      &_toBool,      maxParams: 1},
 	{"toInt",       &_toInt,       maxParams: 1},
 	{"toFloat",     &_toFloat,     maxParams: 1},
-	{"toChar",      &_toChar,      maxParams: 1}
 ];
 
 uword _toString(CrocThread* t)
@@ -384,11 +380,7 @@ uword _toString(CrocThread* t)
 
 	if(isInt(t, 1))
 	{
-		char[1] style = "d";
-
-		if(numParams > 1)
-			style[0] = checkCharParam(t, 2);
-
+		auto style = optStringParam(t, 2, "d");
 		char[80] buffer = void;
 		pushString(t, safeCode(t, "exceptions.ValueException", Integer_format(buffer, getInt(t, 1), style)));
 	}
@@ -421,7 +413,6 @@ uword _toInt(CrocThread* t)
 		case CrocValue.Type.Bool:   pushInt(t, cast(crocint)getBool(t, 1)); break;
 		case CrocValue.Type.Int:    dup(t, 1); break;
 		case CrocValue.Type.Float:  pushInt(t, cast(crocint)getFloat(t, 1)); break;
-		case CrocValue.Type.Char:   pushInt(t, cast(crocint)getChar(t, 1)); break;
 		case CrocValue.Type.String: pushInt(t, safeCode(t, "exceptions.ValueException", cast(crocint)Integer_toLong(getString(t, 1), 10))); break;
 
 		default:
@@ -441,7 +432,6 @@ uword _toFloat(CrocThread* t)
 		case CrocValue.Type.Bool: pushFloat(t, cast(crocfloat)getBool(t, 1)); break;
 		case CrocValue.Type.Int: pushFloat(t, cast(crocfloat)getInt(t, 1)); break;
 		case CrocValue.Type.Float: dup(t, 1); break;
-		case CrocValue.Type.Char: pushFloat(t, cast(crocfloat)getChar(t, 1)); break;
 		case CrocValue.Type.String: pushFloat(t, safeCode(t, "exceptions.ValueException", cast(crocfloat)Float_toFloat(getString(t, 1)))); break;
 
 		default:
@@ -449,12 +439,6 @@ uword _toFloat(CrocThread* t)
 			throwStdException(t, "TypeException", "Cannot convert type '{}' to float", getString(t, -1));
 	}
 
-	return 1;
-}
-
-uword _toChar(CrocThread* t)
-{
-	pushChar(t, cast(dchar)checkIntParam(t, 1));
 	return 1;
 }
 
@@ -643,12 +627,6 @@ uword _dumpVal(CrocThread* t)
 
 			Stdout('"');
 		}
-		else if(isChar(t, v))
-		{
-			Stdout("'");
-			escape(getChar(t, v));
-			Stdout("'");
-		}
 		else if(isArray(t, v))
 			outputArray(v);
 		else if(isTable(t, v) && !hasMethod(t, v, "toString"))
@@ -719,12 +697,12 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	extra: [Extra("section", "Weak References"), Extra("protection", "global")],
 	docs:
 	`This function is used to create weak reference objects. If the given object is a value type (null, bool, int,
-	float, or char), it simply returns them as-is. Otherwise returns a weak reference object that refers to the
+	or float), it simply returns them as-is. Otherwise returns a weak reference object that refers to the
 	object. For each object, there will be exactly one weak reference object that refers to it. This means that if
 	two objects are identical, their weak references will be identical and vice versa.`},
 
 	{kind: "function", name: "deref",
-	params: [Param("obj", "null|bool|int|float|char|weakref")],
+	params: [Param("obj", "null|bool|int|float|weakref")],
 	extra: [Extra("section", "Weak References"), Extra("protection", "global")],
 	docs:
 	`The parameter types for this might look a bit odd, but it's because this function acts as the inverse of
@@ -752,7 +730,7 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
 	docs:
 	`This will get the type of the passed-in value and return it as a string. Possible return values are "null",
-	"bool", "int", "float", "char", "string", "table", "array", "function", "class", "instance", "namespace", "thread",
+	"bool", "int", "float", "string", "table", "array", "function", "class", "instance", "namespace", "thread",
 	"nativeobj", "weakref", and "funcdef".`},
 
 	{kind: "function", name: "nameOf",
@@ -822,7 +800,6 @@ writeln(boundGetProt(c)) // also prints 5
 	{kind: "function", name: "isBool",      docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 	{kind: "function", name: "isInt",       docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 	{kind: "function", name: "isFloat",     docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
-	{kind: "function", name: "isChar",      docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 	{kind: "function", name: "isString",    docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 	{kind: "function", name: "isTable",     docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 	{kind: "function", name: "isArray",     docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
@@ -837,7 +814,7 @@ writeln(boundGetProt(c)) // also prints 5
 	{kind: "function", name: "isFuncDef",   docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]},
 
 	{kind: "function", name: "toString",
-	params: [Param("value"), Param("style", "char", "'d'")],
+	params: [Param("value"), Param("style", "string", "\"d\"")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
 	docs:
 	`This is like \link{rawToString}, but it will call any \b{\tt{toString}} metamethods defined for the value.
@@ -846,12 +823,12 @@ writeln(boundGetProt(c)) // also prints 5
 
 	The optional \tt{style} parameter only has meaning if the \tt{value} is an integer. It can be one of the following:
 	\blist
-		\li 'd': Default: signed base 10.
-		\li 'b': Binary.
-		\li 'o': Octal.
-		\li 'x': Lowercase hexadecimal.
-		\li 'X': Uppercase hexadecimal.
-		\li 'u': Unsigned base 10.
+		\li "d": Default: signed base 10.
+		\li "b": Binary.
+		\li "o": Octal.
+		\li "x": Lowercase hexadecimal.
+		\li "X": Uppercase hexadecimal.
+		\li "u": Unsigned base 10.
 	\endlist`},
 
 	{kind: "function", name: "rawToString",
@@ -864,7 +841,6 @@ writeln(boundGetProt(c)) // also prints 5
 		\li \b{\tt{bool}}: \tt{"true"} or \tt{"false"}.
 		\li \b{\tt{int}}: The decimal representation of the number.
 		\li \b{\tt{float}}: The decimal representation of the number, to about 7 digits of precision.
-		\li \b{\tt{char}}: A string with just one character, the character that was passed in.
 		\li \b{\tt{string}}: The string itself.
 		\li \b{\tt{table}}: A string in the format \tt{"table 0x00000000"} where 0x00000000 is the address of the table.
 		\li \b{\tt{array}}: A string in the format \tt{"array 0x00000000"} where 0x00000000 is the address of the array.
@@ -892,7 +868,7 @@ writeln(boundGetProt(c)) // also prints 5
 	return \tt{false}; all other values and types will return \tt{true}.`},
 
 	{kind: "function", name: "toInt",
-	params: [Param("value", "bool|int|float|char|string")],
+	params: [Param("value", "bool|int|float|string")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
 	docs:
 	`This will convert a value into an integer. Only the following types can be converted:
@@ -900,14 +876,13 @@ writeln(boundGetProt(c)) // also prints 5
 		\li \b{\tt{bool}}: Converts \tt{true} to 1 and \tt{false} to 0.
 		\li \b{\tt{int}}: Just returns the value.
 		\li \b{\tt{float}}: Truncates the fraction and returns the integer portion.
-		\li \b{\tt{char}}: Returns the UTF-32 character code of the character.
 		\li \b{\tt{string}}: Attempts to convert the string to an integer, and assumes it's in base 10. Throws an
 			error if it fails. If you want to convert a string to an integer with a base other than 10, use the
 			string object's \b{\tt{toInt}} method.
 	\endlist`},
 
 	{kind: "function", name: "toFloat",
-	params: [Param("value", "bool|int|float|char|string")],
+	params: [Param("value", "bool|int|float|string")],
 	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
 	docs:
 	`This will convert a value into a float. Only the following types can be converted:
@@ -915,17 +890,10 @@ writeln(boundGetProt(c)) // also prints 5
 		\li \b{\tt{bool}}: Converts \tt{true} to 1.0 and \tt{false} to 0.0.
 		\li \b{\tt{int}}: Returns the value cast to a float.
 		\li \b{\tt{float}}: Just returns the value.
-		\li \b{\tt{char}}: Returns a float holding the UTF-32 character code of the character.
 		\li \b{\tt{string}}: Attempts to convert the string to a float. Throws an error if it fails.
 	\endlist
 
 	Other types will throw an error.`},
-
-	{kind: "function", name: "toChar",
-	params: [Param("value", "int")],
-	extra: [Extra("section", "Conversions"), Extra("protection", "global")],
-	docs:
-	`This will convert an integer value to a single character. Only integer parameters are allowed.`},
 
 	{kind: "function", name: "dumpVal",
 	params: [Param("value"), Param("printNewline", "bool", "true")],
@@ -933,9 +901,8 @@ writeln(boundGetProt(c)) // also prints 5
 	docs:
 	`Dumps an exhaustive string representation of the given value to the console. This will recurse
 	(safely, you don't need to worry about infinite recursion) into arrays and tables, as well as escape
-	non-printing characters in strings and character values. It will also print out the names of the
-	fields in namespaces, though it won't recurse into them. All other values will basically have
-	\link{toString} called on them.
+	non-printing characters in strings. It will also print out the names of the fields in namespaces, though it won't
+	recurse into them. All other values will basically have \link{toString} called on them.
 
 	If the \tt{printNewline} parameter is passed \tt{false}, no newline will be printed after the dumped
 	representation. Defaults to \tt{true}.`}

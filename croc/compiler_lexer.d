@@ -150,7 +150,6 @@ struct Token
 		At,
 
 		Ident,
-		CharLiteral,
 		StringLiteral,
 		IntLiteral,
 		FloatLiteral,
@@ -253,7 +252,6 @@ struct Token
 		At: "@",
 
 		Ident: "Identifier",
-		CharLiteral: "Char Literal",
 		StringLiteral: "String Literal",
 		IntLiteral: "Int Literal",
 		FloatLiteral: "Float Literal",
@@ -845,7 +843,7 @@ private:
 		nextChar();
 
 		if(isEOF())
-			mCompiler.eofException(beginning, "Unterminated string or character literal");
+			mCompiler.eofException(beginning, "Unterminated string literal");
 
 		switch(mCharacter)
 		{
@@ -997,37 +995,6 @@ private:
 			mCompiler.lexException(beginning, "Invalid UTF-8");
 
 		return mCompiler.newString(arr);
-	}
-
-	dchar readCharLiteral()
-	{
-		auto beginning = mLoc;
-		dchar ret;
-
-		assert(mCharacter == '\'', "char literal must start with single quote");
-		nextChar();
-
-		if(isEOF())
-			mCompiler.lexException(beginning, "Unterminated character literal");
-
-		switch(mCharacter)
-		{
-			case '\\':
-				ret = readEscapeSequence(beginning);
-				break;
-
-			default:
-				ret = mCharacter;
-				nextChar();
-				break;
-		}
-
-		if(mCharacter != '\'')
-			mCompiler.lexException(beginning, "Unterminated character literal");
-
-		nextChar();
-
-		return ret;
 	}
 
 	void addComment(char[] str, CompileLoc location)
@@ -1532,7 +1499,7 @@ private:
 
 					return;
 
-				case '\"':
+				case '\"', '\'':
 					mTok.stringValue = readStringLiteral(true);
 					mTok.type = Token.StringLiteral;
 					return;
@@ -1548,11 +1515,6 @@ private:
 					else
 						mTok.type = Token.At;
 
-					return;
-
-				case '\'':
-					mTok.intValue = readCharLiteral();
-					mTok.type = Token.CharLiteral;
 					return;
 
 				case '\0', dchar.init:

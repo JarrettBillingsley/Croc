@@ -76,10 +76,10 @@ uword _utf32EncodeInternal(CrocThread* t)
 {
 	mixin(encodeIntoHeader);
 
-	auto byteOrder = optCharParam(t, 5, 'n');
+	auto byteOrder = optStringParam(t, 5, "n");
 	auto toUtf32 = &Utf8ToUtf32!(false);
 
-	if(byteOrder == 's' || (byteOrder == 'b' && isLittleEndian) || (byteOrder == 'l' && !isLittleEndian))
+	if(byteOrder == "s" || (byteOrder == "b" && isLittleEndian) || (byteOrder == "l" && !isLittleEndian))
 		toUtf32 = &Utf8ToUtf32BS;
 
 	lenai(t, 2, start + strlen * dchar.sizeof);
@@ -96,11 +96,11 @@ uword _utf32DecodeInternal(CrocThread* t)
 {
 	mixin(decodeRangeHeader);
 
-	auto byteOrder = optCharParam(t, 5, 'n');
+	auto byteOrder = optStringParam(t, 5, "n");
 	auto toUtf8 = &Utf32ToUtf8;
 	auto skipBadChar = &skipBadUtf32Char!(false);
 
-	if(byteOrder == 's' || (byteOrder == 'b' && isLittleEndian) || (byteOrder == 'l' && !isLittleEndian))
+	if(byteOrder == "s" || (byteOrder == "b" && isLittleEndian) || (byteOrder == "l" && !isLittleEndian))
 	{
 		toUtf8 = &Utf32ToUtf8BS;
 		skipBadChar = &skipBadUtf32CharBS;

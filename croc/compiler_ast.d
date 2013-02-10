@@ -135,7 +135,6 @@ const char[][] AstTagNames =
 	"VarargExp",
 	"IntExp",
 	"FloatExp",
-	"CharExp",
 	"StringExp",
 	"FuncLiteralExp",
 	"ClassLiteralExp",
@@ -267,7 +266,6 @@ const char[][] NiceAstTagNames =
 	AstTag.VarargExp:            "'vararg' expression",
 	AstTag.IntExp:               "integer constant expression",
 	AstTag.FloatExp:             "float constant expression",
-	AstTag.CharExp:              "character constant expression",
 	AstTag.StringExp:            "string constant expression",
 	AstTag.FuncLiteralExp:       "function literal expression",
 	AstTag.ClassLiteralExp:      "class literal expression",
@@ -367,7 +365,6 @@ class FuncDef : AstNode
 		Bool =      (1 << cast(uint)CrocValue.Type.Bool),
 		Int =       (1 << cast(uint)CrocValue.Type.Int),
 		Float =     (1 << cast(uint)CrocValue.Type.Float),
-		Char =      (1 << cast(uint)CrocValue.Type.Char),
 
 		String =    (1 << cast(uint)CrocValue.Type.String),
 		Table =     (1 << cast(uint)CrocValue.Type.Table),
@@ -382,8 +379,8 @@ class FuncDef : AstNode
 		WeakRef =   (1 << cast(uint)CrocValue.Type.WeakRef),
 		FuncDef =   (1 << cast(uint)CrocValue.Type.FuncDef),
 
-		NotNull = Bool | Int | Float | Char | String | Table | Array | Memblock | Function | Class | Instance |
-			Namespace | Thread | NativeObj | WeakRef | FuncDef,
+		NotNull = Bool | Int | Float | String | Table | Array | Memblock | Function | Class | Instance | Namespace |
+			Thread | NativeObj | WeakRef | FuncDef,
 		Any = Null | NotNull
 	}
 
@@ -1152,16 +1149,6 @@ abstract class Expression : AstNode
 		assert(false);
 	}
 
-	bool isChar()
-	{
-		return false;
-	}
-
-	dchar asChar()
-	{
-		assert(false);
-	}
-
 	bool isString()
 	{
 		return false;
@@ -1740,37 +1727,6 @@ class FloatExp : PrimaryExp
 	}
 
 	override crocfloat asFloat()
-	{
-		return value;
-	}
-}
-
-class CharExp : PrimaryExp
-{
-	dchar value;
-
-	this(CompileLoc location, dchar value)
-	{
-		super(location, AstTag.CharExp);
-		this.value = value;
-	}
-
-	override bool isConstant()
-	{
-		return true;
-	}
-
-	override bool isTrue()
-	{
-		return (value != 0);
-	}
-
-	override bool isChar()
-	{
-		return true;
-	}
-
-	override dchar asChar()
 	{
 		return value;
 	}

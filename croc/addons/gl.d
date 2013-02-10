@@ -51,6 +51,7 @@ import derelict.opengl.glu;
 import derelict.util.exception;
 
 import croc.api;
+import croc.ex_library;
 
 import croc.addons.gl_wrap;
 import croc.addons.gl_ext;

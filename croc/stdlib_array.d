@@ -391,14 +391,6 @@ uword _toString(CrocThread* t)
 			buf.addString(s);
 			buf.addChar('"');
 		}
-		else if(isChar(t, -1))
-		{
-			auto c = getChar(t, -1);
-			pop(t);
-			buf.addChar('\'');
-			buf.addChar(c);
-			buf.addChar('\'');
-		}
 		else
 		{
 			pushToString(t, -1, true);

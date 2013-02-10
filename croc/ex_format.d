@@ -58,7 +58,6 @@ void formatImpl(CrocThread* t, uword startIndex, uword numParams, uint delegate(
 		{
 			case CrocValue.Type.Int:   formatter.convert(sink, tmp, getInt(t, param));   break;
 			case CrocValue.Type.Float: formatter.convert(sink, tmp, getFloat(t, param)); break;
-			case CrocValue.Type.Char:  formatter.convert(sink, tmp, getChar(t, param));  break;
 
 			default:
 				pushToString(t, param, isRaw);

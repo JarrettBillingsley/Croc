@@ -501,15 +501,26 @@ word pushFloat(CrocThread* t, crocfloat v)
 }
 
 /// ditto
-word pushChar(CrocThread* t, dchar v)
-{
-	return push(t, CrocValue(v));
-}
-
-/// ditto
 word pushString(CrocThread* t, char[] v)
 {
 	return push(t, CrocValue(createString(t, v)));
+}
+
+/**
+Pushes a single-character string representation of the given Unicode codepoint.
+
+Throws:
+	UnicodeException if c is not a valid Unicode codepoint.
+*/
+word pushChar(CrocThread* t, dchar c)
+{
+	char[4] outbuf = void;
+	char[] s = void;
+
+	if(encodeUtf8Char(outbuf, c, s) != UtfError.OK)
+		throwStdException(t, "UnicodeException", "Invalid Unicode codepoint U+{:X6}", cast(uint)c);
+
+	return pushString(t, s);
 }
 
 /**
@@ -1032,7 +1043,7 @@ word pushNativeObj(CrocThread* t, Object o)
 
 /**
 Pushes a weak reference to the object at the given stack index onto the stack. For value types (null,
-bool, int, float, and char), weak references are unnecessary, and in these cases the value will simply
+bool, int, and float), weak references are unnecessary, and in these cases the value will simply
 be pushed. Otherwise the pushed value will be a weak reference object.
 
 Params:
@@ -1104,11 +1115,12 @@ bool isNum(CrocThread* t, word slot)
 }
 
 /**
-Sees if the value at the given _slot is a char.
+Sees if the value at the given _slot is a one-character string.
 */
 bool isChar(CrocThread* t, word slot)
 {
-	return type(t, slot) == CrocValue.Type.Char;
+	auto val = getValue(t, slot);
+	return val.type == CrocValue.Type.String && val.mString.cpLength == 1;
 }
 
 /**
@@ -1208,9 +1220,8 @@ bool isFuncDef(CrocThread* t, word slot)
 }
 
 /**
-Gets the truth value of the value at the given _slot. null, false, integer 0, floating point 0.0,
-and character '\0' are considered false; everything else is considered true. This is the same behavior
-as within the language.
+Gets the truth value of the value at the given _slot. null, false, integer 0, and floating point 0.0
+are considered false; everything else is considered true. This is the same behavior as within the language.
 */
 bool isTrue(CrocThread* t, word slot)
 {
@@ -1305,7 +1316,8 @@ crocfloat getNum(CrocThread* t, word slot)
 }
 
 /**
-Returns the character value at the given _slot, or throws an error if it isn'_t one.
+Expects a string at the given slot, and expects that string to be one codepoint long. Returns that character, or throws
+an error if the value either isn't a string or isn't one character long.
 */
 dchar getChar(CrocThread* t, word slot)
 {
@@ -1313,13 +1325,19 @@ dchar getChar(CrocThread* t, word slot)
 
 	auto v = getValue(t, slot);
 
-	if(v.type != CrocValue.Type.Char)
+	if(v.type != CrocValue.Type.String)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'char' but got '{}'", getString(t, -1));
+		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
 	}
 
-	return v.mChar;
+	auto str = v.mString;
+
+	if(str.cpLength != 1)
+		throwStdException(t, "ValueException", __FUNCTION__ ~ " - string must be one character long");
+
+	auto ptr = str.toString().ptr;
+	return fastDecodeUtf8Char(ptr);
 }
 
 /**
@@ -2710,7 +2728,6 @@ word deref(CrocThread* t, word idx)
 			CrocValue.Type.Bool,
 			CrocValue.Type.Int,
 			CrocValue.Type.Float,
-			CrocValue.Type.Char,
 			CrocValue.Type.String,
 			CrocValue.Type.NativeObj,
 			CrocValue.Type.Upvalue:

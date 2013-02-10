@@ -181,41 +181,41 @@ uword locationToString(CrocThread* t)
 
 		case Script:
 			auto first = field(t, 0, "file");
-			pushChar(t, '(');
+			pushString(t, "(");
 
 			field(t, 0, "line");
 
 			if(getInt(t, -1) < 1)
-				pushChar(t, '?');
+				pushString(t, "?");
 			else
 				pushToString(t, -1, true);
 
 			insertAndPop(t, -2);
 
-			pushChar(t, ')');
+			pushString(t, ")");
 			cat(t, stackSize(t) - first);
 			break;
 
 		default:
 			auto first = field(t, 0, "file");
-			pushChar(t, '(');
+			pushString(t, "(");
 
 			field(t, 0, "line");
 
 			if(getInt(t, -1) < 1)
-				pushChar(t, '?');
+				pushString(t, "?");
 			else
 				pushToString(t, -1, true);
 
 			insertAndPop(t, -2);
 
-			pushChar(t, ':');
+			pushString(t, ":");
 
 			field(t, 0, "col");
 			pushToString(t, -1, true);
 			insertAndPop(t, -2);
 
-			pushChar(t, ')');
+			pushString(t, ")");
 			cat(t, stackSize(t) - first);
 			break;
 	}

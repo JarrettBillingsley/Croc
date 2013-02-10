@@ -95,7 +95,7 @@ Params:
 		The Delay value is ignored and will instead be set or unset based on the hookDelay parameter.
 		If you have either the Ret or TailRet values, the function will be registered for all
 		returns. If this parameter is 0, the hook function will be removed from the thread.
-		
+
 	hookDelay = If this is nonzero, the Delay hook will be called every hookDelay Croc instructions.
 		Otherwise, if it's 0, the Delay hook will be disabled.
 */
@@ -204,7 +204,7 @@ debug
 			else
 				Stdout.formatln("[{,3}:{,4}]: {:x16}: {:x}", i, cast(word)i - cast(word)tmp, *cast(ulong*)&t.stack[i].mInt, t.stack[i].type);
 		}
-		
+
 		t.stackBase = tmp;
 
 		Stdout.newline;
@@ -322,7 +322,7 @@ word pushDebugLoc(CrocThread* t, ActRecord* ar = null)
 		if(getString(t, -1) == "")
 			dup(t);
 		else
-			pushChar(t, '.');
+			pushString(t, ".");
 
 		push(t, CrocValue(ar.func.name));
 

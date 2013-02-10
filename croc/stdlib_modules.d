@@ -255,7 +255,7 @@ uword _initModule(CrocThread* t)
 			}
 		}
 	}
-	
+
 	// at this point foundSplit is only true if we had to create new namespaces -- that is, upon first loading, and not during reloading
 
 	if(len(t, ns) > 0)
@@ -428,7 +428,7 @@ uword _loadFiles(CrocThread* t)
 
 version(CrocBuiltinDocs) const Docs[] _docTables =
 [
-	{kind: "variable", name: "modules.path", 
+	{kind: "variable", name: "modules.path",
 	extra: [Extra("protection", "global"), Extra("value", `"."`)],
 	docs:
 	`This is just a variable that holds a string. This string contains the paths that are used when searching for
@@ -446,13 +446,13 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	are the corresponding modules' namespaces. This is the table that \tt{modules.load} will check in first before trying
 	to look for a loader."},
 
-	{kind: "variable", name: "modules.customLoaders", 
+	{kind: "variable", name: "modules.customLoaders",
 	extra: [Extra("protection", "global")],
 	docs:
 	`This is a table which you are free to use. It maps from module names (strings) to functions or namespaces. This
 	table is used by the \tt{customLoad} step in \link{modules.loaders}; see it for more information.`},
 
-	{kind: "variable", name: "modules.loaders", 
+	{kind: "variable", name: "modules.loaders",
 	extra: [Extra("protection", "global")],
 	docs:
 	`This is an important variable. This holds the array of \em{module loaders}, which are functions which take the name

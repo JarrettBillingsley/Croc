@@ -264,7 +264,6 @@ private:
 			case CrocValue.Type.Bool:      serializeBool(v.mBool);           break;
 			case CrocValue.Type.Int:       serializeInt(v.mInt);             break;
 			case CrocValue.Type.Float:     serializeFloat(v.mFloat);         break;
-			case CrocValue.Type.Char:      serializeChar(v.mChar);           break;
 			case CrocValue.Type.String:    serializeString(v.mString);       break;
 			case CrocValue.Type.Table:     serializeTable(v.mTable);         break;
 			case CrocValue.Type.Array:     serializeArray(v.mArray);         break;
@@ -305,12 +304,6 @@ private:
 	{
 		tag(CrocValue.Type.Float);
 		put(t, mOutput, v);
-	}
-
-	void serializeChar(dchar v)
-	{
-		tag(CrocValue.Type.Char);
-		integer(v);
 	}
 
 	void serializeString(CrocString* v)
@@ -895,7 +888,6 @@ private:
 			case CrocValue.Type.Bool:      deserializeBoolImpl();      break;
 			case CrocValue.Type.Int:       deserializeIntImpl();       break;
 			case CrocValue.Type.Float:     deserializeFloatImpl();     break;
-			case CrocValue.Type.Char:      deserializeCharImpl();      break;
 			case CrocValue.Type.String:    deserializeStringImpl();    break;
 			case CrocValue.Type.Table:     deserializeTableImpl();     break;
 			case CrocValue.Type.Array:     deserializeArrayImpl();     break;
@@ -974,17 +966,6 @@ private:
 		crocfloat v = void;
 		get(t, mInput, v);
 		pushFloat(t, v);
-	}
-
-	void deserializeChar()
-	{
-		checkTag(CrocValue.Type.Char);
-		deserializeCharImpl();
-	}
-
-	void deserializeCharImpl()
-	{
-		pushChar(t, cast(dchar)integer());
 	}
 
 	bool checkObjTag(byte type)

@@ -73,6 +73,7 @@ void initStringBuffer(CrocThread* t)
 
 		c.method("fill",           1, &_fill);
 		c.method("fillRange",      3, &_fillRange);
+		c.method("fillChar",       3, &_fillChar);
 		c.method("insert",         2, &_insert);
 		c.method("remove",         2, &_remove);
 
@@ -274,6 +275,8 @@ uword _constructor(CrocThread* t)
 
 			length = cast(uword)l;
 		}
+		else
+			paramTypeError(t, 1, "string|int");
 	}
 	else
 	{
@@ -489,7 +492,10 @@ uword _opIndexAssign(CrocThread* t)
 	auto mb = _getData(t);
 	auto len = _getLength(t);
 	auto index = checkIntParam(t, 1);
-	auto ch = checkCharParam(t, 2);
+	auto ch = checkStringParam(t, 2);
+
+	if(.len(t, 2) != 1)
+		throwStdException(t, "ValueException", "Expected single-character string as the RHS");
 
 	if(index < 0)
 		index += len;
@@ -497,7 +503,8 @@ uword _opIndexAssign(CrocThread* t)
 	if(index < 0 || index >= len)
 		throwStdException(t, "BoundsException", "Invalid index: {} (buffer length: {})", index, len);
 
-	(cast(dchar[])mb.data)[cast(uword)index] = ch;
+	auto ptr = ch.ptr;
+	(cast(dchar[])mb.data)[cast(uword)index] = fastDecodeUtf8Char(ptr);
 	return 0;
 }
 
@@ -559,10 +566,6 @@ uword _opCat(CrocThread* t)
 		auto dest = makeObj(.len(t, 1));
 		_toUtf32(getString(t, 1), dest);
 	}
-	else if(isChar(t, 1))
-	{
-		makeObj(1)[0] = getChar(t, 1);
-	}
 	else if(as(t, 1, -1))
 	{
 		auto otherLen = _getLength(t, 1);
@@ -610,10 +613,6 @@ uword _opCat_r(CrocThread* t)
 		auto dest = makeObj(.len(t, 1));
 		_toUtf32(getString(t, 1), dest);
 	}
-	else if(isChar(t, 1))
-	{
-		makeObj(1)[0] = getChar(t, 1);
-	}
 	else
 	{
 		pushToString(t, 1);
@@ -657,8 +656,6 @@ uword _opCatAssign(CrocThread* t)
 			auto dest = resize(.len(t, i));
 			_toUtf32(getString(t, i), dest);
 		}
-		else if(isChar(t, i))
-			resize(1)[0] = getChar(t, i);
 		else if(as(t, i, -1))
 		{
 			if(opis(t, 0, i))
@@ -762,18 +759,16 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 			pushInt(t, i);
 			rawCall(t, -3, 1);
 
-			if(!isChar(t, -1))
+			if(!isString(t, -1))
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "filler function expected to return a 'char', not '{}'", getString(t, -1));
+				throwStdException(t, "TypeException", "filler function expected to return a 'string', not '{}'", getString(t, -1));
 			}
 
 			data[i] = getChar(t, -1);
 			pop(t);
 		}
 	}
-	else if(isChar(t, filler))
-		(cast(dchar[])mb.data)[lo .. hi] = getChar(t, filler);
 	else if(isString(t, filler))
 	{
 		auto cpLen = cast(uword)len(t, filler);
@@ -792,17 +787,14 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 			idxi(t, filler, ai);
 
 			if(!isChar(t, -1))
-			{
-				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "array element {} expected to be 'char', not '{}'", ai, getString(t, -1));
-			}
+				throwStdException(t, "TypeException", "array element {} expected to be a one-character string");
 
 			data[ai] = getChar(t, -1);
 			pop(t);
 		}
 	}
 	else
-		paramTypeError(t, filler, "char|string|array|function|StringBuffer");
+		paramTypeError(t, filler, "string|array|function|StringBuffer");
 
 	pop(t);
 }
@@ -836,6 +828,27 @@ uword _fillRange(CrocThread* t)
 	fillImpl(t, mb, 3, cast(uword)lo, cast(uword)hi);
 	dup(t, 0);
 	return 1;
+}
+
+uword _fillChar(CrocThread* t)
+{
+	auto mb = _getData(t);
+	auto len = _getLength(t);
+	auto ch = checkCharParam(t, 1);
+	auto lo = optIntParam(t, 2, 0);
+	auto hi = optIntParam(t, 3, len);
+
+	if(lo < 0)
+		lo += len;
+
+	if(hi < 0)
+		hi += len;
+
+	if(lo < 0 || lo > hi || hi > len)
+		throwStdException(t, "BoundsException", "Invalid range indices {} .. {} (buffer length: {}", lo, hi, len);
+
+	(cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi] = ch;
+	return 0;
 }
 
 uword _insert(CrocThread* t)
@@ -889,8 +902,6 @@ uword _insert(CrocThread* t)
 			_toUtf32(str, tmp);
 		}
 	}
-	else if(isChar(t, 2))
-		doResize(1)[0] = getChar(t, 2);
 	else if(as(t, 2, -1))
 	{
 		if(opis(t, 0, 2))
@@ -973,21 +984,11 @@ uword _commonFind(bool reverse)(CrocThread* t)
 {
 	auto src = _stringBufferAsUtf32(t, 0);
 
-	// Pattern (searched) string/char
-	dchar[1] buf;
+	// Pattern (searched) string
 	dchar[] tmp = null;
 	dchar[] pat;
 	scope(exit) freeArray(t, tmp);
-
-	checkAnyParam(t, 1);
-
-	if(isChar(t, 1))
-	{
-		buf[0] = getChar(t, 1);
-		pat = buf[];
-	}
-	else
-		pat = _checkStringOrStringBuffer(t, 1, tmp, "char|string|StringBuffer");
+	pat = _checkStringOrStringBuffer(t, 1, tmp, "string|StringBuffer");
 
 	// Start index
 	static if(reverse)
@@ -1403,7 +1404,7 @@ uword _formatln(CrocThread* t)
 {
 	_format(t);
 	pushNull(t);
-	pushChar(t, '\n');
+	pushString(t, "\n");
 	methodCall(t, -3, "append", 1);
 	return 1;
 }
@@ -1540,11 +1541,12 @@ local s = StringBuffer()
 		\throws[exceptions.BoundsException] if the index is invalid.`},
 
 		{kind: "function", name: "opIndexAssign",
-		params: [Param("idx", "int"), Param("c", "char")],
+		params: [Param("idx", "int"), Param("c", "string")],
 		docs:
 		`Sets the character at the given index to the given character.
 
-		\throws[exceptions.BoundsException] if the index is invalid.`},
+		\throws[exceptions.BoundsException] if the index is invalid.
+		\throws[exceptions.ValueException] if \tt{#c != 1}.`},
 
 		{kind: "function", name: "opCat",
 		params: [Param("o")],
@@ -1552,7 +1554,7 @@ local s = StringBuffer()
 		`Concatenates this \tt{StringBuffer} with another value and returns a \b{new} \tt{StringBuffer} containing the concatenation.
 		If you want to instead add data to the beginning or end of a \tt{StringBuffer}, use the \link{opCatAssign} or \link{insert} methods.
 
-		Any type can be concatenated with a \tt{StringBuffer}; if it isn't a string, character, or another \tt{StringBuffer}, it will have
+		Any type can be concatenated with a \tt{StringBuffer}; if it isn't a string or another \tt{StringBuffer}, it will have
 		its \tt{toString} method called on it and the result will be concatenated.`},
 
 		{kind: "function", name: "opCat_r", docs: "ditto", params: [Param("o")]},
@@ -1579,25 +1581,23 @@ local s = StringBuffer()
 		slicing.`},
 
 		{kind: "function", name: "fill",
-		params: [Param("v", "char|string|array|function|StringBuffer")],
+		params: [Param("v", "string|array|function|StringBuffer")],
 		docs:
 		`A pretty flexible way to fill a \tt{StringBuffer} with some data. This only modifies existing data; the buffer's length is
 		never changed.
 
-		If you pass a character, every character in the buffer will be set to that character.
-
 		If you pass a string, it must be the same length as the buffer, and the string's data is copied into the buffer.
 
-		If you pass an array, it must be the same length of the buffer and all its elements must be characters. Those characters
-		will be copied into the buffer.
+		If you pass an array, it must be the same length of the buffer and all its elements must be one-character strings. The character
+		values of those strings will be copied into the buffer.
 
 		If you pass a \tt{StringBuffer}, it must be the same length as the buffer and its data will be copied into this buffer.
 
-		If you pass a function, it must take an integer and return a character. It will be called on each location in the buffer,
+		If you pass a function, it must take an integer and return a one-character string. It will be called on each location in the buffer,
 		and the resulting characters will be put into the buffer.`},
 
 		{kind: "function", name: "fillRange",
-		params: [Param("lo", "int", "0"), Param("hi", "int", "#this"), Param("v", "char|string|array|function|StringBuffer")],
+		params: [Param("lo", "int", "0"), Param("hi", "int", "#this"), Param("v", "string|array|function|StringBuffer")],
 		docs:
 		`\b{Also aliased to \tt{opSliceAssign}.}
 
@@ -1606,6 +1606,11 @@ local s = StringBuffer()
 
 		You can either call this method directly, or you can use slice-assignment; they are aliased to the same method and do
 		the same thing. Thus, \tt{"s.fillRange(x, y, z)"} is functionally identical to \tt{"s[x .. y] = z"} and vice versa.`},
+
+		{kind: "function", name: "fillChar",
+		params: [Param("ch", "string"), Param("lo", "int", "0"), Param("hi", "int", "#this")],
+		docs:
+		`Sets every character to the character given by \tt{ch}, which must be a one-character string.`},
 
 		{kind: "function", name: "insert",
 		params: [Param("idx", "int"), Param("val")],
@@ -1621,9 +1626,9 @@ local s = StringBuffer()
 		The \tt{hi} index defaults to one more than the \tt{lo} index, so you can remove a single character by just passing the \tt{lo} index.`},
 
 		{kind: "function", name: "find",
-		params: [Param("sub", "string|char|StringBuffer"), Param("start", "int", "0")],
+		params: [Param("sub", "string|StringBuffer"), Param("start", "int", "0")],
 		docs:
-		`Searches for an occurence of \tt{sub} in \tt{this}. \tt{sub} can be a string, a single character, or another \tt{StringBuffer}.
+		`Searches for an occurence of \tt{sub} in \tt{this}. \tt{sub} can be a string or another \tt{StringBuffer}.
 		The search starts from \tt{start} (which defaults to the first character) and goes right. If \tt{sub} is found, this function returns
 		the integer index of the occurrence in the string, with 0 meaning the first character. Otherwise, if \tt{sub} cannot be found, \tt{#this}
 		is returned.
@@ -1634,7 +1639,7 @@ local s = StringBuffer()
 		\throws[exceptions.BoundsException] if \tt{start} is negative and out-of-bounds (that is, \tt{abs(start) > #this}).`},
 
 		{kind: "function", name: "rfind",
-		params: [Param("sub", "string|char|StringBuffer"), Param("start", "int", "#this")],
+		params: [Param("sub", "string|StringBuffer"), Param("start", "int", "#this")],
 		docs:
 		`Reverse find. Works similarly to \tt{find}, but the search starts with the character at \tt{start - 1} (which defaults to
 		the last character) and goes \em{left}. \tt{start} is not included in the search so you can use the result of this function

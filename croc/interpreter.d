@@ -775,19 +775,6 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 
 				return pushString(t, buffer[0 .. pos]);
 
-			case CrocValue.Type.Char:
-				auto inbuf = v.mChar;
-
-				if(!isValidChar(inbuf))
-					throwStdException(t, "UnicodeException", "Character U+{:X6} is not a valid Unicode codepoint", cast(uint)inbuf);
-
-				char[] tmp = void;
-
-				if(encodeUtf8Char(buffer, inbuf, tmp) != UtfError.OK)
-					throwStdException(t, "UnicodeException", "Invalid character U+{:X6}", cast(uint)inbuf);
-
-				return pushString(t, tmp);
-
 			case CrocValue.Type.String:
 				return push(t, v);
 
@@ -838,7 +825,7 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 				goto default;
 
 			pushString(t, CrocValue.typeStrings[CrocValue.Type.Namespace]);
-			pushChar(t, ' ');
+			pushString(t, " ");
 			pushNamespaceNamestring(t, v.mNamespace);
 
 			auto slot = t.stackIndex - 3;
@@ -860,14 +847,12 @@ bool inImpl(CrocThread* t, CrocValue* item, CrocValue* container)
 	switch(container.type)
 	{
 		case CrocValue.Type.String:
-			if(item.type == CrocValue.Type.Char)
-				return string.contains(container.mString, item.mChar);
-			else if(item.type == CrocValue.Type.String)
+			if(item.type == CrocValue.Type.String)
 				return string.contains(container.mString, item.mString.toString());
 			else
 			{
 				typeString(t, item);
-				throwStdException(t, "TypeException", "Can only use characters to look in strings, not '{}'", getString(t, -1));
+				throwStdException(t, "TypeException", "Can only use strings to look in strings, not '{}'", getString(t, -1));
 			}
 
 		case CrocValue.Type.Table:
@@ -967,7 +952,10 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 			if(index < 0 || index >= str.cpLength)
 				throwStdException(t, "BoundsException", "Invalid string index {} (length is {})", key.mInt, str.cpLength);
 
-			t.stack[dest] = string.charAt(str, cast(uword)index);
+			auto s = str.toString();
+			auto offs = utf8CPIdxToByte(s, cast(uword)index);
+			auto len = utf8SequenceLength(s[offs]);
+			t.stack[dest] = createString(t, s[offs .. offs + len]);
 			return;
 
 		case CrocValue.Type.Table:
@@ -1228,7 +1216,6 @@ crocint compareImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 		{
 			case CrocValue.Type.Null:   return 0;
 			case CrocValue.Type.Bool:   return (cast(crocint)a.mBool - cast(crocint)b.mBool);
-			case CrocValue.Type.Char:   return Compare3(a.mChar, b.mChar);
 			case CrocValue.Type.String: return (a.mString is b.mString) ? 0 : string.compare(a.mString, b.mString);
 			default: break;
 		}
@@ -1323,7 +1310,6 @@ bool equalsImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 		{
 			case CrocValue.Type.Null:   return true;
 			case CrocValue.Type.Bool:   return a.mBool == b.mBool;
-			case CrocValue.Type.Char:   return a.mChar == b.mChar;
 			case CrocValue.Type.String: return a.mString is b.mString;
 			default: break;
 		}
@@ -1815,7 +1801,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 
 		switch(stack[slot].type)
 		{
-			case CrocValue.Type.String, CrocValue.Type.Char:
+			case CrocValue.Type.String:
 				uword len = 0;
 				uword idx = slot;
 
@@ -1823,13 +1809,6 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 				{
 					if(stack[idx].type == CrocValue.Type.String)
 						len += stack[idx].mString.length;
-					else if(stack[idx].type == CrocValue.Type.Char)
-					{
-						if(!isValidChar(stack[idx].mChar))
-							throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (\\U{:x8})", cast(uint)stack[idx].mChar);
-
-						len += charUtf8Length(stack[idx].mChar);
-					}
 					else
 						break;
 				}
@@ -1850,7 +1829,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 				else
 				{
 					typeString(t, &stack[slot + 1]);
-					throwStdException(t, "TypeException", "Can't concatenate 'string|char' and '{}'", getString(t, -1));
+					throwStdException(t, "TypeException", "Can't concatenate 'string' and '{}'", getString(t, -1));
 				}
 
 			case CrocValue.Type.Array:
@@ -2013,18 +1992,7 @@ void stringConcat(CrocThread* t, CrocValue first, CrocValue[] vals, uword len)
 
 	void add(ref CrocValue v)
 	{
-		char[] s = void;
-
-		if(v.type == CrocValue.Type.String)
-			s = v.mString.toString();
-		else
-		{
-			char[6] outbuf = void;
-
-			if(encodeUtf8Char(outbuf, v.mChar, s) != UtfError.OK)
-				throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (U+{:X6})", v.mChar);
-		}
-
+		auto s = v.mString.toString();
 		tmpBuffer[i .. i + s.length] = s[];
 		i += s.length;
 	}
@@ -2047,34 +2015,17 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 
 	switch(t.stack[dest].type)
 	{
-		case CrocValue.Type.String, CrocValue.Type.Char:
-			uword len = void;
-
-			if(t.stack[dest].type == CrocValue.Type.Char)
-			{
-				if(!isValidChar(t.stack[dest].mChar))
-					throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (\\U{:x8})", t.stack[dest].mChar);
-
-				len = charUtf8Length(t.stack[dest].mChar);
-			}
-			else
-				len = t.stack[dest].mString.length;
+		case CrocValue.Type.String:
+			uword len = t.stack[dest].mString.length;
 
 			for(uword idx = slot; idx < endSlot; idx++)
 			{
 				if(stack[idx].type == CrocValue.Type.String)
 					len += stack[idx].mString.length;
-				else if(stack[idx].type == CrocValue.Type.Char)
-				{
-					if(!isValidChar(stack[idx].mChar))
-						throwStdException(t, "UnicodeException", "Attempting to concatenate an invalid character (\\U{:x8})", cast(uint)stack[idx].mChar);
-
-					len += charUtf8Length(stack[idx].mChar);
-				}
 				else
 				{
 					typeString(t, &stack[idx]);
-					throwStdException(t, "TypeException", "Can't append a '{}' to a 'string/char'", getString(t, -1));
+					throwStdException(t, "TypeException", "Can't append a '{}' to a 'string'", getString(t, -1));
 				}
 			}
 
@@ -2435,7 +2386,7 @@ word pushNamespaceNamestring(CrocThread* t, CrocNamespace* ns)
 
 			if(ret > 0)
 			{
-				pushChar(t, '.');
+				pushString(t, ".");
 				n = ret + 1;
 			}
 		}
@@ -2468,7 +2419,6 @@ word typeString(CrocThread* t, CrocValue* v)
 			CrocValue.Type.Bool,
 			CrocValue.Type.Int,
 			CrocValue.Type.Float,
-			CrocValue.Type.Char,
 			CrocValue.Type.String,
 			CrocValue.Type.Table,
 			CrocValue.Type.Array,
@@ -2493,7 +2443,7 @@ word typeString(CrocThread* t, CrocValue* v)
 
 		case CrocValue.Type.NativeObj:
 			pushString(t, CrocValue.typeStrings[CrocValue.Type.NativeObj]);
-			pushChar(t, ' ');
+			pushString(t, " ");
 
 			if(auto o = v.mNativeObj.obj)
 				pushString(t, o.classinfo.name);

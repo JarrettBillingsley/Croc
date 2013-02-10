@@ -36,6 +36,7 @@ import croc.compiler_ast;
 import croc.compiler_astvisitor;
 import croc.compiler_types;
 import croc.types;
+import croc.utf;
 import croc.utils;
 
 scope class Semantic : IdentityVisitor
@@ -132,8 +133,6 @@ public:
 				type = CrocValue.Type.Int;
 			else if(p.defValue.isFloat)
 				type = CrocValue.Type.Float;
-			else if(p.defValue.isChar)
-				type = CrocValue.Type.Char;
 			else if(p.defValue.isString)
 				type = CrocValue.Type.String;
 			else
@@ -721,42 +720,6 @@ public:
 					}
 				}
 			}
-			else if(lo.isChar && hi.isChar)
-			{
-				auto loVal = lo.asChar;
-				auto hiVal = hi.asChar;
-
-				foreach(c2; s.cases)
-				{
-					if(rc is c2)
-						continue;
-
-					if(c2.highRange !is null)
-					{
-						auto lo2 = c2.conditions[0].exp;
-						auto hi2 = c2.highRange;
-
-						if((lo2.isConstant && hi2.isConstant) && (lo2.isChar && hi2.isChar))
-						{
-							auto lo2Val = lo2.asChar;
-							auto hi2Val = hi2.asChar;
-
-							if(loVal == lo2Val ||
-								(loVal < lo2Val && (lo2Val - loVal) <= (hiVal - loVal)) ||
-								(loVal > lo2Val && (loVal - lo2Val) <= (hi2Val - lo2Val)))
-								c.semException(lo2.location, "case range overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
-						}
-					}
-					else
-					{
-						foreach(cond; c2.conditions)
-						{
-							if(cond.exp.isConstant && cond.exp.isChar && cond.exp.asChar >= loVal && cond.exp.asChar <= hiVal)
-								c.semException(cond.exp.location, "case value overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
-						}
-					}
-				}
-			}
 			else if(lo.isString && hi.isString)
 			{
 				auto loVal = lo.asString;
@@ -828,13 +791,6 @@ public:
 					if(lo.asFloat > hi.asFloat)
 						c.semException(lo.location, "Invalid case range (low is greater than high)");
 					else if(lo.asFloat == hi.asFloat)
-						s.highRange = null;
-				}
-				else if(lo.isChar && hi.isChar)
-				{
-					if(lo.asChar > hi.asChar)
-						c.semException(lo.location, "Invalid case range (low is greater than high)");
-					else if(lo.asChar == hi.asChar)
 						s.highRange = null;
 				}
 				else if(lo.isString && hi.isString)
@@ -1189,9 +1145,6 @@ public:
 					return new(c) BoolExp(e.location, isTrue ? e.op1.asFloat() == e.op2.asFloat() : e.op1.asFloat() != e.op2.asFloat());
 			}
 
-			if(e.op1.isChar && e.op2.isChar)
-				return new(c) BoolExp(e.location, isTrue ? e.op1.asChar() == e.op2.asChar() : e.op1.asChar() != e.op2.asChar());
-
 			if(e.op1.isString && e.op2.isString)
 				return new(c) BoolExp(e.location, isTrue ? e.op1.asString() == e.op2.asString() : e.op1.asString() != e.op2.asString());
 
@@ -1219,8 +1172,6 @@ public:
 			cmpVal = Compare3(op1.asInt(), op2.asInt());
 		else if((op1.isInt || op1.isFloat) && (op2.isInt || op2.isFloat))
 			cmpVal = Compare3(op1.asFloat(), op2.asFloat());
-		else if(op1.isChar && op2.isChar)
-			cmpVal = Compare3(op1.asChar, op2.asChar);
 		else if(op1.isString && op2.isString)
 			cmpVal = scmp(op1.asString(), op2.asString());
 		else
@@ -1284,25 +1235,10 @@ public:
 		{
 			auto s = e.op2.asString;
 
-			if(e.op1.isChar)
-			{
-				auto ch = e.op1.asChar;
-				bool found = false;
-
-				foreach(dchar ch2; s)
-					if(ch2 == ch)
-					{
-						found = true;
-						break;
-						// for some reason, if I try to return a BoolExp here, DMD inserts a cast to AstNode that I can't get around..
-					}
-
-				return new(c) BoolExp(e.location, found);
-			}
-			else if(e.op1.isString)
+			if(e.op1.isString)
 				return new(c) BoolExp(e.location, s.locatePattern(e.op1.asString()) != s.length);
 			else
-				c.semException(e.location, "'in' must be performed on a string with a character or string");
+				c.semException(e.location, "'in' must be performed on a string with a string");
 		}
 
 		return e;
@@ -1317,25 +1253,10 @@ public:
 		{
 			auto s = e.op2.asString;
 
-			if(e.op1.isChar)
-			{
-				auto ch = e.op1.asChar;
-				bool found = false;
-
-				foreach(dchar ch2; s)
-					if(ch2 == ch)
-					{
-						found = true;
-						break;
-						// for some reason, if I try to return a BoolExp here, DMD inserts a cast to AstNode that I can't get around..
-					}
-
-				return new(c) BoolExp(e.location, !found);
-			}
-			else if(e.op1.isString)
+			if(e.op1.isString)
 				return new(c) BoolExp(e.location, s.locatePattern(e.op1.asString()) == s.length);
 			else
-				c.semException(e.location, "'!in' must be performed on a string with a character or string");
+				c.semException(e.location, "'!in' must be performed on a string with a string");
 		}
 
 		return e;
@@ -1466,21 +1387,16 @@ public:
 				newOperands ~= ops[i];
 			else if(ops[i].isConstant && ops[i + 1].isConstant)
 			{
-				if((ops[i].isString || ops[i].isChar) && (ops[i + 1].isString || ops[i + 1].isChar))
+				if(ops[i].isString && ops[i + 1].isString)
 				{
 					word j = i + 2;
 
-					for(; j < ops.length && (ops[j].isString || ops[j].isChar); j++)
+					for(; j < ops.length && ops[j].isString; j++)
 					{}
 
 					// j points to first non-const non-string non-char operand
 					foreach(op; ops[i .. j])
-					{
-						if(op.isString)
-							tempStr ~= op.asString();
-						else
-							tempStr ~= op.asChar();
-					}
+						tempStr ~= op.asString();
 
 					auto dat = tempStr.toArray();
 					auto str = c.newString(dat);
@@ -1721,15 +1637,19 @@ public:
 			if(!e.op.isString || !e.index.isInt)
 				c.semException(e.location, "Can only index strings with integers at compile time");
 
+			auto str = e.op.asString();
+			auto strLen = fastUtf8CPLength(str);
 			auto idx = e.index.asInt();
 
 			if(idx < 0)
-				idx += e.op.asString.length;
+				idx += strLen;
 
-			if(idx < 0 || idx >= e.op.asString.length)
+			if(idx < 0 || idx >= strLen)
 				c.semException(e.location, "Invalid string index");
 
-			return new(c) CharExp(e.location, e.op.asString[cast(uword)idx]);
+			auto offs = utf8CPIdxToByte(str, cast(uword)idx);
+			auto len = utf8SequenceLength(str[offs]);
+			return new(c) StringExp(e.location, c.newString(str[offs .. offs + len]));
 		}
 
 		return e;

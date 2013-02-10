@@ -109,6 +109,7 @@ const RegisterFunc[] _methodFuncs =
 	{"vjoin",        &_vjoin},
 	{"toInt",        &_toInt,        maxParams: 1},
 	{"toFloat",      &_toFloat,      maxParams: 0},
+	{"ord",          &_ord,          maxParams: 1},
 	{"compare",      &_compare,      maxParams: 1},
 	{"find",         &_find,         maxParams: 2},
 	{"rfind",        &_rfind,        maxParams: 2},
@@ -164,18 +165,8 @@ uword _join(CrocThread* t)
 	{
 		if(val.value.type == CrocValue.Type.String)
 			totalLen += val.value.mString.length;
-		else if(val.value.type == CrocValue.Type.Char)
-		{
-			auto c = val.value.mChar;
-			auto chLen = charUtf8Length(c);
-
-			if(chLen == 0 || !isValidChar(c))
-				throwStdException(t, "ValueException", "Array element {} is an invalid character", i);
-
-			totalLen += chLen;
-		}
 		else
-			throwStdException(t, "TypeException", "Array element {} is not a string or char", i);
+			throwStdException(t, "TypeException", "Array element {} is not a string", i);
 	}
 
 	totalLen += sep.length * (arr.length - 1);
@@ -193,20 +184,9 @@ uword _join(CrocThread* t)
 			pos += sep.length;
 		}
 
-		if(val.value.type == CrocValue.Type.String)
-		{
-			auto s = val.value.mString.toString();
-			buf[pos .. pos + s.length] = s[];
-			pos += s.length;
-		}
-		else
-		{
-			auto c = val.value.mChar;
-			char[] slice = void;
-			auto ok = encodeUtf8Char(buf[pos .. $], c, slice);
-			assert(ok == UtfError.OK);
-			pos += slice.length;
-		}
+		auto s = val.value.mString.toString();
+		buf[pos .. pos + s.length] = s[];
+		pos += s.length;
 	}
 
 	pushString(t, buf);
@@ -225,8 +205,8 @@ uword _vjoin(CrocThread* t)
 	}
 
 	for(uword i = 1; i <= numParams; i++)
-		if(!isString(t, i) && !isChar(t, i))
-			paramTypeError(t, i, "char|string");
+		if(!isString(t, i))
+			paramTypeError(t, i, "string");
 
 	if(numParams == 1)
 	{
@@ -270,6 +250,22 @@ uword _toFloat(CrocThread* t)
 	return 1;
 }
 
+uword _ord(CrocThread* t)
+{
+	auto s = checkStringParam(t, 0);
+	auto length = len(t, 0);
+	auto idx = optIntParam(t, 1, 0);
+
+	if(idx < 0)
+		idx += length;
+
+	if(idx < 0 || idx >= length)
+		throwStdException(t, "BoundsException", "Invalid index {} (string length: {})", idx, length);
+
+	pushInt(t, utf8CharAt(s, cast(uword)idx));
+	return 1;
+}
+
 uword _compare(CrocThread* t)
 {
 	pushInt(t, scmp(checkStringParam(t, 0), checkStringParam(t, 1)));
@@ -282,23 +278,8 @@ uword _commonFind(bool reverse)(CrocThread* t)
 	auto src = checkStringParam(t, 0);
 	auto srcLen = len(t, 0);
 
-	// Pattern (searched) string/char
-	checkAnyParam(t, 1);
-
-	char[6] buf = void;
-	char[] pat;
-
-	if(isString(t, 1))
-		pat = getString(t, 1);
-	else if(isChar(t, 1))
-	{
-		auto ch = getChar(t, 1);
-
-		if(encodeUtf8Char(buf, ch, pat) != UtfError.OK)
-			throwStdException(t, "UnicodeException", "Invalid Unicode character U+{:X6}", cast(uint)ch);
-	}
-	else
-		paramTypeError(t, 1, "char|string");
+	// Pattern (searched) string
+	auto pat = checkStringParam(t, 1);
 
 	// Start index
 	static if(reverse)
@@ -548,13 +529,14 @@ uword _iterator(CrocThread* t)
 		return 0;
 
 	char* ptr = str.ptr + realIdx;
-	auto c = fastDecodeUtf8Char(ptr);
+	auto oldPtr = ptr;
+	fastDecodeUtf8Char(ptr);
 
 	pushInt(t, ptr - str.ptr);
 	setUpval(t, 0);
 
 	pushInt(t, fakeIdx);
-	pushChar(t, c);
+	pushString(t, oldPtr[0 .. ptr - oldPtr]);
 	return 2;
 }
 
@@ -572,13 +554,14 @@ uword _iteratorReverse(CrocThread* t)
 		return 0;
 
 	char* ptr = str.ptr + realIdx;
-	auto c = fastReverseUTF8Char(ptr);
+	auto oldPtr = ptr;
+	fastReverseUTF8Char(ptr);
 
 	pushInt(t, ptr - str.ptr);
 	setUpval(t, 0);
 
 	pushInt(t, fakeIdx);
-	pushChar(t, c);
+	pushString(t, ptr[0 .. oldPtr - ptr]);
 	return 2;
 }
 
@@ -643,14 +626,13 @@ version(CrocBuiltinDocs)
 		{kind: "function", name: "s.join",
 		params: [Param("arr", "array")],
 		docs:
-		`The inverse of the \link{split} method. This joins together the elements of \tt{arr} using \tt{s} as the separator. The
-		elements of \tt{arr} must all be characters or strings. If \tt{s} is the empty string, this just concatenates all the
-		elements of \tt{arr} together. If \tt{#arr} is 0, returns the empty string. If \tt{#arr} is 1, returns \tt{arr[0]} as a
-		string (so a single character will be converted to a string). Otherwise, returns the elements joined sequentially with the
-		separator \tt{s} between each pair of arguments. So "\tt{".".join(["apple", "banana", "orange"])}" will yield
-		the string \tt{"apple.banana.orange"}.
+		`The inverse of the \link{split} method. This joins together the elements of \tt{arr} using \tt{s} as the
+		separator. The elements of \tt{arr} must all be strings. If \tt{s} is the empty string, this just concatenates
+		all the elements of \tt{arr} together. If \tt{#arr} is 0, returns the empty string. If \tt{#arr} is 1, returns
+		\tt{arr[0]}. Otherwise, returns the elements joined sequentially with the separator \tt{s} between each pair of
+		arguments. So "\tt{".".join(["apple", "banana", "orange"])}" will yield the string \tt{"apple.banana.orange"}.
 
-		\throws[exceptions.TypeException] if any element of \tt{arr} is not a string or character.`},
+		\throws[exceptions.TypeException] if any element of \tt{arr} is not a string.`},
 
 		{kind: "function", name: "s.vjoin",
 		params: [Param("vararg", "vararg")],
@@ -658,7 +640,7 @@ version(CrocBuiltinDocs)
 		`Similar to \link{join}, but joins its list of variadic parameters instead of an array. The functionality is otherwise
 		identical. So "\tt{".".join("apple", "banana", "orange")}" will yield the string \tt{"apple.banana.orange"}.
 
-		\throws[exceptions.TypeException] if any of the varargs is not a string or character.`},
+		\throws[exceptions.TypeException] if any of the varargs is not a string.`},
 
 		{kind: "function", name: "s.toInt",
 		params: [Param("base", "int", "10")],
@@ -674,6 +656,15 @@ version(CrocBuiltinDocs)
 
 		\throws[exceptions.ValueException] if the string does not follow the format of a float.`},
 
+		{kind: "function", name: "s.ord",
+		params: [Param("idx", "int", "0")],
+		docs:
+		`Gets the integer codepoint value of the character at the given index.
+
+		\param[idx] is the index into the string, which can be negative.
+		\returns the integer codepoint value of the character at \tt{s[idx]}.
+		\throws[exceptions.BoundsException] if \tt{idx} is invalid.`},
+
 		{kind: "function", name: "s.compare",
 		params: [Param("other", "string")],
 		docs:
@@ -683,12 +674,11 @@ version(CrocBuiltinDocs)
 		achieved by using the \tt{<=>} operator on two strings.`},
 
 		{kind: "function", name: "s.find",
-		params: [Param("sub", "string|char"), Param("start", "int", "0")],
+		params: [Param("sub", "string"), Param("start", "int", "0")],
 		docs:
-		`Searches for an occurence of \tt{sub} in \tt{s}. \tt{sub} can be either a string or a single character. The search starts
-		from \tt{start} (which defaults to the first character) and goes right. If \tt{sub} is found, this function returns the integer
-		index of the occurrence in the string, with 0 meaning the first character. Otherwise, if \tt{sub} cannot be found, \tt{#s}
-		is returned.
+		`Searches for an occurence of \tt{sub} in \tt{s}. The search starts from \tt{start} (which defaults to the first
+		character) and goes right. If \tt{sub} is found, this function returns the integer index of the occurrence in
+		the string, with 0 meaning the first character. Otherwise, if \tt{sub} cannot be found, \tt{#s} is returned.
 
 		If \tt{start < 0} it is treated as an index from the end of the string. If \tt{start >= #s} then this function simply returns
 		\tt{#s} (that is, it didn't find anything).
@@ -696,7 +686,7 @@ version(CrocBuiltinDocs)
 		\throws[exceptions.BoundsException] if \tt{start} is negative and out-of-bounds (that is, \tt{abs(start) > #s}).`},
 
 		{kind: "function", name: "s.rfind",
-		params: [Param("sub", "string|char"), Param("start", "int", "#s")],
+		params: [Param("sub", "string"), Param("start", "int", "#s")],
 		docs:
 		`Reverse find. Works similarly to \tt{find}, but the search starts with the character at \tt{start - 1} (which defaults to
 		the last character) and goes \em{left}. \tt{start} is not included in the search so you can use the result of this function

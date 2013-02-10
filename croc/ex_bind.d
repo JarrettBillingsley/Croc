@@ -49,6 +49,7 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.types;
+import croc.utf;
 import croc.utils;
 import croc.vm;
 

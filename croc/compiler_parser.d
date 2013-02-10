@@ -236,7 +236,6 @@ public:
 		switch(l.type)
 		{
 			case
-				Token.CharLiteral,
 				Token.Colon,
 				Token.Dec,
 				Token.False,
@@ -702,7 +701,6 @@ public:
 							case "bool":      addConstraint(CrocValue.Type.Bool); break;
 							case "int":       addConstraint(CrocValue.Type.Int); break;
 							case "float":     addConstraint(CrocValue.Type.Float); break;
-							case "char":      addConstraint(CrocValue.Type.Char); break;
 							case "string":    addConstraint(CrocValue.Type.String); break;
 							case "table":     addConstraint(CrocValue.Type.Table); break;
 							case "array":     addConstraint(CrocValue.Type.Array); break;
@@ -2405,7 +2403,6 @@ public:
 			case Token.Null:                   exp = parseNullExp(); break;
 			case Token.True, Token.False:      exp = parseBoolExp(); break;
 			case Token.Vararg:                 exp = parseVarargExp(); break;
-			case Token.CharLiteral:            exp = parseCharExp(); break;
 			case Token.IntLiteral:             exp = parseIntExp(); break;
 			case Token.FloatLiteral:           exp = parseFloatExp(); break;
 			case Token.StringLiteral:          exp = parseStringExp(); break;
@@ -2475,14 +2472,6 @@ public:
 	{
 		with(l.expect(Token.Vararg))
 			return new(c) VarargExp(loc);
-	}
-
-	/**
-	*/
-	CharExp parseCharExp()
-	{
-		with(l.expect(Token.CharLiteral))
-			return new(c) CharExp(loc, cast(dchar)intValue);
 	}
 
 	/**

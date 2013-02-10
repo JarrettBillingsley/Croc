@@ -1409,12 +1409,6 @@ public:
 		return e;
 	}
 
-	override CharExp visit(CharExp e)
-	{
-		fs.pushChar(e.value);
-		return e;
-	}
-
 	override StringExp visit(StringExp e)
 	{
 		fs.pushString(e.value);

@@ -32,7 +32,6 @@ NestedComment:
 Token:
 	Identifier
 	Keyword
-	CharLiteral
 	StringLiteral
 	IntLiteral
 	FloatLiteral
@@ -65,15 +64,13 @@ Keyword:
 	in | is | local | module | namespace | null | return | scope | super
 	switch | this | throw | true | try | vararg | while | with | yield
 
-CharLiteral:
-	' (Character | EscapeSequence) '
-
 StringLiteral:
 	RegularString
 	VerbatimString
 
 RegularString:
 	" (Character | EscapeSequence | EndOfLine)* "
+	' (Character | EscapeSequence | EndOfLine)* '
 
 EscapeSequence:
 	\'
@@ -248,7 +245,6 @@ BasicType:
 	bool
 	int
 	float
-	char
 	string
 	table
 	array
@@ -473,7 +469,6 @@ PrimaryExpression:
 	vararg
 	IntLiteral
 	FloatLiteral
-	CharLiteral
 	StringLiteral
 	: (Identifier | super | '(' Expression ')')
 	function Identifier? FunctionBody

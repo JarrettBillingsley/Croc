@@ -65,7 +65,7 @@ public:
 		foreach(i, n; m.names)
 		{
 			if(i > 0)
-				pushChar(t, '.');
+				pushString(t, ".");
 			pushString(t, n);
 		}
 

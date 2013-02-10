@@ -164,10 +164,10 @@ uword _streamSeek(CrocThread* t)
 {
 	auto stream = cast(IOStream)getNativeObj(t, 1); assert(stream !is null);
 	auto offset = getInt(t, 2);
-	auto whence = getChar(t, 3);
+	auto whence = getString(t, 3);
 	auto realWhence =
-		whence == 'b' ? IOStream.Anchor.Begin :
-		whence == 'c' ? IOStream.Anchor.Current :
+		whence == "b" ? IOStream.Anchor.Begin :
+		whence == "c" ? IOStream.Anchor.Current :
 		IOStream.Anchor.End;
 
 	pushInt(t, safeCode(t, "exceptions.IOException", stream.seek(offset, realWhence)));
@@ -363,21 +363,21 @@ class Stream
 
 	\param[this] must be seekable.
 	\param[offset] is the position offset, whose meaning depends upon the \tt{where} parameter.
-	\param[where] is a character indicating the position in the stream from which the new stream position will be
+	\param[where] is a string indicating the position in the stream from which the new stream position will be
 		calculated. It can be one of the three following values:
 
 	\dlist
-		\li{\b{\tt{'b'}}} The \tt{offset} is treated as an absolute offset from the beginning of the stream.
-		\li{\b{\tt{'c'}}} The \tt{offset} is treated as a relative offset from the current read/write position. This
+		\li{\b{\tt{"b"}}} The \tt{offset} is treated as an absolute offset from the beginning of the stream.
+		\li{\b{\tt{"c"}}} The \tt{offset} is treated as a relative offset from the current read/write position. This
 			means that negative \tt{offset} values move the read/write position backwards.
-		\li{\b{\tt{'e'}}} The \tt{offset} is treated as a relative offset from the end of the stream.
+		\li{\b{\tt{"e"}}} The \tt{offset} is treated as a relative offset from the end of the stream.
 	\endlist
 
 	\returns the new stream position as an absolute position from the beginning of the stream.
 
 	\throws[exceptions.IOException] if the resulting stream position would be negative, or if some error occurred.
 	*/
-	function seek(this: @SeekStream, offset: int, where: char)
+	function seek(this: @SeekStream, offset: int, where: string)
 		throw NotImplementedException()
 
 	/**
@@ -503,7 +503,7 @@ class Stream
 
 		if(:seekable())
 		{
-			:seek(dist, 'c')
+			:seek(dist, "c")
 			return
 		}
 
@@ -620,9 +620,9 @@ class Stream
 	function position(this: @SeekStream, pos: int|null)
 	{
 		if(pos is null)
-			return :seek(0, 'c')
+			return :seek(0, "c")
 		else
-			return :seek(pos, 'b')
+			return :seek(pos, "b")
 	}
 
 	/**
@@ -638,7 +638,7 @@ class Stream
 	function size(this: @SeekStream)
 	{
 		local pos = :position()
-		local ret = :seek(0, 'e')
+		local ret = :seek(0, "e")
 		:position(pos)
 		return ret
 	}
@@ -760,13 +760,13 @@ class MemblockStream : Stream
 	\throws[exceptions.ValueException] if \tt{where} is invalid.
 	\throws[exceptions.IOException] if the resulting offset is negative.
 	*/
-	function seek(offset: int, where: char)
+	function seek(offset: int, where: string)
 	{
 		switch(where)
 		{
-			case 'b': break
-			case 'c': offset += :__pos; break
-			case 'e': offset += #:__mb; break
+			case "b": break
+			case "c": offset += :__pos; break
+			case "e": offset += #:__mb; break
 			default: throw ValueException("Invalid seek type '{}'".format(where))
 		}
 
@@ -1055,9 +1055,9 @@ class BufferedInStream : StreamWrapper
 
 	Seeking will clear the data buffer. The call signature and return values are the same as \link{Stream.seek}.
 	*/
-	function seek(this: @SeekStream, offset: int, where: char)
+	function seek(this: @SeekStream, offset: int, where: string)
 	{
-		if(where == 'c')
+		if(where == "c")
 			offset -= :__bound - :__bufPos
 
 		:__bufPos, :__bound = 0, 0
@@ -1146,9 +1146,9 @@ class BufferedOutStream : StreamWrapper
 
 	Seeking will flush the data buffer. The call signature and return values are the same as \link{Stream.seek}.
 	*/
-	function seek(offset: int, where: char)
+	function seek(offset: int, where: string)
 	{
-		if(where == 'c')
+		if(where == "c")
 			offset -= :__bufPos
 
 		if(:__bufPos > 0)
@@ -1509,12 +1509,12 @@ class NativeStream : Stream
 	}
 
 	/// ditto
-	function seek(this: @OpenStream, offset: int, where: char)
+	function seek(this: @OpenStream, offset: int, where: string)
 	{
 		:__checkSeekable()
 		if(:__writable) :__checkDirty()
 
-		if(where !in "bce")
+		if(where != "b" && where != "c" && where != "e")
 			throw ValueException("Invalid seek location '{}'".format(where))
 
 		return streamSeek(:__stream, offset, where)
