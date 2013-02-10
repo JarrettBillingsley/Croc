@@ -294,6 +294,12 @@ uword _bindMethod(CrocThread* t)
 	auto AR = getActRec(t, 1);
 	auto slot = classobj.getMethod(cls, name);
 
+	if(slot is null)
+	{
+		throwStdException(t, "MethodException", "Class '{}' has no method named '{}'",
+			cls.name.toString(), name.toString());
+	}
+
 	if(!checkAccess(slot.value, AR))
 	{
 		throwStdException(t, "MethodException", "Attempting to bind method '{}' from outside class '{}'",
