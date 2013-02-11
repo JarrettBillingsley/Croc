@@ -139,6 +139,7 @@ const RegisterFunc[] _methodFuncs =
 [
 	{"toString",     &_toString,           maxParams: 0},
 	{"dup",          &_dup,                maxParams: 0},
+	{"ownData",      &_ownData,            maxParams: 0},
 	{"fill",         &_fill,               maxParams: 1},
 	{"fillSlice",    &_fillSlice,          maxParams: 3},
 	{"readInt8",     &_rawRead!(byte),     maxParams: 1},
@@ -204,6 +205,14 @@ uword _dup(CrocThread* t)
 
 	newMemblock(t, mb.data.length);
 	getMemblock(t, -1).data[] = mb.data[];
+	return 1;
+}
+
+uword _ownData(CrocThread* t)
+{
+	checkParam(t, 0, CrocValue.Type.Memblock);
+	auto mb = getMemblock(t, 0);
+	pushBool(t, mb.ownData);
 	return 1;
 }
 
@@ -590,6 +599,10 @@ version(CrocBuiltinDocs)
 
 		The new memblock will have the same length and this memblock's data will be copied into it. The new memblock
 		will own its data, regardless of whether or not this memblock does.`},
+
+		{kind: "function", name: "ownData",
+		docs:
+		`\returns a bool indicating whether or not this memblock owns its data. If true, it can be resized freely.`},
 
 		{kind: "function", name: "fill",
 		params: [Param("val", "int")],
