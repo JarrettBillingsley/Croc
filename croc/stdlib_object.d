@@ -25,13 +25,16 @@ subject to the following restrictions:
 
 module croc.stdlib_object;
 
+import croc.api_debug;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.ex_library;
+import croc.interpreter;
 import croc.types;
 import croc.types_class;
 import croc.types_instance;
+import croc.utils;
 
 alias CrocDoc.Docs Docs;
 alias CrocDoc.Param Param;
@@ -48,6 +51,12 @@ void initObjectLib(CrocThread* t)
 	makeModule(t, "object", function uword(CrocThread* t)
 	{
 		registerGlobals(t, _globalFuncs);
+
+			newTable(t);
+			dup(t);
+		registerGlobal(t, _bindClassMethodFunc);
+		registerGlobal(t, _bindInstMethodFunc);
+
 		return 0;
 	});
 
@@ -86,7 +95,14 @@ const RegisterFunc[] _globalFuncs =
 	{"removeMember", &_removeMember, maxParams: 2},
 	{"freeze",       &_freeze,       maxParams: 1},
 	{"isFrozen",     &_isFrozen,     maxParams: 1},
+	{"finalizable",  &_finalizable,  maxParams: 1},
 ];
+
+const RegisterFunc _bindClassMethodFunc =
+	{"bindClassMethod", &_bindClassMethod, maxParams: 2, numUpvals: 1};
+
+const RegisterFunc _bindInstMethodFunc =
+	{"bindInstMethod",  &_bindInstMethod,  maxParams: 2, numUpvals: 1};
 
 uword _fieldsOf(CrocThread* t)
 {
@@ -290,6 +306,193 @@ uword _isFrozen(CrocThread* t)
 	return 1;
 }
 
+uword _finalizable(CrocThread* t)
+{
+	checkAnyParam(t, 1);
+
+	if(isClass(t, 1))
+	{
+		freezeClass(t, 1);
+		auto c = getClass(t, 1);
+		pushBool(t, c.finalizer !is null);
+	}
+	else if(isInstance(t, 1))
+	{
+		auto i = getInstance(t, 1);
+		pushBool(t, i.parent.finalizer !is null);
+	}
+	else
+		paramTypeError(t, 1, "class|instance");
+
+	return 1;
+}
+
+uword _binder(CrocThread* t)
+{
+	enum
+	{
+		Func,
+		Proto
+	}
+
+	checkParam(t, 1, CrocValue.Type.Instance);
+
+	getUpval(t, Proto);
+	auto proto = getClass(t, -1);
+
+	if(!as(t, 1, -1))
+		paramTypeError(t, 1, proto.name.toString());
+
+	getUpval(t, Func);
+	auto func = getFunction(t, -1);
+	pop(t, 2);
+
+	auto slot = fakeToAbs(t, 1);
+
+	return commonCall(t, slot, -1, callPrologue2(t, func, slot, -1, slot, stackSize(t) - 1, proto));
+}
+
+void _bindImpl(CrocThread* t, CrocClass* cls, CrocString* name)
+{
+	// First, get the method.
+	auto slot = classobj.getMethod(cls, name);
+
+	if(slot is null)
+	{
+		throwStdException(t, "MethodException", "Class '{}' has no method named '{}'",
+			cls.name.toString(), name.toString());
+	}
+
+	auto AR = getActRec(t, 1);
+
+	if(!checkAccess(slot.value, AR))
+	{
+		throwStdException(t, "MethodException", "Attempting to bind method '{}' from outside class '{}'",
+			name.toString(), cls.name.toString());
+	}
+
+	if(slot.value.value.type != CrocValue.Type.Function)
+	{
+		push(t, slot.value.value);
+		pushTypeString(t, -1);
+		throwStdException(t, "TypeException", "'{}' is not a function, it is a '{}'", name.toString(), getString(t, -1));
+	}
+
+	auto realMethod = slot.value.value.mFunction;
+
+	// Next, check to see if we have this method cached.
+	auto tab = getUpval(t, 0); // [tab]
+	push(t, CrocValue(cls));
+	auto methods = idx(t, tab); // [tab methods]
+
+	if(!isNull(t, methods))
+	{
+		push(t, CrocValue(name));
+		auto cached = idx(t, methods); // [tab methods cached]
+
+		if(isNull(t, cached))
+			pop(t); // [tab methods]
+		else
+		{
+			field(t, cached, "func"); // [tab methods cached cachedFunc]
+			auto cachedFunc = getFunction(t, -1);
+
+			if(cachedFunc is realMethod)
+			{
+				field(t, cached, "bound");
+				insertAndPop(t, tab);
+				return;
+			}
+
+			// The method changed; clear the cache and re-create.
+			pop(t, 2); // [tab methods]
+			push(t, CrocValue(name));
+			pushNull(t);
+			idxa(t, methods); // [tab methods]
+		}
+	}
+
+	// No cached function: create it anew.
+		push(t, CrocValue(realMethod));
+		push(t, CrocValue(slot.value.proto));
+	auto newFunc = newFunction(t, &_binder, "binder", 2); // [tab methods newFunc]
+
+	if(isNull(t, methods))
+	{
+		// methods = {}
+		newTable(t);
+		swap(t, methods);
+		pop(t);
+
+		// tab[cls] = methods
+		push(t, CrocValue(cls));
+		dup(t, methods);
+		idxa(t, tab); // [tab methods newFunc]
+	}
+
+	push(t, CrocValue(name)); // [tab methods newFunc name]
+	newTable(t); // [tab methods newFunc name <table>]
+		push(t, CrocValue(realMethod)); fielda(t, -2, "func");
+		dup(t, newFunc);                fielda(t, -2, "bound");
+	idxa(t, methods); // [tab methods newFunc]
+
+	insertAndPop(t, tab); // [newFunc]
+}
+
+uword _bindClassMethod(CrocThread* t)
+{
+	checkParam(t, 1, CrocValue.Type.Class);
+	auto name = checkStringParam(t, 2);
+
+	if(name.startsWith("__"))
+	{
+		pushString(t, nameOf(t, 1));
+		dup(t, 2);
+		cat(t, 2);
+		swap(t, 2);
+		pop(t);
+	}
+
+	_bindImpl(t, getClass(t, 1), getStringObj(t, 2));
+	return 1;
+}
+
+uword _binderInst(CrocThread* t)
+{
+	enum
+	{
+		Func,
+		Self
+	}
+
+	getUpval(t, Func);
+	pushNull(t);
+	getUpval(t, Self);
+	rotate(t, stackSize(t) - 1, 3);
+	return rawCall(t, 1, -1);
+}
+
+uword _bindInstMethod(CrocThread* t)
+{
+	checkParam(t, 1, CrocValue.Type.Instance);
+	auto name = checkStringParam(t, 2);
+
+	if(name.startsWith("__"))
+	{
+		superOf(t, 1);
+		pushString(t, nameOf(t, -1));
+		dup(t, 2);
+		cat(t, 2);
+		swap(t, 2);
+		pop(t, 2);
+	}
+
+	_bindImpl(t, getInstance(t, 1).parent, getStringObj(t, 2));
+	dup(t, 1);
+	newFunction(t, &_binderInst, "binderInst", 2);
+	return 1;
+}
+
 const Docs[] _globalFuncDocs =
 [
 
@@ -382,4 +585,92 @@ class C
 
 	The class must not be frozen, and no method or field of the same name may exist.`},
 
+	{kind: "function", name: "bindClassMethod",
+	params: [Param("cls", "class"), Param("name", "string")],
+	docs:
+	`Given a class and the name of a (public) method from that class, returns a function which allows you to call that
+	method using a normal function call. This is often useful for situations where you want to transparently forward a
+	call to an instance's method, such as when making mock objects.
+
+	The returned function has the signature \tt{function(self: instance(cls), vararg)}; that is, the first parameter
+	must be an instance of the \tt{cls} from which the method is bound, and then a variable number of arguments which
+	will be passed through unchanged to the bound method. The \tt{self} parameter will then become the \tt{this}
+	parameter in the underlying method call.
+
+	For example:
+
+\code
+class C
+{
+	_prot = 5
+	function getProt() = :_prot
+}
+
+local c = C()
+
+writeln(c.getProt()) // prints 5
+
+local boundGetProt = object.bindClassMethod(C, "getProt")
+
+writeln(boundGetProt(c)) // also prints 5
+\endcode
+
+	This function can be used to bind protected and private methods as well, but only as long as you call it from within
+	a method from the appropriate class. It uses the exact same rules as normal field/method access in this regard. If
+	you want to bind a private method, pass its unmangled name (such as \tt{"__foo"}) to this function; it will be
+	automatically mangled for you.
+
+	Note that this function will intelligently cache the function that it returns. If you use
+	\tt{bindClassMethod(C, name)} twice, both times it will return the same function closure. If you happen to change
+	the method in the class in between those calls (such as might happen before the class is frozen), the cache will
+	adapt and a new closure will be returned which binds the new method.
+
+	\param[cls] is the class from which the method should be bound.
+	\param[name] is the name of the method to bind.
+	\throws[exceptions.MethodException] if the given method doesn't exist or can't be accessed.
+	\throws[exceptions.TypeException] if \tt{name} names a method which is not a function.`},
+
+	{kind: "function", name: "bindInstMethod",
+	params: [Param("inst", "instance"), Param("name", "string")],
+	docs:
+	`Similar to \link{bindClassMethod}, but works on an instance instead of a class. Basically what it does is the
+	following:
+
+\code
+function bindInstMethod(inst: instance, name: string)
+{
+	local boundFunc = bindClassMethod(inst.super, name)
+	return function(vararg)
+	{
+		return boundFunc(inst, vararg)
+	}
+\endcode
+
+	That is, it just uses \link{bindClassMethod} to get a bound class method, and then returns a closure that will call
+	that bound method with \tt{inst} as the \tt{self} parameter. However, if you tried to implement this function in
+	Croc as above, it wouldn't work for binding protected or private methods. This native implementation gets around
+	that and allows you to bind non-public methods as well. In this regard it behaves exactly as \link{bindClassMethod}.
+
+	You can use it like:
+
+\code
+class C
+{
+	_prot = 5
+	function getProt() = :_prot
+}
+
+local c = C()
+
+writeln(c.getProt()) // prints 5
+
+local bound = object.bindInstMethod(c, "getProt")
+
+writeln(bound()) // also prints 5
+\endcode
+
+	\param[inst] is the instance from which the method should be bound.
+	\param[name] is the name of the method to bind.
+	\throws[exceptions.MethodException] if the given method doesn't exist or can't be accessed.
+	\throws[exceptions.TypeException] if \tt{name} names a method which is not a function.`},
 ];

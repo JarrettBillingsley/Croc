@@ -35,12 +35,10 @@ alias tango.text.convert.Float.toFloat Float_toFloat;
 alias tango.text.convert.Integer.format Integer_format;
 alias tango.text.convert.Integer.toLong Integer_toLong;
 
-import croc.api_debug;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.ex_library;
-import croc.interpreter;
 import croc.stdlib_vector;
 import croc.types;
 import croc.types_class;
@@ -203,7 +201,6 @@ const RegisterFunc[] _reflFuncs =
 	{"nameOf",      &_nameOf,      maxParams: 1},
 	{"hasField",    &_hasField,    maxParams: 2},
 	{"hasMethod",   &_hasMethod,   maxParams: 2},
-	{"bindMethod",  &_bindMethod,  maxParams: 2},
 
 	{"isNull",      &_isNull,      maxParams: 1},
 	{"isBool",      &_isBool,      maxParams: 1},
@@ -281,67 +278,6 @@ uword _hasMethod(CrocThread* t)
 	checkAnyParam(t, 1);
 	auto n = checkStringParam(t, 2);
 	pushBool(t, hasMethod(t, 1, n));
-	return 1;
-}
-
-uword _bindMethod(CrocThread* t)
-{
-	checkParam(t, 1, CrocValue.Type.Class);
-	auto cls = getClass(t, 1);
-	checkStringParam(t, 2);
-	auto name = getStringObj(t, 2);
-
-	auto AR = getActRec(t, 1);
-	auto slot = classobj.getMethod(cls, name);
-
-	if(slot is null)
-	{
-		throwStdException(t, "MethodException", "Class '{}' has no method named '{}'",
-			cls.name.toString(), name.toString());
-	}
-
-	if(!checkAccess(slot.value, AR))
-	{
-		throwStdException(t, "MethodException", "Attempting to bind method '{}' from outside class '{}'",
-			name.toString(), cls.name.toString());
-	}
-
-	if(slot.value.value.type != CrocValue.Type.Function)
-	{
-		push(t, slot.value.value);
-		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", "'{}' is not a function, it is a '{}'", name.toString(), getString(t, -1));
-	}
-
-	static uword binder(CrocThread* t)
-	{
-		enum
-		{
-			Func,
-			Proto
-		}
-
-		checkParam(t, 1, CrocValue.Type.Instance);
-
-		getUpval(t, Proto);
-		auto proto = getClass(t, -1);
-
-		if(!as(t, 1, -1))
-			paramTypeError(t, 1, proto.name.toString());
-
-		getUpval(t, Func);
-		auto func = getFunction(t, -1);
-		pop(t, 2);
-
-		auto slot = fakeToAbs(t, 1);
-
-		return commonCall(t, slot, -1, callPrologue2(t, func, slot, -1, slot, stackSize(t) - 1, proto));
-	}
-
-	push(t, slot.value.value);
-	push(t, CrocValue(slot.value.proto));
-	newFunction(t, &binder, "binder", 2);
-
 	return 1;
 }
 
@@ -761,42 +697,6 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	docs:
 	`Sees if the method named \tt{name} can be called on \tt{value}. Looks in metatables as well, for i.e. strings
 	and arrays. Works for all types. Does not take opMethod metamethods into account.`},
-
-	{kind: "function", name: "bindMethod",
-	params: [Param("cls", "class"), Param("name", "string")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")],
-	docs:
-	`Given a class and the name of a (public) method from that class, returns a function which allows you to call that
-	method using a normal function call. This is often useful for situations where you want to transparently forward a
-	call to an instance's method, such as when making mock objects.
-
-	The returned function has the signature \tt{function(self: instance(cls), vararg)}; that is, the first parameter
-	must be an instance of the \tt{cls} from which the method is bound, and then a variable number of arguments which
-	will be passed through unchanged to the bound method. The \tt{self} parameter will then become the \tt{this}
-	parameter in the underlying method call.
-
-	For example:
-
-\code
-class C
-{
-	_prot = 5
-	function getProt() = :_prot
-}
-
-local c = C()
-
-writeln(c.getProt()) // prints 5
-
-local boundGetProt = bindMethod(C, "getProt")
-
-writeln(boundGetProt(c)) // also prints 5
-\endcode
-
-	\param[cls] is the class from which the method should be bound.
-	\param[name] is the name of the method to bind.
-	\throws[exceptions.MethodException] if \tt{name} names a protected or private method.
-	\throws[exceptions.TypeException] if \tt{name} names a method which is not a function.`},
 
 	{kind: "function", name: "isNull",
 	params: [Param("o")],
