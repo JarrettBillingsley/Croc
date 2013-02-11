@@ -32,9 +32,9 @@ import tango.stdc.string;
 
 import croc.base_deque;
 
-// ================================================================================================================================================
+// =====================================================================================================================
 // Public
-// ================================================================================================================================================
+// =====================================================================================================================
 
 public:
 
@@ -49,15 +49,15 @@ The memory function works as follows:
 If a new block is being requested, it will be called with a p of null, an oldSize of 0, and a newSize of the size of
 the requested block.
 
-If an existing block is to be resized, it will be called with p being the pointer to the block, an oldSize of the current
-block size, and a newSize of the new expected size of the block.
+If an existing block is to be resized, it will be called with p being the pointer to the block, an oldSize of the
+current block size, and a newSize of the new expected size of the block.
 
 If an existing block is to be deallocated, it will be called with p being the pointer to the block, an oldSize of the
 current block size, and a newSize of 0.
 
 Params:
-	ctx = The context pointer that was associated with the VM upon creation. This pointer is just passed to the allocation
-		function on every call; Croc doesn't use it.
+	ctx = The context pointer that was associated with the VM upon creation. This pointer is just passed to the
+		allocation function on every call; Croc doesn't use it.
 	p = The pointer that is being operated on. If this is null, an allocation is being requested. Otherwise, either a
 		reallocation or a deallocation is being requested.
 	oldSize = The current size of the block pointed to by p. If p is null, this will always be 0.
@@ -65,14 +65,14 @@ Params:
 		Otherwise, if this is 0, a deallocation is being requested. Otherwise, a reallocation is being requested.
 
 Returns:
-	If a deallocation was requested, should return null. Otherwise, should return a $(B non-null) pointer. If memory cannot
-	be allocated, the memory allocation function should throw an exception, not return null.
+	If a deallocation was requested, should return null. Otherwise, should return a $(B non-null) pointer. If memory
+	cannot be allocated, the memory allocation function should throw an exception, not return null.
 */
 alias void* function(void* ctx, void* p, uword oldSize, uword newSize) MemFunc;
 
-// ================================================================================================================================================
+// =====================================================================================================================
 // Package
-// ================================================================================================================================================
+// =====================================================================================================================
 
 package:
 
@@ -80,22 +80,22 @@ alias size_t uword;
 
 enum GCFlags : uint
 {
-	Unlogged =    0b0_00000001,
-	InRC =        0b0_00000010,
+	Unlogged =    0b0_00000001, // hasn't been added to the modBuffer since the last GC cycle
+	InRC =        0b0_00000010, // moved out of the nursery and is now on the RC heap
 
-	Black =       0b0_00000000,
-	Grey =        0b0_00000100,
-	White =       0b0_00001000,
-	Purple =      0b0_00001100,
-	Green =       0b0_00010000,
+	Black =       0b0_00000000, // alive or RC decremented to 0
+	Grey =        0b0_00000100, // marked by the cycle scanner
+	White =       0b0_00001000, // cycle scanner has determined it's garbage
+	Purple =      0b0_00001100, // RC decremented to non-0 value
+	Green =       0b0_00010000, // acyclic (statically determined)
 	ColorMask =   0b0_00011100,
 
-	CycleLogged = 0b0_00100000,
+	CycleLogged = 0b0_00100000, // has been added to the cycle buffer under suspicion of cyclicality
 
-	Finalizable = 0b0_01000000,
-	Finalized =   0b0_10000000,
+	Finalizable = 0b0_01000000, // has a finalizer
+	Finalized =   0b0_10000000, // has been finalized
 
-	JustMoved =   0b1_00000000,
+	JustMoved =   0b1_00000000, // only used during a GC cycle; was moved to RC space this cycle
 }
 
 template GCObjectMembers()
@@ -161,7 +161,9 @@ package:
 
 	bool couldUseGC()
 	{
-		return nurseryBytes >= nurseryLimit || (modBuffer.length + decBuffer.length) * (GCObject*).sizeof >= metadataLimit;
+		return
+			nurseryBytes >= nurseryLimit ||
+			(modBuffer.length + decBuffer.length) * (GCObject*).sizeof >= metadataLimit;
 	}
 
 	void resizeNurserySpace(uword newSize)
@@ -188,10 +190,12 @@ package:
 	// ------------------------------------------------------------
 	// GC objects
 
-	// ALLOCATION: most objects are allocated in the nursery. If they're too big, or finalizable, they're allocated directly in the RC space. When this
-	// happens, we push them onto the modified buffer and the decrement buffer, and initialize their reference count to 1. This way, when the collection
-	// cycle happens, if they're referenced, their reference count will be incremented then decremented (no-op); if they're not referenced, their
-	// reference count will be decremented to 0, freeing them. Putting them in the modified buffer is, I guess, to prevent memory leaks..? Couldn't hurt.
+	// ALLOCATION: most objects are allocated in the nursery. If they're too big, or finalizable, they're allocated
+	// directly in the RC space. When this happens, we push them onto the modified buffer and the decrement buffer, and
+	// initialize their reference count to 1. This way, when the collection cycle happens, if they're referenced, their
+	// reference count will be incremented then decremented (no-op); if they're not referenced, their reference count
+	// will be decremented to 0, freeing them. Putting them in the modified buffer is, I guess, to prevent memory
+	// leaks..? Couldn't hurt.
 
 	T* allocate(T)(uword size = T.sizeof)
 	{
@@ -228,14 +232,20 @@ package:
 			if(o.gcflags & GCFlags.InRC)
 			{
 				if(_rcBlocks.lookup(o) is null)
-					throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the Croc Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
+				{
+					throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the Croc "
+						"Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
+				}
 
 				_rcBlocks.remove(o);
 			}
 			else
 			{
 				if(_nurseryBlocks.lookup(o) is null)
-					throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the Croc Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
+				{
+					throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the Croc "
+						"Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
+				}
 
 				_nurseryBlocks.remove(o);
 			}
@@ -277,11 +287,11 @@ package:
 	{
 		debug(CROC_LEAK_DETECTOR)
 		{
-			static if(is(T == Hash!(void*, MemBlock).Node))
-				static assert(false, "we can't resize arrays of memblock hash nodes! nonoNONONO-- god--godDAMMIT! YOU BROKE THE RULES!");
-
 			if(arr.length > 0 && _rawBlocks.lookup(arr.ptr) is null)
-				throw new Exception("AWFUL: You're trying to resize an array that wasn't allocated on the Croc Heap! It's of type " ~ typeid(T[]).toString());
+			{
+				throw new Exception("AWFUL: You're trying to resize an array that wasn't allocated on the Croc "
+					"Heap! It's of type " ~ typeid(T[]).toString());
+			}
 		}
 
 		if(newLen == 0)
@@ -351,9 +361,13 @@ package:
 		debug(CROC_LEAK_DETECTOR)
 		{
 			static if(!is(T == Hash!(void*, MemBlock).Node))
+			{
 				if(_rawBlocks.lookup(a.ptr) is null)
-					throw new Exception(
-						"AWFUL: You're trying to free an array that wasn't allocated on the Croc Heap, or are performing a double free! It's of type " ~ typeid(T[]).toString());
+				{
+					throw new Exception("AWFUL: You're trying to free an array that wasn't allocated on the Croc Heap, "
+						"or are performing a double free! It's of type " ~ typeid(T[]).toString());
+				}
+			}
 		}
 
 		debug(CROC_STOMP_MEMORY)
@@ -375,9 +389,9 @@ package:
 		a = null;
 	}
 
-	// ================================================================================================================================================
+	// =================================================================================================================
 	// Private
-	// ================================================================================================================================================
+	// =================================================================================================================
 
 private:
 	T* allocateNursery(T)(uword size = T.sizeof)
@@ -403,7 +417,8 @@ private:
 		auto ret = cast(T*)realloc(null, 0, size);
 		*ret = T.init;
 		ret.memSize = size;
-		ret.gcflags = GCFlags.InRC; // RC space objects start off logged since we put them on the mod buffer (or they're green and don't need to be)
+		// RC space objects start off logged since we put them on the mod buffer (or they're green and don't need to be)
+		ret.gcflags = GCFlags.InRC;
 
 		static if(is(typeof(T.ACYCLIC)))
 			ret.gcflags |= GCFlags.Green;

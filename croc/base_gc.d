@@ -49,9 +49,9 @@ debug import tango.io.Stdout;
 // debug = FREES;
 // debug = FINALIZE;
 
-// ================================================================================================================================================
+// =====================================================================================================================
 // Package
-// ================================================================================================================================================
+// =====================================================================================================================
 
 package:
 
@@ -66,9 +66,14 @@ enum GCCycleType
 
 void gcCycle(CrocVM* vm, GCCycleType cycleType)
 {
-	debug(BEGINEND) static counter = 0;
-	debug(BEGINEND) Stdout.formatln("======================= BEGIN {} =============================== {}", ++counter, cast(uint)cycleType).flush;
-	debug(BEGINEND) Stdout.formatln("Nursery: {} bytes allocated out of {}; mod buffer length = {}, dec buffer length = {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit, vm.alloc.modBuffer.length, vm.alloc.decBuffer.length);
+	debug(BEGINEND)
+	{
+		static counter = 0;
+		Stdout.formatln("======================= BEGIN {} =============================== {}",
+			++counter, cast(uint)cycleType).flush;
+		Stdout.formatln("Nursery: {} bytes allocated out of {}; mod buffer length = {}, dec buffer length = {}",
+			vm.alloc.nurseryBytes, vm.alloc.nurseryLimit, vm.alloc.modBuffer.length, vm.alloc.decBuffer.length);
+	}
 
 	assert(!vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
@@ -88,8 +93,8 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	assert(newRoots.isEmpty());
 	assert(toFinalize.isEmpty());
 
-	// ROOT PHASE. Go through roots, including stacks, and for each object reference, if it's in the nursery, copy it out and leave a forwarding address.
-	// Regardless of whether it's a nursery object or not, put it in the new root buffer.
+	// ROOT PHASE. Go through roots, including stacks, and for each object reference, if it's in the nursery, move it
+	// out. Regardless of whether it's a nursery object or not, put it in the new root buffer.
 	debug(PHASES) Stdout.formatln("ROOTS").flush;
 
 	switch(cycleType)
@@ -119,16 +124,17 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 		default: assert(false);
 	}
 
-	// PROCESS MODIFIED BUFFER. Go through the modified buffer, unlogging each. For each object pointed to by an object, if it's in the nursery, copy it
-	// 	out (or just forward if that's already happened). Increment all the reference counts (spurious increments to RC space objects will be undone
-	// 	by the queued decrements created during the mutation phase by the write barrier).
+	// PROCESS MODIFIED BUFFER. Go through the modified buffer, unlogging each. For each object pointed to by an object,
+	// if it's in the nursery, move it out. Increment all the reference counts (spurious increments to RC space objects
+	// will be undone by the queued decrements created during the mutation phase by the write barrier).
 	debug(PHASES) Stdout.formatln("MODBUFFER").flush;
 	while(!modBuffer.isEmpty())
 	{
 		auto obj = modBuffer.remove();
 		assert((obj.gcflags & GCFlags.ColorMask) != GCFlags.Green);
 
-		debug(INCDEC) Stdout.formatln("let's look at {} {}", CrocValue.typeStrings[(cast(CrocBaseObject*)obj).mType], obj).flush;
+		debug(INCDEC)
+			Stdout.formatln("let's look at {} {}", CrocValue.typeStrings[(cast(CrocBaseObject*)obj).mType], obj).flush;
 
 		obj.gcflags |= GCFlags.Unlogged;
 
@@ -148,7 +154,8 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	decBuffer.append(vm.alloc, *oldRoots);
 	oldRoots.reset();
 
-	// PROCESS NEW ROOT BUFFER. Go through the new root buffer, incrementing their RCs, and put them all in the old root buffer.
+	// PROCESS NEW ROOT BUFFER. Go through the new root buffer, incrementing their RCs, and put them all in the old root
+	// buffer.
 	debug(PHASES) Stdout.formatln("NEWROOTS").flush;
 	foreach(obj; *newRoots)
 	{
@@ -162,10 +169,11 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	vm.oldRootIdx = 1 - vm.oldRootIdx;
 	}
 
-	// PROCESS DECREMENT BUFFER. Go through the decrement buffer, decrementing their RCs. If an RC hits 0, if it's not finalizable, queue decrements for
-	// 	any RC objects it points to, and free it. If it is finalizable, put it on the finalize list. If an RC is nonzero after being decremented, mark
-	// 	it as a possible cycle root as follows: if its color is not purple, color it purple, and if it's not already buffered, mark it buffered and
-	// 	put it in the possible cycle buffer.
+	// PROCESS DECREMENT BUFFER. Go through the decrement buffer, decrementing their RCs. If an RC hits 0, if it's not
+	// finalizable, queue decrements for any RC objects it points to, and if it isn't logged for cycles and didn't just
+	// move out of the nursery, free it. If it is finalizable, put it on the finalize list. If an RC is nonzero after
+	// being decremented, mark it as a possible cycle root as follows: if its color is not purple, color it purple, and
+	// if it's not already buffered, mark it buffered and put it in the possible cycle buffer.
 
 	debug(PHASES) Stdout.formatln("DECBUFFER").flush;
 
@@ -197,8 +205,11 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 
 				if(obj.gcflags & GCFlags.CycleLogged)
 					obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
-				else if(!(obj.gcflags & GCFlags.JustMoved)) // If it just moved out of the nursery, we'll let the nursery phase sweep it up
+				else if(!(obj.gcflags & GCFlags.JustMoved))
+				{
+					 // If it just moved out of the nursery, we'll let the nursery phase sweep it up
 					free(vm, obj);
+				}
 			}
 		}
 		else
@@ -220,6 +231,9 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 			}
 		}
 	}
+
+	// NURSERY PHASE. Go through the nursery objects, clearing the "just moved" flag from living ones, and freeing those
+	// that weren't moved out (so long as they're not logged by the cycle logger). Then empty the nursery list.
 
 	debug(PHASES) Stdout.formatln("NURSERY").flush;
 
@@ -267,9 +281,9 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	debug(BEGINEND) Stdout.formatln("======================= END {} =================================", counter).flush;
 }
 
-// ================================================================================================================================================
+// =====================================================================================================================
 // Private
-// ================================================================================================================================================
+// =====================================================================================================================
 
 private:
 
@@ -329,7 +343,7 @@ void rcIncrement(GCObject* obj)
 		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
 }
 
-// ================================================================================================================================================
+// =====================================================================================================================
 // Cycle collection
 
 void collectCycles(CrocVM* vm)
@@ -461,8 +475,9 @@ void collectCycleWhite(CrocVM* vm, GCObject* obj)
 	else if(color == GCFlags.White && !(obj.gcflags & GCFlags.CycleLogged))
 	{
 		// Is this even possible since we mark it black in the previous phase?
-// 		if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
-// 			throw new CrocFatalException("Unfinalized finalizable object (instance of " ~ (cast(CrocInstance*)obj).parent.name.toString() ~ ") in cycle!");
+		// if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
+		// 	throw new CrocFatalException("Unfinalized finalizable object (instance of "
+		// 		 ~ (cast(CrocInstance*)obj).parent.name.toString() ~ ") in cycle!");
 
 		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
 
@@ -475,7 +490,7 @@ void collectCycleWhite(CrocVM* vm, GCObject* obj)
 	}
 }
 
-// ================================================================================================================================================
+// =====================================================================================================================
 // Debugging
 
 debug import tango.io.stream.TextFile;
@@ -550,7 +565,8 @@ debug void dumpObjGraph(CrocVM* vm, char[] filename)
 
 		switch((cast(CrocBaseObject*)obj).mType)
 		{
-			case CrocValue.Type.String, CrocValue.Type.Memblock, CrocValue.Type.NativeObj, CrocValue.Type.WeakRef, CrocValue.Type.Null: return;
+			case CrocValue.Type.String, CrocValue.Type.Memblock, CrocValue.Type.NativeObj,
+				CrocValue.Type.WeakRef, CrocValue.Type.Null: return;
 			default: break;
 		}
 
@@ -567,7 +583,8 @@ debug void dumpObjGraph(CrocVM* vm, char[] filename)
 
 	visitRoots(vm, (GCObject* obj)
 	{
-		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String || (cast(CrocBaseObject*)obj).mType == CrocValue.Type.Null)
+		auto type = (cast(CrocBaseObject*)obj).mType;
+		if(type == CrocValue.Type.String || type == CrocValue.Type.Null)
 			return;
 
 		f.write("Roots -> ");
