@@ -46,6 +46,14 @@ package:
 
 		auto ns = alloc.allocate!(CrocNamespace);
 		ns.parent = parent;
+
+		if(parent)
+		{
+			auto root = parent;
+			for( ; root.parent !is null; root = root.parent){}
+			ns.root = root;
+		}
+
 		ns.name = name;
 		return ns;
 	}

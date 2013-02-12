@@ -2287,12 +2287,9 @@ CrocValue* getGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env)
 	if(auto glob = namespace.get(env, name))
 		return glob;
 
-	auto ns = env;
-	for(; ns.parent !is null; ns = ns.parent){}
-
-	if(ns !is env)
+	if(env.root)
 	{
-		if(auto glob = namespace.get(ns, name))
+		if(auto glob = namespace.get(env.root, name))
 			return glob;
 	}
 
@@ -2305,10 +2302,7 @@ void setGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env, CrocValu
 	if(namespace.setIfExists(t.vm.alloc, env, name, val))
 		return;
 
-	auto ns = env;
-	for(; ns.parent !is null; ns = ns.parent){}
-
-	if(ns !is env && namespace.setIfExists(t.vm.alloc, ns, name, val))
+	if(env.root && namespace.setIfExists(t.vm.alloc, env.root, name, val))
 		return;
 
 	throwStdException(t, "NameException", "Attempting to set a nonexistent global '{}'", name.toString());

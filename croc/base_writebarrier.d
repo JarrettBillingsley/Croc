@@ -290,6 +290,7 @@ void visitNamespace(CrocNamespace* o, void delegate(GCObject*) callback, bool is
 		{
 			o.visitedOnce = true;
 			mixin(CondCallback!("o.parent"));
+			mixin(CondCallback!("o.root"));
 			mixin(CondCallback!("o.name"));
 		}
 
@@ -302,6 +303,7 @@ void visitNamespace(CrocNamespace* o, void delegate(GCObject*) callback, bool is
 	else
 	{
 		mixin(CondCallback!("o.parent"));
+		mixin(CondCallback!("o.root"));
 		mixin(CondCallback!("o.name"));
 
 		foreach(ref key, ref val; o.data)

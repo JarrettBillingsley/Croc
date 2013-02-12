@@ -392,6 +392,7 @@ struct CrocNamespace
 package:
 	Hash!(CrocString*, CrocValue, true) data;
 	CrocNamespace* parent;
+	CrocNamespace* root;
 	CrocString* name;
 	bool visitedOnce;
 }
