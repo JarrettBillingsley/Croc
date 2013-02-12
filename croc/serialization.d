@@ -42,9 +42,9 @@ import croc.types_instance;
 import croc.utils;
 import croc.vm;
 
-// ================================================================================================================================================
+// =====================================================================================================================
 // Public
-// ================================================================================================================================================
+// =====================================================================================================================
 
 public:
 
@@ -90,9 +90,9 @@ void deserializeModule(CrocThread* t, out char[] name, InputStream input)
 	pop(t);
 }
 
-// ================================================================================================================================================
+// =====================================================================================================================
 // Private
-// ================================================================================================================================================
+// =====================================================================================================================
 
 private:
 
@@ -544,7 +544,8 @@ private:
 				if(!getBool(t, -1))
 				{
 					pushToString(t, -2, true);
-					throwStdException(t, "ValueException", "Attempting to serialize '{}', whose opSerialize field is 'false'", getString(t, -1));
+					throwStdException(t, "ValueException",
+						"Attempting to serialize '{}', whose opSerialize field is 'false'", getString(t, -1));
 				}
 
 				pop(t);
@@ -554,7 +555,9 @@ private:
 			{
 				pushToString(t, -2, true);
 				pushTypeString(t, -2);
-				throwStdException(t, "TypeException", "Attempting to serialize '{}', whose opSerialize is a '{}', not a bool or function", getString(t, -2), getString(t, -1));
+				throwStdException(t, "TypeException",
+					"Attempting to serialize '{}', whose opSerialize is a '{}', not a bool or function",
+					getString(t, -2), getString(t, -1));
 			}
 		}
 
@@ -605,8 +608,11 @@ private:
     	if(t is v)
     		throwStdException(t, "ValueException", "Attempting to serialize the currently-executing thread");
 
-    	if(v.nativeCallDepth > 0)
-    		throwStdException(t, "ValueException", "Attempting to serialize a thread with at least one native or metamethod call on its call stack");
+		if(v.nativeCallDepth > 0)
+		{
+			throwStdException(t, "ValueException",
+				"Attempting to serialize a thread with at least one native or metamethod call on its call stack");
+		}
 
 		tag(CrocValue.Type.Thread);
 
@@ -1322,7 +1328,8 @@ private:
 			if(!hasMethod(t, -1, "opDeserialize"))
 			{
 				pushToString(t, -1, true);
-				throwStdException(t, "ValueException", "'{}' was serialized with opSerialize, but does not have a matching opDeserialize", getString(t, -1));
+				throwStdException(t, "ValueException",
+					"'{}' was serialized with opSerialize, but does not have a matching opDeserialize", getString(t, -1));
 			}
 
 			pushNull(t);

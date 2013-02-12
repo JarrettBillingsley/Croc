@@ -146,7 +146,6 @@ package:
 align(1) struct CrocValue
 {
 	// If this changes, grep ORDER CROCVALUE TYPE
-
 	/**
 	The enumeration of all the types of values in Croc.
 	*/
@@ -220,18 +219,18 @@ package:
 		crocfloat mFloat;
 
 		CrocBaseObject* mBaseObj;
+		CrocNativeObj* mNativeObj;
 		CrocString* mString;
+		CrocWeakRef* mWeakRef;
 		CrocTable* mTable;
+		CrocNamespace* mNamespace;
 		CrocArray* mArray;
 		CrocMemblock* mMemblock;
 		CrocFunction* mFunction;
+		CrocFuncDef* mFuncDef;
 		CrocClass* mClass;
 		CrocInstance* mInstance;
-		CrocNamespace* mNamespace;
 		CrocThread* mThread;
-		CrocNativeObj* mNativeObj;
-		CrocWeakRef* mWeakRef;
-		CrocFuncDef* mFuncDef;
 	}
 
 	static CrocValue opCall(T)(T t)
@@ -259,154 +258,37 @@ package:
 	bool isFalse()
 	{
 		return
-			(type == Type.Null) ||
 			(type == Type.Bool && mBool == false) ||
+			(type == Type.Null) ||
 			(type == Type.Int && mInt == 0) ||
 			(type == Type.Float && mFloat == 0.0);
 	}
 
-	void opAssign(bool src)
-	{
-		type = Type.Bool;
-		mBool = src;
-	}
+	void opAssign(bool src)            { type = Type.Bool;      mBool = src;      }
+	void opAssign(crocint src)         { type = Type.Int;       mInt = src;       }
+	void opAssign(crocfloat src)       { type = Type.Float;     mFloat = src;     }
+	void opAssign(CrocBaseObject* src) { type = src.mType;      mBaseObj = src;   }
+	void opAssign(CrocNativeObj* src)  { type = Type.NativeObj; mNativeObj = src; }
+	void opAssign(CrocString* src)     { type = Type.String;    mString = src;    }
+	void opAssign(CrocWeakRef* src)    { type = Type.WeakRef;   mWeakRef = src;   }
+	void opAssign(CrocTable* src)      { type = Type.Table;     mTable = src;     }
+	void opAssign(CrocNamespace* src)  { type = Type.Namespace; mNamespace = src; }
+	void opAssign(CrocArray* src)      { type = Type.Array;     mArray = src;     }
+	void opAssign(CrocMemblock* src)   { type = Type.Memblock;  mMemblock = src;  }
+	void opAssign(CrocFunction* src)   { type = Type.Function;  mFunction = src;  }
+	void opAssign(CrocFuncDef* src)    { type = Type.FuncDef;   mFuncDef = src;   }
+	void opAssign(CrocClass* src)      { type = Type.Class;     mClass = src;     }
+	void opAssign(CrocInstance* src)   { type = Type.Instance;  mInstance = src;  }
+	void opAssign(CrocThread* src)     { type = Type.Thread;    mThread = src;    }
 
-	void opAssign(crocint src)
-	{
-		type = Type.Int;
-		mInt = src;
-	}
-
-	void opAssign(crocfloat src)
-	{
-		type = Type.Float;
-		mFloat = src;
-	}
-
-	void opAssign(CrocString* src)
-	{
-		type = Type.String;
-		mString = src;
-	}
-
-	void opAssign(CrocTable* src)
-	{
-		type = Type.Table;
-		mTable = src;
-	}
-
-	void opAssign(CrocArray* src)
-	{
-		type = Type.Array;
-		mArray = src;
-	}
-
-	void opAssign(CrocMemblock* src)
-	{
-		type = Type.Memblock;
-		mMemblock = src;
-	}
-
-	void opAssign(CrocFunction* src)
-	{
-		type = Type.Function;
-		mFunction = src;
-	}
-
-	void opAssign(CrocClass* src)
-	{
-		type = Type.Class;
-		mClass = src;
-	}
-
-	void opAssign(CrocInstance* src)
-	{
-		type = Type.Instance;
-		mInstance = src;
-	}
-
-	void opAssign(CrocNamespace* src)
-	{
-		type = Type.Namespace;
-		mNamespace = src;
-	}
-
-	void opAssign(CrocThread* src)
-	{
-		type = Type.Thread;
-		mThread = src;
-	}
-
-	void opAssign(CrocNativeObj* src)
-	{
-		type = Type.NativeObj;
-		mNativeObj = src;
-	}
-
-	void opAssign(CrocWeakRef* src)
-	{
-		type = Type.WeakRef;
-		mWeakRef = src;
-	}
-
-	void opAssign(CrocFuncDef* src)
-	{
-		type = Type.FuncDef;
-		mFuncDef = src;
-	}
-
-	void opAssign(CrocBaseObject* src)
-	{
-		type = src.mType;
-		mBaseObj = src;
-	}
-
-	bool isValType()
-	{
-		return type < Type.FirstRefType;
-	}
-
-	bool isRefType()
-	{
-		return type >= Type.FirstRefType;
-	}
-
-	bool isGCObject()
-	{
-		return type >= Type.FirstGCType;
-	}
+	bool isValType()  { return type < Type.FirstRefType;  }
+	bool isRefType()  { return type >= Type.FirstRefType; }
+	bool isGCObject() { return type >= Type.FirstGCType;  }
 
 	GCObject* toGCObject()
 	{
 		assert(isGCObject());
 		return cast(GCObject*)mBaseObj;
-	}
-
-	// This isn't really used anywhere except in debugging messages, I think.
-	char[] toString()
-	{
-		switch(type)
-		{
-			case Type.Null:      return "null";
-			case Type.Bool:      return Format("{}", mBool);
-			case Type.Int:       return Format("{}", mInt);
-			case Type.Float:     return Format("{}", mFloat);
-
-			case Type.String:    return Format("\"{}\"", mString.toString());
-			case Type.Table:     return Format("table {:X8}", cast(void*)mTable);
-			case Type.Array:     return Format("array {:X8}", cast(void*)mArray);
-			case Type.Memblock:  return Format("memblock {:X8}", cast(void*)mMemblock);
-			case Type.Function:  return Format("function {:X8}", cast(void*)mFunction);
-			case Type.Class:     return Format("class {:X8}", cast(void*)mClass);
-			case Type.Instance:  return Format("instance {:X8}", cast(void*)mInstance);
-			case Type.Namespace: return Format("namespace {:X8}", cast(void*)mNamespace);
-			case Type.Thread:    return Format("thread {:X8}", cast(void*)mThread);
-			case Type.NativeObj: return Format("nativeobj {:X8}", cast(void*)mNativeObj);
-			case Type.WeakRef:   return Format("weakref {:X8}", cast(void*)mWeakRef);
-			case Type.FuncDef:   return Format("funcdef {:X8}", cast(void*)mFuncDef);
-
-			default: assert(false);
-		}
 	}
 
 	hash_t toHash()
@@ -421,6 +303,35 @@ package:
 			default:          return cast(hash_t)cast(void*)mBaseObj;
 		}
 	}
+
+	// This isn't really used anywhere except in debugging messages, I think.
+	char[] toString()
+	{
+		switch(type)
+		{
+			case Type.Null:      return "null";
+			case Type.Bool:      return Format("{}", mBool);
+			case Type.Int:       return Format("{}", mInt);
+			case Type.Float:     return Format("{}", mFloat);
+
+			case Type.NativeObj: return Format("nativeobj {:X8}", cast(void*)mNativeObj);
+			case Type.String:    return Format("\"{}\"", mString.toString());
+			case Type.WeakRef:   return Format("weakref {:X8}", cast(void*)mWeakRef);
+			case Type.Table:     return Format("table {:X8}", cast(void*)mTable);
+			case Type.Namespace: return Format("namespace {:X8}", cast(void*)mNamespace);
+			case Type.Array:     return Format("array {:X8}", cast(void*)mArray);
+			case Type.Memblock:  return Format("memblock {:X8}", cast(void*)mMemblock);
+			case Type.Function:  return Format("function {:X8}", cast(void*)mFunction);
+			case Type.FuncDef:   return Format("funcdef {:X8}", cast(void*)mFuncDef);
+			case Type.Class:     return Format("class {:X8}", cast(void*)mClass);
+			case Type.Instance:  return Format("instance {:X8}", cast(void*)mInstance);
+			case Type.Thread:    return Format("thread {:X8}", cast(void*)mThread);
+
+			case Type.Upvalue:   return Format("upvalue {:X8}", cast(void*)mBaseObj);
+
+			default: assert(false);
+		}
+	}
 }
 
 template CrocObjectMixin(uint type)
@@ -433,6 +344,14 @@ package:
 struct CrocBaseObject
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Null);
+}
+
+struct CrocNativeObj
+{
+	mixin CrocObjectMixin!(CrocValue.Type.NativeObj);
+package:
+	Object obj;
+	static const bool ACYCLIC = true;
 }
 
 struct CrocString
@@ -452,11 +371,29 @@ package:
 	static const bool ACYCLIC = true;
 }
 
+struct CrocWeakRef
+{
+	mixin CrocObjectMixin!(CrocValue.Type.WeakRef);
+package:
+	CrocBaseObject* obj;
+	static const bool ACYCLIC = true;
+}
+
 struct CrocTable
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Table);
 package:
 	Hash!(CrocValue, CrocValue, true) data;
+}
+
+struct CrocNamespace
+{
+	mixin CrocObjectMixin!(CrocValue.Type.Namespace);
+package:
+	Hash!(CrocString*, CrocValue, true) data;
+	CrocNamespace* parent;
+	CrocString* name;
+	bool visitedOnce;
 }
 
 struct CrocArray
@@ -521,6 +458,59 @@ package:
 	}
 }
 
+// The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
+struct CrocFuncDef
+{
+	mixin CrocObjectMixin!(CrocValue.Type.FuncDef);
+
+package:
+	CrocString* locFile;
+	int locLine = 1;
+	int locCol = 1;
+	bool isVararg;
+	CrocString* name;
+	uint numParams;
+	uint[] paramMasks;
+	uint numUpvals;
+
+	struct UpvalDesc
+	{
+		bool isUpvalue;
+		uint index;
+	}
+
+	UpvalDesc[] upvals;
+	uint stackSize;
+	CrocFuncDef*[] innerFuncs;
+	CrocValue[] constants;
+	Instruction[] code;
+
+	CrocNamespace* environment;
+	CrocFunction* cachedFunc;
+
+	struct SwitchTable
+	{
+		Hash!(CrocValue, int) offsets;
+		int defaultOffset = -1; // yes, this is 32 bit, it's fixed that size
+	}
+
+	SwitchTable[] switchTables;
+
+	// Debug info.
+	uint[] lineInfo;
+	CrocString*[] upvalNames;
+
+	struct LocVarDesc
+	{
+		CrocString* name;
+		uint pcStart;
+		uint pcEnd;
+		uint reg;
+	}
+
+	LocVarDesc[] locVarDescs;
+}
+
 enum Privacy
 {
 	Public,
@@ -556,16 +546,6 @@ package:
 	CrocClass* parent;
 	bool visitedOnce;
 	Hash!(CrocString*, FieldValue, true) fields;
-}
-
-struct CrocNamespace
-{
-	mixin CrocObjectMixin!(CrocValue.Type.Namespace);
-package:
-	Hash!(CrocString*, CrocValue, true) data;
-	CrocNamespace* parent;
-	CrocString* name;
-	bool visitedOnce;
 }
 
 alias uword AbsStack;
@@ -665,80 +645,11 @@ package:
 	uword nativeCallDepth = 0;
 }
 
-struct CrocNativeObj
-{
-	mixin CrocObjectMixin!(CrocValue.Type.NativeObj);
-package:
-	Object obj;
-	static const bool ACYCLIC = true;
-}
-
-struct CrocWeakRef
-{
-	mixin CrocObjectMixin!(CrocValue.Type.WeakRef);
-package:
-	CrocBaseObject* obj;
-	static const bool ACYCLIC = true;
-}
-
 enum CrocLocation
 {
 	Unknown = 0,
 	Native = -1,
 	Script = -2
-}
-
-// The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
-struct CrocFuncDef
-{
-	mixin CrocObjectMixin!(CrocValue.Type.FuncDef);
-
-package:
-	CrocString* locFile;
-	int locLine = 1;
-	int locCol = 1;
-	bool isVararg;
-	CrocString* name;
-	uint numParams;
-	uint[] paramMasks;
-	uint numUpvals;
-
-	struct UpvalDesc
-	{
-		bool isUpvalue;
-		uint index;
-	}
-
-	UpvalDesc[] upvals;
-	uint stackSize;
-	CrocFuncDef*[] innerFuncs;
-	CrocValue[] constants;
-	Instruction[] code;
-
-	CrocNamespace* environment;
-	CrocFunction* cachedFunc;
-
-	struct SwitchTable
-	{
-		Hash!(CrocValue, int) offsets;
-		int defaultOffset = -1; // yes, this is 32 bit, it's fixed that size
-	}
-
-	SwitchTable[] switchTables;
-
-	// Debug info.
-	uint[] lineInfo;
-	CrocString*[] upvalNames;
-
-	struct LocVarDesc
-	{
-		CrocString* name;
-		uint pcStart;
-		uint pcEnd;
-		uint reg;
-	}
-
-	LocVarDesc[] locVarDescs;
 }
 
 struct CrocUpval
