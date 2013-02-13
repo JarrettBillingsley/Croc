@@ -130,7 +130,6 @@ void closeVMImpl(CrocVM* vm)
 	vm.alloc.freeArray(vm.metaStrings);
 	vm.stringTab.clear(vm.alloc);
 	vm.weakRefTab.clear(vm.alloc);
-	vm.allThreads.clear(vm.alloc);
 	vm.refTab.clear(vm.alloc);
 	vm.stdExceptions.clear(vm.alloc);
 	vm.roots[0].clear(vm.alloc);

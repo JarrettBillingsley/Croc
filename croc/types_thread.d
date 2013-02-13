@@ -53,7 +53,13 @@ package:
 		t.tryRecs[0].actRecord = uword.max;
 
 		t.vm = vm;
-		*vm.allThreads.insert(vm.alloc, t) = true;
+
+		t.next = vm.allThreads;
+
+		if(t.next)
+			t.next.prev = t;
+
+		vm.allThreads = t;
 
 		return t;
 	}
@@ -63,7 +69,6 @@ package:
 	{
 		auto t = create(vm);
 		t.coroFunc = coroFunc;
-		*vm.allThreads.insert(vm.alloc, t) = true;
 		return t;
 	}
 
@@ -103,8 +108,11 @@ package:
 	// Free a thread object.
 	void free(CrocThread* t)
 	{
-		auto b = t.vm.allThreads.remove(t);
-		assert(b);
+		if(t.next) t.next.prev = t.prev;
+		if(t.prev) t.prev.next = t.next;
+
+		if(t.vm.allThreads is t)
+			t.vm.allThreads = t.next;
 
 		for(auto uv = t.upvalHead; uv !is null; uv = t.upvalHead)
 		{

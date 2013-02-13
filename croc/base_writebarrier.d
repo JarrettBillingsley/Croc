@@ -97,9 +97,10 @@ void visitRoots(CrocVM* vm, void delegate(GCObject*) callback)
 	callback(cast(GCObject*)vm.mainThread);
 
 	// We visit all the threads, but the threads themselves (except the main thread, visited above) are not roots.
-	// allThreads is basically a table of weak refs
-	foreach(thread, _; vm.allThreads)
-		visitThread(thread, callback, true);
+	// allThreads is basically a list of weakrefs to tables.
+
+	for(auto t = vm.allThreads; t !is null; t = t.next)
+		visitThread(t, callback, true);
 
 	foreach(ref mt; vm.metaTabs)
 		mixin(CondCallback!("mt"));

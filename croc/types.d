@@ -582,6 +582,7 @@ package:
 struct CrocThread
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Thread);
+	CrocThread* next, prev; // weak references used in the VM's allThreads list
 
 public:
 	enum State
@@ -694,7 +695,7 @@ package:
 	// Others
 	Hash!(char[], CrocString*) stringTab;
 	Hash!(CrocBaseObject*, CrocWeakRef*) weakRefTab;
-	Hash!(CrocThread*, bool) allThreads;
+	CrocThread* allThreads;
 	ulong currentRef;
 	CrocString* ctorString; // also stored in metaStrings, don't have to scan it as a root
 	CrocString* finalizerString; // also stored in metaStrings, don't have to scan it as a root

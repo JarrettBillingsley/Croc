@@ -354,7 +354,6 @@ uword gc(CrocThread* t, bool fullCollect = false)
 
 	t.vm.stringTab.minimize(t.vm.alloc);
 	t.vm.weakRefTab.minimize(t.vm.alloc);
-	t.vm.allThreads.minimize(t.vm.alloc);
 
 	auto ret = beforeSize > t.vm.alloc.totalBytes ? beforeSize - t.vm.alloc.totalBytes : 0; // This is.. possible? TODO: figure out how.
 

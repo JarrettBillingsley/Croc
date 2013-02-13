@@ -54,9 +54,9 @@ import croc.utf;
 import croc.utils;
 import croc.vm;
 
-// ================================================================================================================================================
+// =====================================================================================================================
 // Package
-// ================================================================================================================================================
+// =====================================================================================================================
 
 package:
 
@@ -69,7 +69,7 @@ void freeAll(CrocVM* vm)
 	namespace.clear(vm.alloc, vm.registry);
 	vm.refTab.clear(vm.alloc);
 
-	foreach(t, _; vm.allThreads)
+	for(auto t = vm.allThreads; t !is null; t = t.next)
 	{
 		if(t.state == CrocThread.State.Dead)
 			thread.reset(t);
@@ -103,9 +103,9 @@ void runFinalizers(CrocThread* t)
 
 	disableGC(t.vm);
 
-	// FINALIZE. Go through the finalize buffer, setting reference count to 1, running the finalizer, and setting it to finalized. At this point, the
-	// object may have been resurrected but we can't really tell unless we make the write barrier more complicated. Or something. So we just queue
-	// a decrement for it and put it on the modified buffer. It'll get deallocated the next time around.
+	// FINALIZE. Go through the finalize buffer, running the finalizer, and setting it to finalized. At this point, the
+	// object may have been resurrected but we can't really tell unless we make the write barrier more complicated. Or
+	// something. So we just queue a decrement for it. It'll get deallocated the next time around.
 	foreach(i; t.vm.toFinalize)
 	{
 		// debug Stdout.formatln("Taking {} off toFinalize", i).flush;
