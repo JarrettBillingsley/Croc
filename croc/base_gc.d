@@ -59,9 +59,7 @@ enum GCCycleType
 {
 	Normal,
 	Full,
-	BeginCleanup,
-	ContinueCleanup,
-	FinishCleanup
+	NoRoots
 }
 
 void gcCycle(CrocVM* vm, GCCycleType cycleType)
@@ -97,31 +95,15 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	// out. Regardless of whether it's a nursery object or not, put it in the new root buffer.
 	debug(PHASES) Stdout.formatln("ROOTS").flush;
 
-	switch(cycleType)
+	if(cycleType != GCCycleType.NoRoots)
 	{
-		case GCCycleType.Normal, GCCycleType.Full:
-			visitRoots(vm, (GCObject* obj)
-			{
-				if((obj.gcflags & GCFlags.InRC) == 0)
-					nurseryToRC(vm, obj);
+		visitRoots(vm, (GCObject* obj)
+		{
+			if((obj.gcflags & GCFlags.InRC) == 0)
+				nurseryToRC(vm, obj);
 
-				newRoots.add(vm.alloc, obj);
-			});
-			break;
-
-		case GCCycleType.BeginCleanup:
-			namespace.clear(vm.alloc, vm.globals);
-			goto case GCCycleType.Normal;
-
-		case GCCycleType.ContinueCleanup:
-			namespace.clear(vm.alloc, vm.registry);
-			vm.refTab.clear(vm.alloc);
-			goto case GCCycleType.Normal;
-
-		case GCCycleType.FinishCleanup:
-			break;
-
-		default: assert(false);
+			newRoots.add(vm.alloc, obj);
+		});
 	}
 
 	// PROCESS MODIFIED BUFFER. Go through the modified buffer, unlogging each. For each object pointed to by an object,

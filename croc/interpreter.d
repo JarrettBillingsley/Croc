@@ -65,22 +65,31 @@ const FinalizeLoopLimit = 1000;
 // Free all objects.
 void freeAll(CrocVM* vm)
 {
-	gcCycle(vm, GCCycleType.BeginCleanup);
+	namespace.clear(vm.alloc, vm.globals);
+	namespace.clear(vm.alloc, vm.registry);
+	vm.refTab.clear(vm.alloc);
+
+	foreach(t, _; vm.allThreads)
+	{
+		if(t.state == CrocThread.State.Dead)
+			thread.reset(t);
+	}
+
+	gcCycle(vm, GCCycleType.Full);
 
 	auto limit = 0;
 
 	do
 	{
-		limit++;
-
 		if(limit > FinalizeLoopLimit)
 			throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or something's broken.");
 
 		runFinalizers(vm.mainThread);
-		gcCycle(vm, GCCycleType.ContinueCleanup);
+		gcCycle(vm, GCCycleType.Full);
+		limit++;
 	} while(!vm.toFinalize.isEmpty())
 
-	gcCycle(vm, GCCycleType.FinishCleanup);
+	gcCycle(vm, GCCycleType.NoRoots);
 
 	if(!vm.toFinalize.isEmpty())
 		throw new Exception("Did you stick a finalizable object in a global metatable or something? I think you did. Stop doing that.");

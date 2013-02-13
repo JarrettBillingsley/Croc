@@ -320,9 +320,6 @@ void visitThread(CrocThread* o, void delegate(GCObject*) callback, bool isRoots)
 {
 	if(isRoots)
 	{
-		if(o.state == CrocThread.State.Dead)
-			return;
-
 		foreach(ref ar; o.actRecs[0 .. o.arIndex])
 		{
 			mixin(CondCallback!("ar.func"));
