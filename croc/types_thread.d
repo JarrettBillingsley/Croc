@@ -46,15 +46,10 @@ package:
 		auto t = alloc.allocate!(CrocThread);
 
 		t.tryRecs = alloc.allocArray!(TryRecord)(10);
-		t.currentTR = t.tryRecs.ptr;
-
 		t.actRecs = alloc.allocArray!(ActRecord)(10);
-		t.currentAR = t.actRecs.ptr;
-
 		t.stack = alloc.allocArray!(CrocValue)(20);
 		t.stackIndex = cast(AbsStack)1; // So that there is a 'this' at top-level.
 		t.results = alloc.allocArray!(CrocValue)(8);
-
 		t.tryRecs[0].actRecord = uword.max;
 
 		t.vm = vm;
@@ -71,7 +66,22 @@ package:
 		*vm.allThreads.insert(vm.alloc, t) = true;
 		return t;
 	}
-	
+
+	void reset(CrocThread* t)
+	{
+		assert(t.upvalHead is null); // should be..?
+
+		t.currentTR = null;
+		t.trIndex = 0;
+		t.currentAR = null;
+		t.arIndex = 0;
+		t.stackIndex = cast(AbsStack)1;
+		t.stackBase = cast(AbsStack)0;
+		t.resultIndex = 0;
+		t.shouldHalt = false;
+		t.state = CrocThread.State.Initial;
+	}
+
 	void setHookFunc(ref Allocator alloc, CrocThread* t, CrocFunction* f)
 	{
 		if(t.hookFunc !is f)
@@ -80,7 +90,7 @@ package:
 			t.hookFunc = f;
 		}
 	}
-	
+
 	void setCoroFunc(ref Allocator alloc, CrocThread* t, CrocFunction* f)
 	{
 		if(t.coroFunc !is f)
@@ -89,7 +99,7 @@ package:
 			t.coroFunc = f;
 		}
 	}
-	
+
 	// Free a thread object.
 	void free(CrocThread* t)
 	{

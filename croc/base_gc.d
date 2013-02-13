@@ -493,8 +493,36 @@ void collectCycleWhite(CrocVM* vm, GCObject* obj)
 // =====================================================================================================================
 // Debugging
 
+debug import tango.io.stream.Format;
 debug import tango.io.stream.TextFile;
 debug import croc.base_hash;
+
+debug void writeNodeName(GCObject* o, FormatOutput!(char) f)
+{
+	auto obj = cast(CrocBaseObject*)o;
+
+	f.write("\"");
+
+	switch(obj.mType)
+	{
+		case CrocValue.Type.String:    f.format("string ({})", o); break;
+		case CrocValue.Type.Table:     f.format("table ({})", o); break;
+		case CrocValue.Type.Array:     f.format("array ({})", o); break;
+		case CrocValue.Type.Memblock:  f.format("memblock ({})", o); break;
+		case CrocValue.Type.Function:  f.format("function {} ({})", (cast(CrocFunction*)obj).name.toString(), o); break;
+		case CrocValue.Type.Class:     f.format("class {} ({})", (cast(CrocClass*)obj).name.toString(), o); break;
+		case CrocValue.Type.Instance:  f.format("instance of {} ({})", (cast(CrocInstance*)obj).parent.name.toString(), o); break;
+		case CrocValue.Type.Namespace: f.format("namespace {} ({})", (cast(CrocNamespace*)obj).name.toString(), o); break;
+		case CrocValue.Type.Thread:    f.format("thread ({})", o); break;
+		case CrocValue.Type.NativeObj: f.format("nativeobj ({})", o); break;
+		case CrocValue.Type.WeakRef:   f.format("weakref ({})", o); break;
+		case CrocValue.Type.FuncDef:   f.format("funcdef {} ({})", (cast(CrocFuncDef*)obj).name.toString(), o); break;
+		case CrocValue.Type.Upvalue:   f.format("upvalue ({})", o); break;
+		default:                       f.format("??? {} ({})", obj.mType, o); break;
+	}
+
+	f.format(" {}\"", obj.refCount);
+}
 
 debug void dumpObjGraph(CrocVM* vm, char[] filename)
 {
@@ -508,37 +536,9 @@ debug void dumpObjGraph(CrocVM* vm, char[] filename)
 	label = "roots"
 	rankdir = "TB"
 	compound = true
-	aspect = 1
 	node [fontname = "Helvetica-Bold", fontsize = 12]
 	Roots [style = filled, fillcolor = grey]
 	`);
-
-	void writeNodeName(GCObject* o)
-	{
-		auto obj = cast(CrocBaseObject*)o;
-
-		f.write("\"");
-
-		switch(obj.mType)
-		{
-			case CrocValue.Type.String:    f.format("string ({})", o); break;
-			case CrocValue.Type.Table:     f.format("table ({})", o); break;
-			case CrocValue.Type.Array:     f.format("array ({})", o); break;
-			case CrocValue.Type.Memblock:  f.format("memblock ({})", o); break;
-			case CrocValue.Type.Function:  f.format("function {} ({})", (cast(CrocFunction*)obj).name.toString(), o); break;
-			case CrocValue.Type.Class:     f.format("class {} ({})", (cast(CrocClass*)obj).name.toString(), o); break;
-			case CrocValue.Type.Instance:  f.format("instance of {} ({})", (cast(CrocInstance*)obj).parent.name.toString(), o); break;
-			case CrocValue.Type.Namespace: f.format("namespace {} ({})", (cast(CrocNamespace*)obj).name.toString(), o); break;
-			case CrocValue.Type.Thread:    f.format("thread ({})", o); break;
-			case CrocValue.Type.NativeObj: f.format("nativeobj ({})", o); break;
-			case CrocValue.Type.WeakRef:   f.format("weakref ({})", o); break;
-			case CrocValue.Type.FuncDef:   f.format("funcdef {} ({})", (cast(CrocFuncDef*)obj).name.toString(), o); break;
-			case CrocValue.Type.Upvalue:   f.format("upvalue ({})", o); break;
-			default:                       f.format("??? {} ({})", obj.mType, o); break;
-		}
-
-		f.format(" {}\"", obj.refCount);
-	}
 
 	void visitIt(GCObject* obj)
 	{
@@ -546,8 +546,6 @@ debug void dumpObjGraph(CrocVM* vm, char[] filename)
 			return;
 
 		*visited.insert(vm.alloc, obj) = true;
-
-		writeNodeName(obj);
 
 		char[] color;
 
@@ -561,6 +559,7 @@ debug void dumpObjGraph(CrocVM* vm, char[] filename)
 			default: assert(false);
 		}
 
+		writeNodeName(obj, f);
 		f.formatln(" [style = filled, fillcolor = {}]", color);
 
 		switch((cast(CrocBaseObject*)obj).mType)
@@ -574,9 +573,9 @@ debug void dumpObjGraph(CrocVM* vm, char[] filename)
 		{
 			visitIt(slot);
 
-			writeNodeName(obj);
+			writeNodeName(obj, f);
 			f.write(" -> ");
-			writeNodeName(slot);
+			writeNodeName(slot, f);
 			f.newline;
 		});
 	}
@@ -588,7 +587,7 @@ debug void dumpObjGraph(CrocVM* vm, char[] filename)
 			return;
 
 		f.write("Roots -> ");
-		writeNodeName(obj);
+		writeNodeName(obj, f);
 		f.newline;
 		visitIt(obj);
 	});

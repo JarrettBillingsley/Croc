@@ -96,7 +96,8 @@ void visitRoots(CrocVM* vm, void delegate(GCObject*) callback)
 	callback(cast(GCObject*)vm.globals);
 	callback(cast(GCObject*)vm.mainThread);
 
-	// We visit all the threads, but the threads themselves (except the main thread, visited above) are not roots. allThreads is basically a table of weak refs
+	// We visit all the threads, but the threads themselves (except the main thread, visited above) are not roots.
+	// allThreads is basically a table of weak refs
 	foreach(thread, _; vm.allThreads)
 		visitThread(thread, callback, true);
 
@@ -319,6 +320,9 @@ void visitThread(CrocThread* o, void delegate(GCObject*) callback, bool isRoots)
 {
 	if(isRoots)
 	{
+		if(o.state == CrocThread.State.Dead)
+			return;
+
 		foreach(ref ar; o.actRecs[0 .. o.arIndex])
 		{
 			mixin(CondCallback!("ar.func"));

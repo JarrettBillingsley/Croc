@@ -2669,7 +2669,7 @@ void resetThread(CrocThread* t, word slot, bool newFunction = false)
 		pop(t);
 	}
 
-	other.state = CrocThread.State.Initial;
+	thread.reset(other);
 }
 
 /**
