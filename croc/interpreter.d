@@ -102,6 +102,8 @@ void runFinalizers(CrocThread* t)
 	auto decBuffer = &alloc.decBuffer;
 
 	disableGC(t.vm);
+	auto hooksEnabled = t.hooksEnabled;
+	t.hooksEnabled = false;
 
 	// FINALIZE. Go through the finalize buffer, running the finalizer, and setting it to finalized. At this point, the
 	// object may have been resurrected but we can't really tell unless we make the write barrier more complicated. Or
@@ -127,6 +129,7 @@ void runFinalizers(CrocThread* t)
 			rawCall(t, -3, 1);
 			swap(t);
 			fielda(t, -2, "cause");
+			t.hooksEnabled = hooksEnabled;
 			throwException(t);
 		}
 
@@ -134,8 +137,8 @@ void runFinalizers(CrocThread* t)
 		decBuffer.add(*alloc, cast(GCObject*)i);
 	}
 
+	t.hooksEnabled = hooksEnabled;
 	enableGC(t.vm);
-
 	t.vm.toFinalize.reset();
 }
 
@@ -811,46 +814,44 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 
 			return stackSize(t) - 1;
 		}
-
-		switch(v.type)
-		{
-			case CrocValue.Type.Function:
-				auto f = v.mFunction;
-
-				if(f.isNative)
-					return pushFormat(t, "native {} {}", CrocValue.typeStrings[CrocValue.Type.Function], f.name.toString());
-				else
-				{
-					auto sf = f.scriptFunc;
-					return pushFormat(t, "script {} {}({}({}:{}))", CrocValue.typeStrings[CrocValue.Type.Function], f.name.toString(), sf.locFile.toString(), sf.locLine, sf.locCol);
-				}
-
-			case CrocValue.Type.Class:    return pushFormat(t, "{} {} (0x{:X8})", CrocValue.typeStrings[CrocValue.Type.Class], v.mClass.name.toString(), cast(void*)v.mClass);
-			case CrocValue.Type.Instance: return pushFormat(t, "{} of {} (0x{:X8})", CrocValue.typeStrings[CrocValue.Type.Instance], v.mInstance.parent.name.toString(), cast(void*)v.mInstance);
-
-			case CrocValue.Type.Namespace:
-				if(raw)
-					goto default;
-
-				pushString(t, CrocValue.typeStrings[CrocValue.Type.Namespace]);
-				pushString(t, " ");
-				pushNamespaceNamestring(t, v.mNamespace);
-
-				auto slot = t.stackIndex - 3;
-				catImpl(t, slot, slot, 3);
-				pop(t, 2);
-				return slot - t.stackBase;
-
-			case CrocValue.Type.FuncDef:
-				auto d = v.mFuncDef;
-				return pushFormat(t, "{} {}({}({}:{}))", CrocValue.typeStrings[CrocValue.Type.FuncDef], d.name.toString(), d.locFile.toString(), d.locLine, d.locCol);
-
-			default:
-				break; // fall out to raw
-		}
 	}
 
-	return pushFormat(t, "{} 0x{:X8}", CrocValue.typeStrings[v.type], cast(void*)v.mBaseObj);
+	switch(v.type)
+	{
+		case CrocValue.Type.Function:
+			auto f = v.mFunction;
+
+			if(f.isNative)
+				return pushFormat(t, "native {} {}", CrocValue.typeStrings[CrocValue.Type.Function], f.name.toString());
+			else
+			{
+				auto sf = f.scriptFunc;
+				return pushFormat(t, "script {} {}({}({}:{}))", CrocValue.typeStrings[CrocValue.Type.Function], f.name.toString(), sf.locFile.toString(), sf.locLine, sf.locCol);
+			}
+
+		case CrocValue.Type.Class:    return pushFormat(t, "{} {} (0x{:X8})", CrocValue.typeStrings[CrocValue.Type.Class], v.mClass.name.toString(), cast(void*)v.mClass);
+		case CrocValue.Type.Instance: return pushFormat(t, "{} of {} (0x{:X8})", CrocValue.typeStrings[CrocValue.Type.Instance], v.mInstance.parent.name.toString(), cast(void*)v.mInstance);
+
+		case CrocValue.Type.Namespace:
+			if(raw)
+				goto default;
+
+			pushString(t, CrocValue.typeStrings[CrocValue.Type.Namespace]);
+			pushString(t, " ");
+			pushNamespaceNamestring(t, v.mNamespace);
+
+			auto slot = t.stackIndex - 3;
+			catImpl(t, slot, slot, 3);
+			pop(t, 2);
+			return slot - t.stackBase;
+
+		case CrocValue.Type.FuncDef:
+			auto d = v.mFuncDef;
+			return pushFormat(t, "{} {}({}({}:{}))", CrocValue.typeStrings[CrocValue.Type.FuncDef], d.name.toString(), d.locFile.toString(), d.locLine, d.locCol);
+
+		default:
+			return pushFormat(t, "{} 0x{:X8}", CrocValue.typeStrings[v.type], cast(void*)v.mBaseObj);
+	}
 }
 
 bool inImpl(CrocThread* t, CrocValue* item, CrocValue* container)
