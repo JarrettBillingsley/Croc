@@ -53,7 +53,7 @@ package:
 
 			if(parent.fields.length)
 			{
-				mixin(containerWriteBarrier!("alloc", "c"));
+				// mixin(containerWriteBarrier!("alloc", "c"));
 
 				c.fields.prealloc(alloc, parent.fields.capacity());
 				assert(c.fields.capacity() == parent.fields.capacity());
@@ -65,7 +65,7 @@ package:
 
 			if(parent.methods.length)
 			{
-				mixin(containerWriteBarrier!("alloc", "c"));
+				// mixin(containerWriteBarrier!("alloc", "c"));
 
 				c.methods.prealloc(alloc, parent.methods.capacity());
 				assert(c.methods.capacity() == parent.methods.capacity());
@@ -159,6 +159,23 @@ package:
 		return true;
 	}
 
+	bool commonForceAddField(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value, CrocClass* proto, ubyte privacy)
+	{
+		assert(!c.isFrozen);
+
+		if(c.fields.lookup(name) || c.methods.lookup(name))
+			return false;
+
+		mixin(containerWriteBarrier!("alloc", "c"));
+		auto slot = mixin("c." ~ member).insertNode(alloc, name);
+		slot.value.value = *value;
+		slot.value.proto = proto;
+		slot.value.privacy = privacy;
+		slot.modified |= KeyModified | (value.isGCObject() ? ValModified : 0);
+
+		return true;
+	}
+
 	bool commonRemoveField(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name)
 	{
 		if(auto slot = mixin("c." ~ member).lookupNode(name))
@@ -188,6 +205,9 @@ package:
 
 	alias commonAddField!("fields") addField;
 	alias commonAddField!("methods") addMethod;
+
+	alias commonForceAddField!("fields") forceAddField;
+	alias commonForceAddField!("methods") forceAddMethod;
 
 	bool removeMember(ref Allocator alloc, CrocClass* c, CrocString* name)
 	{

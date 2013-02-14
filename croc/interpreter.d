@@ -406,7 +406,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 			if(cls.constructor is null && numParams > 1)
 				throwStdException(t, "ParamException", "Class '{}' has no constructor but was called with {} parameters", cls.name.toString(), numParams - 1);
 
-			auto inst = instance.create(t.vm, cls);
+			auto inst = instance.create(t.vm.alloc, cls);
 
 			// call any constructor
 			if(cls.constructor)

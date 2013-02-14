@@ -44,23 +44,37 @@ static:
 
 package:
 
-	CrocInstance* create(CrocVM* vm, CrocClass* parent)
+	CrocInstance* create(ref Allocator alloc, CrocClass* parent)
 	{
 		assert(parent.isFrozen);
 
-		CrocInstance* i;
+		CrocInstance* i = createPartial(alloc, InstanceSize(parent), parent.finalizer !is null);
+		finishCreate(i, parent);
 
-		if(parent.finalizer)
-			i = vm.alloc.allocateFinalizable!(CrocInstance)(InstanceSize(parent));
+		return i;
+	}
+
+	CrocInstance* createPartial(ref Allocator alloc, uword size, bool finalizable)
+	{
+		assert(size >= CrocInstance.sizeof);
+
+		if(finalizable)
+			return alloc.allocateFinalizable!(CrocInstance)(size);
 		else
-			i = vm.alloc.allocate!(CrocInstance)(InstanceSize(parent));
+			return alloc.allocate!(CrocInstance)(size);
+	}
+
+	bool finishCreate(CrocInstance* i, CrocClass* parent)
+	{
+		assert(parent.isFrozen);
+
+		if(i.memSize != InstanceSize(parent))
+			return false;
 
 		i.parent = parent;
 
 		if(parent.fields.length > 0)
 		{
-			mixin(containerWriteBarrier!("vm.alloc", "i"));
-
 			auto instNodes = (cast(typeof(i.fields).Node*)(i + 1))[0 .. parent.fields.capacity()];
 			parent.fields.dupInto(i.fields, instNodes);
 
@@ -68,7 +82,7 @@ package:
 				node.modified |= KeyModified | (node.value.value.isGCObject() ? ValModified : 0);
 		}
 
-		return i;
+		return true;
 	}
 
 	typeof(CrocInstance.fields).Node* getField(CrocInstance* i, CrocString* name)

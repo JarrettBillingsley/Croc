@@ -58,9 +58,9 @@ package:
 	CrocFunction* createPartial(ref Allocator alloc, uword numUpvals)
 	{
 		auto f = alloc.allocate!(CrocFunction)(ScriptClosureSize(numUpvals));
-		f.scriptUpvals()[] = null;
 		f.isNative = false;
 		f.numUpvals = numUpvals;
+		f.scriptUpvals()[] = null;
 		return f;
 	}
 

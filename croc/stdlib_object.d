@@ -85,6 +85,7 @@ private:
 
 const RegisterFunc[] _globalFuncs =
 [
+	{"newClass",     &_newClass,     maxParams: 2},
 	{"fieldsOf",     &_fieldsOf,     maxParams: 1},
 	{"methodsOf",    &_methodsOf,    maxParams: 1},
 	{"rawSetField",  &_rawSetField,  maxParams: 3},
@@ -103,6 +104,20 @@ const RegisterFunc _bindClassMethodFunc =
 
 const RegisterFunc _bindInstMethodFunc =
 	{"bindInstMethod",  &_bindInstMethod,  maxParams: 2, numUpvals: 1};
+
+uword _newClass(CrocThread* t)
+{
+	auto name = checkStringParam(t, 1);
+	auto haveBase = optParam(t, 2, CrocValue.Type.Class);
+
+	if(haveBase)
+		dup(t, 2);
+	else
+		pushNull(t);
+
+	newClass(t, -1, name);
+	return 1;
+}
 
 uword _fieldsOf(CrocThread* t)
 {
@@ -495,6 +510,11 @@ uword _bindInstMethod(CrocThread* t)
 
 const Docs[] _globalFuncDocs =
 [
+	{kind: "function", name: "newClass",
+	params: [Param("name", "string"), Param("base", "class", "null")],
+	docs:
+	`A function for creating a class from a name and an optional base class. The built-in class declaration syntax in
+	Croc doesn't allow you to parameterize the name, so this function allows you to do so.`},
 
 	{kind: "function", name: "fieldsOf",
 	params: [Param("value", "class|instance")],
