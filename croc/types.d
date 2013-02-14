@@ -472,7 +472,6 @@ package:
 	CrocString* name;
 	uint numParams;
 	uint[] paramMasks;
-	uint numUpvals;
 
 	struct UpvalDesc
 	{

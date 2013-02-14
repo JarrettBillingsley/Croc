@@ -41,8 +41,7 @@ package:
 
 	CrocFuncDef* create(ref Allocator alloc)
 	{
-		auto ret = alloc.allocate!(CrocFuncDef);
-		return ret;
+		return alloc.allocate!(CrocFuncDef);
 	}
 
 	// Free a function definition.

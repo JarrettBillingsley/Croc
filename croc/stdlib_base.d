@@ -144,7 +144,7 @@ uword _functionIsCacheable(CrocThread* t)
 {
 	checkParam(t, 0, CrocValue.Type.Function);
 	auto f = getFunction(t, 0);
-	pushBool(t, f.isNative ? false : f.scriptFunc.numUpvals == 0);
+	pushBool(t, f.isNative ? false : f.scriptFunc.upvals.length == 0);
 	return 1;
 }
 

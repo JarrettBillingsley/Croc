@@ -830,7 +830,7 @@ word newFunctionWithEnv(CrocThread* t, word funcDef)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - funcDef must be a function definition, not a '{}'", getString(t, -1));
 	}
 
-	if(def.numUpvals > 0)
+	if(def.upvals.length > 0)
 		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Function definition may not have any upvalues");
 
 	auto env = getNamespace(t, -1);

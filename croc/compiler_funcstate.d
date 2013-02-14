@@ -2331,7 +2331,6 @@ package:
 		ret.numParams = mNumParams;
 		ret.paramMasks = mParamMasks;
 		mParamMasks = null;
-		ret.numUpvals = mUpvals.length;
 
 		c.alloc.resizeArray(ret.upvals, mUpvals.length);
 
