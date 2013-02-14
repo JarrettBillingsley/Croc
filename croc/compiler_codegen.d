@@ -522,6 +522,7 @@ public:
 		InstRef i = codeCondition(s.cond);
 		fs.patchFalseToHere(i);
 		visit(s.msg);
+		fs.toSource(s.msg.endLocation);
 		fs.assertFail(s.location);
 		fs.patchTrueToHere(i);
 
