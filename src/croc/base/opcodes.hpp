@@ -88,7 +88,7 @@ THREE SHORTS:
 	idx:    rd = rs[rt]
 	idxa:   rd[rs] = rt
 	in:     rd = rs in rt
-	class:  rd = class rs : rt {} // if rt is a CONST null, inherit from Object; otherwise error
+	class:  rd = class rs : rt {}
 	as:     rd = rs as rt
 	field:  rd = rs.(rt)
 	fielda: rd.(rs) = rt
@@ -122,6 +122,9 @@ FOUR SHORTS:
 (rd, rt, uimm1, uimm2)
 	smethod:  method supercall. works same as method, but lookup is based on the proto instead of a value.
 	tsmethod: same as above, but does a tailcall. uimm2 is unused, but this makes codegen easier
+(rd, rs, rt, uimm)
+	addfield: add field named rs to class in rd with value rt. last uimm is 0 for private, nonzero for public.
+	addmethod: add method named rs to class in rd with value rt. last uimm is 0 for private, nonzero for public.
 
 FIVE SHORTS:
 
@@ -169,6 +172,7 @@ FIVE SHORTS:
 	X(SwitchCmp),\
 	X(Equals),\
 	X(Is),\
+	X(In),\
 	X(IsTrue),\
 	X(Jmp),\
 	X(Switch),\
@@ -215,7 +219,6 @@ FIVE SHORTS:
 	X(FieldAssign),\
 	X(Slice),\
 	X(SliceAssign),\
-	X(In),\
 	X(NewArray),\
 	X(NewTable),\
 	X(Closure),\
@@ -224,33 +227,32 @@ FIVE SHORTS:
 	X(Namespace),\
 	X(NamespaceNP),\
 	X(As),\
-	X(SuperOf)
+	X(SuperOf),\
+	X(AddField),\
+	X(AddMethod)
 
 #define POOP(x) Op_ ## x
 
-	typedef enum Op
+	enum Op
 	{
-		INSTRUCTION_LIST(POOP),
-		Op_LAST_MM_OPCODE = Op_UShrEq
-	} Op;
+		INSTRUCTION_LIST(POOP)
+	};
 
 #undef POOP
 
 	// TODO:
-	// static assert(Op.Add == MM.Add && Op.LAST_MM_OPCODE == MM.LAST_OPCODE_MM, "MMs and opcodes are out of sync!");
-
 	// Make sure we don't add too many instructions!
 	// static assert(Op.max <= Instruction.opcodeMax, "Too many opcodes");
 
 	extern const char* OpNames[];
 
-	typedef enum Comparison
+	enum Comparison
 	{
 		Comparison_LT,
 		Comparison_LE,
 		Comparison_GT,
 		Comparison_GE
-	} Comparison;
+	};
 
 #define BITMASK(len) ((1 << (len)) - 1)
 
@@ -289,11 +291,11 @@ FIVE SHORTS:
 #define INST_GET_OPCODE(n) ((n.uimm & INST_OPCODE_MASK) >> INST_OPCODE_SHIFT)
 #define INST_GET_RD(n) ((n.uimm & INST_RD_MASK) >> INST_RD_SHIFT)
 
-	typedef union Instruction
+	union Instruction
 	{
 		int16_t imm;
 		uint16_t uimm;
-	} Instruction;
+	};
 
 	// TODO:
 	// static assert(Instruction.sizeof == 2);
