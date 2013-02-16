@@ -33,19 +33,24 @@ int main()
 	Memory mem;
 	mem.init(DefaultMemFunc, NULL);
 
-	Hash<int, int> h;
+	typedef Hash<int, int> H;
+	H h;
 	memset(&h, 0, sizeof(h));
 
 	for(int i = 1; i <= 10; i++)
-		*h.insert(mem, i) = i * 5;
-
-	int *k, *v;
-	size_t idx = 0;
-
-	while(h.next(idx, k, v))
 	{
-		printf("h[%d] = %d\n", *k, *v);
+		H::NodeType* n = h.insertNode(mem, i);
+		n->value = i * 5;
+
+		if(i & 1)
+			SET_KEY_MODIFIED(n);
 	}
+
+	HASH_FOREACH_MODIFIED(H::NodeType, n, h)
+	{
+		printf("h[%d (%d)] = %d (%d) \n", n->key, IS_KEY_MODIFIED(n) != 0, n->value, IS_VAL_MODIFIED(n) != 0);
+	}
+	HASH_END_FOREACH
 
 	return 0;
 }

@@ -191,7 +191,6 @@ namespace croc
 		Privacy privacy;
 	};
 
-	typedef HashNode<String*, FieldValue> FieldHashNode;
 	typedef Hash<String*, FieldValue, MethodHasher> FieldHash;
 
 	typedef uword AbsStack;
@@ -232,7 +231,6 @@ namespace croc
 
 	struct Table : public GCObject
 	{
-		typedef HashNode<Value, Value> NodeType;
 		typedef Hash<Value, Value, MethodHasher> HashType;
 
 		HashType data;
@@ -240,7 +238,6 @@ namespace croc
 
 	struct Namespace : public GCObject
 	{
-		typedef HashNode<String*, Value> NodeType;
 		typedef Hash<String*, Value, MethodHasher> HashType;
 
 		HashType data;
@@ -337,7 +334,8 @@ namespace croc
 
 		struct SwitchTable
 		{
-			Hash<Value, int32_t, MethodHasher> offsets;
+			typedef Hash<Value, int32_t, MethodHasher> OffsetsType;
+			OffsetsType offsets;
 			int32_t defaultOffset;
 		};
 
@@ -426,6 +424,9 @@ namespace croc
 
 	struct VM
 	{
+		typedef Hash<uint64_t, GCObject*> RefTab;
+		typedef Hash<String*, Class*, MethodHasher> ExTab;
+
 		Memory mem;
 
 		// These are all GC roots -----------
@@ -435,13 +436,13 @@ namespace croc
 		DArray<String*> metaStrings;
 		Instance* exception;
 		Namespace* registry;
-		Hash<uint64_t, GCObject*> refTab;
-		CrocThread* allThreads;
+		RefTab refTab;
+		Thread* allThreads;
 
 		// These point to "special" runtime classes
 		Class* throwable;
 		Class* location;
-		Hash<String*, Class*, MethodHasher> stdExceptions;
+		ExTab stdExceptions;
 		// ----------------------------------
 
 		// GC stuff

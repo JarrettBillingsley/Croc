@@ -7,6 +7,13 @@
 #include "croc/base/sanity.hpp"
 #include "croc/ext/jhash.hpp"
 
+#define ARRAY_FOREACH(T, Tname, arr)\
+	for(T *Tname = (arr).ptr, *Tname##end = (arr).ptr + (arr).length; Tname < Tname##end; Tname++)
+
+// workaround for arrays of pointers because stupid C-style declaration syntax means "T** a, *b" makes b only T*
+#define ARRAY_FOREACHP(T, Tname, arr)\
+	for(T *Tname = (arr).ptr, **Tname##end = Tname + (arr).length; Tname < Tname##end; Tname++)
+
 #define ARRAY_BYTE_SIZE(len) ((len) * sizeof(T))
 
 #ifdef CROC_LEAK_DETECTOR

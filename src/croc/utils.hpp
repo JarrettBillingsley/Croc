@@ -11,7 +11,7 @@ namespace croc
 	int scmp(DArray<const char> s1, DArray<const char> s2);
 
 	template<typename T>
-	int Compare3(T a, T b)
+	inline int Compare3(T a, T b)
 	{
 		return a < b ? -1 : a > b ? 1 : 0;
 	}

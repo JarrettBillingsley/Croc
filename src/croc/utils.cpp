@@ -21,9 +21,7 @@ namespace croc
 		return n;
 	}
 
-	/**
-	Compares char[] strings stupidly (just by character value, not lexicographically).
-	*/
+	// Compares strings stupidly (just by character value, not lexicographically).
 	int scmp(DArray<const char> s1, DArray<const char> s2)
 	{
 		size_t len = s1.length;

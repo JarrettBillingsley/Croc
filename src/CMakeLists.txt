@@ -13,6 +13,8 @@ set(croc_SRC
 	croc/base/metamethods.hpp
 	croc/base/opcodes.cpp
 	croc/base/opcodes.hpp
+	croc/base/writebarrier.cpp
+	croc/base/writebarrier.hpp
 	croc/base/sanity.hpp
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
