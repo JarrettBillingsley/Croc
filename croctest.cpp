@@ -1,33 +1,46 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <typeinfo>
 
+#include "croc/base/memory.hpp"
 #include "croc/base/darray.hpp"
+#include "croc/utils.hpp"
+#include "croc/base/gcobject.hpp"
 
 using namespace croc;
 
-// #include "croc/base/alloc.hpp"
-// #include "croc/base/sanity.hpp"
+void* DefaultMemFunc(void* ctx, void* p, size_t oldSize, size_t newSize)
+{
+	(void)ctx;
+	(void)oldSize;
 
-// using namespace croc;
+	if(newSize == 0)
+	{
+		free(p);
+		return NULL;
+	}
+	else
+	{
+		void* ret = cast(void*)realloc(p, newSize);
+		assert(ret != NULL);
+		return ret;
+	}
+}
 
-// void* DefaultMemFunc(void* ctx, void* p, size_t oldSize, size_t newSize)
-// {
-// 	if(newSize == 0)
-// 	{
-// 		free(p);
-// 		return NULL;
-// 	}
-// 	else
-// 	{
-// 		void* ret = cast(void*)realloc(p, newSize);
+int main()
+{
+	Memory mem;
+	mem.init(DefaultMemFunc, NULL);
+	GCObject* o = mem.allocate(sizeof(GCObject), false, typeid(GCObject));
+	printf("gcflags = %d, refCount = %d, size = %d, type = %d\n", o->gcflags, o->refCount, o->memSize, o->mType);
+	printf("totalBytes = %d\n", mem.totalBytes);
 
-// 		// if(ret == null)
-// 		// 	onOutOfMemoryError();
+	mem.leaks.dumpBlocks();
 
-// 		return ret;
-// 	}
-// }
+	return 0;
+}
 
+#if 0
 #include <stdint.h>
 
 const uint8_t UTF8CharLengths[256] =
@@ -372,13 +385,4 @@ size_t UTF8ByteIdxToCP(DArray<const char> str, size_t fake)
 
 	return ret;
 }
-
-int main()
-{
-	// Allocator a;
-	// a.memFunc = &DefaultMemFunc;
-
-
-
-	return 0;
-}
+#endif

@@ -4,10 +4,6 @@
 
 namespace croc
 {
-	template<int> inline void largerPow2Helper(size_t& val);
-	template<> inline void largerPow2Helper<4>(size_t& val) {}
-	template<> inline void largerPow2Helper<8>(size_t& val) { val |= val >> 32; }
-
 	// Returns closest power of 2 that is >= n. Taken from the Stanford Bit Twiddling Hacks page.
 	size_t largerPow2(size_t n)
 	{
@@ -20,7 +16,7 @@ namespace croc
 		n |= n >> 4;
 		n |= n >> 8;
 		n |= n >> 16;
-		largerPow2Helper<sizeof(size_t)>(n);
+		n |= n >> ((sizeof(size_t) > 4) * 32);
 		n++;
 		return n;
 	}

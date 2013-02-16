@@ -8,7 +8,6 @@ A few little things that help me keep my sanity when developing in such a.. prim
 // Really basic stdlibs used everywhere.
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <assert.h>
 
 #define cast(x) (x)

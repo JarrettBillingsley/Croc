@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 2.8)
 
 set(croc_SRC
-	croc/base/alloc.hpp
 	croc/base/darray.hpp
 	croc/base/deque.cpp
 	croc/base/deque.hpp
 	croc/base/hash.hpp
+	croc/base/leakdetector.hpp
+	croc/base/leakdetector.cpp
+	croc/base/memory.hpp
+	croc/base/memory.cpp
 	croc/base/metamethods.cpp
 	croc/base/metamethods.hpp
 	croc/base/opcodes.cpp
@@ -30,7 +33,8 @@ set(croc_ALLSRC
 	${croc_API}
 )
 
-if(CMAKE_COMPILER_IS_GNUCC)
+if(CMAKE_COMPILER_IS_GNUCXX)
+	message(status "wtf")
 	set(CMAKE_CXX_FLAGS "-std=c++98 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions")
 	set(CMAKE_CXX_FLAGS_DEBUG "-g -DCROC_STOMP_MEMORY -DCROC_LEAK_DETECTOR")
 	set(CMAKE_CXX_FLAGS_RELEASE "-fno-rtti")

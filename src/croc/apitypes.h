@@ -24,12 +24,6 @@ up with a (probably?) functional but nonstandard implementation.
 typedef double crocfloat_t;
 
 /**
-The underlying C type used to store the Croc 'char' type. Defaults to uint32_t. If you change it, all hell will
-break loose.
-*/
-typedef uint32_t crocchar_t;
-
-/**
 The current version of Croc as a 32-bit integer. The upper 16 bits are the major, and the lower 16 are
 the minor.
 */
@@ -92,26 +86,25 @@ typedef enum CrocType
 	CrocType_Bool,       /* 1 */
 	CrocType_Int,        /* 2 */
 	CrocType_Float,      /* 3 */
-	CrocType_Char,       /* 4 */
-	CrocType_NativeObj,  /* 5 */
+	CrocType_NativeObj,  /* 4 */
 
 	/* Quasi-value (GC'ed but still value) */
-	CrocType_String,     /* 6 */
-	CrocType_WeakRef,    /* 7 */
+	CrocType_String,     /* 5 */
+	CrocType_WeakRef,    /* 6 */
 
 	/* Ref */
-	CrocType_Table,      /* 8 */
-	CrocType_Namespace,  /* 9 */
-	CrocType_Array,      /* 10 */
-	CrocType_Memblock,   /* 11 */
-	CrocType_Function,   /* 12 */
-	CrocType_FuncDef,    /* 13 */
-	CrocType_Class,      /* 14 */
-	CrocType_Instance,   /* 15 */
-	CrocType_Thread,     /* 16 */
+	CrocType_Table,      /* 7 */
+	CrocType_Namespace,  /* 8 */
+	CrocType_Array,      /* 9 */
+	CrocType_Memblock,   /* 10 */
+	CrocType_Function,   /* 11 */
+	CrocType_FuncDef,    /* 12 */
+	CrocType_Class,      /* 13 */
+	CrocType_Instance,   /* 14 */
+	CrocType_Thread,     /* 15 */
 
 	/* Internal */
-	CrocType_Upvalue,    /* 17 */
+	CrocType_Upvalue,    /* 16 */
 
 	/* Other */
 	CrocType_FirstGCType = CrocType_String,

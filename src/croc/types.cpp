@@ -11,7 +11,6 @@ extern "C" const char* croc_typeToString(CrocType t)
 		case CrocType_Bool:      return "bool";
 		case CrocType_Int:       return "int";
 		case CrocType_Float:     return "float";
-		case CrocType_Char:      return "char";
 		case CrocType_NativeObj: return "nativeobj";
 
 		case CrocType_String:    return "string";
@@ -40,7 +39,7 @@ namespace croc
 	// ========================================
 	// Value
 
-	const Value Value::nullValue = {CrocType_Null, cast(crocint)0};
+	const Value Value::nullValue = {CrocType_Null, { cast(crocint)0 }};
 
 	bool Value::operator==(const Value& other) const
 	{
@@ -53,7 +52,6 @@ namespace croc
 			case CrocType_Bool:      return this->mBool == other.mBool;
 			case CrocType_Int:       return this->mInt == other.mInt;
 			case CrocType_Float:     return this->mFloat == other.mFloat;
-			case CrocType_Char:      return this->mChar == other.mChar;
 			case CrocType_NativeObj: return this->mNativeObj == other.mNativeObj;
 			default:                 return this->mGCObj == other.mGCObj;
 		}
@@ -65,8 +63,7 @@ namespace croc
 		(this->type == CrocType_Null) ||
 		(this->type == CrocType_Bool && this->mBool == false) ||
 		(this->type == CrocType_Int && this->mInt == 0) ||
-		(this->type == CrocType_Float && this->mFloat == 0.0) ||
-		(this->type == CrocType_Char && this->mChar == 0);
+		(this->type == CrocType_Float && this->mFloat == 0.0);
 	}
 
 	hash_t Value::toHash() const
@@ -77,7 +74,6 @@ namespace croc
 			case CrocType_Bool:      return cast(hash_t)mBool;
 			case CrocType_Int:       return cast(hash_t)mInt;
 			case CrocType_Float:     return cast(hash_t)mFloat;
-			case CrocType_Char:      return cast(hash_t)mChar;
 			case CrocType_NativeObj: return cast(hash_t)mNativeObj;
 			case CrocType_String:    return mString->hash;
 			default:                 return cast(hash_t)cast(void*)mGCObj;

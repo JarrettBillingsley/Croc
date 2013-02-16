@@ -5,3 +5,5 @@
 *.sublime-project
 docs/
 commitmsg.txt
+Debug/
+Release/

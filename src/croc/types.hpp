@@ -3,10 +3,10 @@
 
 #include <stddef.h>
 
-#include "croc/base/alloc.hpp"
 #include "croc/base/darray.hpp"
 #include "croc/base/deque.hpp"
 #include "croc/base/hash.hpp"
+#include "croc/base/memory.hpp"
 #include "croc/base/opcodes.hpp"
 #include "croc/base/sanity.hpp"
 
@@ -20,7 +20,6 @@ namespace croc
 	typedef size_t uword;
 	typedef crocint_t crocint;
 	typedef crocfloat_t crocfloat;
-	typedef crocchar_t crocchar;
 
 	enum Location
 	{
@@ -56,7 +55,6 @@ namespace croc
 			bool mBool;
 			crocint mInt;
 			crocfloat mFloat;
-			crocchar mChar;
 			void* mNativeObj;
 
 			GCObject* mGCObj;
@@ -96,7 +94,6 @@ namespace croc
 		MAKE_SET(Bool, bool)
 		MAKE_SET(Int, crocint)
 		MAKE_SET(Float, crocfloat)
-		MAKE_SET(Char, crocchar)
 		inline void setNativeObj(void* v) { type = CrocType_NativeObj; mNativeObj = v; }
 
 		inline void operator=(GCObject* v) { this->mGCObj = v; this->type = v->mType; }
@@ -116,11 +113,9 @@ namespace croc
 #undef MAKE_SET
 	};
 
-#define OBJ_HEADER(Name, Acyclic) static const bool ACYCLIC = Acyclic; Name() { mType = CrocType_##Name; }
-
 	struct String : public GCObject
 	{
-		OBJ_HEADER(String, true)
+		// acyclic
 		uword hash;
 		uword length;
 		uword cpLength;
@@ -132,20 +127,18 @@ namespace croc
 
 	struct WeakRef : public GCObject
 	{
-		OBJ_HEADER(WeakRef, true)
+		// acyclic
 		GCObject* obj;
 	};
 
 	struct Table : public GCObject
 	{
-		OBJ_HEADER(Table, false)
 		Hash<Value, Value, MethodHasher, HashNodeWithModified<Value, Value> > data;
 		typedef HashNodeWithModified<Value, Value> Node;
 	};
 
 	struct Namespace : public GCObject
 	{
-		OBJ_HEADER(Namespace, false)
 		Hash<String*, Value, MethodHasher, HashNodeWithModified<String*, Value> > data;
 		typedef HashNodeWithModified<String*, Value> Node;
 		Namespace* parent;
@@ -155,7 +148,6 @@ namespace croc
 
 	struct Array : public GCObject
 	{
-		OBJ_HEADER(Array, false)
 		uword length;
 
 		struct Slot
@@ -177,14 +169,13 @@ namespace croc
 
 	struct Memblock : public GCObject
 	{
-		OBJ_HEADER(Memblock, true)
+		// acyclic
 		DArray<uint8_t> data;
 		bool ownData;
 	};
 
 	struct Function : public GCObject
 	{
-		OBJ_HEADER(Function, false)
 		bool isNative;
 		Namespace* environment;
 		String* name;
@@ -208,7 +199,6 @@ namespace croc
 	// The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
 	struct FuncDef : public GCObject
 	{
-		OBJ_HEADER(FuncDef, false)
 		String* locFile;
 		int32_t locLine;
 		int32_t locCol;
@@ -258,7 +248,6 @@ namespace croc
 
 	struct Class : public GCObject
 	{
-		OBJ_HEADER(Class, false)
 		String* name;
 		Class* parent;
 		Namespace* fields;
@@ -270,7 +259,6 @@ namespace croc
 
 	struct Instance : public GCObject
 	{
-		OBJ_HEADER(Instance, false)
 		Class* parent;
 		Namespace* fields;
 		uword numValues;
@@ -310,8 +298,6 @@ namespace croc
 
 	struct Thread : public GCObject
 	{
-		OBJ_HEADER(Thread, false)
-
 		enum State
 		{
 			State_Initial,
@@ -368,7 +354,6 @@ namespace croc
 
 	struct Upvalue : public GCObject
 	{
-		OBJ_HEADER(Upvalue, false)
 		Value* value;
 		Value closedValue;
 		Upvalue* nextuv;
@@ -376,7 +361,7 @@ namespace croc
 
 	struct VM
 	{
-		Allocator alloc;
+		Memory mem;
 
 		// These are all GC roots -----------
 		Namespace* globals;

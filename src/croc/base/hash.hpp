@@ -1,8 +1,8 @@
 #ifndef CROC_BASE_HASH_HPP
 #define CROC_BASE_HASH_HPP
 
-#include "croc/base/alloc.hpp"
 #include "croc/base/darray.hpp"
+#include "croc/base/memory.hpp"
 #include "croc/base/sanity.hpp"
 
 // #define HASH_FOREACH(K, Kname, V, Vname, h) { K* Kname; V* Vname; size_t idx; while(h.next(idx, Kname, Vname))
@@ -62,7 +62,7 @@ namespace croc
 		size_t mSize;
 
 	public:
-		void prealloc(Allocator& alloc, size_t size)
+		void prealloc(Memory& mem, size_t size)
 		{
 			if(size <= mNodes.length)
 				return;
@@ -70,16 +70,16 @@ namespace croc
 			{
 				size_t newSize = 4;
 				for(; newSize < size; newSize <<= 1) {}
-				resizeArray(alloc, newSize);
+				resizeArray(mem, newSize);
 			}
 		}
 
-		V* insert(Allocator& alloc, K key)
+		V* insert(Memory& mem, K key)
 		{
-			return &insertNode(alloc, key).value;
+			return &insertNode(mem, key).value;
 		}
 
-		Node& insertNode(Allocator& alloc, K key)
+		Node& insertNode(Memory& mem, K key)
 		{
 			hash_t hash = Hasher::toHash(&key);
 
@@ -94,7 +94,7 @@ namespace croc
 
 			if(colBucket == NULL)
 			{
-				rehash(alloc);
+				rehash(mem);
 				colBucket = getColBucket();
 				assert(colBucket != NULL);
 			}
@@ -262,21 +262,21 @@ namespace croc
 			return mSize;
 		}
 
-		void minimize(Allocator& alloc)
+		void minimize(Memory& mem)
 		{
 			if(mSize == 0)
-				clear(alloc);
+				clear(mem);
 			else
 			{
 				size_t newSize = 4;
 				for(; newSize < mSize; newSize <<= 1) {}
-				resizeArray(alloc, newSize);
+				resizeArray(mem, newSize);
 			}
 		}
 
-		void clear(Allocator& alloc)
+		void clear(Memory& mem)
 		{
-			alloc.freeArray(mNodes);
+			mNodes.free(mem);
 			mHashMask = 0;
 			mColBucket = NULL;
 			mSize = 0;
@@ -295,19 +295,19 @@ namespace croc
 			mSize--;
 		}
 
-		void rehash(Allocator& alloc)
+		void rehash(Memory& mem)
 		{
 			if(mNodes.length != 0)
-				resizeArray(alloc, mNodes.length * 2);
+				resizeArray(mem, mNodes.length * 2);
 			else
-				resizeArray(alloc, 4);
+				resizeArray(mem, 4);
 		}
 
-		void resizeArray(Allocator& alloc, size_t newSize)
+		void resizeArray(Memory& mem, size_t newSize)
 		{
 			DArray<Node> oldNodes = mNodes;
 
-			mNodes = alloc.allocArray<Node>(newSize);
+			mNodes = DArray<Node>::alloc(mem, newSize);
 			mHashMask = mNodes.length - 1;
 			mColBucket = mNodes.ptr;
 			mSize = 0;
@@ -318,12 +318,12 @@ namespace croc
 
 				if(node.used)
 				{
-					Node& newNode = insertNode(alloc, node.key);
+					Node& newNode = insertNode(mem, node.key);
 					newNode.copyFrom(node);
 				}
 			}
 
-			alloc.freeArray(oldNodes);
+			oldNodes.free(mem);
 		}
 
 		Node* getColBucket()

@@ -1,39 +1,39 @@
 #ifndef CROC_BASE_DEQUE_HPP
 #define CROC_BASE_DEQUE_HPP
 
-#include "croc/base/alloc.hpp"
-#include "croc/base/darray.hpp"
+#include "croc/base/gcobject.hpp"
+// #include "croc/base/memory.hpp"
 #include "croc/base/sanity.hpp"
 
 namespace croc
 {
-	struct Allocator;
-	struct GCObject;
+	struct Memory;
 
 	struct Deque
 	{
 	private:
-		DArray<GCObject*> mData;
+		GCObject** mDataPtr;
+		size_t mDataLen;
 		size_t mStart;
 		size_t mEnd;
 		size_t mSize;
 
 	public:
-		Deque();
-		void prealloc(Allocator& alloc, size_t size);
-		void add(Allocator& alloc, GCObject* t);
+		void init();
+		void prealloc(Memory& mem, size_t size);
+		void add(Memory& mem, GCObject* t);
 		GCObject* remove();
-		void append(Allocator& alloc, DArray<GCObject*> ts);
-		void append(Allocator& alloc, Deque& other);
+		void append(Memory& mem, GCObject** ptr, size_t len);
+		void append(Memory& mem, Deque& other);
 
 		inline bool   isEmpty()  const { return mSize == 0; }
-		inline bool   isFull()   const { return mSize == mData.length; }
+		inline bool   isFull()   const { return mSize == mDataLen; }
 		inline size_t length()   const { return mSize; }
-		inline size_t capacity() const { return mData.length; }
+		inline size_t capacity() const { return mDataLen; }
 
 		void reset();
-		void clear(Allocator& alloc);
-		void minimize(Allocator& alloc);
+		void clear(Memory& mem);
+		void minimize(Memory& mem);
 
 		struct Iterator
 		{
@@ -58,8 +58,8 @@ namespace croc
 		Iterator iterator();
 
 	private:
-		void enlargeArray(Allocator& alloc);
-		void resizeArray(Allocator& alloc, size_t newSize);
+		void enlargeArray(Memory& mem);
+		void resizeArray(Memory& mem, size_t newSize);
 	};
 }
 
