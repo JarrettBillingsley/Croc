@@ -22,16 +22,6 @@ namespace croc
 	{
 		size_t len;
 		const std::type_info* ti;
-
-		LeakMemBlock(size_t size, const std::type_info& t):
-			len(size),
-			ti(&t)
-		{}
-
-		LeakMemBlock():
-			len(0),
-			ti(NULL)
-		{}
 	};
 
 	struct LeakDetector

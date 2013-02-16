@@ -68,7 +68,7 @@ namespace croc
 		uint32_t gcflags;
 		uint32_t refCount;
 		size_t memSize;
-		CrocType mType;
+		CrocType type;
 	};
 }
 

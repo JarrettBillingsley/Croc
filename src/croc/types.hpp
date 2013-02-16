@@ -31,17 +31,17 @@ namespace croc
 	// Forward decls :P
 	struct VM;
 	struct String;
-	struct WeakRef;
+	struct Weakref;
 	struct Table;
 	struct Namespace;
 	struct Array;
 	struct Memblock;
 	struct Function;
-	struct FuncDef;
+	struct Funcdef;
 	struct Class;
 	struct Instance;
 	struct Thread;
-	struct Upvalue;
+	struct Upval;
 
 	// ========================================
 	// Value
@@ -55,34 +55,65 @@ namespace croc
 			bool mBool;
 			crocint mInt;
 			crocfloat mFloat;
-			void* mNativeObj;
+			void* mNativeobj;
 
 			GCObject* mGCObj;
 
 			String* mString;
-			WeakRef* mWeakRef;
+			Weakref* mWeakref;
 
 			Table* mTable;
 			Namespace* mNamespace;
 			Array* mArray;
 			Memblock* mMemblock;
 			Function* mFunction;
-			FuncDef* mFuncDef;
+			Funcdef* mFuncdef;
 			Class* mClass;
 			Instance* mInstance;
 			Thread* mThread;
+
+			Upval* mUpval;
 		};
 
 		static const Value nullValue;
 
-		bool operator==(const Value& other) const;
-		inline bool operator!=(const Value& other) const { return !(*this == other); }
-		bool isFalse() const;
+		bool operator==(const Value& other) const
+		{
+			return this->type == other.type &&
+				(this->type == CrocType_Null ||
+					this->mInt == other.mInt); // NONPORTABLE
+		}
+
+		inline bool operator!=(const Value& other) const
+		{
+			return !(*this == other);
+		}
+
+		inline bool isFalse() const
+		{
+			// ORDER CROCTYPE
+			return type <= CrocType_Float && mInt == 0; // NONPORTABLE
+		}
+
 		hash_t toHash() const;
 
-		inline bool isValType() const  { return type <  CrocType_FirstRefType; }
-		inline bool isRefType() const  { return type >= CrocType_FirstRefType; }
-		inline bool isGCObject() const { return type >= CrocType_FirstGCType;  }
+		// ORDER CROCTYPE
+		inline bool isValType() const
+		{
+			return type <  CrocType_FirstRefType;
+		}
+
+		// ORDER CROCTYPE
+		inline bool isRefType() const
+		{
+			return type >= CrocType_FirstRefType;
+		}
+
+		// ORDER CROCTYPE
+		inline bool isGCObject() const
+		{
+			return type >= CrocType_FirstGCType;
+		}
 
 		inline GCObject* toGCObject() const
 		{
@@ -90,23 +121,33 @@ namespace croc
 			return mGCObj;
 		}
 
-#define MAKE_SET(name, nativetype) inline void operator=(nativetype v) { type = CrocType_##name; m##name = v; }
+		inline void setGCObject(GCObject* v)
+		{
+			this->mGCObj = v;
+			this->type = v->type;
+		}
+
+#define MAKE_SET(name, nativetype)\
+	inline void set##name(nativetype v)\
+	{\
+		type = CrocType_##name;\
+		m##name = v;\
+	}
+
 		MAKE_SET(Bool, bool)
 		MAKE_SET(Int, crocint)
 		MAKE_SET(Float, crocfloat)
-		inline void setNativeObj(void* v) { type = CrocType_NativeObj; mNativeObj = v; }
-
-		inline void operator=(GCObject* v) { this->mGCObj = v; this->type = v->mType; }
+		MAKE_SET(Nativeobj, void*)
 
 		MAKE_SET(String, String*)
-		MAKE_SET(WeakRef, WeakRef*)
+		MAKE_SET(Weakref, Weakref*)
 
 		MAKE_SET(Table, Table*)
 		MAKE_SET(Namespace, Namespace*)
 		MAKE_SET(Array, Array*)
 		MAKE_SET(Memblock, Memblock*)
 		MAKE_SET(Function, Function*)
-		MAKE_SET(FuncDef, FuncDef*)
+		MAKE_SET(Funcdef, Funcdef*)
 		MAKE_SET(Class, Class*)
 		MAKE_SET(Instance, Instance*)
 		MAKE_SET(Thread, Thread*)
@@ -120,12 +161,70 @@ namespace croc
 		uword length;
 		uword cpLength;
 
-		inline const char* toString() const { return cast(const char*)(this + 1); }
-		inline DArray<const char> toDArray() const { return DArray<const char>(toString(), length); }
-		inline hash_t toHash() const { return hash; }
+		inline const char* toString() const
+		{
+			return cast(const char*)(this + 1);
+		}
+
+		inline DArray<const char> toDArray() const
+		{
+			return DArray<const char>::n(toString(), length);
+		}
+
+		inline hash_t toHash() const
+		{
+			return hash;
+		}
 	};
 
-	struct WeakRef : public GCObject
+	enum Privacy
+	{
+		Privacy_Public,
+		Privacy_Protected,
+		Privacy_Private
+	};
+
+	struct FieldValue
+	{
+		Value value;
+		Class* proto;
+		Privacy privacy;
+	};
+
+	typedef HashNodeWithModified<String*, FieldValue> FieldHashNode;
+	typedef Hash<String*, FieldValue, MethodHasher, FieldHashNode> FieldHash;
+
+	typedef uword AbsStack;
+	typedef uword RelStack;
+
+	struct ActRecord
+	{
+		AbsStack base;
+		AbsStack savedTop;
+		AbsStack vargBase;
+		AbsStack returnSlot;
+		Function* func;
+		Instruction* pc;
+		word numReturns;
+		Class* proto;
+		uword numTailcalls;
+		AbsStack firstResult;
+		uword numResults;
+		uword unwindCounter;
+		Instruction* unwindReturn;
+	};
+
+	struct TryRecord
+	{
+		bool isCatch;
+		RelStack slot;
+		uword actRecord;
+		Instruction* pc;
+	};
+
+	extern const char* ThreadStateStrings[5];
+
+	struct Weakref : public GCObject
 	{
 		// acyclic
 		GCObject* obj;
@@ -133,38 +232,44 @@ namespace croc
 
 	struct Table : public GCObject
 	{
-		Hash<Value, Value, MethodHasher, HashNodeWithModified<Value, Value> > data;
-		typedef HashNodeWithModified<Value, Value> Node;
+		typedef HashNodeWithModified<Value, Value> NodeType;
+		typedef Hash<Value, Value, MethodHasher, NodeType> HashType;
+
+		HashType data;
 	};
 
 	struct Namespace : public GCObject
 	{
-		Hash<String*, Value, MethodHasher, HashNodeWithModified<String*, Value> > data;
-		typedef HashNodeWithModified<String*, Value> Node;
+		typedef HashNodeWithModified<String*, Value> NodeType;
+		typedef Hash<String*, Value, MethodHasher, NodeType> HashType;
+
+		HashType data;
 		Namespace* parent;
+		Namespace* root;
 		String* name;
 		bool visitedOnce;
 	};
 
 	struct Array : public GCObject
 	{
-		uword length;
-
 		struct Slot
 		{
 			Value value;
 			bool modified;
-			bool operator==(const Slot& other) const { return value == other.value; }
 
-			Slot():
-				value(),
-				modified(false)
-			{}
+			bool operator==(const Slot& other) const
+			{
+				return value == other.value;
+			}
 		};
 
+		uword length;
 		DArray<Slot> data;
 
-		inline DArray<Slot> toArray() { return DArray<Slot>(data.ptr, length); }
+		inline DArray<Slot> toArray()
+		{
+			return DArray<Slot>::n(data.ptr, length);
+		}
 	};
 
 	struct Memblock : public GCObject
@@ -179,25 +284,32 @@ namespace croc
 		bool isNative;
 		Namespace* environment;
 		String* name;
-		uword numUpvalues;
+		uword numUpvals;
 		uword numParams;
 		uword maxParams;
 
 		union
 		{
-			FuncDef* scriptFunc;
+			Funcdef* scriptFunc;
 			CrocNativeFunc nativeFunc;
 
 			// TODO:
-			// static assert((CrocFuncDef*).sizeof == NativeFunc.sizeof);
+			// static assert((CrocFuncdef*).sizeof == NativeFunc.sizeof);
 		};
 
-		inline DArray<Value>    nativeUpvalues() const { return DArray<Value>(cast(Value*)(this + 1), numUpvalues); }
-		inline DArray<Upvalue*> scriptUpvalues() const { return DArray<Upvalue*>(cast(Upvalue**)(this + 1), numUpvalues); }
+		inline DArray<Value>  nativeUpvals() const
+		{
+			return DArray<Value>::n(cast(Value*)(this + 1), numUpvals);
+		}
+
+		inline DArray<Upval*> scriptUpvals() const
+		{
+			return DArray<Upval*>::n(cast(Upval**)(this + 1), numUpvals);
+		}
 	};
 
 	// The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
-	struct FuncDef : public GCObject
+	struct Funcdef : public GCObject
 	{
 		String* locFile;
 		int32_t locLine;
@@ -206,17 +318,17 @@ namespace croc
 		String* name;
 		uint32_t numParams;
 		DArray<uint32_t> paramMasks;
-		uint32_t numUpvalues;
+		uint32_t numUpvals;
 
-		struct UpvalueDesc
+		struct UpvalDesc
 		{
-			bool isUpvalue;
+			bool isUpval;
 			uint32_t index;
 		};
 
-		DArray<UpvalueDesc> upvalues;
+		DArray<UpvalDesc> upvals;
 		uint32_t stackSize;
-		DArray<FuncDef*> innerFuncs;
+		DArray<Funcdef*> innerFuncs;
 		DArray<Value> constants;
 		DArray<Instruction> code;
 
@@ -233,7 +345,7 @@ namespace croc
 
 		// Debug info.
 		DArray<uint32_t> lineInfo;
-		DArray<String*> upvalueNames;
+		DArray<String*> upvalNames;
 
 		struct LocVarDesc
 		{
@@ -250,73 +362,26 @@ namespace croc
 	{
 		String* name;
 		Class* parent;
-		Namespace* fields;
-		Function* allocator;
-		Function* finalizer;
-		bool allocatorSet;
-		bool finalizerSet;
+		bool isFrozen;
+		bool visitedOnce;
+		FieldHash methods;
+		FieldHash fields;
+		FieldValue* constructor;
+		FieldValue* finalizer;
 	};
 
 	struct Instance : public GCObject
 	{
 		Class* parent;
-		Namespace* fields;
-		uword numValues;
-		uword extraBytes;
-
-		inline DArray<Value>   extraValues() const { return DArray<Value>(cast(Value*)(this + 1), numValues); }
-		inline DArray<uint8_t> extraData()   const { return DArray<uint8_t>(cast(uint8_t*)((cast(char*)(this + 1)) + (numValues * sizeof(Value))), extraBytes); }
-	};
-
-	typedef uword AbsStack;
-	typedef uword RelStack;
-
-	struct ActRecord
-	{
-		AbsStack base;
-		AbsStack savedTop;
-		AbsStack vargBase;
-		AbsStack returnSlot;
-		Function* func;
-		Instruction* pc;
-		word numReturns;
-		Class* proto;
-		uword numTailcalls;
-		uword firstResult;
-		uword numResults;
-		uword unwindCounter;
-		Instruction* unwindReturn;
-	};
-
-	struct TryRecord
-	{
-		bool isCatch;
-		RelStack slot;
-		uword actRecord;
-		Instruction* pc;
+		bool visitedOnce;
+		FieldHash fields;
 	};
 
 	struct Thread : public GCObject
 	{
-		enum State
-		{
-			State_Initial,
-			State_Waiting,
-			State_Running,
-			State_Suspended,
-			State_Dead
-		};
-
-		enum Hook
-		{
-			Hook_Call = 1,
-			Hook_Ret = 2,
-			Hook_TailRet = 4,
-			Hook_Delay = 8,
-			Hook_Line = 16
-		};
-
-		static const char* StateStrings[5];
+		// used by allThreads list
+		Thread* next;
+		Thread* prev;
 
 		DArray<TryRecord> tryRecs;
 		TryRecord* currentTR;
@@ -333,13 +398,13 @@ namespace croc
 		DArray<Value> results;
 		uword resultIndex;
 
-		Upvalue* upvalueHead;
+		Upval* upvalHead;
 
 		VM* vm;
 		bool shouldHalt;
 
 		Function* coroFunc;
-		State state;
+		CrocThreadState state;
 		uword numYields;
 
 		uint8_t hooks;
@@ -352,11 +417,11 @@ namespace croc
 		uword nativeCallDepth;
 	};
 
-	struct Upvalue : public GCObject
+	struct Upval : public GCObject
 	{
 		Value* value;
 		Value closedValue;
-		Upvalue* nextuv;
+		Upval* nextuv;
 	};
 
 	struct VM
@@ -373,7 +438,6 @@ namespace croc
 		Hash<uint64_t, GCObject*> refTab;
 
 		// These point to "special" runtime classes
-		Class* object;
 		Class* throwable;
 		Class* location;
 		Hash<String*, Class*, MethodHasher> stdExceptions;
@@ -389,10 +453,11 @@ namespace croc
 
 		// Others
 		Hash<DArray<const char>, String*, DefaultHasher, HashNodeWithHash<DArray<const char>, String*> > stringTab;
-		Hash<GCObject*, WeakRef*> weakRefTab;
-		Hash<Thread*, bool> allThreads;
+		Hash<GCObject*, Weakref*> weakrefTab;
+		CrocThread* allThreads;
 		uint64_t currentRef;
 		String* ctorString; // also stored in metaStrings, don't have to scan it as a root
+		String* finalizerString; // also stored in metaStrings, don't have to scan it as a root
 		Thread* curThread;
 		bool isThrowing;
 	};

@@ -82,17 +82,23 @@ namespace croc
 
 	void LeakDetector::newRaw(void* ptr, size_t size TYPEID_PARAM)
 	{
-		rawBlocks[ptr] = LeakMemBlock(size, ti);
+		LeakMemBlock& n = rawBlocks[ptr];
+		n.len = size;
+		n.ti = &ti;
 	}
 
 	void LeakDetector::newNursery(void* ptr, size_t size TYPEID_PARAM)
 	{
-		nurseryBlocks[ptr] = LeakMemBlock(size, ti);
+		LeakMemBlock& n = nurseryBlocks[ptr];
+		n.len = size;
+		n.ti = &ti;
 	}
 
 	void LeakDetector::newRC(void* ptr, size_t size TYPEID_PARAM)
 	{
-		rcBlocks[ptr] = LeakMemBlock(size, ti);
+		LeakMemBlock& n = rcBlocks[ptr];
+		n.len = size;
+		n.ti = &ti;
 	}
 
 	void LeakDetector::freeRaw(void* ptr TYPEID_PARAM)
@@ -128,7 +134,7 @@ namespace croc
 		else
 		{
 			rawBlocks.erase(oldPtr);
-			rawBlocks[newPtr] = LeakMemBlock(newSize, ti);
+			newRC(newPtr, newSize, ti);
 		}
 	}
 

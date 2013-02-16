@@ -23,18 +23,16 @@ namespace croc
 		T* ptr;
 		size_t length;
 
-		DArray():
-			ptr(NULL), length(0)
-		{}
-
-		DArray(T* _ptr, size_t _length):
-			ptr(_ptr), length(_length)
-		{}
+		static inline DArray<T> n(T* ptr, size_t length)
+		{
+			DArray<T> ret = {ptr, length};
+			return ret;
+		}
 
 		static DArray<T> alloc(Memory& mem, size_t length)
 		{
 			T* ptr = cast(T*)mem.allocRaw(ARRAY_BYTE_SIZE(length) MEMBERTYPEID);
-			DArray<T> ret(ptr, length);
+			DArray<T> ret = {ptr, length};
 			ret.zeroFill();
 			return ret;
 		}
@@ -69,12 +67,12 @@ namespace croc
 		DArray<T> dup(Memory& mem)
 		{
 			T* retPtr = cast(T*)mem.allocRaw(ARRAY_BYTE_SIZE(length) MEMBERTYPEID);
-			DArray<T> ret(retPtr, this->length);
+			DArray<T> ret = {retPtr, this->length};
 			ret.slicea(*this);
 			return ret;
 		}
 
-		uint32_t toHash() const
+		inline uint32_t toHash() const
 		{
 			return hashlittle(ptr, ARRAY_BYTE_SIZE(length), 0xFACEDAB5); // face dabs!
 		}
@@ -96,7 +94,7 @@ namespace croc
 			slicea(0, length, src);
 		}
 
-		void slicea(size_t lo, size_t hi, DArray<T> src)
+		inline void slicea(size_t lo, size_t hi, DArray<T> src)
 		{
 			assert(lo <= hi);
 			assert(hi <= length);
@@ -105,26 +103,26 @@ namespace croc
 			memcpy(ptr + lo, src.ptr, ARRAY_BYTE_SIZE(src.length));
 		}
 
-		DArray<T> slice(size_t lo, size_t hi) const
+		inline DArray<T> slice(size_t lo, size_t hi) const
 		{
 			assert(lo <= hi);
 			assert(hi <= length);
 
-			return DArray<T>(ptr + lo, hi - lo);
+			return DArray<T>::n(ptr + lo, hi - lo);
 		}
 
-		void fill(T val)
+		inline void fill(T val)
 		{
 			for(T* i = ptr, *end = ptr + length; ptr < end; ptr++)
 				*i = val;
 		}
 
-		void zeroFill()
+		inline void zeroFill()
 		{
 			memset(ptr, 0, ARRAY_BYTE_SIZE(length));
 		}
 
-		bool operator==(const DArray<T>& other) const
+		inline bool operator==(const DArray<T>& other) const
 		{
 			assert(length == other.length);
 			return memcmp(ptr, other.ptr, length) == 0;
