@@ -18,28 +18,24 @@
 #  define FREE_OBJ(mem, type, ptr)           mem.free((ptr))
 #endif
 
-#define TEST_FLAG(o, f) (((o)->gcflags & (f)) != 0)
-#define SET_FLAG(o, f) ((o)->gcflags |= (f))
-#define CLEAR_FLAG(o, f) ((o)->gcflags &= ~(f))
+#define GCOBJ_UNLOGGED(o) TEST_FLAG((o)->gcflags, GCFlags_Unlogged)
+#define GCOBJ_LOG(o) CLEAR_FLAG((o)->gcflags, GCFlags_Unlogged)
+#define GCOBJ_UNLOG(o) SET_FLAG((o)->gcflags, GCFlags_Unlogged)
 
-#define GCOBJ_UNLOGGED(o) TEST_FLAG(o, GCFlags_Unlogged)
-#define GCOBJ_LOG(o) CLEAR_FLAG(o, GCFlags_Unlogged)
-#define GCOBJ_UNLOG(o) SET_FLAG(o, GCFlags_Unlogged)
-
-#define GCOBJ_INRC(o) TEST_FLAG(o, GCFlags_InRC)
-#define GCOBJ_TORC(o) SET_FLAG(o, GCFlags_InRC | GCFlags_JustMoved | GCFlags_Unlogged)
-#define GCOBJ_CLEARJUSTMOVED(o) CLEAR_FLAG(o, GCFlags_JustMoved)
+#define GCOBJ_INRC(o) TEST_FLAG((o)->gcflags, GCFlags_InRC)
+#define GCOBJ_TORC(o) SET_FLAG((o)->gcflags, GCFlags_InRC | GCFlags_JustMoved | GCFlags_Unlogged)
+#define GCOBJ_CLEARJUSTMOVED(o) CLEAR_FLAG((o)->gcflags, GCFlags_JustMoved)
 
 #define GCOBJ_COLOR(o) ((o)->gcflags & GCFlags_ColorMask)
-#define GCOBJ_SETCOLOR(o, c) ((o)->gcflags = ((o)->gcflags & ~GCFlags_ColorMask) | c)
+#define GCOBJ_SETCOLOR(o, c) ((o)->gcflags = ((o)->gcflags & ~GCFlags_ColorMask) | (c))
 
-#define GCOBJ_CYCLELOGGED(o) TEST_FLAG(o, GCFlags_CycleLogged)
-#define GCOBJ_CYCLELOG(o) SET_FLAG(o, GCFlags_CycleLogged)
-#define GCOBJ_CYCLEUNLOG(o) CLEAR_FLAG(o, GCFlags_CycleLogged)
+#define GCOBJ_CYCLELOGGED(o) TEST_FLAG((o)->gcflags, GCFlags_CycleLogged)
+#define GCOBJ_CYCLELOG(o) SET_FLAG((o)->gcflags, GCFlags_CycleLogged)
+#define GCOBJ_CYCLEUNLOG(o) CLEAR_FLAG((o)->gcflags, GCFlags_CycleLogged)
 
-#define GCOBJ_FINALIZABLE(o) TEST_FLAG(o, GCFlags_Finalizable)
-#define GCOBJ_FINALIZED(o) TEST_FLAG(o, GCFlags_Finalized)
-#define GCOBJ_SETFINALIZED(o) SET_FLAG(o, GCFlags_Finalized)
+#define GCOBJ_FINALIZABLE(o) TEST_FLAG((o)->gcflags, GCFlags_Finalizable)
+#define GCOBJ_FINALIZED(o) TEST_FLAG((o)->gcflags, GCFlags_Finalized)
+#define GCOBJ_SETFINALIZED(o) SET_FLAG((o)->gcflags, GCFlags_Finalized)
 
 namespace croc
 {

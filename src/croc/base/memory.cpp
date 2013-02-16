@@ -79,7 +79,7 @@ namespace croc
 	GCObject* Memory::allocateFinalizable(size_t size TYPEID_PARAM)
 	{
 		GCObject* ret = allocateRC(size, false TYPEID_ARG);
-		SET_FLAG(ret, GCFlags_Finalizable);
+		SET_FLAG(ret->gcflags, GCFlags_Finalizable);
 		return ret;
 	}
 
@@ -192,9 +192,9 @@ namespace croc
 
 	void* Memory::realloc(void* p, size_t oldSize, size_t newSize)
 	{
-		printf("REALLOC p = %p, old = %d, new = %d\n", p, oldSize, newSize);
-
 		void* ret = memFunc(ctx, p, oldSize, newSize);
+
+		// printf("REALLOC p = %p, old = %d, new = %d ret = %p\n", p, oldSize, newSize, ret);
 
 		if(ret == NULL && newSize != 0)
 			assert(false); // TODO:

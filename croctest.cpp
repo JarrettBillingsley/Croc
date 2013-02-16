@@ -30,21 +30,23 @@ void* DefaultMemFunc(void* ctx, void* p, size_t oldSize, size_t newSize)
 
 int main()
 {
-	printf("String: %d\n", sizeof(String));
-	printf("Weakref: %d\n", sizeof(Weakref));
-	printf("Table: %d\n", sizeof(Table));
-	printf("Namespace: %d\n", sizeof(Namespace));
-	printf("Array: %d\n", sizeof(Array));
-	printf("Memblock: %d\n", sizeof(Memblock));
-	printf("Function: %d\n", sizeof(Function));
-	printf("Funcdef: %d\n", sizeof(Funcdef));
-	printf("Class: %d\n", sizeof(Class));
-	printf("Instance: %d\n", sizeof(Instance));
-	printf("Thread: %d\n", sizeof(Thread));
-	printf("Upval: %d\n", sizeof(Upval));
-	printf("FieldValue: %d\n", sizeof(FieldValue));
-	printf("FieldHashNode: %d\n", sizeof(FieldHashNode));
-	printf("Value: %d\n", sizeof(Value));
+	Memory mem;
+	mem.init(DefaultMemFunc, NULL);
+
+	Hash<int, int> h;
+	memset(&h, 0, sizeof(h));
+
+	for(int i = 1; i <= 10; i++)
+		*h.insert(mem, i) = i * 5;
+
+	int *k, *v;
+	size_t idx = 0;
+
+	while(h.next(idx, k, v))
+	{
+		printf("h[%d] = %d\n", *k, *v);
+	}
+
 	return 0;
 }
 

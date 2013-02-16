@@ -8,15 +8,44 @@
 // #define HASH_FOREACH(K, Kname, V, Vname, h) { K* Kname; V* Vname; size_t idx; while(h.next(idx, Kname, Vname))
 // #define HASH_FOREACH_END }
 
-#define KEY_MODIFIED (cast(uint8_t)0x1)
-#define VAL_MODIFIED (cast(uint8_t)0x2)
+enum NodeFlags
+{
+	NodeFlags_Used =        (1 << 0),
+	NodeFlags_KeyModified = (1 << 1),
+	NodeFlags_ValModified = (1 << 2)
+};
+
+#define IS_USED(n) TEST_FLAG((n), NodeFlags_Used)
+#define SET_USED(n) SET_FLAG((n), NodeFlags_Used)
+#define CLEAR_USED(n) CLEAR_FLAG((n), NodeFlags_Used)
+
+#define IS_KEY_MODIFIED(n) TEST_FLAG((n), NodeFlags_KeyModified)
+#define SET_KEY_MODIFIED(n) SET_FLAG((n), NodeFlags_KeyModified)
+#define CLEAR_KEY_MODIFIED(n) CLEAR_FLAG((n), NodeFlags_KeyModified)
+
+#define IS_VAL_MODIFIED(n) TEST_FLAG((n), NodeFlags_ValModified)
+#define SET_VAL_MODIFIED(n) SET_FLAG((n), NodeFlags_ValModified)
+#define CLEAR_VAL_MODIFIED(n) CLEAR_FLAG((n), NodeFlags_ValModified)
 
 namespace croc
 {
 	typedef uint32_t hash_t;
 
-	struct DefaultHasher { template<typename T> static inline hash_t toHash(const T* t) { return cast(hash_t)*t; } };
-	struct MethodHasher  { template<typename T> static inline hash_t toHash(const T* t) { return t->toHash(); } };
+	struct DefaultHasher
+	{
+		template<typename T> static inline hash_t toHash(const T* t)
+		{
+			return cast(hash_t)*t;
+		}
+	};
+
+	struct MethodHasher
+	{
+		template<typename T> static inline hash_t toHash(const T* t)
+		{
+			return t->toHash();
+		}
+	};
 
 	template<typename K, typename V>
 	struct HashNode
@@ -24,12 +53,11 @@ namespace croc
 		K key;
 		V value;
 		HashNode<K, V>* next;
-		bool used;
+		uint32_t flags;
 
-		inline void init(hash_t hash) {}
-		inline bool equals(const K& key, hash_t hash) { return this->key == key; }
+		inline void init(hash_t hash)                 { (void)hash; }
+		inline bool equals(const K& key, hash_t hash) { (void)hash; return this->key == key; }
 		inline void copyFrom(HashNode<K, V>& other)   { value = other.value; }
-		inline bool isModified()                      { return false; } // not actually used
 	};
 
 	template<typename K, typename V>
@@ -40,16 +68,6 @@ namespace croc
 		inline void init(hash_t hash)                 { this->hash = hash; }
 		inline bool equals(const K& key, hash_t hash) { return this->hash == hash && this->key == key; }
 		inline void copyFrom(HashNode<K, V>& other)   { this->value = other.value; hash = other.hash; }
-	};
-
-	template<typename K, typename V>
-	struct HashNodeWithModified : HashNode<K, V>
-	{
-		uint8_t modified;
-
-		inline void init(hash_t hash)               { modified = 0; }
- 		inline void copyFrom(HashNode<K, V>& other) { this->value = other.value; modified = other.modified; }
- 		inline bool isModified()                    { return this->used && modified; }
 	};
 
 	template<typename K, typename V, typename Hasher = DefaultHasher, typename Node = HashNode<K, V> >
@@ -101,7 +119,7 @@ namespace croc
 
 			Node* mainPosNode = &mNodes[hash & mHashMask];
 
-			if(mainPosNode->used)
+			if(IS_USED(mainPosNode->flags))
 			{
 				Node* otherNode = &mNodes[Hasher::toHash(&mainPosNode->key) & mHashMask];
 
@@ -128,7 +146,7 @@ namespace croc
 
 			mainPosNode->init(hash);
 			mainPosNode->key = key;
-			mainPosNode->used = true;
+			SET_USED(mainPosNode->flags);
 			mSize++;
 
 			return *mainPosNode;
@@ -139,7 +157,7 @@ namespace croc
 			hash_t hash = Hasher::toHash(&key);
 			Node* n = &mNodes[hash & mHashMask];
 
-			if(!n->used)
+			if(!IS_USED(n->flags))
 				return false;
 
 			if(n->equals(key, hash))
@@ -160,7 +178,7 @@ namespace croc
 			}
 			else
 			{
-				for(; n->next != NULL && n->next->used; n = n->next)
+				for(; n->next != NULL && IS_USED(n->next->flags); n = n->next)
 				{
 					if(n->next->equals(key, hash))
 					{
@@ -206,7 +224,7 @@ namespace croc
 			if(mNodes.length == 0)
 				return NULL;
 
-			for(Node* n = &mNodes[hash & mHashMask]; n != NULL && n->used; n = n->next)
+			for(Node* n = &mNodes[hash & mHashMask]; n != NULL && IS_USED(n->flags); n = n->next)
 				if(n->equals(key, hash))
 					return n;
 
@@ -217,7 +235,7 @@ namespace croc
 		{
 			for(; idx < mNodes.length; idx++)
 			{
-				if(mNodes[idx].used)
+				if(IS_USED(mNodes[idx].flags))
 				{
 					key = &mNodes[idx].key;
 					val = &mNodes[idx].value;
@@ -233,7 +251,7 @@ namespace croc
 		{
 			for(; idx < mNodes.length; idx++)
 			{
-				if(mNodes[idx].used)
+				if(IS_USED(mNodes[idx].flags))
 				{
 					n = &mNodes[idx++];
 					return true;
@@ -247,7 +265,7 @@ namespace croc
 		{
 			for(; idx < mNodes.length; idx++)
 			{
-				if(mNodes[idx].isModified())
+				if(IS_MODIFIED(mNodes[idx].flags))
 				{
 					n = &mNodes[idx++];
 					return true;
@@ -287,7 +305,7 @@ namespace croc
 		{
 			assert(n >= mNodes.ptr && n < mNodes.ptr + mNodes.length);
 
-			n->used = false;
+			CLEAR_USED(n->flags);
 
 			if(n < mColBucket)
 				mColBucket = n;
@@ -316,7 +334,7 @@ namespace croc
 			{
 				Node& node = oldNodes[i];
 
-				if(node.used)
+				if(IS_USED(node.flags))
 				{
 					Node& newNode = insertNode(mem, node.key);
 					newNode.copyFrom(node);
@@ -329,7 +347,7 @@ namespace croc
 		Node* getColBucket()
 		{
 			for(Node* end = mNodes.ptr + mNodes.length; mColBucket < end; mColBucket++)
-				if(mColBucket->used == false)
+				if(!IS_USED(mColBucket->flags))
 					return mColBucket;
 
 			return NULL;

@@ -191,7 +191,7 @@ namespace croc
 		Privacy privacy;
 	};
 
-	typedef HashNodeWithModified<String*, FieldValue> FieldHashNode;
+	typedef HashNode<String*, FieldValue> FieldHashNode;
 	typedef Hash<String*, FieldValue, MethodHasher, FieldHashNode> FieldHash;
 
 	typedef uword AbsStack;
@@ -232,7 +232,7 @@ namespace croc
 
 	struct Table : public GCObject
 	{
-		typedef HashNodeWithModified<Value, Value> NodeType;
+		typedef HashNode<Value, Value> NodeType;
 		typedef Hash<Value, Value, MethodHasher, NodeType> HashType;
 
 		HashType data;
@@ -240,7 +240,7 @@ namespace croc
 
 	struct Namespace : public GCObject
 	{
-		typedef HashNodeWithModified<String*, Value> NodeType;
+		typedef HashNode<String*, Value> NodeType;
 		typedef Hash<String*, Value, MethodHasher, NodeType> HashType;
 
 		HashType data;
@@ -436,6 +436,7 @@ namespace croc
 		Instance* exception;
 		Namespace* registry;
 		Hash<uint64_t, GCObject*> refTab;
+		CrocThread* allThreads;
 
 		// These point to "special" runtime classes
 		Class* throwable;
@@ -454,7 +455,6 @@ namespace croc
 		// Others
 		Hash<DArray<const char>, String*, DefaultHasher, HashNodeWithHash<DArray<const char>, String*> > stringTab;
 		Hash<GCObject*, Weakref*> weakrefTab;
-		CrocThread* allThreads;
 		uint64_t currentRef;
 		String* ctorString; // also stored in metaStrings, don't have to scan it as a root
 		String* finalizerString; // also stored in metaStrings, don't have to scan it as a root

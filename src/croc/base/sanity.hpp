@@ -11,5 +11,8 @@ A few little things that help me keep my sanity when developing in such a.. prim
 #include <assert.h>
 
 #define cast(x) (x)
+#define TEST_FLAG(o, f)  (((o) & (f)) != 0)
+#define SET_FLAG(o, f)   ((o) |= (f))
+#define CLEAR_FLAG(o, f) ((o) &= ~(f))
 
 #endif
