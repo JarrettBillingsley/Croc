@@ -192,7 +192,7 @@ namespace croc
 	};
 
 	typedef HashNode<String*, FieldValue> FieldHashNode;
-	typedef Hash<String*, FieldValue, MethodHasher, FieldHashNode> FieldHash;
+	typedef Hash<String*, FieldValue, MethodHasher> FieldHash;
 
 	typedef uword AbsStack;
 	typedef uword RelStack;
@@ -233,7 +233,7 @@ namespace croc
 	struct Table : public GCObject
 	{
 		typedef HashNode<Value, Value> NodeType;
-		typedef Hash<Value, Value, MethodHasher, NodeType> HashType;
+		typedef Hash<Value, Value, MethodHasher> HashType;
 
 		HashType data;
 	};
@@ -241,7 +241,7 @@ namespace croc
 	struct Namespace : public GCObject
 	{
 		typedef HashNode<String*, Value> NodeType;
-		typedef Hash<String*, Value, MethodHasher, NodeType> HashType;
+		typedef Hash<String*, Value, MethodHasher> HashType;
 
 		HashType data;
 		Namespace* parent;

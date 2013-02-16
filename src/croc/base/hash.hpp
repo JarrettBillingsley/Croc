@@ -4,9 +4,7 @@
 #include "croc/base/darray.hpp"
 #include "croc/base/memory.hpp"
 #include "croc/base/sanity.hpp"
-
-// #define HASH_FOREACH(K, Kname, V, Vname, h) { K* Kname; V* Vname; size_t idx; while(h.next(idx, Kname, Vname))
-// #define HASH_FOREACH_END }
+#include "croc/utils.hpp"
 
 enum NodeFlags
 {
@@ -52,7 +50,7 @@ namespace croc
 	{
 		K key;
 		V value;
-		HashNode<K, V>* next;
+		size_t next; // index into mNodes, or mNodes.length for "null"
 		uint32_t flags;
 
 		inline void init(hash_t hash)                 { (void)hash; }
@@ -80,15 +78,31 @@ namespace croc
 		size_t mSize;
 
 	public:
+		void dupInto(Hash<K, V, Hasher, Node>& other)
+		{
+			other.mNodes.slicea(mNodes);
+			other.mHashMask = mHashMask;
+			other.mColBucket = other.mNodes.ptr + (mColBucket - mNodes.ptr);
+			other.mSize = mSize;
+		}
+
+		void dupInto(Hash<K, V, Hasher, Node>& other, DArray<Node> otherNodes)
+		{
+			otherNodes.slicea(mNodes);
+			other.mNodes = otherNodes;
+			other.mHashMask = mHashMask;
+			other.mColBucket = otherNodes.ptr + (mColBucket - mNodes.ptr);
+			other.mSize = mSize;
+		}
+
 		void prealloc(Memory& mem, size_t size)
 		{
 			if(size <= mNodes.length)
 				return;
-			else if(size > 4)
+			else
 			{
-				size_t newSize = 4;
-				for(; newSize < size; newSize <<= 1) {}
-				resizeArray(mem, newSize);
+				size_t newSize = largerPow2(size);
+				resizeArray(mem, newSize < 4 ? 4 : newSize);
 			}
 		}
 
@@ -108,16 +122,19 @@ namespace croc
 					return *node;
 			}
 
+			DArray<Node> nodes = mNodes;
 			Node* colBucket = getColBucket();
 
 			if(colBucket == NULL)
 			{
 				rehash(mem);
+				nodes = mNodes;
 				colBucket = getColBucket();
 				assert(colBucket != NULL);
 			}
 
-			Node* mainPosNode = &mNodes[hash & mHashMask];
+			size_t mainPosNodeIdx = hash & mHashMask;
+			Node* mainPosNode = &nodes[mainPosNodeIdx];
 
 			if(IS_USED(mainPosNode->flags))
 			{
@@ -127,34 +144,34 @@ namespace croc
 				{
 					// other node is the head of its list, defer to it.
 					colBucket->next = mainPosNode->next;
-					mainPosNode->next = colBucket;
+					mainPosNode->next = colBucket - nodes.ptr;
 					mainPosNode = colBucket;
 				}
 				else
 				{
 					// other node is in the middle of a list, push it out.
-					while(otherNode->next != mainPosNode)
-						otherNode = otherNode->next;
+					while(otherNode->next != mainPosNodeIdx)
+						otherNode = &nodes[otherNode->next];
 
-					otherNode->next = colBucket;
+					otherNode->next = colBucket - nodes.ptr;
 					*colBucket = *mainPosNode;
-					mainPosNode->next = NULL;
+					mainPosNode->next = nodes.length;
 				}
 			}
 			else
-				mainPosNode->next = NULL;
+				mainPosNode->next = nodes.length;
 
 			mainPosNode->init(hash);
 			mainPosNode->key = key;
-			SET_USED(mainPosNode->flags);
+			mainPosNode->flags = NodeFlags_Used; // do this to clear out any modified bits
 			mSize++;
-
 			return *mainPosNode;
 		}
 
 		bool remove(K key)
 		{
 			hash_t hash = Hasher::toHash(&key);
+			DArray<Node> nodes = mNodes;
 			Node* n = &mNodes[hash & mHashMask];
 
 			if(!IS_USED(n->flags))
@@ -163,13 +180,13 @@ namespace croc
 			if(n->equals(key, hash))
 			{
 				// Removing head of list.
-				if(n->next == NULL)
+				if(n->next == nodes.length)
 					// Only item in the list.
 					markUnused(n);
 				else
 				{
 					// Other items.  Have to move the next item into where the head used to be.
-					Node* next = n->next;
+					Node* next = &nodes[n->next];
 					*n = *next;
 					markUnused(next);
 				}
@@ -178,15 +195,19 @@ namespace croc
 			}
 			else
 			{
-				for(; n->next != NULL && IS_USED(n->next->flags); n = n->next)
+				while(n->next != nodes.length && IS_USED(n->next->flags))
 				{
-					if(n->next->equals(key, hash))
+					Node* next = &nodes[n->next];
+
+					if(next->equals(key, hash))
 					{
 						// Removing from the middle or end of the list.
-						markUnused(n->next);
-						n->next = n->next->next;
+						markUnused(next);
+						n->next = next->next;
 						return true;
 					}
+
+					n = next;
 				}
 
 				// Nonexistent key.
@@ -224,21 +245,30 @@ namespace croc
 			if(mNodes.length == 0)
 				return NULL;
 
-			for(Node* n = &mNodes[hash & mHashMask]; n != NULL && IS_USED(n->flags); n = n->next)
+			DArray<Node> nodes = mNodes;
+
+			for(Node* n = &nodes[hash & mHashMask]; IS_USED(n->flags); n = &nodes[n->next])
+			{
 				if(n->equals(key, hash))
 					return n;
+
+				if(n->next == nodes.length)
+					break;
+			}
 
 			return NULL;
 		}
 
 		bool next(size_t& idx, K*& key, V*& val)
 		{
-			for(; idx < mNodes.length; idx++)
+			DArray<Node> nodes = mNodes;
+
+			for(; idx < nodes.length; idx++)
 			{
-				if(IS_USED(mNodes[idx].flags))
+				if(IS_USED(nodes[idx].flags))
 				{
-					key = &mNodes[idx].key;
-					val = &mNodes[idx].value;
+					key = &nodes[idx].key;
+					val = &nodes[idx].value;
 					idx++;
 					return true;
 				}
@@ -249,11 +279,13 @@ namespace croc
 
 		bool nextNode(size_t& idx, Node*& n)
 		{
-			for(; idx < mNodes.length; idx++)
+			DArray<Node> nodes = mNodes;
+
+			for(; idx < nodes.length; idx++)
 			{
-				if(IS_USED(mNodes[idx].flags))
+				if(IS_USED(nodes[idx].flags))
 				{
-					n = &mNodes[idx++];
+					n = &nodes[idx++];
 					return true;
 				}
 			}
@@ -263,11 +295,13 @@ namespace croc
 
 		bool nextModified(size_t& idx, Node*& n)
 		{
-			for(; idx < mNodes.length; idx++)
+			DArray<Node> nodes = mNodes;
+
+			for(; idx < nodes.length; idx++)
 			{
-				if(IS_MODIFIED(mNodes[idx].flags))
+				if(IS_MODIFIED(nodes[idx].flags))
 				{
-					n = &mNodes[idx++];
+					n = &nodes[idx++];
 					return true;
 				}
 			}
@@ -280,15 +314,24 @@ namespace croc
 			return mSize;
 		}
 
+		size_t capacity()
+		{
+			return mNodes.length;
+		}
+
+		size_t dataSize()
+		{
+			return mNodes.length * sizeof(Node);
+		}
+
 		void minimize(Memory& mem)
 		{
 			if(mSize == 0)
 				clear(mem);
 			else
 			{
-				size_t newSize = 4;
-				for(; newSize < mSize; newSize <<= 1) {}
-				resizeArray(mem, newSize);
+				size_t newSize = largerPow2(mSize);
+				resizeArray(mem, newSize < 4 ? 4 : newSize);
 			}
 		}
 
@@ -338,6 +381,7 @@ namespace croc
 				{
 					Node& newNode = insertNode(mem, node.key);
 					newNode.copyFrom(node);
+					newNode.flags = node.flags; // the used bit won't matter
 				}
 			}
 
