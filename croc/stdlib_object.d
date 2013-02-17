@@ -350,21 +350,22 @@ uword _binder(CrocThread* t)
 		Proto
 	}
 
-	checkParam(t, 1, CrocValue.Type.Instance);
+	checkParam(t, 0, CrocValue.Type.Instance);
 
 	getUpval(t, Proto);
 	auto proto = getClass(t, -1);
 
-	if(!as(t, 1, -1))
-		paramTypeError(t, 1, proto.name.toString());
+	if(!as(t, 0, -1))
+		paramTypeError(t, 0, proto.name.toString());
 
 	getUpval(t, Func);
 	auto func = getFunction(t, -1);
 	pop(t, 2);
 
-	auto slot = fakeToAbs(t, 1);
-
-	return commonCall(t, slot, -1, callPrologue2(t, func, slot, -1, slot, stackSize(t) - 1, proto));
+	// this seems .. scary, but I don't see why it wouldn't work.
+	// FEEL FREE TO SHOOT ME, FUTURE SELF
+	auto slot = fakeToAbs(t, 0);
+	return commonCall(t, slot, -1, callPrologue2(t, func, slot, -1, slot, stackSize(t), proto));
 }
 
 void _bindImpl(CrocThread* t, CrocClass* cls, CrocString* name)
@@ -481,9 +482,8 @@ uword _binderInst(CrocThread* t)
 	}
 
 	getUpval(t, Func);
-	pushNull(t);
 	getUpval(t, Self);
-	rotate(t, stackSize(t) - 1, 3);
+	rotate(t, stackSize(t) - 1, 2);
 	return rawCall(t, 1, -1);
 }
 
@@ -612,9 +612,9 @@ class C
 	method using a normal function call. This is often useful for situations where you want to transparently forward a
 	call to an instance's method, such as when making mock objects.
 
-	The returned function has the signature \tt{function(self: instance(cls), vararg)}; that is, the first parameter
+	The returned function has the signature \tt{function(this: instance(cls), vararg)}; that is, the \tt{this} parameter
 	must be an instance of the \tt{cls} from which the method is bound, and then a variable number of arguments which
-	will be passed through unchanged to the bound method. The \tt{self} parameter will then become the \tt{this}
+	will be passed through unchanged to the bound method. The \tt{this} parameter will then become the \tt{this}
 	parameter in the underlying method call.
 
 	For example:
@@ -632,7 +632,7 @@ writeln(c.getProt()) // prints 5
 
 local boundGetProt = object.bindClassMethod(C, "getProt")
 
-writeln(boundGetProt(c)) // also prints 5
+writeln(boundGetProt(with c)) // also prints 5
 \endcode
 
 	This function can be used to bind protected and private methods as well, but only as long as you call it from within
@@ -647,6 +647,7 @@ writeln(boundGetProt(c)) // also prints 5
 
 	\param[cls] is the class from which the method should be bound.
 	\param[name] is the name of the method to bind.
+	\returns a function closure as described above.
 	\throws[exceptions.MethodException] if the given method doesn't exist or can't be accessed.
 	\throws[exceptions.TypeException] if \tt{name} names a method which is not a function.`},
 
@@ -662,12 +663,12 @@ function bindInstMethod(inst: instance, name: string)
 	local boundFunc = bindClassMethod(inst.super, name)
 	return function(vararg)
 	{
-		return boundFunc(inst, vararg)
+		return boundFunc(with inst, vararg)
 	}
 \endcode
 
 	That is, it just uses \link{bindClassMethod} to get a bound class method, and then returns a closure that will call
-	that bound method with \tt{inst} as the \tt{self} parameter. However, if you tried to implement this function in
+	that bound method with \tt{inst} as the \tt{this} parameter. However, if you tried to implement this function in
 	Croc as above, it wouldn't work for binding protected or private methods. This native implementation gets around
 	that and allows you to bind non-public methods as well. In this regard it behaves exactly as \link{bindClassMethod}.
 
@@ -691,6 +692,7 @@ writeln(bound()) // also prints 5
 
 	\param[inst] is the instance from which the method should be bound.
 	\param[name] is the name of the method to bind.
+	\returns a function closure as described above.
 	\throws[exceptions.MethodException] if the given method doesn't exist or can't be accessed.
 	\throws[exceptions.TypeException] if \tt{name} names a method which is not a function.`},
 ];
