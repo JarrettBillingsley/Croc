@@ -42,25 +42,30 @@ package:
 	// Create a new thread object.
 	CrocThread* create(CrocVM* vm)
 	{
+		auto t = createPartial(vm);
 		auto alloc = &vm.alloc;
-		auto t = alloc.allocate!(CrocThread);
 
 		t.tryRecs = alloc.allocArray!(TryRecord)(10);
 		t.actRecs = alloc.allocArray!(ActRecord)(10);
 		t.stack = alloc.allocArray!(CrocValue)(20);
-		t.stackIndex = cast(AbsStack)1; // So that there is a 'this' at top-level.
 		t.results = alloc.allocArray!(CrocValue)(8);
-		t.tryRecs[0].actRecord = uword.max;
 
+		t.stackIndex = cast(AbsStack)1; // So that there is a 'this' at top-level.
+
+		return t;
+	}
+
+	// Partially create a new thread. Doesn't allocate any memory for its various stacks. Used for serialization.
+	CrocThread* createPartial(CrocVM* vm)
+	{
+		auto t = vm.alloc.allocate!(CrocThread);
 		t.vm = vm;
-
 		t.next = vm.allThreads;
 
 		if(t.next)
 			t.next.prev = t;
 
 		vm.allThreads = t;
-
 		return t;
 	}
 

@@ -61,7 +61,7 @@ import croc.stdlib_modules;
 import croc.stdlib_object;
 import croc.stdlib_os;
 import croc.stdlib_path;
-// import croc.stdlib_serialization;
+import croc.stdlib_serialization;
 import croc.stdlib_stream;
 import croc.stdlib_string;
 import croc.stdlib_text;
@@ -177,7 +177,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	initEnvLib(t);
 	JSONLib.init(t); // depends on stream
 	initPathLib(t);
-	// SerializationLib.init(t); // depends on stream
+	initSerializationLib(t); // depends on .. lots of libs :P
 	ThreadLib.init(t);
 	TimeLib.init(t);
 

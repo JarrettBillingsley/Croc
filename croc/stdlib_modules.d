@@ -35,7 +35,7 @@ import croc.api_stack;
 import croc.compiler;
 import croc.ex;
 import croc.ex_library;
-import croc.serialization;
+import croc.ex_serialization;
 import croc.types;
 
 alias CrocDoc.Docs Docs;
@@ -413,7 +413,8 @@ uword _loadFiles(CrocThread* t)
 		else if(bin.exists)
 		{
 			char[] loadedName = void;
-			scope fc = new File(bin.toString(), File.ReadExisting);
+			auto fc = new File(bin.toString(), File.ReadExisting);
+
 			deserializeModule(t, loadedName, fc);
 
 			if(loadedName != name)

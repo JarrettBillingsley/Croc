@@ -1431,27 +1431,22 @@ uword _opDeserialize(CrocThread* t)
 {
 	dup(t, 2);
 	pushNull(t);
-	rawCall(t, -2, 1);
-
-	if(!isString(t, -1))
-		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'string' but found '{}' instead", type(t, -1));
+	pushString(t, "string");
+	rawCall(t, -3, 1);
 
 	auto kind = _typeCodeToKind(getString(t, -1));
 	pop(t);
 
 	if(kind is null)
-		throwStdException(t, "ValueException", "Invalid data encountered when deserializing - Invalid type code '{}'", getString(t, -1));
+		throwStdException(t, "ValueException", "Malformed data (invalid Vector type code '{}')", getString(t, -1));
 
 	pushInt(t, cast(crocint)kind);
 	fielda(t, 0, Kind);
 
 	dup(t, 2);
 	pushNull(t);
-	rawCall(t, -2, 1);
-
-	if(!isMemblock(t, -1))
-		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'memblock' but found '{}' instead", type(t, -1));
-
+	pushString(t, "memblock");
+	rawCall(t, -3, 1);
 	fielda(t, 0, Data);
 	return 0;
 }

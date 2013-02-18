@@ -36,7 +36,7 @@ import croc.api_debug;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.compiler;
-import croc.serialization;
+import croc.ex_serialization;
 import croc.types;
 import croc.utf;
 import croc.utils;
@@ -584,7 +584,7 @@ void runFile(CrocThread* t, char[] filename, uword numParams = 0)
 	}
 	else
 	{
-		scope f = safeCode(t, "exceptions.IOException", new File(filename, File.ReadExisting));
+		auto f = safeCode(t, "exceptions.IOException", new File(filename, File.ReadExisting));
 		deserializeModule(t, modName, f);
 	}
 

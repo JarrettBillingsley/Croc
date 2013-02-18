@@ -1434,19 +1434,25 @@ uword _opDeserialize(CrocThread* t)
 {
 	dup(t, 2);
 	pushNull(t);
-	rawCall(t, -2, 1);
+	pushString(t, "int");
+	rawCall(t, -3, 1);
 
-	if(!isInt(t, -1))
-		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'int' but found '{}' instead", type(t, -1));
+	auto len = getInt(t, -1);
+
+	if(len < 0 || len > uword.max)
+		throwStdException(t, "ValueException", "Malformed data (invalid stringbuffer length)");
 
 	fielda(t, 0, Length);
 
 	dup(t, 2);
 	pushNull(t);
-	rawCall(t, -2, 1);
+	pushString(t, "memblock");
+	rawCall(t, -3, 1);
 
-	if(!isMemblock(t, -1))
-		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'memblock' but found '{}' instead", type(t, -1));
+	auto mblen = .len(t, -1);
+
+	if(len > mblen || (mblen & 0b11) != 0) // not a multiple of 4
+		throwStdException(t, "ValueException", "Malformed data (invalid stringbuffer data)");
 
 	fielda(t, 0, Data);
 

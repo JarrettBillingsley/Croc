@@ -144,13 +144,7 @@ uword _streamWrite(CrocThread* t)
 		auto numWritten = safeCode(t, "exceptions.IOException", stream.write(src[0 .. size]));
 
 		if(numWritten == IOStream.Eof)
-		{
-			lookup(t, "EOFException");
-			pushNull(t);
-			pushString(t, "End-of-flow encountered while writing");
-			rawCall(t, -3, 1);
-			throwException(t);
-		}
+			throwNamedException(t, "EOFException", "End-of-flow encountered while writing");
 
 		size -= numWritten;
 		src += numWritten;

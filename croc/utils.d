@@ -199,7 +199,11 @@ Make a FOURCC code out of a four-character string. This is I guess for little-en
 template FOURCC(char[] name)
 {
 	static assert(name.length == 4, "FOURCC's parameter must be 4 characters");
-	const uint FOURCC = (cast(uint)name[3] << 24) | (cast(uint)name[2] << 16) | (cast(uint)name[1] << 8) | cast(uint)name[0];
+
+	version(BigEndian)
+		const uint FOURCC = (cast(uint)name[0] << 24) | (cast(uint)name[1] << 16) | (cast(uint)name[2] << 8) | cast(uint)name[3];
+	else
+		const uint FOURCC = (cast(uint)name[3] << 24) | (cast(uint)name[2] << 16) | (cast(uint)name[1] << 8) | cast(uint)name[0];
 }
 
 /**
