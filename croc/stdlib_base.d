@@ -62,6 +62,10 @@ void initBaseLib(CrocThread* t)
 		registerFields(t, _funcMetatable);
 	setTypeMT(t, CrocValue.Type.Function);
 
+	newNamespace(t, "funcdef");
+		registerFields(t, _funcdefMetatable);
+	setTypeMT(t, CrocValue.Type.FuncDef);
+
 	registerGlobals(t, _weakrefFuncs);
 	registerGlobals(t, _reflFuncs);
 
@@ -83,6 +87,10 @@ version(CrocBuiltinDocs) void docBaseLib(CrocThread* t)
 
 	getTypeMT(t, CrocValue.Type.Function);
 		docFields(t, doc, _funcMetatableDocs);
+	pop(t);
+
+	getTypeMT(t, CrocValue.Type.FuncDef);
+		docFields(t, doc, _funcdefMetatableDocs);
 	pop(t);
 
 	docGlobals(t, doc, _docTables);
@@ -145,6 +153,45 @@ uword _functionIsCacheable(CrocThread* t)
 	checkParam(t, 0, CrocValue.Type.Function);
 	auto f = getFunction(t, 0);
 	pushBool(t, f.isNative ? false : f.scriptFunc.upvals.length == 0);
+	return 1;
+}
+
+// ===================================================================================================================================
+// Funcdef metatable
+
+const RegisterFunc[] _funcdefMetatable =
+[
+	{"numParams",   &_funcdefNumParams,   maxParams: 0},
+	{"isVararg",    &_funcdefIsVararg,    maxParams: 0},
+	{"isCacheable", &_funcdefIsCacheable, maxParams: 0},
+	{"isCached",    &_funcdefIsCached,    maxParams: 0}
+];
+
+uword _funcdefNumParams(CrocThread* t)
+{
+	checkParam(t, 0, CrocValue.Type.FuncDef);
+	pushInt(t, getFuncDef(t, 0).numParams);
+	return 1;
+}
+
+uword _funcdefIsVararg(CrocThread* t)
+{
+	checkParam(t, 0, CrocValue.Type.FuncDef);
+	pushBool(t, getFuncDef(t, 0).isVararg);
+	return 1;
+}
+
+uword _funcdefIsCacheable(CrocThread* t)
+{
+	checkParam(t, 0, CrocValue.Type.FuncDef);
+	pushBool(t, getFuncDef(t, 0).upvals.length == 0);
+	return 1;
+}
+
+uword _funcdefIsCached(CrocThread* t)
+{
+	checkParam(t, 0, CrocValue.Type.FuncDef);
+	pushBool(t, getFuncDef(t, 0).cachedFunc !is null);
 	return 1;
 }
 
@@ -632,6 +679,30 @@ version(CrocBuiltinDocs) const Docs[] _funcMetatableDocs =
 	which have no upvalues, generally speaking. A cacheable function only has a single function closure object
 	allocated for it during its lifetime. Only script functions can be cacheable; native functions always
 	return false.`}
+];
+
+version(CrocBuiltinDocs) const Docs[] _funcdefMetatableDocs =
+[
+	{kind: "function", name: "numParams",
+	extra: [Extra("section", "Funcdef metamethods")],
+	docs:
+	`\returns an integer telling how many \em{non-variadic} parameters the function described by the funcdef takes.`},
+
+	{kind: "function", name: "isVararg",
+	extra: [Extra("section", "Funcdef metamethods")],
+	docs:
+	`\returns a bool telling whether or not the function described by the funcdef takes variadic parameters.`},
+
+	{kind: "function", name: "isCacheable",
+	extra: [Extra("section", "Funcdef metamethods")],
+	docs:
+	`\returns a bool telling whether or not a funcdef is cacheable. Funcdefs are cacheable if they have no upvals.`},
+
+	{kind: "function", name: "isCached",
+	extra: [Extra("section", "Funcdef metamethods")],
+	docs:
+	`\returns a bool telling whether or not a funcdef has already been cached (that is, a function closure has been
+	created with it). Non-cacheable funcdefs always return \tt{false} for this.`},
 ];
 
 version(CrocBuiltinDocs) const Docs[] _docTables =
