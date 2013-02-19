@@ -992,6 +992,13 @@ private:
 
 		auto tok = l.tok;
 		auto span = beginTextSpan(tok.string);
+
+		if(tok.string == "link" && tok.arg)
+		{
+			pushString(t, tok.arg);
+			append(span);
+		}
+
 		l.next();
 
 		readParaElems(span, true);
