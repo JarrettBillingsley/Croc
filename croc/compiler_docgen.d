@@ -147,8 +147,13 @@ public:
 		if(d.docs.length == 0)
 			return d;
 
+		bool isDitto = d.docs.trim() == "ditto";
+
 		// We don't actually process the comments here, as with other kinds of doc tables..
-		pushDocTable(d.location, d.location, "function", d.name.name, "");
+		pushDocTable(d.location, d.location, "function", d.name.name, d.docs);
+
+		if(isDitto)
+			mDittoDepth--;
 
 		foreach(i, ref p; d.params)
 		{
@@ -180,8 +185,14 @@ public:
 			popDocTable("params");
 		}
 
-		// NOW we do the comment processing
-		addComments(d.docsLoc, d.docs);
+		if(isDitto)
+			mDittoDepth++;
+		else
+		{
+			// NOW we do the comment processing
+			addComments(d.docsLoc, d.docs);
+		}
+
 		popDocTable();
 		return d;
 	}
