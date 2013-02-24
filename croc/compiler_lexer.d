@@ -987,7 +987,7 @@ private:
 		// Skip end quote
 		nextChar();
 
-		auto arr = buf.toArray();
+		auto arr = buf.toArrayView();
 
 		uword cpLen;
 
@@ -1044,7 +1044,7 @@ private:
 			}
 
 			buf ~= '\n';
-			auto arr = buf.toArray();
+			auto arr = buf.toArrayView();
 			addComment(mCompiler.newString(arr), loc);
 		}
 		else
@@ -1137,7 +1137,7 @@ private:
 			if(buf.length > 0 && buf[buf.length - 1] != '\n')
 				buf ~= '\n';
 
-			auto arr = buf.toArray();
+			auto arr = buf.toArrayView();
 			addComment(mCompiler.newString(arr), loc);
 		}
 		else
@@ -1561,16 +1561,14 @@ private:
 							nextChar();
 						} while(isAlpha() || isDecimalDigit() || mCharacter == '_' || mCharacter == '!');
 
-						auto arr = buf.toArray();
+						auto arr = buf.toArrayView();
 
-						auto s = mCompiler.newString(arr);
-
-						if(auto t = (s in Token.stringToType))
+						if(auto t = (arr in Token.stringToType))
 							mTok.type = *t;
 						else
 						{
 							mTok.type = Token.Ident;
-							mTok.stringValue = mCompiler.newString(s);
+							mTok.stringValue = mCompiler.newString(arr);
 						}
 
 						return;
