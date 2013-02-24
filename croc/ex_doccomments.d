@@ -1417,6 +1417,9 @@ private:
 		assert(stackSize(t) - 1 == docTable);
 		assert(mIsFunction);
 
+		if(exName.length == 0)
+			error("Empty \\throws command");
+
 		if(!hasField(t, docTable, "throws"))
 		{
 			newArray(t, 0);
@@ -1441,6 +1444,9 @@ private:
 	{
 		assert(stackSize(t) - 1 == docTable);
 		assert(mIsFunction);
+
+		if(paramName.length == 0)
+			error("Empty \\param command");
 
 		auto params = field(t, docTable, "params");
 		auto numParams = len(t, params);
