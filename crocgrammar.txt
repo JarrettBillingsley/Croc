@@ -15,7 +15,6 @@ EndOfLine:
 	\r
 	\n
 	\r\n
-	\n\r
 	EOF
 
 EOF:
