@@ -26,6 +26,7 @@ subject to the following restrictions:
 
 module croc.ex_doccomments;
 
+import tango.core.Array;
 import tango.core.Vararg;
 import tango.text.Util;
 

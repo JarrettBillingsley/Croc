@@ -205,7 +205,7 @@ public:
 		return s;
 	}
 
-	override ImportStmt visit(ImportStmt s)
+	override Statement visit(ImportStmt s)
 	{
 		s.expr = visit(s.expr);
 
@@ -963,19 +963,19 @@ public:
 		return s;
 	}
 
-	override AddAssignStmt visit(AddAssignStmt s)   { return visitOpAssign(s); }
-	override SubAssignStmt visit(SubAssignStmt s)   { return visitOpAssign(s); }
-	override MulAssignStmt visit(MulAssignStmt s)   { return visitOpAssign(s); }
-	override DivAssignStmt visit(DivAssignStmt s)   { return visitOpAssign(s); }
-	override ModAssignStmt visit(ModAssignStmt s)   { return visitOpAssign(s); }
-	override ShlAssignStmt visit(ShlAssignStmt s)   { return visitOpAssign(s); }
-	override ShrAssignStmt visit(ShrAssignStmt s)   { return visitOpAssign(s); }
-	override UShrAssignStmt visit(UShrAssignStmt s) { return visitOpAssign(s); }
-	override XorAssignStmt visit(XorAssignStmt s)   { return visitOpAssign(s); }
-	override OrAssignStmt visit(OrAssignStmt s)     { return visitOpAssign(s); }
-	override AndAssignStmt visit(AndAssignStmt s)   { return visitOpAssign(s); }
+	override AddAssignStmt visit(AddAssignStmt s)   { return cast(AddAssignStmt)visitOpAssign(s);  }
+	override SubAssignStmt visit(SubAssignStmt s)   { return cast(SubAssignStmt)visitOpAssign(s);  }
+	override MulAssignStmt visit(MulAssignStmt s)   { return cast(MulAssignStmt)visitOpAssign(s);  }
+	override DivAssignStmt visit(DivAssignStmt s)   { return cast(DivAssignStmt)visitOpAssign(s);  }
+	override ModAssignStmt visit(ModAssignStmt s)   { return cast(ModAssignStmt)visitOpAssign(s);  }
+	override ShlAssignStmt visit(ShlAssignStmt s)   { return cast(ShlAssignStmt)visitOpAssign(s);  }
+	override ShrAssignStmt visit(ShrAssignStmt s)   { return cast(ShrAssignStmt)visitOpAssign(s);  }
+	override UShrAssignStmt visit(UShrAssignStmt s) { return cast(UShrAssignStmt)visitOpAssign(s); }
+	override XorAssignStmt visit(XorAssignStmt s)   { return cast(XorAssignStmt)visitOpAssign(s);  }
+	override OrAssignStmt visit(OrAssignStmt s)     { return cast(OrAssignStmt)visitOpAssign(s);   }
+	override AndAssignStmt visit(AndAssignStmt s)   { return cast(AndAssignStmt)visitOpAssign(s);  }
 
-	override CondAssignStmt visit(CondAssignStmt s)
+	override Statement visit(CondAssignStmt s)
 	{
 		s.lhs = visit(s.lhs);
 		s.rhs = visit(s.rhs);
@@ -1207,7 +1207,7 @@ public:
 	override Expression visit(GTExp e) { return visitComparison(e); }
 	override Expression visit(GEExp e) { return visitComparison(e); }
 
-	override Cmp3Exp visit(Cmp3Exp e)
+	override Expression visit(Cmp3Exp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
