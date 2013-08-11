@@ -6,6 +6,9 @@ import docs:
 	docsOf,
 	TracWikiDocOutput
 
+import exceptions:
+	ValueException
+
 function main()
 {
 	local t = CrocWikiLinkTranslator()

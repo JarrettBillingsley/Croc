@@ -49,6 +49,7 @@ import croc.stdlib_compiler;
 import croc.stdlib_console;
 import croc.stdlib_debug;
 import croc.stdlib_docs;
+import croc.stdlib_doctools;
 import croc.stdlib_env;
 import croc.stdlib_exceptions;
 import croc.stdlib_file;
@@ -164,6 +165,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	}
 
 	// Finish up the safe libs.
+	initDoctoolsLibs(t);
 	HashLib.init(t);
 	MathLib.init(t);
 	initObjectLib(t);
