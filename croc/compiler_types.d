@@ -147,6 +147,11 @@ package:
 		return ret;
 	}
 
+	T[] toArrayView()
+	{
+		return mData[0 .. mIndex];
+	}
+
 	int opApply(int delegate(ref T) dg)
 	{
 		foreach(ref v; mData[0 .. mIndex])

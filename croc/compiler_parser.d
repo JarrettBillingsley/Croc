@@ -1497,7 +1497,7 @@ public:
 				name ~= parseName();
 			}
 
-			auto arr = name.toArray();
+			auto arr = name.toArrayView();
 			expr = new(c) StringExp(location, c.newString(arr));
 		}
 
