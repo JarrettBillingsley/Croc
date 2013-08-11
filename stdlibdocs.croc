@@ -1,21 +1,17 @@
 module stdlibdocs
 
-import docs:
-	LinkResolver,
-	LinkTranslator,
-	docsOf,
-	TracWikiDocOutput
+import docs: docsOf
+import doctools.output: SectionOrder, LinkResolver, LinkTranslator, OutputDocVisitor
+import doctools.trac: TracWikiOutputter
 
 import exceptions:
 	ValueException
 
 function main()
 {
-	local t = CrocWikiLinkTranslator()
-	local r = LinkResolver(t)
-	local o = TracWikiDocOutput(r)
+	local o = OutputDocVisitor(SectionOrder(), TracWikiOutputter$ LinkResolver$ CrocWikiLinkTranslator())
 
-	o.outputItem(docsOf(docs), "")
+	o.visitItem(docsOf(docs))
 
 	t.printErrors()
 }

@@ -51,9 +51,26 @@ This module defines a means of outputting docs to the console (or any console-li
 */
 module doctools.console
 
-import docs: docsOf, childDocs, metamethodDocs
-import doctools.output: SectionOrder, DocOutputter
-import exceptions: TypeException, ValueException
+import ascii:
+	isSpace,
+	toUpper
+
+import docs:
+	docsOf,
+	childDocs,
+	metamethodDocs
+
+import doctools.output:
+	SectionOrder,
+	DocOutputter,
+	OutputDocVisitor,
+	toHeader,
+	numToLetter,
+	numToRoman
+
+import exceptions:
+	TypeException,
+	ValueException
 
 local helpVisitor
 
@@ -106,12 +123,12 @@ local function splitAtWS(s: string, len: int)
 	{
 		if(foundWS)
 		{
-			if(ascii.isSpace(ch))
+			if(isSpace(ch))
 				firstWS = i
 			else
 				break
 		}
-		else if(ascii.isSpace(ch))
+		else if(isSpace(ch))
 		{
 			foundWS = true
 			firstWS = i
@@ -269,9 +286,9 @@ class BasicConsoleOutputter : DocOutputter
 			:beginBold()
 
 			if(name.startsWith("_"))
-				:outputText(ascii.toUpper(name[1]), name[2..], ":")
+				:outputText(toUpper(name[1]), name[2..], ":")
 			else
-				:outputText(ascii.toUpper(name[0]), name[1..], ":")
+				:outputText(toUpper(name[0]), name[1..], ":")
 
 			:endBold()
 			:outputText(" ")

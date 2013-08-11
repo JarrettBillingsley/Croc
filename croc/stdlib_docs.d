@@ -310,10 +310,23 @@ function parseCommentText(comment: string) =
 	_parseCommentText(comment)
 
 /**
+A class which defines a simple interface for visiting all the elements in a doctable. You can use this as a base class
+for your own visitors to do things like output docs in various formats.
 
+By default this class doesn't do much, but it does remove some of the boilerplate involved in dispatching to the various
+methods. Some methods are unimplemented and must be defined in a derived class in order to work.
+
+Note that there is another class, \link{doctools.output.OutputDocVisitor}, which implements this class's interface in a
+way that makes making document outputters easier.
 */
 class DocVisitor
 {
+	/**
+	Visits one program item's doctable. This dispatches based on \tt{item.kind} to one of the six methods after this
+	one.
+
+	\throws[exceptions.ValueException] if the given doctable has an invalid \tt{kind} field.
+	*/
 	function visitItem(item: table)
 	{
 		switch(item.kind)
@@ -328,28 +341,48 @@ class DocVisitor
 		}
 	}
 
-	function visitModule(item: table)    :visitChildren(item)
-	function visitClass(item: table)     :visitChildren(item)
-	function visitNamespace(item: table) :visitChildren(item)
-	function visitFunction(item: table) {}
-	function visitField(item: table)    {}
-	function visitVariable(item: table) {}
+	/**
+	These methods are called by \link{visitItem}. You must implement these methods yourself.
+	*/
+	function visitModule(item: table) throw NotImplementedException()
+	function visitClass(item: table) throw NotImplementedException()
+	function visitNamespace(item: table) throw NotImplementedException()
+	function visitFunction(item: table) throw NotImplementedException()
+	function visitField(item: table) throw NotImplementedException()
+	function visitVariable(item: table) throw NotImplementedException()
 
+	/**
+	A convenience method for doctables which have children (such as modules, classes, and namespaces). This just loops
+	over the doctable's \tt{children} field and calls \link{visitItem} on each one.
+	*/
 	function visitChildren(item: table)
 	{
 		foreach(child; item.children)
 			:visitItem(child)
 	}
 
+	/**
+	A convenience method for visiting a list of paragraphs (plist). This just loops over the plist and calls
+	\link{visitParagraph} on each one.
+	*/
 	function visitPlist(plist: array)
 	{
 		foreach(par; plist)
 			:visitParagraph(par)
 	}
 
+	/**
+	Visits one paragraph of documentation. By default, just calls \link{visitParagraphElements} with \tt{par} as the
+	argument, but often you will want to do something at the beginning/end of a paragraph (such as insert indentation
+	or newlines), so you can override this method to do so.
+	*/
 	function visitParagraph(par: array)
 		:visitParagraphElements(par)
 
+	/**
+	Visits an array of paragraph elements. You can use this method to implement the text visitor methods which follow,
+	and this method will dispatch to those visitor methods.
+	*/
 	function visitParagraphElements(elems: array)
 	{
 		foreach(elem; elems)
@@ -390,18 +423,45 @@ class DocVisitor
 		}
 	}
 
+	/// Visits a segment of plain text that appears in a paragraph. Must be overridden.
 	function visitText(elem: string) throw NotImplementedException()
+
+	/// Visits a code snippet. Must be overridden.
 	function visitCode(language: string, contents: string) throw NotImplementedException()
+
+	/// Visits a verbatim block. Must be overridden.
 	function visitVerbatim(contents: string) throw NotImplementedException()
+
+	/// Visits a bulleted list. Must be overridden.
 	function visitBlist(items: array) throw NotImplementedException()
+
+	/// Visits a numbered list. Must be overridden.
 	function visitNlist(type: string, items: array) throw NotImplementedException()
+
+	/// Visits a definition list. Must be overridden.
 	function visitDlist(items: array) throw NotImplementedException()
+
+	/// Visits a table. Must be overridden.
 	function visitTable(rows: array) throw NotImplementedException()
+
+	/// Visits an emphasis text span. Must be overridden.
 	function visitEmphasis(contents: array) throw NotImplementedException()
+
+	/// Visits a link text span. Must be overridden.
 	function visitLink(link: string, contents: array) throw NotImplementedException()
+
+	/// Visits a subscript text span. Must be overridden.
 	function visitSubscript(contents: array) throw NotImplementedException()
+
+	/// Visits a superscript text span. Must be overridden.
 	function visitSuperscript(contents: array) throw NotImplementedException()
+
+	/// Visits a monospace text span. Must be overridden.
 	function visitMonospace(contents: array) throw NotImplementedException()
+
+	/// Visits an underline text span. Must be overridden.
 	function visitUnderline(contents: array) throw NotImplementedException()
+
+	/// Visits a custom text span. Must be overridden.
 	function visitCustomSpan(type: string, contents: array) throw NotImplementedException()
 }`;
