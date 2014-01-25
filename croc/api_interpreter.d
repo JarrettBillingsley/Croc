@@ -3166,7 +3166,6 @@ void hfielda(CrocThread* t, word container, bool raw = false)
 	auto name = getStringObj(t, -2);
 	auto value = &t.stack[t.stackIndex - 1];
 
-
 	switch(obj.type)
 	{
 		case CrocValue.Type.Class:
@@ -3185,7 +3184,7 @@ void hfielda(CrocThread* t, word container, bool raw = false)
 				instance.setHiddenField(t.vm.alloc, i, slot, value);
 			else
 				throwStdException(t, "FieldError", "Attempting to assign to nonexistent hidden field '{}' in instance of class '{}'", name.toString(), i.parent.name.toString());
-			return;
+			break;
 
 		default:
 			pushTypeString(t, container);
