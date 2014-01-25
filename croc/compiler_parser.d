@@ -759,7 +759,7 @@ public:
 
 				ret = TypeMask.Any;
 			}
-			else if(l.type == Token.Not)
+			else if(l.type == Token.Not || l.type == Token.NotKeyword)
 			{
 				l.next();
 				l.expect(Token.Null);
@@ -1845,9 +1845,9 @@ public:
 			l.next();
 			return new(c) DecStmt(location, location, exp);
 		}
-		else if(l.type == Token.OrOr)
+		else if(l.type == Token.OrOr || l.type == Token.OrKeyword)
 			exp = parseOrOrExp(exp);
-		else if(l.type == Token.AndAnd)
+		else if(l.type == Token.AndAnd || l.type == Token.AndKeyword)
 			exp = parseAndAndExp(exp);
 		else if(l.type == Token.Question)
 			exp = parseCondExp(exp);
@@ -2003,7 +2003,7 @@ public:
 		if(exp1 is null)
 			exp1 = parseAndAndExp();
 
-		while(l.type == Token.OrOr)
+		while(l.type == Token.OrOr || l.type == Token.OrKeyword)
 		{
 			l.next();
 
@@ -2034,7 +2034,7 @@ public:
 		if(exp1 is null)
 			exp1 = parseOrExp();
 
-		while(l.type == Token.AndAnd)
+		while(l.type == Token.AndAnd || l.type == Token.AndKeyword)
 		{
 			l.next();
 
@@ -2163,10 +2163,30 @@ public:
 
 				break;
 
+			case Token.NotKeyword:
+				if(l.peek.type == Token.In)
+				{
+					l.next();
+					l.next();
+					exp2 = parseShiftExp();
+					exp1 = new(c) NotInExp(location, exp2.endLocation, exp1, exp2);
+				}
+				break;
+
 			case Token.Is:
-				l.next();
-				exp2 = parseShiftExp();
-				exp1 = new(c) IsExp(location, exp2.endLocation, exp1, exp2);
+				if(l.peek.type == Token.NotKeyword)
+				{
+					l.next();
+					l.next();
+					exp2 = parseShiftExp();
+					exp1 = new(c) NotIsExp(location, exp2.endLocation, exp1, exp2);
+				}
+				else
+				{
+					l.next();
+					exp2 = parseShiftExp();
+					exp1 = new(c) IsExp(location, exp2.endLocation, exp1, exp2);
+				}
 				break;
 
 			case Token.LT:

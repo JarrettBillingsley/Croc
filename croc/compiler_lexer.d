@@ -56,6 +56,7 @@ struct Token
 
 	enum
 	{
+		AndKeyword,
 		As,
 		Assert,
 		Break,
@@ -79,7 +80,9 @@ struct Token
 		Local,
 		Module,
 		Namespace,
+		NotKeyword,
 		Null,
+		OrKeyword,
 		Return,
 		Scope,
 		Super,
@@ -158,6 +161,7 @@ struct Token
 
 	static const char[][] strings =
 	[
+		AndKeyword: "and",
 		As: "as",
 		Assert: "assert",
 		Break: "break",
@@ -181,7 +185,9 @@ struct Token
 		Local: "local",
 		Module: "module",
 		Namespace: "namespace",
+		NotKeyword: "not",
 		Null: "null",
+		OrKeyword: "or",
 		Return: "return",
 		Scope: "scope",
 		Super: "super",

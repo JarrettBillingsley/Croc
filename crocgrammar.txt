@@ -58,10 +58,10 @@ IdentifierChar:
 	!
 
 Keyword:
-	as | assert | break | case | catch | class | continue | default | do
+	and | as | assert | break | case | catch | class | continue | default | do
 	else | false | finally | for | foreach | function | global | if | import
-	in | is | local | module | namespace | null | return | scope | super
-	switch | this | throw | true | try | vararg | while | with | yield
+	in | is | local | module | namespace | not | null | or | return | scope
+	super | switch | this | throw | true | try | vararg | while | with | yield
 
 StringLiteral:
 	RegularString
