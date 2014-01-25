@@ -480,7 +480,9 @@ public:
 			endLocation = initializer[$ - 1].endLocation;
 		}
 
-		return new(c) VarDecl(location, endLocation, protection, namesArr, initializer);
+		auto ret = new(c) VarDecl(location, endLocation, protection, namesArr, initializer);
+		propagateFuncLiteralNames(ret.names, ret.initializer);
+		return ret;
 	}
 
 	/**
@@ -1895,7 +1897,9 @@ public:
 			c.semException(location, "Assignment has fewer destinations than sources");
 
 		auto rhsArr = rhs.toArray();
-		return new(c) AssignStmt(location, rhsArr[$ - 1].endLocation, lhs.toArray(), rhsArr);
+		auto ret = new(c) AssignStmt(location, rhsArr[$ - 1].endLocation, lhs.toArray(), rhsArr);
+		propagateFuncLiteralNames(ret.lhs, ret.rhs);
+		return ret;
 	}
 
 	/**
@@ -2575,6 +2579,9 @@ public:
 						l.expect(Token.Assign);
 						k = new(c) StringExp(id.location, id.name);
 						v = parseExpression();
+
+						if(auto fl = v.as!(FuncLiteralExp))
+							propagateFuncLiteralName(k, fl);
 						break;
 				}
 
@@ -3059,6 +3066,46 @@ public:
 // ================================================================================================================================================
 
 private:
+import tango.io.Stdout;
+	void propagateFuncLiteralNames(AstNode[] lhs, Expression[] rhs)
+	{
+		// Rename function literals on the RHS that have dummy names with appropriate names derived from the LHS.
+		foreach(i, r; rhs)
+		{
+			if(auto fl = r.as!(FuncLiteralExp))
+				propagateFuncLiteralName(lhs[i], fl);
+		}
+	}
+
+	void propagateFuncLiteralName(AstNode lhs, FuncLiteralExp fl)
+	{
+		if(fl.def.name.name[0] != '<')
+			return;
+
+		if(auto id = lhs.as!(Identifier))
+		{
+			// This case happens in variable declarations
+			fl.def.name = new(c) Identifier(fl.def.name.location, id.name);
+		}
+		else if(auto id = lhs.as!(IdentExp))
+		{
+			// This happens in assignments
+			fl.def.name = new(c) Identifier(fl.def.name.location, id.name.name);
+		}
+		else if(auto str = lhs.as!(StringExp))
+		{
+			// This happens in table ctors
+			fl.def.name = new(c) Identifier(fl.def.name.location, str.value);
+		}
+		else if(auto fe = lhs.as!(DotExp))
+		{
+			if(auto id = fe.name.as!(StringExp))
+			{
+				// This happens in assignments
+				fl.def.name = new(c) Identifier(fl.def.name.location, id.value);
+			}
+		}
+	}
 
 	Identifier dummyForeachIndex(CompileLoc loc)
 	{
