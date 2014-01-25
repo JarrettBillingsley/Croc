@@ -63,6 +63,18 @@ package:
 					node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
 			}
 
+			if(parent.hiddenFields.length)
+			{
+				// mixin(containerWriteBarrier!("alloc", "c"));
+
+				c.hiddenFields.prealloc(alloc, parent.hiddenFields.capacity());
+				assert(c.hiddenFields.capacity() == parent.hiddenFields.capacity());
+				parent.hiddenFields.dupInto(c.hiddenFields);
+
+				foreach(ref node; &c.hiddenFields.allNodes)
+					node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
+			}
+
 			if(parent.methods.length)
 			{
 				// mixin(containerWriteBarrier!("alloc", "c"));
