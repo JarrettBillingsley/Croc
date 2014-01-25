@@ -92,8 +92,11 @@ void initExceptionsLib(CrocThread* t)
 		}
 
 		pushGlobal(t, "_G");
-			pushGlobal(t, "Exception"); fielda(t, -2, "Exception");
-			pushGlobal(t, "Error");     fielda(t, -2, "Error");
+			foreach(desc; ExDescs)
+			{
+				pushGlobal(t, desc.name);
+				fielda(t, -2, desc.name);
+			}
 		pop(t);
 
 		newFunction(t, 1, &stdException, "stdException"); newGlobal(t, "stdException");
