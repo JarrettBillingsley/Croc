@@ -521,7 +521,7 @@ package:
 	bool visitedOnce;
 	Hash!(CrocString*, CrocValue, true) methods;
 	Hash!(CrocString*, CrocValue, true) fields;
-	// Hash!(CrocString*, CrocValue, true) nativeFields;
+	Hash!(CrocString*, CrocValue, true) hiddenFields;
 	CrocValue* constructor;
 	CrocValue* finalizer;
 }
@@ -533,7 +533,9 @@ package:
 	CrocClass* parent;
 	bool visitedOnce;
 	Hash!(CrocString*, CrocValue, true) fields;
-	// Hash!(CrocString*, CrocValue, true) nativeFields;
+	// The way this works is that it's null to mean there are no hidden fields, and if it's not null, the Hash structure
+	// and its data are appended to the end of the instance, and this points to that structure.
+	Hash!(CrocString*, CrocValue, true)* hiddenFields;
 }
 
 alias uword AbsStack;

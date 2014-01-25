@@ -371,8 +371,8 @@ FOUR SHORTS:
 	smethod:  method supercall. works same as method, but lookup is based on the proto instead of a value.
 	tsmethod: same as above, but does a tailcall. uimm2 is unused, but this makes codegen easier
 (rd, rs, rt, uimm)
-	addfield: add field named rs to class in rd with value rt, privacy uimm (pub = 0, prot = 1, priv = 2)
-	addmethod: add method named rs to class in rd with value rt, privacy uimm (pub = 0, prot = 1, priv = 2)
+	addfield: add field named rs to class in rd with value rt
+	addmethod: add method named rs to class in rd with value rt
 
 FIVE SHORTS:
 

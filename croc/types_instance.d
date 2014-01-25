@@ -73,12 +73,29 @@ package:
 
 		i.parent = parent;
 
+		void* hiddenFieldsLoc = cast(void*)(i + 1);
+
 		if(parent.fields.length > 0)
 		{
 			auto instNodes = (cast(typeof(i.fields).Node*)(i + 1))[0 .. parent.fields.capacity()];
 			parent.fields.dupInto(i.fields, instNodes);
 
+			hiddenFieldsLoc = cast(void*)(instNodes.ptr + instNodes.length);
+
 			foreach(ref node; &i.fields.allNodes)
+				node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
+		}
+
+		if(parent.hiddenFields.length > 0)
+		{
+			i.hiddenFields = cast(typeof(CrocInstance.hiddenFields))hiddenFieldsLoc;
+			auto hiddenNodes = (cast(typeof(i.fields).Node*)(i.hiddenFields + 1))[0 .. parent.hiddenFields.capacity()];
+
+			assert(cast(void*)(hiddenNodes.ptr + hiddenNodes.length) == (cast(void*)i + i.memSize));
+
+			parent.hiddenFields.dupInto(*i.hiddenFields, hiddenNodes);
+
+			foreach(ref node; &i.hiddenFields.allNodes)
 				node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
 		}
 
@@ -112,9 +129,27 @@ package:
 		}
 	}
 
+	alias setField setHiddenField;
+
 	bool nextField(CrocInstance* i, ref uword idx, ref CrocString** key, ref CrocValue* val)
 	{
 		return i.fields.next(idx, key, val);
+	}
+
+	typeof(CrocInstance.fields).Node* getHiddenField(CrocInstance* i, CrocString* name)
+	{
+		if(i.hiddenFields)
+			return i.hiddenFields.lookupNode(name);
+		else
+			return null;
+	}
+
+	bool nextHiddenField(CrocInstance* i, ref uword idx, ref CrocString** key, ref CrocValue* val)
+	{
+		if(i.hiddenFields)
+			return i.hiddenFields.next(idx, key, val);
+		else
+			return false;
 	}
 
 	bool derivesFrom(CrocInstance* i, CrocClass* c)
@@ -128,7 +163,12 @@ package:
 
 	uword InstanceSize(CrocClass* parent)
 	{
-		return CrocInstance.sizeof + parent.fields.dataSize();
+		auto ret = CrocInstance.sizeof + parent.fields.dataSize();
+
+		if(parent.hiddenFields.length > 0)
+			return ret + typeof(CrocClass.hiddenFields).sizeof + parent.hiddenFields.dataSize();
+		else
+			return ret;
 	}
 
 	// =================================================================================================================

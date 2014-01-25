@@ -2,5 +2,15 @@ module samples.simple
 
 function main()
 {
+	foreach(name, val; object.fieldsOf(Boop))
+		writefln("{}: {}", name, val)
 
+	writeln(Boop.getY())
+
+	local b = Boop()
+
+	foreach(name, val; object.fieldsOf(b))
+		writefln("{}: {}", name, val)
+
+	writeln(b.getY())
 }

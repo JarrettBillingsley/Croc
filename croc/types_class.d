@@ -81,6 +81,7 @@ package:
 
 	void free(ref Allocator alloc, CrocClass* c)
 	{
+		c.hiddenFields.clear(alloc);
 		c.fields.clear(alloc);
 		c.methods.clear(alloc);
 		alloc.free(c);
@@ -129,9 +130,6 @@ package:
 	{
 		assert(!c.isFrozen);
 
-		// if(c.fields.lookup(name) || c.methods.lookup(name))
-		// 	return false;
-
 		static if(member == "fields")
 		{
 			if(c.methods.lookup(name))
@@ -142,11 +140,19 @@ package:
 				return true;
 			}
 		}
-		else
+		else static if(member == "methods")
 		{
 			if(c.fields.lookup(name))
 				return false;
 			else if(auto slot = c.methods.lookupNode(name))
+			{
+				setMember(alloc, c, slot, value);
+				return true;
+			}
+		}
+		else static if(member == "hiddenFields")
+		{
+			if(auto slot = c.hiddenFields.lookupNode(name))
 			{
 				setMember(alloc, c, slot, value);
 				return true;
@@ -163,6 +169,8 @@ package:
 
 	bool commonRemoveMember(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name)
 	{
+		assert(!c.isFrozen);
+
 		if(auto slot = mixin("c." ~ member).lookupNode(name))
 		{
 			mixin(removeKeyRef!("alloc", "slot"));
@@ -184,24 +192,28 @@ package:
 
 	alias getMember!("fields") getField;
 	alias getMember!("methods") getMethod;
+	alias getMember!("hiddenFields") getHiddenField;
 
 	alias setMember setField;
 	alias setMember setMethod;
+	alias setMember setHiddenField;
 
 	alias addMember!("fields") addField;
 	alias addMember!("methods") addMethod;
+	alias addMember!("hiddenFields") addHiddenField;
 
 	bool removeMember(ref Allocator alloc, CrocClass* c, CrocString* name)
 	{
-		assert(!c.isFrozen);
-
 		return
 			commonRemoveMember!("fields")(alloc, c, name) ||
 			commonRemoveMember!("methods")(alloc, c, name);
 	}
 
+	alias commonRemoveMember!("hiddenFields") removeHiddenField;
+
 	alias nextMember!("fields") nextField;
 	alias nextMember!("methods") nextMethod;
+	alias nextMember!("hiddenFields") nextHiddenField;
 
 	// =================================================================================================================
 	// Helpers

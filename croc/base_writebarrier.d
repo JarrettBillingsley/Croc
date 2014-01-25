@@ -233,6 +233,12 @@ void visitClass(CrocClass* o, void delegate(GCObject*) callback, bool isModifyPh
 			mixin(CondCallback!("key"));
 			mixin(ValueCallback!("val"));
 		}
+
+		foreach(ref key, ref val; &o.hiddenFields.modifiedSlots)
+		{
+			mixin(CondCallback!("key"));
+			mixin(ValueCallback!("val"));
+		}
 	}
 	else
 	{
@@ -246,6 +252,12 @@ void visitClass(CrocClass* o, void delegate(GCObject*) callback, bool isModifyPh
 		}
 
 		foreach(ref key, ref val; o.methods)
+		{
+			mixin(CondCallback!("key"));
+			mixin(ValueCallback!("val"));
+		}
+
+		foreach(ref key, ref val; o.hiddenFields)
 		{
 			mixin(CondCallback!("key"));
 			mixin(ValueCallback!("val"));
@@ -269,6 +281,15 @@ void visitInstance(CrocInstance* o, void delegate(GCObject*) callback, bool isMo
 			mixin(CondCallback!("key"));
 			mixin(ValueCallback!("val"));
 		}
+
+		if(o.hiddenFields)
+		{
+			foreach(ref key, ref val; &o.hiddenFields.modifiedSlots)
+			{
+				mixin(CondCallback!("key"));
+				mixin(ValueCallback!("val"));
+			}
+		}
 	}
 	else
 	{
@@ -278,6 +299,15 @@ void visitInstance(CrocInstance* o, void delegate(GCObject*) callback, bool isMo
 		{
 			mixin(CondCallback!("key"));
 			mixin(ValueCallback!("val"));
+		}
+
+		if(o.hiddenFields)
+		{
+			foreach(ref key, ref val; *o.hiddenFields)
+			{
+				mixin(CondCallback!("key"));
+				mixin(ValueCallback!("val"));
+			}
 		}
 	}
 }

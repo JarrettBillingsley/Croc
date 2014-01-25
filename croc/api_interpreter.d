@@ -2237,8 +2237,7 @@ pops the value off the stack.
 
 Params:
 	cls = The class to which the field will be added.
-	name = The name of the field to add. Can begin with one or two underscores in which case the field will be protected
-		or private, just like in Croc code.
+	name = The name of the field to add.
 */
 void addField(CrocThread* t, word cls, char[] name)
 {
@@ -2277,6 +2276,57 @@ Pops both.
 void addMethod(CrocThread* t, word cls)
 {
 	_addFieldOrMethod(t, cls, true);
+}
+
+/**
+Given a value at the top of the stack, creates a hidden field named name in the class in slot cls, puts the value in it,
+and pops the value off the stack.
+
+Params:
+	cls = The class to which the hidden field will be added.
+	name = The name of the field to add. Hidden fields are in a separate namespace from regular fields/methods and can
+		therefore have the same names as those without colliding.
+*/
+void addHiddenField(CrocThread* t, word cls, char[] name)
+{
+	mixin(apiCheckNumParams!("1"));
+	auto c = absIndex(t, cls);
+	pushString(t, name);
+	swap(t);
+	addHiddenField(t, c);
+}
+
+/**
+Same as above, but expects two values on the stack: the hidden field's value on the top, and the name of the hidden
+field below it. Pops both.
+*/
+void addHiddenField(CrocThread* t, word cls)
+{
+	mixin(apiCheckNumParams!("2"));
+
+	if(!isClass(t, cls))
+	{
+		pushTypeString(t, cls);
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+	}
+
+	if(!isString(t, -2))
+	{
+		pushTypeString(t, -2);
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Hidden field name must be a string, not a '{}'", getString(t, -1));
+	}
+
+	auto c = getClass(t, cls);
+
+	if(c.isFrozen)
+		throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to add a hidden field to class '{}' which is frozen", c.name.toString());
+
+	auto name = getStringObj(t, -2);
+
+	if(!classobj.addHiddenField(t.vm.alloc, c, name, getValue(t, -1)))
+		throwStdException(t, "FieldError", __FUNCTION__ ~ " - Attempting to add a hidden field '{}' which already exists to class '{}'", name.toString(), c.name.toString());
+
+	pop(t, 2);
 }
 
 private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
@@ -2360,20 +2410,51 @@ void removeMember(CrocThread* t, word cls)
 		throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to remove a member from class '{}' which is frozen", c.name.toString());
 
 	auto name = getStringObj(t, -1);
-	auto nameStr = name.toString();
-
-	if(nameStr.startsWith("__"))
-	{
-		push(t, CrocValue(c.name));
-		push(t, CrocValue(name));
-		cat(t, 2);
-		swap(t, -3);
-		pop(t);
-		name = getStringObj(t, -2);
-	}
 
 	if(!classobj.removeMember(t.vm.alloc, c, name))
 		throwStdException(t, "FieldError", __FUNCTION__ ~ " - No member named '{}' exists in class '{}'", name.toString(), c.name.toString());
+
+	pop(t);
+}
+
+/**
+Removes a hidden field named name from the class in slot cls.
+*/
+void removeHiddenField(CrocThread* t, word cls, char[] name)
+{
+	auto c = absIndex(t, cls);
+	pushString(t, name);
+	removeHiddenField(t, c);
+}
+
+/**
+Same as above, but expects the name of the hidden field to be on top of the stack, which is popped.
+*/
+void removeHiddenField(CrocThread* t, word cls)
+{
+	mixin(apiCheckNumParams!("1"));
+
+	if(!isClass(t, cls))
+	{
+		pushTypeString(t, cls);
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+	}
+
+	if(!isString(t, -1))
+	{
+		pushTypeString(t, -1);
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Hidden field name must be a string, not a '{}'", getString(t, -1));
+	}
+
+	auto c = getClass(t, cls);
+
+	if(c.isFrozen)
+		throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to remove a hidden field from class '{}' which is frozen", c.name.toString());
+
+	auto name = getStringObj(t, -1);
+
+	if(!classobj.removeHiddenField(t.vm.alloc, c, name))
+		throwStdException(t, "FieldError", __FUNCTION__ ~ " - No hidden field named '{}' exists in class '{}'", name.toString(), c.name.toString());
 
 	pop(t);
 }
@@ -2974,6 +3055,144 @@ void fielda(CrocThread* t, word container, bool raw = false)
 	}
 
 	commonFielda(t, fakeToAbs(t, container), raw);
+}
+
+/**
+Get a hidden field with the given _name from the _container (class or instance) at the given index. Pushes the result
+onto the stack. Works just like field().
+
+Params:
+	container = The stack index of the _container, which must be a class or instance.
+	name = The _name of the hidden field to get.
+
+Returns:
+	The stack index of the newly-pushed result.
+*/
+word hfield(CrocThread* t, word container, char[] name)
+{
+	auto c = absIndex(t, container);
+	pushString(t, name);
+	return hfield(t, c);
+}
+
+/**
+Same as above, but expects the hidden field name to be at the top of the stack. Works just like field().
+
+Params:
+	container = The stack index of the _container, which must be a class or instance.
+
+Returns:
+	The stack index of the retrieved hidden field value.
+*/
+word hfield(CrocThread* t, word container)
+{
+	mixin(apiCheckNumParams!("1"));
+
+	if(!isString(t, -1))
+	{
+		pushTypeString(t, -1);
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
+	}
+
+	auto obj = &t.stack[fakeToAbs(t, container)];
+	auto name = getStringObj(t, -1);
+
+	switch(obj.type)
+	{
+		case CrocValue.Type.Class:
+			auto c = obj.mClass;
+			auto v = classobj.getHiddenField(c, name);
+
+			if(v is null)
+				throwStdException(t, "FieldError", "Attempting to access nonexistent hidden field '{}' from class '{}'", name.toString(), c.name.toString());
+
+			t.stack[t.stackIndex - 1] = v.value;
+			break;
+
+		case CrocValue.Type.Instance:
+			auto i = obj.mInstance;
+			auto v = instance.getHiddenField(i, name);
+
+			if(v is null)
+				throwStdException(t, "FieldError", "Attempting to access nonexistent hidden field '{}' from instance of class '{}'", name.toString(), i.parent.name.toString());
+
+			t.stack[t.stackIndex - 1] = v.value;
+			break;
+
+		default:
+			pushTypeString(t, container);
+			throwStdException(t, "TypeError", "Attempting to access hidden field '{}' from a value of type '{}'", name.toString(), getString(t, -1));
+	}
+
+	return stackSize(t) - 1;
+}
+
+/**
+Sets a hidden field with the given _name in the _container (class or instance) at the given index to the value at the
+top of the stack. Pops that value off the stack. Works just like fielda().
+
+Params:
+	container = The stack index of the _container object, which must be a class or instance.
+	name = The _name of the hidden field to set.
+*/
+void hfielda(CrocThread* t, word container, char[] name, bool raw = false)
+{
+	mixin(apiCheckNumParams!("1"));
+	auto c = absIndex(t, container);
+	pushString(t, name);
+	swap(t);
+	hfielda(t, c);
+}
+
+/**
+Same as above, but expects the hidden field name to be in the second-from-top slot and the value to set at the top of
+the stack. Throws an error if the hidden field name is not a string. Pops both the set value and the field name off the
+stack, just like fielda().
+
+Params:
+	container = The stack index of the _container object, which must be a class or instance.
+*/
+void hfielda(CrocThread* t, word container, bool raw = false)
+{
+	mixin(apiCheckNumParams!("2"));
+
+	if(!isString(t, -2))
+	{
+		pushTypeString(t, -2);
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
+	}
+
+	auto obj = &t.stack[fakeToAbs(t, container)];
+	auto name = getStringObj(t, -2);
+	auto value = &t.stack[t.stackIndex - 1];
+
+
+	switch(obj.type)
+	{
+		case CrocValue.Type.Class:
+			auto c = obj.mClass;
+
+			if(auto slot = classobj.getHiddenField(c, name))
+				classobj.setHiddenField(t.vm.alloc, c, slot, value);
+			else
+				throwStdException(t, "FieldError", "Attempting to assign to nonexistent hidden field '{}' in class '{}'", name.toString(), c.name.toString());
+			break;
+
+		case CrocValue.Type.Instance:
+			auto i = obj.mInstance;
+
+			if(auto slot = instance.getHiddenField(i, name))
+				instance.setHiddenField(t.vm.alloc, i, slot, value);
+			else
+				throwStdException(t, "FieldError", "Attempting to assign to nonexistent hidden field '{}' in instance of class '{}'", name.toString(), i.parent.name.toString());
+			return;
+
+		default:
+			pushTypeString(t, container);
+			throwStdException(t, "TypeError", "Attempting to assign hidden field '{}' into a value of type '{}'", name.toString(), getString(t, -1));
+	}
+
+	pop(t, 2);
 }
 
 /**
