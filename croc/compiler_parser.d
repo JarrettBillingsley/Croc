@@ -2377,6 +2377,7 @@ public:
 				break;
 
 			case Token.Not:
+			case Token.NotKeyword:
 				l.next();
 				exp = parseUnExp();
 				exp = new(c) NotExp(location, exp);
