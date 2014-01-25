@@ -533,7 +533,7 @@ is the empty string, then the name in the result will simply be \tt{"foo"}.
 */
 function toHeader(doctable: table, parentFQN: string, full: bool = true)
 {
-	local ret = string.StringBuffer()
+	local ret = []
 
 	switch(doctable.kind)
 	{
@@ -624,7 +624,7 @@ function toHeader(doctable: table, parentFQN: string, full: bool = true)
 			throw ValueException("Malformed documentation for {}".format(doctable.name))
 	}
 
-	return ret.toString()
+	return "".join(ret)
 }
 
 /**

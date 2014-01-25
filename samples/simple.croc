@@ -1,8 +1,6 @@
 module samples.simple
 
-import doctools.console: help
-
 function main()
 {
-	help(docs.DocVisitor)
+
 }

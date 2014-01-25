@@ -165,7 +165,6 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	}
 
 	// Finish up the safe libs.
-	initDoctoolsLibs(t);
 	HashLib.init(t);
 	MathLib.init(t);
 	initObjectLib(t);
@@ -182,6 +181,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	initSerializationLib(t); // depends on .. lots of libs :P
 	ThreadLib.init(t);
 	TimeLib.init(t);
+	initDoctoolsLibs(t);
 
 	version(CrocBuiltinDocs)
 		Compiler.setDefaultFlags(t, Compiler.All);
