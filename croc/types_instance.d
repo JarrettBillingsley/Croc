@@ -79,7 +79,7 @@ package:
 			parent.fields.dupInto(i.fields, instNodes);
 
 			foreach(ref node; &i.fields.allNodes)
-				node.modified |= KeyModified | (node.value.value.isGCObject() ? ValModified : 0);
+				node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
 		}
 
 		return true;
@@ -97,10 +97,10 @@ package:
 
 	void setField(ref Allocator alloc, CrocInstance* i, typeof(CrocInstance.fields).Node* slot, CrocValue* value)
 	{
-		if(slot.value.value != *value)
+		if(slot.value != *value)
 		{
 			mixin(removeValueRef!("alloc", "slot"));
-			slot.value.value = *value;
+			slot.value = *value;
 
 			if(value.isGCObject())
 			{
@@ -112,7 +112,7 @@ package:
 		}
 	}
 
-	bool nextField(CrocInstance* i, ref uword idx, ref CrocString** key, ref FieldValue* val)
+	bool nextField(CrocInstance* i, ref uword idx, ref CrocString** key, ref CrocValue* val)
 	{
 		return i.fields.next(idx, key, val);
 	}
@@ -144,7 +144,7 @@ package:
 	template removeValueRef(char[] alloc, char[] slot)
 	{
 		const char[] removeValueRef =
-		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.value.isGCObject()) "
-			~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.value.toGCObject());";
+		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isGCObject()) "
+			~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
 	}
 }

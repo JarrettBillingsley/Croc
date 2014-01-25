@@ -336,7 +336,6 @@ class ClassDef : AstNode
 	{
 		char[] name;
 		Expression initializer;
-		ubyte privacy;
 		bool isMethod;
 		char[] docs;
 		CompileLoc docsLoc;

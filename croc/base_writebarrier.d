@@ -225,13 +225,13 @@ void visitClass(CrocClass* o, void delegate(GCObject*) callback, bool isModifyPh
 		foreach(ref key, ref val; &o.fields.modifiedSlots)
 		{
 			mixin(CondCallback!("key"));
-			mixin(ValueCallback!("val.value"));
+			mixin(ValueCallback!("val"));
 		}
 
 		foreach(ref key, ref val; &o.methods.modifiedSlots)
 		{
 			mixin(CondCallback!("key"));
-			mixin(ValueCallback!("val.value"));
+			mixin(ValueCallback!("val"));
 		}
 	}
 	else
@@ -242,13 +242,13 @@ void visitClass(CrocClass* o, void delegate(GCObject*) callback, bool isModifyPh
 		foreach(ref key, ref val; o.fields)
 		{
 			mixin(CondCallback!("key"));
-			mixin(ValueCallback!("val.value"));
+			mixin(ValueCallback!("val"));
 		}
 
 		foreach(ref key, ref val; o.methods)
 		{
 			mixin(CondCallback!("key"));
-			mixin(ValueCallback!("val.value"));
+			mixin(ValueCallback!("val"));
 		}
 	}
 }
@@ -267,7 +267,7 @@ void visitInstance(CrocInstance* o, void delegate(GCObject*) callback, bool isMo
 		foreach(ref key, ref val; &o.fields.modifiedSlots)
 		{
 			mixin(CondCallback!("key"));
-			mixin(ValueCallback!("val.value"));
+			mixin(ValueCallback!("val"));
 		}
 	}
 	else
@@ -277,7 +277,7 @@ void visitInstance(CrocInstance* o, void delegate(GCObject*) callback, bool isMo
 		foreach(ref key, ref val; o.fields)
 		{
 			mixin(CondCallback!("key"));
-			mixin(ValueCallback!("val.value"));
+			mixin(ValueCallback!("val"));
 		}
 	}
 }

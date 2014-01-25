@@ -60,7 +60,7 @@ package:
 				parent.fields.dupInto(c.fields);
 
 				foreach(ref node; &c.fields.allNodes)
-					node.modified |= KeyModified | (node.value.value.isGCObject() ? ValModified : 0);
+					node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
 			}
 
 			if(parent.methods.length)
@@ -72,7 +72,7 @@ package:
 				parent.methods.dupInto(c.methods);
 
 				foreach(ref node; &c.methods.allNodes)
-					node.modified |= KeyModified | (node.value.value.isGCObject() ? ValModified : 0);
+					node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
 			}
 		}
 
@@ -88,14 +88,6 @@ package:
 
 	void freeze(CrocClass* c)
 	{
-		foreach(ref value; c.fields)
-			if(value.privacy == Privacy.Protected)
-				value.proto = c;
-
-		foreach(ref value; c.methods)
-			if(value.privacy == Privacy.Protected)
-				value.proto = c;
-
 		c.isFrozen = true;
 	}
 
@@ -111,18 +103,17 @@ package:
 	// =================================================================================================================
 	// Common stuff
 
-	typeof(CrocClass.fields).Node* commonGetField(char[] member)(CrocClass* c, CrocString* name)
+	typeof(CrocClass.fields).Node* getMember(char[] member)(CrocClass* c, CrocString* name)
 	{
 		return mixin("c." ~ member).lookupNode(name);
 	}
 
-	void commonSetField(ref Allocator alloc, CrocClass* c, typeof(CrocClass.fields).Node* slot, CrocValue* value)
+	void setMember(ref Allocator alloc, CrocClass* c, typeof(CrocClass.fields).Node* slot, CrocValue* value)
 	{
-		if(slot.value.value != *value)
+		if(slot.value != *value)
 		{
 			mixin(removeValueRef!("alloc", "slot"));
-			slot.value.value = *value;
-			slot.value.proto = c;
+			slot.value = *value;
 
 			if(value.isGCObject())
 			{
@@ -134,49 +125,43 @@ package:
 		}
 	}
 
-	bool commonAddField(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value, ubyte privacy)
+	bool addMember(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value)
 	{
 		assert(!c.isFrozen);
 
-		if(auto val = c.fields.lookup(name))
+		// if(c.fields.lookup(name) || c.methods.lookup(name))
+		// 	return false;
+
+		static if(member == "fields")
 		{
-			if(val.proto is c)
+			if(c.methods.lookup(name))
 				return false;
+			else if(auto slot = c.fields.lookupNode(name))
+			{
+				setMember(alloc, c, slot, value);
+				return true;
+			}
 		}
-		else if(auto val = c.methods.lookup(name))
+		else
 		{
-			if(val.proto is c)
+			if(c.fields.lookup(name))
 				return false;
+			else if(auto slot = c.methods.lookupNode(name))
+			{
+				setMember(alloc, c, slot, value);
+				return true;
+			}
 		}
 
 		mixin(containerWriteBarrier!("alloc", "c"));
 		auto slot = mixin("c." ~ member).insertNode(alloc, name);
-		slot.value.value = *value;
-		slot.value.proto = c;
-		slot.value.privacy = privacy;
+		slot.value = *value;
 		slot.modified |= KeyModified | (value.isGCObject() ? ValModified : 0);
 
 		return true;
 	}
 
-	bool commonForceAddField(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value, CrocClass* proto, ubyte privacy)
-	{
-		assert(!c.isFrozen);
-
-		if(c.fields.lookup(name) || c.methods.lookup(name))
-			return false;
-
-		mixin(containerWriteBarrier!("alloc", "c"));
-		auto slot = mixin("c." ~ member).insertNode(alloc, name);
-		slot.value.value = *value;
-		slot.value.proto = proto;
-		slot.value.privacy = privacy;
-		slot.modified |= KeyModified | (value.isGCObject() ? ValModified : 0);
-
-		return true;
-	}
-
-	bool commonRemoveField(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name)
+	bool commonRemoveMember(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name)
 	{
 		if(auto slot = mixin("c." ~ member).lookupNode(name))
 		{
@@ -189,7 +174,7 @@ package:
 			return false;
 	}
 
-	bool commonNextField(char[] member)(CrocClass* c, ref uword idx, ref CrocString** key, ref FieldValue* val)
+	bool nextMember(char[] member)(CrocClass* c, ref uword idx, ref CrocString** key, ref CrocValue* val)
 	{
 		return mixin("c." ~ member).next(idx, key, val);
 	}
@@ -197,29 +182,26 @@ package:
 	// =================================================================================================================
 	// Blerf
 
-	alias commonGetField!("fields") getField;
-	alias commonGetField!("methods") getMethod;
+	alias getMember!("fields") getField;
+	alias getMember!("methods") getMethod;
 
-	alias commonSetField setField;
-	alias setField setMethod;
+	alias setMember setField;
+	alias setMember setMethod;
 
-	alias commonAddField!("fields") addField;
-	alias commonAddField!("methods") addMethod;
-
-	alias commonForceAddField!("fields") forceAddField;
-	alias commonForceAddField!("methods") forceAddMethod;
+	alias addMember!("fields") addField;
+	alias addMember!("methods") addMethod;
 
 	bool removeMember(ref Allocator alloc, CrocClass* c, CrocString* name)
 	{
 		assert(!c.isFrozen);
 
 		return
-			commonRemoveField!("fields")(alloc, c, name) ||
-			commonRemoveField!("methods")(alloc, c, name);
+			commonRemoveMember!("fields")(alloc, c, name) ||
+			commonRemoveMember!("methods")(alloc, c, name);
 	}
 
-	alias commonNextField!("fields") nextField;
-	alias commonNextField!("methods") nextMethod;
+	alias nextMember!("fields") nextField;
+	alias nextMember!("methods") nextMethod;
 
 	// =================================================================================================================
 	// Helpers
@@ -234,7 +216,7 @@ package:
 	template removeValueRef(char[] alloc, char[] slot)
 	{
 		const char[] removeValueRef =
-		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.value.isGCObject()) "
-			~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.value.toGCObject());";
+		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isGCObject()) "
+			~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
 	}
 }

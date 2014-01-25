@@ -511,20 +511,6 @@ package:
 	LocVarDesc[] locVarDescs;
 }
 
-enum Privacy
-{
-	Public,
-	Protected,
-	Private
-}
-
-struct FieldValue
-{
-	CrocValue value;
-	CrocClass* proto;
-	ubyte privacy;
-}
-
 struct CrocClass
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Class);
@@ -533,10 +519,11 @@ package:
 	CrocClass* parent;
 	bool isFrozen;
 	bool visitedOnce;
-	Hash!(CrocString*, FieldValue, true) methods;
-	Hash!(CrocString*, FieldValue, true) fields;
-	FieldValue* constructor;
-	FieldValue* finalizer;
+	Hash!(CrocString*, CrocValue, true) methods;
+	Hash!(CrocString*, CrocValue, true) fields;
+	// Hash!(CrocString*, CrocValue, true) nativeFields;
+	CrocValue* constructor;
+	CrocValue* finalizer;
 }
 
 struct CrocInstance
@@ -545,7 +532,8 @@ struct CrocInstance
 package:
 	CrocClass* parent;
 	bool visitedOnce;
-	Hash!(CrocString*, FieldValue, true) fields;
+	Hash!(CrocString*, CrocValue, true) fields;
+	// Hash!(CrocString*, CrocValue, true) nativeFields;
 }
 
 alias uword AbsStack;

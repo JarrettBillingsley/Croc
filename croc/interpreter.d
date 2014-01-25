@@ -116,9 +116,9 @@ void runFinalizers(CrocThread* t)
 
 		try
 		{
-			push(t, CrocValue(i.parent.finalizer.value));
+			push(t, *i.parent.finalizer);
 			push(t, CrocValue(i));
-			commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, i.parent.finalizer.proto));
+			commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, i.parent));
 		}
 		catch(CrocException e)
 		{
@@ -225,18 +225,6 @@ bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* 
 	}
 }
 
-bool checkAccess(ref FieldValue val, ActRecord* AR)
-{
-	if(val.privacy is Privacy.Public)
-		return true;
-	else if(AR is null)
-		return false;
-	else if(val.privacy is Privacy.Private)
-		return val.proto is AR.proto;
-	else
-		return AR.proto !is null && (val.proto is AR.proto || classobj.derivesFrom(val.proto, AR.proto));
-}
-
 CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocClass* proto)
 {
 	switch(v.type)
@@ -244,12 +232,8 @@ CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocCl
 		case CrocValue.Type.Class:
 			if(auto ret = classobj.getMethod(v.mClass, name))
 			{
-				if(!checkAccess(ret.value, t.currentAR))
-					throwStdException(t, "MethodError", "Attempting to call {} method '{}' from outside class '{}'",
-						ret.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), ret.value.proto.name.toString());
-
-				proto = ret.value.proto;
-				return ret.value.value;
+				proto = v.mClass;
+				return ret.value;
 			}
 			else
 				return CrocValue.nullValue;
@@ -276,12 +260,8 @@ CrocValue getInstanceMethod(CrocThread* t, CrocInstance* inst, CrocString* name,
 {
 	if(auto ret = instance.getMethod(inst, name))
 	{
-		if(!checkAccess(ret.value, t.currentAR))
-			throwStdException(t, "MethodError", "Attempting to call {} method '{}' from outside class '{}'",
-				ret.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), ret.value.proto.name.toString());
-
-		proto = ret.value.proto;
-		return ret.value.value;
+		proto = inst.parent;
+		return ret.value;
 	}
 	else
 		return CrocValue.nullValue;
@@ -413,11 +393,11 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 			{
 				t.nativeCallDepth++;
 				scope(exit) t.nativeCallDepth--;
-				t.stack[slot] = cls.constructor.value.mFunction;
+				t.stack[slot] = cls.constructor.mFunction;
 				t.stack[slot + 1] = inst;
 
 				// do this instead of rawCall so the proto is set correctly
-				if(callPrologue(t, slot, 0, numParams, cls.constructor.proto))
+				if(callPrologue(t, slot, 0, numParams, cls))
 					execute(t);
 			}
 
@@ -1092,11 +1072,7 @@ void fieldImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocString* n
 					throwStdException(t, "FieldError", "Attempting to access nonexistent field '{}' from class '{}'", name.toString(), c.name.toString());
 			}
 
-			if(!checkAccess(v.value, t.currentAR))
-				throwStdException(t, "FieldError", "Attempting to access {} field '{}' from outside class '{}'",
-					v.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), v.value.proto.name.toString());
-
-			return t.stack[dest] = v.value.value;
+			return t.stack[dest] = v.value;
 
 		case CrocValue.Type.Instance:
 			auto i = container.mInstance;
@@ -1115,11 +1091,7 @@ void fieldImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocString* n
 				}
 			}
 
-			if(!checkAccess(v.value, t.currentAR))
-				throwStdException(t, "FieldError", "Attempting to access {} field '{}' from outside class '{}'",
-					v.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), v.value.proto.name.toString());
-
-			return t.stack[dest] = v.value.value;
+			return t.stack[dest] = v.value;
 
 		case CrocValue.Type.Namespace:
 			auto v = namespace.get(container.mNamespace, name);
@@ -1153,19 +1125,9 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 			auto c = t.stack[container].mClass;
 
 			if(auto slot = classobj.getField(c, name))
-			{
-				if(!checkAccess(slot.value, t.currentAR))
-					throwStdException(t, "FieldError", "Attempting to access {} field '{}' from outside class '{}'",
-						slot.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), slot.value.proto.name.toString());
-
 				classobj.setField(t.vm.alloc, c, slot, value);
-			}
 			else if(auto slot = classobj.getMethod(c, name))
 			{
-				if(!checkAccess(slot.value, t.currentAR))
-					throwStdException(t, "FieldError", "Attempting to access {} method '{}' from outside class '{}'",
-						slot.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), slot.value.proto.name.toString());
-
 				if(c.isFrozen)
 					throwStdException(t, "FieldError", "Attempting to change method '{}' in class '{}' after it has been frozen", name.toString(), c.name.toString());
 
@@ -1180,13 +1142,7 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 			auto i = t.stack[container].mInstance;
 
 			if(auto slot = instance.getField(i, name))
-			{
-				if(!checkAccess(slot.value, t.currentAR))
-					throwStdException(t, "FieldError", "Attempting to access {} field '{}' from outside class '{}'",
-						slot.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), slot.value.proto.name.toString());
-
 				instance.setField(t.vm.alloc, i, slot, value);
-			}
 			else if(!raw && tryMM!(3, false)(t, MM.FieldAssign, &t.stack[container], &CrocValue(name), value))
 				return;
 			else
@@ -2266,9 +2222,9 @@ void freezeImpl(CrocThread* t, CrocClass* c)
 
 	if(auto ctor = classobj.getMethod(c, t.vm.ctorString))
 	{
-		if(ctor.value.value.type != CrocValue.Type.Function)
+		if(ctor.value.type != CrocValue.Type.Function)
 		{
-			typeString(t, &ctor.value.value);
+			typeString(t, &ctor.value);
 			throwStdException(t, "TypeError", "Class constructor must be of type 'function', not '{}'", getString(t, -1));
 		}
 
@@ -2277,13 +2233,11 @@ void freezeImpl(CrocThread* t, CrocClass* c)
 
 	if(auto finalizer = classobj.getMethod(c, t.vm.finalizerString))
 	{
-		if(finalizer.value.value.type != CrocValue.Type.Function)
+		if(finalizer.value.type != CrocValue.Type.Function)
 		{
-			typeString(t, &finalizer.value.value);
+			typeString(t, &finalizer.value);
 			throwStdException(t, "TypeError", "Class finalizer must be of type 'function', not '{}'", getString(t, -1));
 		}
-
-		finalizer.value.privacy = Privacy.Private;
 
 		c.finalizer = &finalizer.value;
 	}
@@ -3628,12 +3582,11 @@ void execute(CrocThread* t, uword depth = 1)
 					auto cls = &t.stack[stackBase + rd];
 					mixin(GetRS);
 					mixin(GetRT);
-					auto privacy = cast(ubyte)mixin(GetUImm);
 
 					// should be guaranteed this by codegen
 					assert(cls.type == CrocValue.Type.Class && RS.type == CrocValue.Type.String);
 
-					if(!classobj.addField(t.vm.alloc, cls.mClass, RS.mString, RT, privacy))
+					if(!classobj.addField(t.vm.alloc, cls.mClass, RS.mString, RT))
 					{
 						auto name = RS.mString.toString();
 						auto clsName = cls.mClass.name.toString();
@@ -3645,12 +3598,11 @@ void execute(CrocThread* t, uword depth = 1)
 					auto cls = &t.stack[stackBase + rd];
 					mixin(GetRS);
 					mixin(GetRT);
-					auto privacy = cast(ubyte)mixin(GetUImm);
 
 					// should be guaranteed this by codegen
 					assert(cls.type == CrocValue.Type.Class && RS.type == CrocValue.Type.String);
 
-					if(!classobj.addMethod(t.vm.alloc, cls.mClass, RS.mString, RT, privacy))
+					if(!classobj.addMethod(t.vm.alloc, cls.mClass, RS.mString, RT))
 					{
 						auto name = RS.mString.toString();
 						auto clsName = cls.mClass.name.toString();

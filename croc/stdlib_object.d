@@ -90,7 +90,6 @@ const RegisterFunc[] _globalFuncs =
 	{"methodsOf",    &_methodsOf,    maxParams: 1},
 	{"rawSetField",  &_rawSetField,  maxParams: 3},
 	{"rawGetField",  &_rawGetField,  maxParams: 2},
-	{"memberOwner",  &_memberOwner,  maxParams: 2},
 	{"addMethod",    &_addMethod,    maxParams: 3},
 	{"addField",     &_addField,     maxParams: 3},
 	{"removeMember", &_removeMember, maxParams: 2},
@@ -133,20 +132,16 @@ uword _fieldsOf(CrocThread* t)
 		pop(t, 2);
 
 		CrocString** key = void;
-		FieldValue* value = void;
+		CrocValue* value = void;
 
 		while(classobj.nextField(c, index, key, value))
 		{
-			if(value.privacy is Privacy.Public)
-			{
-				pushInt(t, index);
-				setUpval(t, Idx);
+			pushInt(t, index);
+			setUpval(t, Idx);
 
-				push(t, CrocValue(*key));
-				push(t, value.value);
-				push(t, CrocValue(value.proto));
-				return 3;
-			}
+			push(t, CrocValue(*key));
+			push(t, *value);
+			return 2;
 		}
 
 		return 0;
@@ -161,20 +156,16 @@ uword _fieldsOf(CrocThread* t)
 		pop(t, 2);
 
 		CrocString** key = void;
-		FieldValue* value = void;
+		CrocValue* value = void;
 
 		while(instance.nextField(c, index, key, value))
 		{
-			if(value.privacy is Privacy.Public)
-			{
-				pushInt(t, index);
-				setUpval(t, Idx);
+			pushInt(t, index);
+			setUpval(t, Idx);
 
-				push(t, CrocValue(*key));
-				push(t, value.value);
-				push(t, CrocValue(value.proto));
-				return 3;
-			}
+			push(t, CrocValue(*key));
+			push(t, *value);
+			return 2;
 		}
 
 		return 0;
@@ -208,20 +199,16 @@ uword _methodsOf(CrocThread* t)
 		pop(t, 2);
 
 		CrocString** key = void;
-		FieldValue* value = void;
+		CrocValue* value = void;
 
 		while(classobj.nextMethod(c, index, key, value))
 		{
-			if(value.privacy is Privacy.Public)
-			{
-				pushInt(t, index);
-				setUpval(t, Idx);
+			pushInt(t, index);
+			setUpval(t, Idx);
 
-				push(t, CrocValue(*key));
-				push(t, value.value);
-				push(t, CrocValue(value.proto));
-				return 3;
-			}
+			push(t, CrocValue(*key));
+			push(t, *value);
+			return 2;
 		}
 
 		return 0;
@@ -258,15 +245,6 @@ uword _rawGetField(CrocThread* t)
 	checkStringParam(t, 2);
 	dup(t, 2);
 	field(t, 1, true);
-	return 1;
-}
-
-uword _memberOwner(CrocThread* t)
-{
-	checkAnyParam(t, 1);
-	checkStringParam(t, 2);
-	dup(t, 2);
-	getMemberOwner(t, 1);
 	return 1;
 }
 
@@ -379,22 +357,14 @@ void _bindImpl(CrocThread* t, CrocClass* cls, CrocString* name)
 			cls.name.toString(), name.toString());
 	}
 
-	auto AR = getActRec(t, 1);
-
-	if(!checkAccess(slot.value, AR))
+	if(slot.value.type != CrocValue.Type.Function)
 	{
-		throwStdException(t, "MethodError", "Attempting to bind method '{}' from outside class '{}'",
-			name.toString(), cls.name.toString());
-	}
-
-	if(slot.value.value.type != CrocValue.Type.Function)
-	{
-		push(t, slot.value.value);
+		push(t, slot.value);
 		pushTypeString(t, -1);
 		throwStdException(t, "TypeError", "'{}' is not a function, it is a '{}'", name.toString(), getString(t, -1));
 	}
 
-	auto realMethod = slot.value.value.mFunction;
+	auto realMethod = slot.value.mFunction;
 
 	// Next, check to see if we have this method cached.
 	auto tab = getUpval(t, 0); // [tab]
@@ -430,7 +400,7 @@ void _bindImpl(CrocThread* t, CrocClass* cls, CrocString* name)
 
 	// No cached function: create it anew.
 		push(t, CrocValue(realMethod));
-		push(t, CrocValue(slot.value.proto));
+		push(t, CrocValue(cls));
 	auto newFunc = newFunction(t, &_binder, "binder", 2); // [tab methods newFunc]
 
 	if(isNull(t, methods))
@@ -458,17 +428,7 @@ void _bindImpl(CrocThread* t, CrocClass* cls, CrocString* name)
 uword _bindClassMethod(CrocThread* t)
 {
 	checkParam(t, 1, CrocValue.Type.Class);
-	auto name = checkStringParam(t, 2);
-
-	if(name.startsWith("__"))
-	{
-		pushString(t, nameOf(t, 1));
-		dup(t, 2);
-		cat(t, 2);
-		swap(t, 2);
-		pop(t);
-	}
-
+	checkStringParam(t, 2);
 	_bindImpl(t, getClass(t, 1), getStringObj(t, 2));
 	return 1;
 }
@@ -490,18 +450,7 @@ uword _binderInst(CrocThread* t)
 uword _bindInstMethod(CrocThread* t)
 {
 	checkParam(t, 1, CrocValue.Type.Instance);
-	auto name = checkStringParam(t, 2);
-
-	if(name.startsWith("__"))
-	{
-		superOf(t, 1);
-		pushString(t, nameOf(t, -1));
-		dup(t, 2);
-		cat(t, 2);
-		swap(t, 2);
-		pop(t, 2);
-	}
-
+	checkStringParam(t, 2);
 	_bindImpl(t, getInstance(t, 1).parent, getStringObj(t, 2));
 	dup(t, 1);
 	newFunction(t, &_binderInst, "binderInst", 2);
@@ -576,28 +525,6 @@ z = 30 (Derived)
 	docs:
 	`Gets a field from an instance bypassing any \b{\tt{opField}} metamethods.`},
 
-	{kind: "function", name: "memberOwner",
-	params: [Param("o", "class|instance"), Param("name", "string")],
-	docs:
-	`Gets the class in which the given member (field or method) was defined.
-
-	When you use \link{fieldsOf} or \link{methodsOf}, each field has an associated "owner" which is the class in which
-	that field or method was defined. You can directly access this owner class with this function. For instance,
-
-\code
-class C
-{
-	x = 5
-}
-\endcode
-
-	With this class, \tt{object.memberOwner(C, "x")} returns \tt{C} itself, as this is the class in which \tt{"x"} was
-	defined.
-
-	\param[o] is the class or instance in which to look.
-	\param[name] is the name of the field whose owner is to be retrieved.
-	\returns the class in which the given field was defined.`},
-
 	{kind: "function", name: "addMethod",
 	params: [Param("cls", "class"), Param("name", "string"), Param("func", "function")],
 	docs:
@@ -665,6 +592,7 @@ function bindInstMethod(inst: instance, name: string)
 	{
 		return boundFunc(with inst, vararg)
 	}
+}
 \endcode
 
 	That is, it just uses \link{bindClassMethod} to get a bound class method, and then returns a closure that will call

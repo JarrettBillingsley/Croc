@@ -204,16 +204,14 @@ static:
 
 		uword index = 0;
 		CrocString** key = void;
-		FieldValue* value = void;
+		CrocValue* value = void;
 
 		_integer(t, v.methods.length);
 
 		while(classobj.nextMethod(v, index, key, value))
 		{
 			_serialize(t, *key);
-			_serialize(t, value.value);
-			_serialize(t, value.proto);
-			_writeUInt8(t, cast(ubyte)value.privacy);
+			_serialize(t, *value);
 		}
 
 		_integer(t, v.fields.length);
@@ -222,9 +220,7 @@ static:
 		while(classobj.nextField(v, index, key, value))
 		{
 			_serialize(t, *key);
-			_serialize(t, value.value);
-			_serialize(t, value.proto);
-			_writeUInt8(t, cast(ubyte)value.privacy);
+			_serialize(t, *value);
 		}
 
 		return 0;
@@ -236,16 +232,14 @@ static:
 
 		uword index = 0;
 		CrocString** key = void;
-		FieldValue* value = void;
+		CrocValue* value = void;
 
 		_integer(t, v.fields.length);
 
 		while(instance.nextField(v, index, key, value))
 		{
 			_serialize(t, *key);
-			_serialize(t, value.value);
-			_serialize(t, value.proto);
-			_writeUInt8(t, cast(ubyte)value.privacy);
+			_serialize(t, *value);
 		}
 
 		return 0;
@@ -759,20 +753,14 @@ static:
 		{
 			auto name = _deserializeString(t);
 			_deserialize(t);
-			_deserializeObj(t, "_deserializeClass");
-			auto proto = getClass(t, -1); assert(proto !is null);
-			auto privacy = _readUInt8(t);
 
-			if(privacy > Privacy.max)
-				throwStdException(t, "ValueError", "Malformed data (garbage for method privacy)");
-
-			if(!classobj.forceAddMethod(t.vm.alloc, v, name, getValue(t, -2), proto, privacy))
+			if(!classobj.addMethod(t.vm.alloc, v, name, getValue(t, -1)))
 			{
 				throwStdException(t, "ValueError", "Malformed data (class {} already has a method '{}')",
 					v.name.toString(), name.toString());
 			}
 
-			pop(t, 2);
+			pop(t);
 		}
 
 		auto numFields = _length(t);
@@ -781,20 +769,14 @@ static:
 		{
 			auto name = _deserializeString(t);
 			_deserialize(t);
-			_deserializeObj(t, "_deserializeClass");
-			auto proto = getClass(t, -1); assert(proto !is null);
-			auto privacy = _readUInt8(t);
 
-			if(privacy > Privacy.max)
-				throwStdException(t, "ValueError", "Malformed data (garbage for field privacy)");
-
-			if(!classobj.forceAddField(t.vm.alloc, v, name, getValue(t, -2), proto, privacy))
+			if(!classobj.addField(t.vm.alloc, v, name, getValue(t, -1)))
 			{
 				throwStdException(t, "ValueError", "Malformed data (class {} already has a field '{}')",
 					v.name.toString(), name.toString());
 			}
 
-			pop(t, 2);
+			pop(t);
 		}
 
 		if(_readUInt8(t) != 0)
@@ -847,12 +829,6 @@ static:
 			{
 				auto name = _deserializeString(t);
 				_deserialize(t);
-				_deserializeObj(t, "_deserializeClass");
-				auto proto = getClass(t, -1); assert(proto !is null);
-				auto privacy = _readUInt8(t);
-
-				if(privacy > Privacy.max)
-					throwStdException(t, "ValueError", "Malformed data (garbage for field privacy)");
 
 				auto slot = instance.getField(v, name);
 
@@ -862,12 +838,8 @@ static:
 						name.toString(), parent.name.toString());
 				}
 
-				if(slot.value.proto !is proto || slot.value.privacy !is privacy)
-					throwStdException(t, "ValueError", "Malformed data (invalid instance field value)");
-
-				instance.setField(t.vm.alloc, v, slot, getValue(t, -2));
-
-				pop(t, 2);
+				instance.setField(t.vm.alloc, v, slot, getValue(t, -1));
+				pop(t);
 			}
 		}
 

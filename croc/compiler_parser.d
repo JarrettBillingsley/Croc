@@ -918,12 +918,7 @@ public:
 
 		void addField(Identifier name, Expression v, bool isMethod, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			auto privacy = getFieldPrivacy(name.name);
-
-			if(privacy is Privacy.Private)
-				fields ~= Field(makePrivateFieldName(className.name, name.name), v, cast(ubyte)privacy, isMethod);
-			else
-				fields ~= Field(name.name, v, cast(ubyte)privacy, isMethod);
+			fields ~= Field(name.name, v, isMethod);
 
 			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
 			auto tmp = fields[fields.length - 1];
@@ -2788,10 +2783,6 @@ public:
 		{
 			endLoc = l.loc;
 			auto name = parseName();
-
-			if(mCurrentClassName !is null && isPrivateFieldName(name))
-				name = makePrivateFieldName(mCurrentClassName, name);
-
 			return new(c) DotExp(new(c) ThisExp(loc), new(c) StringExp(endLoc, name));
 		}
 	}
@@ -2818,10 +2809,6 @@ public:
 					{
 						auto loc = l.loc;
 						auto name = parseName();
-
-						if(mCurrentClassName !is null && isPrivateFieldName(name))
-							name = makePrivateFieldName(mCurrentClassName, name);
-
 						exp = new(c) DotExp(exp, new(c) StringExp(loc, name));
 					}
 					else if(l.type == Token.Super)
@@ -3149,31 +3136,6 @@ import tango.io.Stdout;
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
 		return new(c) Identifier(loc, str);
-	}
-
-	Privacy getFieldPrivacy(char[] name)
-	{
-		if(name.startsWith("__"))
-			return Privacy.Private;
-		else if(name.startsWith("_"))
-			return Privacy.Protected;
-		else
-			return Privacy.Public;
-	}
-
-	bool isPrivateFieldName(char[] name)
-	{
-		return getFieldPrivacy(name) == Privacy.Private;
-	}
-
-	char[] makePrivateFieldName(char[] className, char[] fieldName)
-	{
-		pushString(c.thread, className);
-		pushString(c.thread, fieldName);
-		cat(c.thread, 2);
-		auto ret = c.newString(getString(c.thread, -1));
-		pop(c.thread);
-		return ret;
 	}
 
 	void attachDocs(T)(T t, char[] preDocs, CompileLoc preDocsLoc)

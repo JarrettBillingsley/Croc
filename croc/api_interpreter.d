@@ -2310,30 +2310,15 @@ private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
 	}
 
 	auto name = getStringObj(t, -2);
-	auto nameStr = name.toString();
-	ubyte privacy = cast(ubyte)Privacy.Public;
-
-	if(nameStr.startsWith("__"))
-	{
-		privacy = cast(ubyte)Privacy.Private;
-		push(t, CrocValue(c.name));
-		push(t, CrocValue(name));
-		cat(t, 2);
-		swap(t, -3);
-		pop(t);
-		name = getStringObj(t, -2);
-	}
-	else if(nameStr.startsWith("_"))
-		privacy = cast(ubyte)Privacy.Protected;
 
 	if(isMethod)
 	{
-		if(!classobj.addMethod(t.vm.alloc, c, name, getValue(t, -1), privacy))
+		if(!classobj.addMethod(t.vm.alloc, c, name, getValue(t, -1)))
 			throwStdException(t, "FieldError", __FUNCTION__ ~ " - Attempting to add a method '{}' which already exists to class '{}'", name.toString(), c.name.toString());
 	}
 	else
 	{
-		if(!classobj.addField(t.vm.alloc, c, name, getValue(t, -1), privacy))
+		if(!classobj.addField(t.vm.alloc, c, name, getValue(t, -1)))
 			throwStdException(t, "FieldError", __FUNCTION__ ~ " - Attempting to add a field '{}' which already exists to class '{}'", name.toString(), c.name.toString());
 	}
 
@@ -2424,54 +2409,6 @@ bool isClassFrozen(CrocThread* t, word cls)
 		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 		assert(false);
 	}
-}
-
-/**
-Given a class cls and the _name of a member, pushes the owner of that member (that is, the class in which it was
-defined).
-
-Returns:
-	The stack index of the pushed class.
-*/
-word getMemberOwner(CrocThread* t, word cls, char[] name)
-{
-	auto c = absIndex(t, cls);
-	pushString(t, name);
-	return getMemberOwner(t, c);
-}
-
-/**
-Same as above, but expects the name to be on top of the stack. The name is popped and the class is pushed in its place.
-*/
-word getMemberOwner(CrocThread* t, word cls)
-{
-	mixin(apiCheckNumParams!("1"));
-
-	if(!isClass(t, cls))
-	{
-		pushTypeString(t, cls);
-		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
-	}
-
-	if(!isString(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Member name must be a string, not a '{}'", getString(t, -1));
-	}
-
-	auto c = getClass(t, cls);
-	auto name = getStringObj(t, -1);
-
-	if(auto slot = classobj.getField(c, name))
-		push(t, CrocValue(slot.value.proto));
-	else if(auto slot = classobj.getMethod(c, name))
-		push(t, CrocValue(slot.value.proto));
-	else
-		throwStdException(t, "FieldError", __FUNCTION__ ~ " - No member named '{}' exists in class '{}'", name.toString(), c.name.toString());
-
-	swap(t);
-	pop(t);
-	return stackSize(t) - 1;
 }
 
 // ================================================================================================================================================
