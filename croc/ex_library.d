@@ -247,6 +247,17 @@ public:
 	{
 		addField(t, idx, name);
 	}
+
+	/**
+	Adds a hidden field to the class. Expects the hidden field's value to be on top of the stack.
+
+	Params:
+		name = The name of the hidden field.
+	*/
+	void hfield(char[] name)
+	{
+		addHiddenField(t, idx, name);
+	}
 }
 
 /**
