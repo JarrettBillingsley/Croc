@@ -585,7 +585,7 @@ void _popEvent(CrocThread* t, ref SDL_Event ev)
 			return;
 
 		default:
-			throwStdException(t, "ValueException", "Invalid event name: '{}'", name);
+			throwStdException(t, "ValueError", "Invalid event name: '{}'", name);
 	}
 }
 
@@ -839,7 +839,7 @@ static:
 		pop(t);
 
 		if(ret is null)
-			throwStdException(t, "StateException", "Attempting to call a method on a freed surface");
+			throwStdException(t, "StateError", "Attempting to call a method on a freed surface");
 
 		return ret;
 	}
@@ -863,7 +863,7 @@ static:
 			}
 		}
 
-		throwStdException(t, "StateException", "Attempting to instantiate SdlSurface directly; use sdl.image.load");
+		throwStdException(t, "StateError", "Attempting to instantiate SdlSurface directly; use sdl.image.load");
 		assert(false);
 	}
 

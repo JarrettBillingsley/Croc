@@ -135,7 +135,6 @@ const RegisterFunc[] _deserializeFuncs =
 const Code =
 `module serialization
 
-import exceptions: ValueException, TypeException
 import stream: InStream, OutStream, BinaryStream
 import math: intMin, intSize, floatSize
 import text
@@ -193,10 +192,10 @@ function deserializeGraph(transients: table|instance, input: @InStream) =
 function serializeModule(mod: funcdef, name: string, output: @OutStream)
 {
 	if(!mod.isCacheable())
-		throw ValueException("Only cacheable funcdefs can be serialized as modules")
+		throw ValueError("Only cacheable funcdefs can be serialized as modules")
 
 	if(mod.isCached())
-		throw ValueException("Only uncached funcdefs can be serialized as modules")
+		throw ValueError("Only uncached funcdefs can be serialized as modules")
 
 	output.writeExact(ModuleFourCC)
 
@@ -215,19 +214,19 @@ function deserializeModule(input: @InStream)
 	input.readExact(_littleBuf)
 
 	if(_littleBuf != ModuleFourCC)
-		throw ValueException("Invalid magic number at beginning of module")
+		throw ValueError("Invalid magic number at beginning of module")
 
 	local trans = {}
 
 	local ret = deserializeGraph(trans, input)
 
 	if(!isArray(ret) || #ret != 2 || !isString(ret[0]) || !isFuncDef(ret[1]))
-		throw ValueException("Data deserialized from module is not in the proper format")
+		throw ValueError("Data deserialized from module is not in the proper format")
 
 	local name, mod = ret.expand()
 
 	if(!mod.isCacheable() || mod.isCached()) // somehow...? just to be sure.
-		throw ValueException("Data deserialized from module has an invalid funcdef")
+		throw ValueError("Data deserialized from module has an invalid funcdef")
 
 	return mod, name
 }
@@ -267,7 +266,7 @@ class Serializer
 	function writeGraph(val, transients: table|instance)
 	{
 		if(val is transients)
-			throw ValueException("Object to serialize is the same as the transients table")
+			throw ValueError("Object to serialize is the same as the transients table")
 
 		:__trans = transients
 		:__objTable = {}
@@ -351,7 +350,7 @@ class Serializer
 	}
 
 	function _serializeNativeobj(v)
-		throw TypeException("Attempting to serialize a nativeobj. Please use the transients table.")
+		throw TypeError("Attempting to serialize a nativeobj. Please use the transients table.")
 
 	function _serializeString(v)
 	{
@@ -441,7 +440,7 @@ class Serializer
 			return
 
 		if(!v.ownData())
-			throw ValueException("Attempting to serialize a memblock which does not own its data")
+			throw ValueError("Attempting to serialize a memblock which does not own its data")
 
 		:_tag(TypeTags["memblock"])
 		:_integer(#v)
@@ -454,7 +453,7 @@ class Serializer
 			return
 
 		if(v.isNative())
-			throw ValueException("Attempting to serialize a native function '{}'".format(nameOf(v)))
+			throw ValueError("Attempting to serialize a native function '{}'".format(nameOf(v)))
 
 		:_tag(TypeTags["function"])
 		:_nativeSerializeFunction(v)
@@ -479,7 +478,7 @@ class Serializer
 
 		// TODO: relax the finalizer restriction, since finalizers aren't "native-only" any more
 		if(object.isFrozen(v) && object.finalizable(v))
-			throw ValueException("Attempting to serialize class '{}' which has a finalizer".format(nameOf(v)))
+			throw ValueError("Attempting to serialize class '{}' which has a finalizer".format(nameOf(v)))
 
 		if(v.super)
 		{
@@ -515,19 +514,19 @@ class Serializer
 			else if(isBool(s))
 			{
 				if(!s)
-					throw ValueException("Attempting to serialize '{}' whose opSerialize field is false".format(rawToString(v)))
+					throw ValueError("Attempting to serialize '{}' whose opSerialize field is false".format(rawToString(v)))
 				// fall out, serialize literally
 			}
 			else
 			{
-				throw TypeException("Attempting to serialize '{}' whose opSerialize field is '{}', not bool or function".format(
+				throw TypeError("Attempting to serialize '{}' whose opSerialize field is '{}', not bool or function".format(
 					rawToString(v), typeof(s)))
 			}
 		}
 
 		// TODO: relax the finalizer restriction, since finalizers aren't "native-only" any more
 		if(object.finalizable(v))
-			throw ValueException("Attempting to serialize '{}' which has a finalizer".format(rawToString(v)))
+			throw ValueError("Attempting to serialize '{}' which has a finalizer".format(rawToString(v)))
 
 		:__output.writeUInt8(0)
 		:_nativeSerializeInstance(v)
@@ -599,13 +598,13 @@ class Deserializer
 		local endian = :__input.readUInt8()
 
 		if(endian != Endianness)
-			throw ValueException("Data was serialized with a different endianness")
+			throw ValueError("Data was serialized with a different endianness")
 
 		local bits = :_integer()
 
 		if(bits != PlatformBits)
 		{
-			throw ValueException(
+			throw ValueError(
 				"Data was serialized on a {}-bit platform; this is a {}-bit platform".format(bits, PlatformBits))
 		}
 
@@ -613,7 +612,7 @@ class Deserializer
 
 		if(size != intSize)
 		{
-			throw ValueException(
+			throw ValueError(
 				"Data was serialized from a Croc build with {}-bit ints; this build has {}-bit ints".format(size, intSize))
 		}
 
@@ -621,14 +620,14 @@ class Deserializer
 
 		if(size != floatSize)
 		{
-			throw ValueException(
+			throw ValueError(
 				"Data was serialized from a Croc build with {}-bit floats; this build has {}-bit floats".format(size, floatSize))
 		}
 
 		local version = :_integer()
 
 		if(version != SerialVersion)
-			throw ValueException("Data was serialized from a Croc build with a different serial data format")
+			throw ValueError("Data was serialized from a Croc build with a different serial data format")
 	}
 
 	function _integer()
@@ -641,7 +640,7 @@ class Deserializer
 		while(true)
 		{
 			if(shift >= IntBitSize)
-				throw ValueException("Malformed data (overlong integer)")
+				throw ValueError("Malformed data (overlong integer)")
 
 			b = i.readUInt8()
 			ret |= (b & 0x7F) << shift
@@ -662,7 +661,7 @@ class Deserializer
 		local ret = :_integer()
 
 		if(ret < 0 || ret > 0xFFFFFFFF)
-			throw ValueException("Malformed data (length field has a value of {})".format(ret))
+			throw ValueError("Malformed data (length field has a value of {})".format(ret))
 
 		return ret
 	}
@@ -680,9 +679,9 @@ class Deserializer
 			local r = RevTypeTags[read]
 
 			if(r is null)
-				throw ValueException("Malformed data (expected type '{}' but found garbage instead)".format(w))
+				throw ValueError("Malformed data (expected type '{}' but found garbage instead)".format(w))
 			else
-				throw ValueException("Malformed data (expected type '{}' but found '{}' instead)".format(w, r))
+				throw ValueError("Malformed data (expected type '{}' but found '{}' instead)".format(w, r))
 		}
 	}
 
@@ -703,13 +702,13 @@ class Deserializer
 			local r = RevTypeTags[t]
 
 			if(r is null)
-				throw ValueException("Malformed data (expected object of type '{}' but found garbage instead)".format(w))
+				throw ValueError("Malformed data (expected object of type '{}' but found garbage instead)".format(w))
 			else
-				throw ValueException("Malformed data (expected object of type '{}' but found '{}' instead)".format(r))
+				throw ValueError("Malformed data (expected object of type '{}' but found '{}' instead)".format(r))
 		}
 
 		if(typeof(val) !is w)
-			throw ValueException("Malformed data (expected type '{}' but found a backref to type '{}' instead)".format(w, typeof(val)))
+			throw ValueError("Malformed data (expected type '{}' but found a backref to type '{}' instead)".format(w, typeof(val)))
 
 		return val
 	}
@@ -734,7 +733,7 @@ class Deserializer
 				return :(DeserializeMethods[wanted])()
 		}
 		else
-			throw ValueException("Invalid requested type '{}'".format(type))
+			throw ValueError("Invalid requested type '{}'".format(type))
 	}
 
 	function _deserialize()
@@ -742,7 +741,7 @@ class Deserializer
 		local method = DeserializeMethods[:_tag()]
 
 		if(method is null)
-			throw ValueException("Malformed data (invalid type tag)")
+			throw ValueError("Malformed data (invalid type tag)")
 
 		return :(method)()
 	}
@@ -753,7 +752,7 @@ class Deserializer
 		local ret = :__trans[key]
 
 		if(ret is null)
-			throw ValueException("Malformed data or invalid transient table (transient key {r} does not exist)".format(key))
+			throw ValueError("Malformed data or invalid transient table (transient key {r} does not exist)".format(key))
 
 		return ret
 	}
@@ -763,7 +762,7 @@ class Deserializer
 		local idx = :_integer()
 
 		if(idx < 0 || idx >= #:__objTable)
-			throw ValueException("Malformed data (invalid back-reference)")
+			throw ValueError("Malformed data (invalid back-reference)")
 
 		return :__objTable[idx]
 	}

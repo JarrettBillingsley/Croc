@@ -90,18 +90,18 @@ InternetAddress _getAddr(CrocThread* t, word slot)
 	auto port = checkIntParam(t, slot + 1);
 
 	if(port < 0 || port > ushort.max)
-		throwStdException(t, "RangeException", "Invalid port number: {}", port);
+		throwStdException(t, "RangeError", "Invalid port number: {}", port);
 
 	if(isString(t, slot))
-		return safeCode(t, "ValueException", new InternetAddress(getString(t, slot), cast(ushort)port));
+		return safeCode(t, "ValueError", new InternetAddress(getString(t, slot), cast(ushort)port));
 	else if(isInt(t, slot))
 	{
 		auto ip = getInt(t, slot);
 
 		if(ip < 0 || ip > uint.max)
-			throwStdException(t, "RangeException", "Invalid IP address: {}", ip);
+			throwStdException(t, "RangeError", "Invalid IP address: {}", ip);
 
-		return safeCode(t, "ValueException", new InternetAddress(cast(uint)ip, cast(ushort)port));
+		return safeCode(t, "ValueError", new InternetAddress(cast(uint)ip, cast(ushort)port));
 	}
 	else
 		paramTypeError(t, slot, "int|string");
@@ -128,7 +128,7 @@ uword _listen(CrocThread* t)
 	auto reuse = optBoolParam(t, 4, false);
 
 	if(backlog < 1)
-		throwStdException(t, "RangeException", "Invalid backlog: {}", backlog);
+		throwStdException(t, "RangeError", "Invalid backlog: {}", backlog);
 
 	auto socket = safeCode(t, "NetException", new ServerSocket(addr, cast(int)backlog, reuse));
 
@@ -174,7 +174,7 @@ static:
 		field(t, 0, Closed);
 
 		if(getBool(t, -1))
-			throwStdException(t, "StateException", "Attempting to perform operation on a closed socket");
+			throwStdException(t, "StateError", "Attempting to perform operation on a closed socket");
 
 		pop(t);
 	}
@@ -198,7 +198,7 @@ static:
 		field(t, 0, Socket);
 
 		if(!isNull(t, -1))
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Socket");
+			throwStdException(t, "StateError", "Attempting to call constructor on an already-initialized Socket");
 
 		pop(t);
 
@@ -206,7 +206,7 @@ static:
 		auto socket = cast(.Socket)getNativeObj(t, 1);
 
 		if(socket is null)
-			throwStdException(t, "ValueException", "instances of Socket may only be created using instances of the Tango Socket class");
+			throwStdException(t, "ValueError", "instances of Socket may only be created using instances of the Tango Socket class");
 
 		dup(t, 1);
 		fielda(t, 0, Socket);
@@ -232,10 +232,10 @@ static:
 		auto _size = optIntParam(t, 3, _len - _offset);
 
 		if(_offset < 0 || _offset > _len)
-			throwStdException(t, "BoundsException", "Invalid offset {} in memblock of size {}", _offset, _len);
+			throwStdException(t, "BoundsError", "Invalid offset {} in memblock of size {}", _offset, _len);
 
 		if(_size < 0 || _size > _len - _offset)
-			throwStdException(t, "BoundsException", "Invalid size {} in memblock of size {} starting from offset {}", _size, _len, _offset);
+			throwStdException(t, "BoundsError", "Invalid size {} in memblock of size {} starting from offset {}", _size, _len, _offset);
 
 		auto offset = cast(uword)_offset;
 		auto size = cast(uword)_size;
@@ -271,10 +271,10 @@ static:
 		auto _size = optIntParam(t, 3, _len - _offset);
 
 		if(_offset < 0 || _offset > _len)
-			throwStdException(t, "BoundsException", "Invalid offset {} in memblock of size {}", _offset, _len);
+			throwStdException(t, "BoundsError", "Invalid offset {} in memblock of size {}", _offset, _len);
 
 		if(_size < 0 || _size > _len - _offset)
-			throwStdException(t, "BoundsException", "Invalid size {} in memblock of size {} starting from offset {}", _size, _len, _offset);
+			throwStdException(t, "BoundsError", "Invalid size {} in memblock of size {} starting from offset {}", _size, _len, _offset);
 
 		auto offset = cast(uword)_offset;
 		auto size = cast(uword)_size;
@@ -379,7 +379,7 @@ static:
 		field(t, 0, Closed);
 
 		if(getBool(t, -1))
-			throwStdException(t, "StateException", "Attempting to perform operation on a closed socket");
+			throwStdException(t, "StateError", "Attempting to perform operation on a closed socket");
 
 		pop(t);
 	}
@@ -403,7 +403,7 @@ static:
 		field(t, 0, Socket);
 
 		if(!isNull(t, -1))
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Socket");
+			throwStdException(t, "StateError", "Attempting to call constructor on an already-initialized Socket");
 
 		pop(t);
 
@@ -411,7 +411,7 @@ static:
 		auto socket = cast(.Socket)getNativeObj(t, 1);
 
 		if(socket is null)
-			throwStdException(t, "ValueException", "instances of Socket may only be created using instances of the Tango Socket class");
+			throwStdException(t, "ValueError", "instances of Socket may only be created using instances of the Tango Socket class");
 
 		dup(t, 1);
 		fielda(t, 0, Socket);

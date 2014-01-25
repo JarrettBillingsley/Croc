@@ -373,16 +373,16 @@ static:
 		auto v = getThread(t, 1);
 
     	if(t is v)
-    		throwStdException(t, "ValueException", "Attempting to serialize the currently-executing thread");
+    		throwStdException(t, "ValueError", "Attempting to serialize the currently-executing thread");
 
 		if(v.nativeCallDepth > 0)
 		{
-			throwStdException(t, "ValueException",
+			throwStdException(t, "ValueError",
 				"Attempting to serialize a thread with at least one native or metamethod call on its call stack");
 		}
 
 		if(v.hookFunc !is null)
-			throwStdException(t, "ValueException", "Attempting to serialize a thread with a debug hook function");
+			throwStdException(t, "ValueError", "Attempting to serialize a thread with a debug hook function");
 
 		_writeUInt8(t, cast(ubyte)v.shouldHalt);
 		_integer(t, v.state);
@@ -404,14 +404,14 @@ static:
 	{
 		if(!isValidIndex(t, 1))
 		{
-			throwStdException(t, "ParamException",
+			throwStdException(t, "ParamError",
 				"Too few parameters (expected at least {}, got {})", 1, stackSize(t) - 1);
 		}
 
 		auto uv = *getValue(t, 1);
 
 		if(uv.type != CrocValue.Type.Upvalue)
-			throwStdException(t, "TypeException", "Expected upvalue for parameter");
+			throwStdException(t, "TypeError", "Expected upvalue for parameter");
 
 		dup(t, 0);
 		pushNull(t);
@@ -458,14 +458,14 @@ static:
 	{
 		if(!isValidIndex(t, 1))
 		{
-			throwStdException(t, "ParamException",
+			throwStdException(t, "ParamError",
 				"Too few parameters (expected at least {}, got {})", 1, stackSize(t) - 1);
 		}
 
 		if(!isTable(t, 1) && !isInstance(t, 1))
 		{
 			pushTypeString(t, 1);
-			throwStdException(t, "TypeException",
+			throwStdException(t, "TypeError",
 				"Expected type 'table|instance' for parameter 1, not '{}'", getString(t, -1));
 		}
 
@@ -764,11 +764,11 @@ static:
 			auto privacy = _readUInt8(t);
 
 			if(privacy > Privacy.max)
-				throwStdException(t, "ValueException", "Malformed data (garbage for method privacy)");
+				throwStdException(t, "ValueError", "Malformed data (garbage for method privacy)");
 
 			if(!classobj.forceAddMethod(t.vm.alloc, v, name, getValue(t, -2), proto, privacy))
 			{
-				throwStdException(t, "ValueException", "Malformed data (class {} already has a method '{}')",
+				throwStdException(t, "ValueError", "Malformed data (class {} already has a method '{}')",
 					v.name.toString(), name.toString());
 			}
 
@@ -786,11 +786,11 @@ static:
 			auto privacy = _readUInt8(t);
 
 			if(privacy > Privacy.max)
-				throwStdException(t, "ValueException", "Malformed data (garbage for field privacy)");
+				throwStdException(t, "ValueError", "Malformed data (garbage for field privacy)");
 
 			if(!classobj.forceAddField(t.vm.alloc, v, name, getValue(t, -2), proto, privacy))
 			{
-				throwStdException(t, "ValueException", "Malformed data (class {} already has a field '{}')",
+				throwStdException(t, "ValueError", "Malformed data (class {} already has a field '{}')",
 					v.name.toString(), name.toString());
 			}
 
@@ -809,7 +809,7 @@ static:
 		auto size = _length(t);
 
 		if(size < CrocInstance.sizeof || size >= (1 << 20)) // 1MB should be a reasonably insane upper bound :P
-			throwStdException(t, "ValueException", "Malformed data (invalid instance size)");
+			throwStdException(t, "ValueError", "Malformed data (invalid instance size)");
 
 		auto v = instance.createPartial(t.vm.alloc, size, false); // always false for now, might change later
 		_addObject(t, cast(CrocBaseObject*)v);
@@ -818,10 +818,10 @@ static:
 		auto parent = getClass(t, -1); assert(parent !is null);
 
 		if(!parent.isFrozen)
-			throwStdException(t, "ValueException", "Malformed data (instance of an unfrozen class somehow exists)");
+			throwStdException(t, "ValueError", "Malformed data (instance of an unfrozen class somehow exists)");
 
 		if(!instance.finishCreate(v, parent))
-			throwStdException(t, "ValueException", "Malformed data (instance size does not match base class size)");
+			throwStdException(t, "ValueError", "Malformed data (instance size does not match base class size)");
 
 		if(_readUInt8(t) != 0)
 		{
@@ -830,7 +830,7 @@ static:
 			if(!hasMethod(t, -1, "opDeserialize"))
 			{
 				pushToString(t, -1, true);
-				throwStdException(t, "ValueException",
+				throwStdException(t, "ValueError",
 					"'{}' was serialized with opSerialize, but does not have a matching opDeserialize", getString(t, -1));
 			}
 
@@ -852,18 +852,18 @@ static:
 				auto privacy = _readUInt8(t);
 
 				if(privacy > Privacy.max)
-					throwStdException(t, "ValueException", "Malformed data (garbage for field privacy)");
+					throwStdException(t, "ValueError", "Malformed data (garbage for field privacy)");
 
 				auto slot = instance.getField(v, name);
 
 				if(slot is null)
 				{
-					throwStdException(t, "ValueException", "Malformed data (no field '{}' in instance of class '{}')",
+					throwStdException(t, "ValueError", "Malformed data (no field '{}' in instance of class '{}')",
 						name.toString(), parent.name.toString());
 				}
 
 				if(slot.value.proto !is proto || slot.value.privacy !is privacy)
-					throwStdException(t, "ValueException", "Malformed data (invalid instance field value)");
+					throwStdException(t, "ValueError", "Malformed data (invalid instance field value)");
 
 				instance.setField(t.vm.alloc, v, slot, getValue(t, -2));
 
@@ -880,7 +880,7 @@ static:
 		auto ret = _length(t);
 
 		if(ret >= max)
-			throwStdException(t, "ValueException", "Malformed data ({})", msg);
+			throwStdException(t, "ValueError", "Malformed data ({})", msg);
 
 		return ret;
 	}
@@ -929,7 +929,7 @@ static:
 		rec.numReturns = cast(word)_integer(t);
 
 		if(rec.numReturns < -1 || rec.numReturns > 100_000)
-			throwStdException(t, "ValueException", "Malformed data (invalid call record number of returns)");
+			throwStdException(t, "ValueError", "Malformed data (invalid call record number of returns)");
 
 		if(_readUInt8(t))
 		{
@@ -944,12 +944,12 @@ static:
 		rec.firstResult = _length(t);
 
 		if(ret.resultIndex > 0 && rec.firstResult >= ret.resultIndex)
-			throwStdException(t, "ValueException", "Malformed data (invalid call record result index)");
+			throwStdException(t, "ValueError", "Malformed data (invalid call record result index)");
 
 		rec.numResults = _length(t);
 
 		if(rec.numResults > 0 && rec.numResults > (ret.resultIndex - rec.firstResult))
-			throwStdException(t, "ValueException", "Malformed data (invalid call record number of results)");
+			throwStdException(t, "ValueError", "Malformed data (invalid call record number of results)");
 
 		rec.unwindCounter = _length(t); // check later
 
@@ -974,7 +974,7 @@ static:
 
 			// base_i <= base_(i + 1)
 			if(ar.base > nextBase)
-				throwStdException(t, "ValueException", "invalid call record base slot");
+				throwStdException(t, "ValueError", "invalid call record base slot");
 
 			// base_(i-1) <= returnSlot_i < base_(i + 1)
 			// TODO: determine if this is actually true :P
@@ -1023,7 +1023,7 @@ static:
 			auto func = ret.actRecs[rec.actRecord].func;
 
 			if(func is null || func.isNative)
-				throwStdException(t, "ValueException", "Malformed data (invalid thread EH frame call record index)");
+				throwStdException(t, "ValueError", "Malformed data (invalid thread EH frame call record index)");
 
 			auto diff = _limitedSize(t, func.scriptFunc.code.length, "invalid thread EH frame instruction pointer");
 			rec.pc = func.scriptFunc.code.ptr + diff;
@@ -1052,7 +1052,7 @@ static:
 			auto func = getFunction(t, -1);
 
 			if(func.isNative)
-				throwStdException(t, "ValueException", "Malformed data (invalid thread coroutine function)");
+				throwStdException(t, "ValueError", "Malformed data (invalid thread coroutine function)");
 
 			ret.coroFunc = func;
 			pop(t);
@@ -1079,7 +1079,7 @@ static:
 			uv.value = ret.stack.ptr + diff;
 
 			if(cur && uv.value <= cur.value)
-				throwStdException(t, "ValueException", "Malformed data (invalid thread upval list)");
+				throwStdException(t, "ValueError", "Malformed data (invalid thread upval list)");
 
 			*next = uv;
 			next = &uv.nextuv;
@@ -1099,7 +1099,7 @@ static:
 		auto state = _limitedSize(t, CrocThread.State.max + 1, "invalid thread state");
 
 		if(state == CrocThread.State.Running)
-			throwStdException(t, "ValueException", "Malformed data (invalid thread state)");
+			throwStdException(t, "ValueError", "Malformed data (invalid thread state)");
 
 		ret.state = cast(CrocThread.State)state;
 
@@ -1124,7 +1124,7 @@ static:
 		_addObject(t, cast(CrocBaseObject*)uv);
 		_deserialize(t);
 
-		throwStdException(t, "ValueException", "Wangs!");
+		throwStdException(t, "ValueError", "Wangs!");
 		uv.closedValue = *getValue(t, -1);
 		push(t, CrocValue(cast(CrocBaseObject*)uv));
 		return 1;

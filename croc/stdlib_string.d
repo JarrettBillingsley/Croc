@@ -166,7 +166,7 @@ uword _join(CrocThread* t)
 		if(val.value.type == CrocValue.Type.String)
 			totalLen += val.value.mString.length;
 		else
-			throwStdException(t, "TypeException", "Array element {} is not a string", i);
+			throwStdException(t, "TypeError", "Array element {} is not a string", i);
 	}
 
 	totalLen += sep.length * (arr.length - 1);
@@ -240,13 +240,13 @@ uword _toInt(CrocThread* t)
 	if(numParams > 0)
 		base = cast(int)getInt(t, 1);
 
-	pushInt(t, safeCode(t, "exceptions.ValueException", Integer_toInt(src, base)));
+	pushInt(t, safeCode(t, "exceptions.ValueError", Integer_toInt(src, base)));
 	return 1;
 }
 
 uword _toFloat(CrocThread* t)
 {
-	pushFloat(t, safeCode(t, "exceptions.ValueException", Float_toFloat(checkStringParam(t, 0))));
+	pushFloat(t, safeCode(t, "exceptions.ValueError", Float_toFloat(checkStringParam(t, 0))));
 	return 1;
 }
 
@@ -260,7 +260,7 @@ uword _ord(CrocThread* t)
 		idx += length;
 
 	if(idx < 0 || idx >= length)
-		throwStdException(t, "BoundsException", "Invalid index {} (string length: {})", idx, length);
+		throwStdException(t, "BoundsError", "Invalid index {} (string length: {})", idx, length);
 
 	pushInt(t, utf8CharAt(s, cast(uword)idx));
 	return 1;
@@ -291,7 +291,7 @@ uword _commonFind(bool reverse)(CrocThread* t)
 		start += srcLen;
 
 	if(start < 0 || start >= srcLen)
-		throwStdException(t, "BoundsException", "Invalid start index {}", start);
+		throwStdException(t, "BoundsError", "Invalid start index {}", start);
 
 	// Search
 	static if(reverse)
@@ -311,7 +311,7 @@ uword _repeat(CrocThread* t)
 	auto numTimes = checkIntParam(t, 1);
 
 	if(numTimes < 0)
-		throwStdException(t, "RangeException", "Invalid number of repetitions: {}", numTimes);
+		throwStdException(t, "RangeError", "Invalid number of repetitions: {}", numTimes);
 
 	auto buf = StrBuffer(t);
 
@@ -389,7 +389,7 @@ uword _vsplit(CrocThread* t)
 		num++;
 
 		if(num > VSplitMax)
-			throwStdException(t, "ValueException", "Too many (>{}) parts when splitting string", VSplitMax);
+			throwStdException(t, "ValueError", "Too many (>{}) parts when splitting string", VSplitMax);
 	}
 
 	return num;
@@ -435,7 +435,7 @@ uword _vsplitWS(CrocThread* t)
 			num++;
 
 			if(num > VSplitMax)
-				throwStdException(t, "ValueException", "Too many (>{}) parts when splitting string", VSplitMax);
+				throwStdException(t, "ValueError", "Too many (>{}) parts when splitting string", VSplitMax);
 		}
 	}
 
@@ -477,7 +477,7 @@ uword _vsplitLines(CrocThread* t)
 		num++;
 
 		if(num > VSplitMax)
-			throwStdException(t, "ValueException", "Too many (>{}) parts when splitting string", VSplitMax);
+			throwStdException(t, "ValueError", "Too many (>{}) parts when splitting string", VSplitMax);
 	}
 
 	return num;
@@ -632,7 +632,7 @@ version(CrocBuiltinDocs)
 		\tt{arr[0]}. Otherwise, returns the elements joined sequentially with the separator \tt{s} between each pair of
 		arguments. So "\tt{".".join(["apple", "banana", "orange"])}" will yield the string \tt{"apple.banana.orange"}.
 
-		\throws[exceptions.TypeException] if any element of \tt{arr} is not a string.`},
+		\throws[exceptions.TypeError] if any element of \tt{arr} is not a string.`},
 
 		{kind: "function", name: "s.vjoin",
 		params: [Param("vararg", "vararg")],
@@ -640,7 +640,7 @@ version(CrocBuiltinDocs)
 		`Similar to \link{join}, but joins its list of variadic parameters instead of an array. The functionality is otherwise
 		identical. So "\tt{".".join("apple", "banana", "orange")}" will yield the string \tt{"apple.banana.orange"}.
 
-		\throws[exceptions.TypeException] if any of the varargs is not a string.`},
+		\throws[exceptions.TypeError] if any of the varargs is not a string.`},
 
 		{kind: "function", name: "s.toInt",
 		params: [Param("base", "int", "10")],
@@ -648,13 +648,13 @@ version(CrocBuiltinDocs)
 		`Converts the string into an integer. The optional \tt{base} parameter defaults to 10, but you can use any base between
 		2 and 36 inclusive.
 
-		\throws[exceptions.ValueException] if the string does not follow the format of an integer.`},
+		\throws[exceptions.ValueError] if the string does not follow the format of an integer.`},
 
 		{kind: "function", name: "s.toFloat",
 		docs:
 		`Converts the string into a float.
 
-		\throws[exceptions.ValueException] if the string does not follow the format of a float.`},
+		\throws[exceptions.ValueError] if the string does not follow the format of a float.`},
 
 		{kind: "function", name: "s.ord",
 		params: [Param("idx", "int", "0")],
@@ -663,7 +663,7 @@ version(CrocBuiltinDocs)
 
 		\param[idx] is the index into the string, which can be negative.
 		\returns the integer codepoint value of the character at \tt{s[idx]}.
-		\throws[exceptions.BoundsException] if \tt{idx} is invalid.`},
+		\throws[exceptions.BoundsError] if \tt{idx} is invalid.`},
 
 		{kind: "function", name: "s.compare",
 		params: [Param("other", "string")],
@@ -683,7 +683,7 @@ version(CrocBuiltinDocs)
 		If \tt{start < 0} it is treated as an index from the end of the string. If \tt{start >= #s} then this function simply returns
 		\tt{#s} (that is, it didn't find anything).
 
-		\throws[exceptions.BoundsException] if \tt{start} is negative and out-of-bounds (that is, \tt{abs(start) > #s}).`},
+		\throws[exceptions.BoundsError] if \tt{start} is negative and out-of-bounds (that is, \tt{abs(start) > #s}).`},
 
 		{kind: "function", name: "s.rfind",
 		params: [Param("sub", "string"), Param("start", "int", "#s")],
@@ -695,7 +695,7 @@ version(CrocBuiltinDocs)
 
 		If \tt{start < 0} it is treated as an index from the end of the string.
 
-		\throws[exceptions.BoundsException] if \tt{start >= #s} or if \tt{start} is negative an out-of-bounds (that is, \tt{abs(start > #s}).`},
+		\throws[exceptions.BoundsError] if \tt{start >= #s} or if \tt{start} is negative an out-of-bounds (that is, \tt{abs(start > #s}).`},
 
 		{kind: "function", name: "s.repeat",
 		params: [Param("n", "int")],
@@ -703,7 +703,7 @@ version(CrocBuiltinDocs)
 		`\returns a string which is the concatenation of \tt{n} instances of \tt{s}. So \tt{"hello".repeat(3)} will return
 		\tt{"hellohellohello"}. If \tt{n == 0}, returns the empty string.
 
-		\throws[exceptions.RangeException] if \tt{n < 0}.`},
+		\throws[exceptions.RangeError] if \tt{n < 0}.`},
 
 		{kind: "function", name: "s.reverse",
 		docs:

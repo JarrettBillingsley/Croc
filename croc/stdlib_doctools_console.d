@@ -68,10 +68,6 @@ import doctools.output:
 	numToLetter,
 	numToRoman
 
-import exceptions:
-	TypeException,
-	ValueException
-
 local helpVisitor
 
 /**
@@ -92,7 +88,7 @@ function help(obj, child: string = null)
 	if(isString(obj))
 	{
 		if(child is null)
-			throw TypeException("A child name must be given when looking up docs on a builtin type's metamethod")
+			throw TypeError("A child name must be given when looking up docs on a builtin type's metamethod")
 
 		docs = metamethodDocs(obj, child)
 	}
@@ -419,7 +415,7 @@ class BasicConsoleOutputter : DocOutputter
 				case 'a': str = numToLetter(count, true); break
 				case 'I': str = numToRoman(count, false); break
 				case 'i': str = numToRoman(count, true); break
-				default: throw ValueException("Malformed documentation")
+				default: throw ValueError("Malformed documentation")
 			}
 
 			:outputText(str, ". ")

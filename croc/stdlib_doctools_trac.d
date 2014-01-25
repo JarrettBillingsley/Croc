@@ -340,7 +340,7 @@ class TracWikiOutputter : DocOutputter
 	function beginTable()
 	{
 		if(#:__listType > 0)
-			throw ValueException("Sorry, tables inside lists are unsupported in Trac wiki markup")
+			throw ValueError("Sorry, tables inside lists are unsupported in Trac wiki markup")
 
 		:__inTable = true
 		:outputText("\n")
@@ -391,7 +391,7 @@ class TracWikiOutputter : DocOutputter
 	function checkNotInTable()
 	{
 		if(:__inTable)
-			throw ValueException("Sorry, text structures inside tables are unsupported in Trac wiki markup")
+			throw ValueError("Sorry, text structures inside tables are unsupported in Trac wiki markup")
 	}
 
 	function outputIndent()

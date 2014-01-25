@@ -144,7 +144,7 @@ static:
 			case "a": style = File.WriteAppending; break;
 			case "c": style = File.WriteCreate;    break;
 			default:
-				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
+				throwStdException(t, "ValueError", "Unknown open mode '{}'", mode);
 		}
 
 		auto f = safeCode(t, "exceptions.IOException", new File(name, style));
@@ -185,7 +185,7 @@ static:
 			case "a": style = ReadWriteAppending;     break;
 			case "c": style = File.ReadWriteCreate;   break;
 			default:
-				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
+				throwStdException(t, "ValueError", "Unknown open mode '{}'", mode);
 		}
 
 		auto f = safeCode(t, "exceptions.IOException", new File(name, style));
@@ -446,7 +446,7 @@ static:
 		auto size = safeCode(t, "exceptions.IOException", Path_fileSize(name));
 
 		if(size > uword.max)
-			throwStdException(t, "ValueException", "file too big ({} bytes)", size);
+			throwStdException(t, "ValueError", "file too big ({} bytes)", size);
 
 		newMemblock(t, cast(uword)size);
 		auto mb = getMemblock(t, -1);

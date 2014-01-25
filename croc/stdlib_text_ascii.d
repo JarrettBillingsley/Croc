@@ -102,13 +102,13 @@ uword _asciiEncodeInternal(CrocThread* t)
 			last = src;
 
 			if(errors == "strict")
-				throwStdException(t, "UnicodeException", "Character U+{:X6} cannot be encoded as ASCII", cast(uint)c);
+				throwStdException(t, "UnicodeError", "Character U+{:X6} cannot be encoded as ASCII", cast(uint)c);
 			else if(errors == "ignore")
 				continue;
   			else if(errors == "replace")
 				*(dest++) = '?';
 			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+				throwStdException(t, "ValueError", "Invalid error handling type '{}'", errors);
 		}
 	}
 
@@ -147,13 +147,13 @@ uword _asciiDecodeInternal(CrocThread* t)
 			last = src;
 
 			if(errors == "strict")
-				throwStdException(t, "UnicodeException", "Character 0x{:X2} is invalid ASCII (above 0x7F)", c);
+				throwStdException(t, "UnicodeError", "Character 0x{:X2} is invalid ASCII (above 0x7F)", c);
 			else if(errors == "ignore")
 				continue;
 			else if(errors == "replace")
 				s.addChar('\uFFFD');
 			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+				throwStdException(t, "ValueError", "Invalid error handling type '{}'", errors);
 		}
 	}
 

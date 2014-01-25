@@ -89,7 +89,7 @@ word getTypeMT(CrocThread* t, CrocValue.Type type)
 	if(!(type >= CrocValue.Type.FirstUserType && type <= CrocValue.Type.LastUserType))
 	{
 		if(type >= CrocValue.Type.min && type <= CrocValue.Type.max)
-			throwStdException(t, "TypeException", __FUNCTION__ ~ " - Cannot get metatable for type '{}'", CrocValue.typeStrings[type]);
+			throwStdException(t, "TypeError", __FUNCTION__ ~ " - Cannot get metatable for type '{}'", CrocValue.typeStrings[type]);
 		else
 			throwStdException(t, "ApiError", __FUNCTION__ ~ " - Invalid type '{}'", type);
 	}
@@ -116,7 +116,7 @@ void setTypeMT(CrocThread* t, CrocValue.Type type)
 	if(!(type >= CrocValue.Type.FirstUserType && type <= CrocValue.Type.LastUserType))
 	{
 		if(type >= CrocValue.Type.min && type <= CrocValue.Type.max)
-			throwStdException(t, "TypeException", __FUNCTION__ ~ " - Cannot set metatable for type '{}'", CrocValue.typeStrings[type]);
+			throwStdException(t, "TypeError", __FUNCTION__ ~ " - Cannot set metatable for type '{}'", CrocValue.typeStrings[type]);
 		else
 			throwStdException(t, "ApiError", __FUNCTION__ ~ " - Invalid type '{}'", type);
 	}
@@ -437,7 +437,7 @@ uword gcLimit(CrocThread* t, char[] type, uword lim)
 		case "nurserySizeCutoff":    auto ret = t.vm.alloc.nurserySizeCutoff;  t.vm.alloc.nurserySizeCutoff = lim;  return ret;
 		case "cycleCollectInterval": auto ret = t.vm.alloc.nextCycleCollect;   t.vm.alloc.nextCycleCollect = lim;   return ret;
 		case "cycleMetadataLimit":   auto ret = t.vm.alloc.cycleMetadataLimit; t.vm.alloc.cycleMetadataLimit = lim; return ret;
-		default: throwStdException(t, "ValueException", "Invalid limit type '{}'", type);
+		default: throwStdException(t, "ValueError", "Invalid limit type '{}'", type);
 	}
 
 	assert(false);
@@ -461,7 +461,7 @@ uword gcLimit(CrocThread* t, char[] type)
 		case "nurserySizeCutoff":    return t.vm.alloc.nurserySizeCutoff;
 		case "cycleCollectInterval": return t.vm.alloc.nextCycleCollect;
 		case "cycleMetadataLimit":   return t.vm.alloc.cycleMetadataLimit;
-		default: throwStdException(t, "ValueException", "Invalid limit type '{}'", type);
+		default: throwStdException(t, "ValueError", "Invalid limit type '{}'", type);
 	}
 
 	assert(false);
@@ -509,7 +509,7 @@ word pushString(CrocThread* t, char[] v)
 Pushes a single-character string representation of the given Unicode codepoint.
 
 Throws:
-	UnicodeException if c is not a valid Unicode codepoint.
+	UnicodeError if c is not a valid Unicode codepoint.
 */
 word pushChar(CrocThread* t, dchar c)
 {
@@ -517,7 +517,7 @@ word pushChar(CrocThread* t, dchar c)
 	char[] s = void;
 
 	if(encodeUtf8Char(outbuf, c, s) != UtfError.OK)
-		throwStdException(t, "UnicodeException", "Invalid Unicode codepoint U+{:X6}", cast(uint)c);
+		throwStdException(t, "UnicodeError", "Invalid Unicode codepoint U+{:X6}", cast(uint)c);
 
 	return pushString(t, s);
 }
@@ -569,7 +569,7 @@ word pushVFormat(CrocThread* t, char[] fmt, TypeInfo[] arguments, va_list argptr
 	catch(CrocException e)
 		throw e;
 	catch(Exception e)
-		throwStdException(t, "ValueException", "Error during string formatting: {}", e);
+		throwStdException(t, "ValueError", "Error during string formatting: {}", e);
 
 	maybeGC(t);
 
@@ -827,18 +827,18 @@ word newFunctionWithEnv(CrocThread* t, word funcDef)
 	if(def is null)
 	{
 		pushTypeString(t, funcDef);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - funcDef must be a function definition, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - funcDef must be a function definition, not a '{}'", getString(t, -1));
 	}
 
 	if(def.upvals.length > 0)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Function definition may not have any upvalues");
+		throwStdException(t, "ValueError", __FUNCTION__ ~ " - Function definition may not have any upvalues");
 
 	auto env = getNamespace(t, -1);
 
 	if(env is null)
 	{
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Environment must be a namespace, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Environment must be a namespace, not a '{}'", getString(t, -1));
 	}
 
 	maybeGC(t);
@@ -847,7 +847,7 @@ word newFunctionWithEnv(CrocThread* t, word funcDef)
 	if(ret is null)
 	{
 		pushToString(t, funcDef);
-		throwStdException(t, "RuntimeException", __FUNCTION__ ~ " - Attempting to instantiate {} with a different namespace than was associated with it", getString(t, -1));
+		throwStdException(t, "RuntimeError", __FUNCTION__ ~ " - Attempting to instantiate {} with a different namespace than was associated with it", getString(t, -1));
 	}
 
 	pop(t);
@@ -882,7 +882,7 @@ word newClass(CrocThread* t, word base, char[] name)
 	else
 	{
 		pushTypeString(t, base);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Base must be 'null' or 'class', not '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Base must be 'null' or 'class', not '{}'", getString(t, -1));
 	}
 
 	maybeGC(t);
@@ -943,7 +943,7 @@ word newNamespace(CrocThread* t, word parent, char[] name)
 	else
 	{
 		pushTypeString(t, parent);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Parent must be null or namespace, not '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Parent must be null or namespace, not '{}'", getString(t, -1));
 	}
 
 	maybeGC(t);
@@ -990,11 +990,11 @@ word newThread(CrocThread* t, word func)
 	if(f is null)
 	{
 		pushTypeString(t, func);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Thread function must be of type 'function', not '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Thread function must be of type 'function', not '{}'", getString(t, -1));
 	}
 
 	if(f.isNative)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
+		throwStdException(t, "ValueError", __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
 
 	maybeGC(t);
 
@@ -1248,7 +1248,7 @@ bool getBool(CrocThread* t, word slot)
 	if(v.type != CrocValue.Type.Bool)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'bool' but got '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'bool' but got '{}'", getString(t, -1));
 	}
 
 	return v.mBool;
@@ -1266,7 +1266,7 @@ crocint getInt(CrocThread* t, word slot)
 	if(v.type != CrocValue.Type.Int)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'int' but got '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'int' but got '{}'", getString(t, -1));
 	}
 
 	return v.mInt;
@@ -1284,7 +1284,7 @@ crocfloat getFloat(CrocThread* t, word slot)
 	if(v.type != CrocValue.Type.Float)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'float' but got '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'float' but got '{}'", getString(t, -1));
 	}
 
 	return v.mFloat;
@@ -1308,7 +1308,7 @@ crocfloat getNum(CrocThread* t, word slot)
 	else
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'float' or 'int' but got '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'float' or 'int' but got '{}'", getString(t, -1));
 	}
 
 	assert(false);
@@ -1327,13 +1327,13 @@ dchar getChar(CrocThread* t, word slot)
 	if(v.type != CrocValue.Type.String)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
 	}
 
 	auto str = v.mString;
 
 	if(str.cpLength != 1)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - string must be one character long");
+		throwStdException(t, "ValueError", __FUNCTION__ ~ " - string must be one character long");
 
 	auto ptr = str.toString().ptr;
 	return fastDecodeUtf8Char(ptr);
@@ -1357,7 +1357,7 @@ char[] getString(CrocThread* t, word slot)
 	if(v.type != CrocValue.Type.String)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
 	}
 
 	return v.mString.toString();
@@ -1380,7 +1380,7 @@ CrocThread* getThread(CrocThread* t, word slot)
 	if(v.type != CrocValue.Type.Thread)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'thread' but got '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'thread' but got '{}'", getString(t, -1));
 	}
 
 	return v.mThread;
@@ -1398,7 +1398,7 @@ Object getNativeObj(CrocThread* t, word slot)
 	if(v.type != CrocValue.Type.NativeObj)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'nativeobj' but got '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'nativeobj' but got '{}'", getString(t, -1));
 	}
 
 	return v.mNativeObj.obj;
@@ -1497,7 +1497,7 @@ public:
 		}
 
 		if(numSlots < 1 || numSlots > 3)
-			throwStdException(t, "RangeException", "foreachLoop - numSlots may only be 1, 2, or 3, not {}", numSlots);
+			throwStdException(t, "RangeError", "foreachLoop - numSlots may only be 1, 2, or 3, not {}", numSlots);
 
 		mixin(apiCheckNumParams!("numSlots"));
 
@@ -1522,7 +1522,7 @@ public:
 			if(method is null)
 			{
 				typeString(t, srcObj);
-				throwStdException(t, "MethodException", "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
+				throwStdException(t, "MethodError", "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
 			}
 
 			push(t, CrocValue(method));
@@ -1534,12 +1534,12 @@ public:
 			if(!isFunction(t, src) && !isThread(t, src))
 			{
 				pushTypeString(t, src);
-				throwStdException(t, "TypeException", "Invalid iterable type '{}' returned from opApply", getString(t, -1));
+				throwStdException(t, "TypeError", "Invalid iterable type '{}' returned from opApply", getString(t, -1));
 			}
 		}
 
 		if(isThread(t, src) && state(getThread(t, src)) != CrocThread.State.Initial)
-			throwStdException(t, "StateException", "Attempting to iterate over a thread that is not in the 'initial' state");
+			throwStdException(t, "StateError", "Attempting to iterate over a thread that is not in the 'initial' state");
 
 		// Set up the indices tuple
 		Indices idx;
@@ -1710,7 +1710,7 @@ void setUpval(CrocThread* t, uword idx)
 	mixin(apiCheckNumParams!("1"));
 
 	if(idx >= t.currentAR.func.nativeUpvals().length)
-		throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, t.currentAR.func.nativeUpvals().length);
+		throwStdException(t, "BoundsError", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, t.currentAR.func.nativeUpvals().length);
 
 	func.setNativeUpval(t.vm.alloc, t.currentAR.func, idx, getValue(t, -1));
 	pop(t);
@@ -1739,7 +1739,7 @@ word getUpval(CrocThread* t, uword idx)
 	auto upvals = t.currentAR.func.nativeUpvals();
 
 	if(idx >= upvals.length)
-		throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
+		throwStdException(t, "BoundsError", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
 
 	return push(t, upvals[idx]);
 }
@@ -1812,7 +1812,7 @@ word getGlobal(CrocThread* t)
 	if(!v.type == CrocValue.Type.String)
 	{
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	*v = *getGlobalImpl(t, v.mString, getEnv(t));
@@ -1852,7 +1852,7 @@ void setGlobal(CrocThread* t)
 	if(n.type != CrocValue.Type.String)
 	{
 		pushTypeString(t, -2);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	setGlobalImpl(t, n.mString, getEnv(t), &t.stack[t.stackIndex - 1]);
@@ -1890,7 +1890,7 @@ void newGlobal(CrocThread* t)
 	if(n.type != CrocValue.Type.String)
 	{
 		pushTypeString(t, -2);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	newGlobalImpl(t, n.mString, getEnv(t), &t.stack[t.stackIndex - 1]);
@@ -1953,7 +1953,7 @@ void clearTable(CrocThread* t, word tab)
 	if(tb is null)
 	{
 		pushTypeString(t, tab);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - tab must be a table, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - tab must be a table, not a '{}'", getString(t, -1));
 	}
 
 	table.clear(t.vm.alloc, tb);
@@ -1976,7 +1976,7 @@ void fillArray(CrocThread* t, word arr)
 	if(a is null)
 	{
 		pushTypeString(t, arr);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - arr must be an array, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - arr must be an array, not a '{}'", getString(t, -1));
 	}
 
 	array.fill(t.vm.alloc, a, t.stack[t.stackIndex - 1]);
@@ -2007,7 +2007,7 @@ ubyte[] getMemblockData(CrocThread* t, word slot)
 	if(m is null)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - slot must be a memblock, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - slot must be a memblock, not a '{}'", getString(t, -1));
 	}
 
 	return m.data;
@@ -2034,7 +2034,7 @@ void memblockReviewNativeArray(CrocThread* t, word slot, void[] arr)
 	if(m is null)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - slot must be a memblock, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - slot must be a memblock, not a '{}'", getString(t, -1));
 	}
 
 	memblock.view(t.vm.alloc, m, arr);
@@ -2060,7 +2060,7 @@ word getFuncEnv(CrocThread* t, word func)
 		return push(t, CrocValue(f.environment));
 
 	pushTypeString(t, func);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2081,7 +2081,7 @@ void setFuncEnv(CrocThread* t, word func)
 	if(ns is null)
 	{
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'namespace' for environment, not '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'namespace' for environment, not '{}'", getString(t, -1));
 	}
 
 	auto f = getFunction(t, func);
@@ -2089,11 +2089,11 @@ void setFuncEnv(CrocThread* t, word func)
 	if(f is null)
 	{
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 	}
 
 	if(!f.isNative)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Cannot change the environment of a script function");
+		throwStdException(t, "ValueError", __FUNCTION__ ~ " - Cannot change the environment of a script function");
 
 	.func.setEnvironment(t.vm.alloc, f, ns);
 	pop(t);
@@ -2121,7 +2121,7 @@ void funcDef(CrocThread* t, word func)
 	}
 
 	pushTypeString(t, func);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2140,7 +2140,7 @@ char[] funcName(CrocThread* t, word func)
 		return f.name.toString();
 
 	pushTypeString(t, func);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2157,7 +2157,7 @@ uword funcNumParams(CrocThread* t, word func)
 		return f.numParams - 1;
 
 	pushTypeString(t, func);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2174,7 +2174,7 @@ uword funcMaxParams(CrocThread* t, word func)
 		return f.maxParams - 1;
 
 	pushTypeString(t, func);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2191,7 +2191,7 @@ bool funcIsVararg(CrocThread* t, word func)
 		return .func.isVararg(f);
 
 	pushTypeString(t, func);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2207,7 +2207,7 @@ bool funcIsNative(CrocThread* t, word func)
 		return .func.isNative(f);
 
 	pushTypeString(t, func);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2226,7 +2226,7 @@ char[] className(CrocThread* t, word cls)
 		return c.name.toString();
 
 	pushTypeString(t, cls);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2286,7 +2286,7 @@ private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
 	if(!isClass(t, cls))
 	{
 		pushTypeString(t, cls);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
 	if(!isString(t, -2))
@@ -2294,9 +2294,9 @@ private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
 		pushTypeString(t, -2);
 
 		if(isMethod)
-			throwStdException(t, "TypeException", __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
 		else
-			throwStdException(t, "TypeException", __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	auto c = getClass(t, cls);
@@ -2304,9 +2304,9 @@ private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
 	if(c.isFrozen)
 	{
 		if(isMethod)
-			throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to add a method to class '{}' which is frozen", c.name.toString());
+			throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to add a method to class '{}' which is frozen", c.name.toString());
 		else
-			throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to add a field to class '{}' which is frozen", c.name.toString());
+			throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to add a field to class '{}' which is frozen", c.name.toString());
 	}
 
 	auto name = getStringObj(t, -2);
@@ -2329,12 +2329,12 @@ private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
 	if(isMethod)
 	{
 		if(!classobj.addMethod(t.vm.alloc, c, name, getValue(t, -1), privacy))
-			throwStdException(t, "FieldException", __FUNCTION__ ~ " - Attempting to add a method '{}' which already exists to class '{}'", name.toString(), c.name.toString());
+			throwStdException(t, "FieldError", __FUNCTION__ ~ " - Attempting to add a method '{}' which already exists to class '{}'", name.toString(), c.name.toString());
 	}
 	else
 	{
 		if(!classobj.addField(t.vm.alloc, c, name, getValue(t, -1), privacy))
-			throwStdException(t, "FieldException", __FUNCTION__ ~ " - Attempting to add a field '{}' which already exists to class '{}'", name.toString(), c.name.toString());
+			throwStdException(t, "FieldError", __FUNCTION__ ~ " - Attempting to add a field '{}' which already exists to class '{}'", name.toString(), c.name.toString());
 	}
 
 	pop(t, 2);
@@ -2360,19 +2360,19 @@ void removeMember(CrocThread* t, word cls)
 	if(!isClass(t, cls))
 	{
 		pushTypeString(t, cls);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Member name must be a string, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Member name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	auto c = getClass(t, cls);
 
 	if(c.isFrozen)
-		throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to remove a member from class '{}' which is frozen", c.name.toString());
+		throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to remove a member from class '{}' which is frozen", c.name.toString());
 
 	auto name = getStringObj(t, -1);
 	auto nameStr = name.toString();
@@ -2388,7 +2388,7 @@ void removeMember(CrocThread* t, word cls)
 	}
 
 	if(!classobj.removeMember(t.vm.alloc, c, name))
-		throwStdException(t, "FieldException", __FUNCTION__ ~ " - No member named '{}' exists in class '{}'", name.toString(), c.name.toString());
+		throwStdException(t, "FieldError", __FUNCTION__ ~ " - No member named '{}' exists in class '{}'", name.toString(), c.name.toString());
 
 	pop(t);
 }
@@ -2405,7 +2405,7 @@ void freezeClass(CrocThread* t, word cls)
 	else
 	{
 		pushTypeString(t, cls);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 }
 
@@ -2421,7 +2421,7 @@ bool isClassFrozen(CrocThread* t, word cls)
 	else
 	{
 		pushTypeString(t, cls);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 		assert(false);
 	}
 }
@@ -2450,13 +2450,13 @@ word getMemberOwner(CrocThread* t, word cls)
 	if(!isClass(t, cls))
 	{
 		pushTypeString(t, cls);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Member name must be a string, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Member name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	auto c = getClass(t, cls);
@@ -2467,7 +2467,7 @@ word getMemberOwner(CrocThread* t, word cls)
 	else if(auto slot = classobj.getMethod(c, name))
 		push(t, CrocValue(slot.value.proto));
 	else
-		throwStdException(t, "FieldException", __FUNCTION__ ~ " - No member named '{}' exists in class '{}'", name.toString(), c.name.toString());
+		throwStdException(t, "FieldError", __FUNCTION__ ~ " - No member named '{}' exists in class '{}'", name.toString(), c.name.toString());
 
 	swap(t);
 	pop(t);
@@ -2492,7 +2492,7 @@ void clearNamespace(CrocThread* t, word ns)
 	if(n is null)
 	{
 		pushTypeString(t, ns);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - ns must be a namespace, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - ns must be a namespace, not a '{}'", getString(t, -1));
 	}
 
 	namespace.clear(t.vm.alloc, n);
@@ -2522,13 +2522,13 @@ void removeKey(CrocThread* t, word obj)
 		if(!isString(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", __FUNCTION__ ~ " - key must be a string, not a '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", __FUNCTION__ ~ " - key must be a string, not a '{}'", getString(t, -1));
 		}
 
 		if(!opin(t, -1, obj))
 		{
 			pushToString(t, obj);
-			throwStdException(t, "FieldException", __FUNCTION__ ~ " - key '{}' does not exist in namespace '{}'", getString(t, -2), getString(t, -1));
+			throwStdException(t, "FieldError", __FUNCTION__ ~ " - key '{}' does not exist in namespace '{}'", getString(t, -2), getString(t, -1));
 		}
 
 		namespace.remove(t.vm.alloc, ns, getStringObj(t, -1));
@@ -2537,7 +2537,7 @@ void removeKey(CrocThread* t, word obj)
 	else
 	{
 		pushTypeString(t, obj);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - obj must be a namespace or table, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - obj must be a namespace or table, not a '{}'", getString(t, -1));
 	}
 }
 
@@ -2553,7 +2553,7 @@ char[] namespaceName(CrocThread* t, word ns)
 		return n.name.toString();
 
 	pushTypeString(t, ns);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'namespace', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'namespace', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2573,7 +2573,7 @@ word namespaceFullname(CrocThread* t, word ns)
 		return pushNamespaceNamestring(t, n);
 
 	pushTypeString(t, ns);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'namespace', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'namespace', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2640,14 +2640,14 @@ void resetThread(CrocThread* t, word slot, bool newFunction = false)
 	if(other is null)
 	{
 		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Object at 'slot' must be a 'thread', not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Object at 'slot' must be a 'thread', not a '{}'", getString(t, -1));
 	}
 
 	if(t.vm !is other.vm)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to reset a coroutine that belongs to a different VM");
+		throwStdException(t, "ValueError", __FUNCTION__ ~ " - Attempting to reset a coroutine that belongs to a different VM");
 
 	if(state(other) != CrocThread.State.Dead)
-		throwStdException(t, "StateException", __FUNCTION__ ~ " - Attempting to reset a {} coroutine (must be dead)", stateString(other));
+		throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to reset a {} coroutine (must be dead)", stateString(other));
 
 	if(newFunction)
 	{
@@ -2658,11 +2658,11 @@ void resetThread(CrocThread* t, word slot, bool newFunction = false)
 		if(f is null)
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", __FUNCTION__ ~ " - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
+			throwStdException(t, "TypeError", __FUNCTION__ ~ " - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
 		}
 
 		if(f.isNative)
-			throwStdException(t, "ValueException", __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
+			throwStdException(t, "ValueError", __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
 
 		thread.setCoroFunc(t.vm.alloc, other, f);
 		pop(t);
@@ -2741,7 +2741,7 @@ word deref(CrocThread* t, word idx)
 
 		default:
 			pushTypeString(t, idx);
-			throwStdException(t, "TypeException", __FUNCTION__ ~ " - idx must be a weakref or non-weakref-able type, not a '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", __FUNCTION__ ~ " - idx must be a weakref or non-weakref-able type, not a '{}'", getString(t, -1));
 	}
 
 	assert(false);
@@ -2763,7 +2763,7 @@ char[] funcDefName(CrocThread* t, word funcDef)
 		return f.name.toString();
 
 	pushTypeString(t, funcDef);
-	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'funcdef', not '{}'", getString(t, -1));
+	throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected 'funcdef', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2984,7 +2984,7 @@ word field(CrocThread* t, word container, bool raw = false)
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	return commonField(t, fakeToAbs(t, container), raw);
@@ -3033,7 +3033,7 @@ void fielda(CrocThread* t, word container, bool raw = false)
 	if(!isString(t, -2))
 	{
 		pushTypeString(t, -2);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	commonFielda(t, fakeToAbs(t, container), raw);
@@ -3075,7 +3075,7 @@ crocint len(CrocThread* t, word slot)
 	if(!isInt(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected length to be an int, but got '{}' instead", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected length to be an int, but got '{}' instead", getString(t, -1));
 	}
 
 	auto ret = getInt(t, -1);
@@ -3379,7 +3379,7 @@ uword methodCall(CrocThread* t, word slot, word numReturns)
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	auto methodName = t.stack[t.stackIndex - 1].mString;
@@ -3444,7 +3444,7 @@ uword superCall(CrocThread* t, word slot, char[] name, word numReturns)
 
 	// Invalid call?
 	if(t.arIndex == 0 || t.currentAR.proto is null || t.currentAR.proto.parent is null)
-		throwStdException(t, "RuntimeException", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where there is no super class");
+		throwStdException(t, "RuntimeError", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where there is no super class");
 
 	// Get num params
 	auto absSlot = fakeToAbs(t, slot);
@@ -3462,7 +3462,7 @@ uword superCall(CrocThread* t, word slot, char[] name, word numReturns)
 	if(_this.type != CrocValue.Type.Instance && _this.type != CrocValue.Type.Class)
 	{
 		pushTypeString(t, 0);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
 	}
 
 	// Do the call
@@ -3485,7 +3485,7 @@ uword superCall(CrocThread* t, word slot, word numReturns)
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	auto methodName = t.stack[t.stackIndex - 1].mString;
@@ -3493,7 +3493,7 @@ uword superCall(CrocThread* t, word slot, word numReturns)
 
 	// Invalid call?
 	if(t.arIndex == 0 || t.currentAR.proto is null || t.currentAR.proto.parent is null)
-		throwStdException(t, "RuntimeException", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where there is no super class");
+		throwStdException(t, "RuntimeError", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where there is no super class");
 
 	// Get num params
 	auto numParams = t.stackIndex - (absSlot + 1);
@@ -3510,7 +3510,7 @@ uword superCall(CrocThread* t, word slot, word numReturns)
 	if(_this.type != CrocValue.Type.Instance && _this.type != CrocValue.Type.Class)
 	{
 		pushTypeString(t, 0);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
 	}
 
 	// Do the call
@@ -3539,7 +3539,7 @@ char[] nameOf(CrocThread* t, word obj)
 		case CrocValue.Type.FuncDef:   return funcDefName(t, obj);
 		default:
 			pushTypeString(t, obj);
-			throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected function, class, namespace, or funcdef, not '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected function, class, namespace, or funcdef, not '{}'", getString(t, -1));
 	}
 
 	assert(false);
@@ -3610,7 +3610,7 @@ CrocString* createString(CrocThread* t, char[] data)
 	uword cpLen = void;
 
 	if(verifyUtf8(data, cpLen) != UtfError.OK)
-		throwStdException(t, "UnicodeException", "Invalid UTF-8 sequence");
+		throwStdException(t, "UnicodeError", "Invalid UTF-8 sequence");
 
 	return string.create(t.vm, data, h, cpLen);
 }

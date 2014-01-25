@@ -103,13 +103,13 @@ uword _latin1EncodeInternal(CrocThread* t)
 			if(c <= 0xFF)
 				*dest++ = c;
 			else if(errors == "strict")
-				throwStdException(t, "UnicodeException", "Character U+{:X6} cannot be encoded as ASCII", cast(uint)c);
+				throwStdException(t, "UnicodeError", "Character U+{:X6} cannot be encoded as ASCII", cast(uint)c);
 			else if(errors == "ignore")
 				continue;
   			else if(errors == "replace")
 				*(dest++) = '?';
 			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+				throwStdException(t, "ValueError", "Invalid error handling type '{}'", errors);
 		}
 	}
 

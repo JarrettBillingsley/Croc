@@ -373,7 +373,7 @@ uword _toString(CrocThread* t)
 	{
 		auto style = optStringParam(t, 2, "d");
 		char[80] buffer = void;
-		pushString(t, safeCode(t, "exceptions.ValueException", Integer_format(buffer, getInt(t, 1), style)));
+		pushString(t, safeCode(t, "exceptions.ValueError", Integer_format(buffer, getInt(t, 1), style)));
 	}
 	else
 		pushToString(t, 1);
@@ -404,11 +404,11 @@ uword _toInt(CrocThread* t)
 		case CrocValue.Type.Bool:   pushInt(t, cast(crocint)getBool(t, 1)); break;
 		case CrocValue.Type.Int:    dup(t, 1); break;
 		case CrocValue.Type.Float:  pushInt(t, cast(crocint)getFloat(t, 1)); break;
-		case CrocValue.Type.String: pushInt(t, safeCode(t, "exceptions.ValueException", cast(crocint)Integer_toLong(getString(t, 1), 10))); break;
+		case CrocValue.Type.String: pushInt(t, safeCode(t, "exceptions.ValueError", cast(crocint)Integer_toLong(getString(t, 1), 10))); break;
 
 		default:
 			pushTypeString(t, 1);
-			throwStdException(t, "TypeException", "Cannot convert type '{}' to int", getString(t, -1));
+			throwStdException(t, "TypeError", "Cannot convert type '{}' to int", getString(t, -1));
 	}
 
 	return 1;
@@ -423,11 +423,11 @@ uword _toFloat(CrocThread* t)
 		case CrocValue.Type.Bool: pushFloat(t, cast(crocfloat)getBool(t, 1)); break;
 		case CrocValue.Type.Int: pushFloat(t, cast(crocfloat)getInt(t, 1)); break;
 		case CrocValue.Type.Float: dup(t, 1); break;
-		case CrocValue.Type.String: pushFloat(t, safeCode(t, "exceptions.ValueException", cast(crocfloat)Float_toFloat(getString(t, 1)))); break;
+		case CrocValue.Type.String: pushFloat(t, safeCode(t, "exceptions.ValueError", cast(crocfloat)Float_toFloat(getString(t, 1)))); break;
 
 		default:
 			pushTypeString(t, 1);
-			throwStdException(t, "TypeException", "Cannot convert type '{}' to float", getString(t, -1));
+			throwStdException(t, "TypeError", "Cannot convert type '{}' to float", getString(t, -1));
 	}
 
 	return 1;

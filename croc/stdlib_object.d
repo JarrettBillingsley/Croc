@@ -375,7 +375,7 @@ void _bindImpl(CrocThread* t, CrocClass* cls, CrocString* name)
 
 	if(slot is null)
 	{
-		throwStdException(t, "MethodException", "Class '{}' has no method named '{}'",
+		throwStdException(t, "MethodError", "Class '{}' has no method named '{}'",
 			cls.name.toString(), name.toString());
 	}
 
@@ -383,7 +383,7 @@ void _bindImpl(CrocThread* t, CrocClass* cls, CrocString* name)
 
 	if(!checkAccess(slot.value, AR))
 	{
-		throwStdException(t, "MethodException", "Attempting to bind method '{}' from outside class '{}'",
+		throwStdException(t, "MethodError", "Attempting to bind method '{}' from outside class '{}'",
 			name.toString(), cls.name.toString());
 	}
 
@@ -391,7 +391,7 @@ void _bindImpl(CrocThread* t, CrocClass* cls, CrocString* name)
 	{
 		push(t, slot.value.value);
 		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", "'{}' is not a function, it is a '{}'", name.toString(), getString(t, -1));
+		throwStdException(t, "TypeError", "'{}' is not a function, it is a '{}'", name.toString(), getString(t, -1));
 	}
 
 	auto realMethod = slot.value.value.mFunction;
@@ -648,8 +648,8 @@ writeln(boundGetProt(with c)) // also prints 5
 	\param[cls] is the class from which the method should be bound.
 	\param[name] is the name of the method to bind.
 	\returns a function closure as described above.
-	\throws[exceptions.MethodException] if the given method doesn't exist or can't be accessed.
-	\throws[exceptions.TypeException] if \tt{name} names a method which is not a function.`},
+	\throws[exceptions.MethodError] if the given method doesn't exist or can't be accessed.
+	\throws[exceptions.TypeError] if \tt{name} names a method which is not a function.`},
 
 	{kind: "function", name: "bindInstMethod",
 	params: [Param("inst", "instance"), Param("name", "string")],
@@ -693,6 +693,6 @@ writeln(bound()) // also prints 5
 	\param[inst] is the instance from which the method should be bound.
 	\param[name] is the name of the method to bind.
 	\returns a function closure as described above.
-	\throws[exceptions.MethodException] if the given method doesn't exist or can't be accessed.
-	\throws[exceptions.TypeException] if \tt{name} names a method which is not a function.`},
+	\throws[exceptions.MethodError] if the given method doesn't exist or can't be accessed.
+	\throws[exceptions.TypeError] if \tt{name} names a method which is not a function.`},
 ];

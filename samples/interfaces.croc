@@ -1,7 +1,5 @@
 module samples.interfaces
 
-import exceptions: TypeException
-
 class Method
 {
 	__name
@@ -32,7 +30,7 @@ class Interface
 	this(name: string, methods: array)
 	{
 		if(!methods.all(\m -> m as Method))
-			throw TypeException("All methods must be Methods")
+			throw TypeError("All methods must be Methods")
 
 		:__name = name
 		:__methods = methods.dup()
@@ -46,7 +44,7 @@ class Interface
 			local name = m.name()
 
 			if(!hasMethod(T, name) || !m.implements(T.(name)))
-				throw TypeException("Class {} does not implement method '{}' from {}".format(nameOf(T), m, :__name))
+				throw TypeError("Class {} does not implement method '{}' from {}".format(nameOf(T), m, :__name))
 		}
 
 		:__implementors[T] = true
@@ -71,7 +69,7 @@ function implements(T: class, vararg)
 		local p = vararg[i]
 
 		if(!(p as Interface))
-			throw TypeException("All varargs must be Interfaces")
+			throw TypeError("All varargs must be Interfaces")
 
 		p.implement(T)
 	}

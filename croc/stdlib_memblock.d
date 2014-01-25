@@ -104,7 +104,7 @@ uword _new(CrocThread* t)
 	auto size = checkIntParam(t, 1);
 
 	if(size < 0 || size > uword.max)
-		throwStdException(t, "RangeException", "Invalid size ({})", size);
+		throwStdException(t, "RangeError", "Invalid size ({})", size);
 
 	bool haveFill = isValidIndex(t, 2);
 
@@ -127,7 +127,7 @@ uword _fromArray(CrocThread* t)
 	foreach(i, ref slot; arr)
 	{
 		if(slot.value.type != CrocValue.Type.Int)
-			throwStdException(t, "TypeException", "Array must be all integers");
+			throwStdException(t, "TypeError", "Array must be all integers");
 
 		data[i] = cast(ubyte)slot.value.mInt;
 	}
@@ -240,7 +240,7 @@ uword _fillSlice(CrocThread* t)
 		hi += mb.data.length;
 
 	if(lo < 0 || hi < lo || hi > mb.data.length)
-		throwStdException(t, "BoundsException", "Invalid slice indices {} .. {} (memblock length: {})", lo, hi, mb.data.length);
+		throwStdException(t, "BoundsError", "Invalid slice indices {} .. {} (memblock length: {})", lo, hi, mb.data.length);
 
 	mb.data[cast(uword)lo .. cast(uword)hi] = val;
 	return 0;
@@ -258,7 +258,7 @@ uword _rawRead(T)(CrocThread* t)
 		idx += mb.data.length;
 
 	if(idx < 0 || idx > maxIdx)
-		throwStdException(t, "BoundsException", "Invalid index '{}'", idx);
+		throwStdException(t, "BoundsError", "Invalid index '{}'", idx);
 
 	static if(isIntegerType!(T))
 		pushInt(t, cast(crocint)*(cast(T*)(mb.data.ptr + idx)));
@@ -280,7 +280,7 @@ uword _rawWrite(T)(CrocThread* t)
 		idx += mb.data.length;
 
 	if(idx < 0 || idx > maxIdx)
-		throwStdException(t, "BoundsException", "Invalid index '{}'", idx);
+		throwStdException(t, "BoundsError", "Invalid index '{}'", idx);
 
 	static if(isIntegerType!(T))
 		auto val = checkIntParam(t, 2);
@@ -302,11 +302,11 @@ uword _copy(CrocThread* t)
 	auto srcOffs = checkIntParam(t, 3);
 	auto size = checkIntParam(t, 4);
 
-	if     (size < 0 || size > uword.max)             throwStdException(t, "RangeException",  "Invalid size: {}", size);
-	else if(dstOffs < 0 || dstOffs > dst.data.length) throwStdException(t, "BoundsException", "Invalid destination offset {} (memblock length: {})", dstOffs, dst.data.length);
-	else if(srcOffs < 0 || srcOffs > src.data.length) throwStdException(t, "BoundsException", "Invalid source offset {} (memblock length: {})", srcOffs, src.data.length);
-	else if(dstOffs + size > dst.data.length)         throwStdException(t, "BoundsException", "Copy size exceeds size of destination memblock");
-	else if(srcOffs + size > src.data.length)         throwStdException(t, "BoundsException", "Copy size exceeds size of source memblock");
+	if     (size < 0 || size > uword.max)             throwStdException(t, "RangeError",  "Invalid size: {}", size);
+	else if(dstOffs < 0 || dstOffs > dst.data.length) throwStdException(t, "BoundsError", "Invalid destination offset {} (memblock length: {})", dstOffs, dst.data.length);
+	else if(srcOffs < 0 || srcOffs > src.data.length) throwStdException(t, "BoundsError", "Invalid source offset {} (memblock length: {})", srcOffs, src.data.length);
+	else if(dstOffs + size > dst.data.length)         throwStdException(t, "BoundsError", "Copy size exceeds size of destination memblock");
+	else if(srcOffs + size > src.data.length)         throwStdException(t, "BoundsError", "Copy size exceeds size of source memblock");
 
 	auto srcPtr = src.data.ptr + srcOffs;
 	auto dstPtr = dst.data.ptr + dstOffs;
@@ -329,11 +329,11 @@ uword _compare(CrocThread* t)
 	auto rhsOffs = checkIntParam(t, 3);
 	auto size = checkIntParam(t, 4);
 
-	if     (size < 0 || size > uword.max)             throwStdException(t, "RangeException",  "Invalid size: {}", size);
-	else if(lhsOffs < 0 || lhsOffs > lhs.data.length) throwStdException(t, "BoundsException", "Invalid left-hand-side offset {} (memblock length: {})", lhsOffs, lhs.data.length);
-	else if(rhsOffs < 0 || rhsOffs > rhs.data.length) throwStdException(t, "BoundsException", "Invalid right-hand-side offset {} (memblock length: {})", rhsOffs, rhs.data.length);
-	else if(lhsOffs + size > lhs.data.length)         throwStdException(t, "BoundsException", "Size exceeds size of left-hand-side memblock");
-	else if(rhsOffs + size > rhs.data.length)         throwStdException(t, "BoundsException", "Size exceeds size of right-hand-side memblock");
+	if     (size < 0 || size > uword.max)             throwStdException(t, "RangeError",  "Invalid size: {}", size);
+	else if(lhsOffs < 0 || lhsOffs > lhs.data.length) throwStdException(t, "BoundsError", "Invalid left-hand-side offset {} (memblock length: {})", lhsOffs, lhs.data.length);
+	else if(rhsOffs < 0 || rhsOffs > rhs.data.length) throwStdException(t, "BoundsError", "Invalid right-hand-side offset {} (memblock length: {})", rhsOffs, rhs.data.length);
+	else if(lhsOffs + size > lhs.data.length)         throwStdException(t, "BoundsError", "Size exceeds size of left-hand-side memblock");
+	else if(rhsOffs + size > rhs.data.length)         throwStdException(t, "BoundsError", "Size exceeds size of right-hand-side memblock");
 
 	auto rhsPtr = rhs.data.ptr + rhsOffs;
 	auto lhsPtr = lhs.data.ptr + lhsOffs;
@@ -352,7 +352,7 @@ uword _commonFindItem(bool reverse)(CrocThread* t)
 	auto item = checkIntParam(t, 1);
 
 	if(item < 0 || item > 255)
-		throwStdException(t, "RangeException", "Invalid search value: {}", item);
+		throwStdException(t, "RangeError", "Invalid search value: {}", item);
 
 	// Start index
 	static if(reverse)
@@ -364,7 +364,7 @@ uword _commonFindItem(bool reverse)(CrocThread* t)
 		start += src.data.length;
 
 	if(start < 0 || start > src.data.length)
-		throwStdException(t, "BoundsException", "Invalid start index {}", start);
+		throwStdException(t, "BoundsError", "Invalid start index {}", start);
 
 	// Search
 	static if(reverse)
@@ -398,7 +398,7 @@ uword _commonFind(bool reverse)(CrocThread* t)
 		start += src.data.length;
 
 	if(start < 0 || start > src.data.length)
-		throwStdException(t, "BoundsException", "Invalid start index {}", start);
+		throwStdException(t, "BoundsError", "Invalid start index {}", start);
 
 	// Search
 	static if(reverse)
@@ -517,7 +517,7 @@ uword _opCatAssign(CrocThread* t)
 	auto mb = getMemblock(t, 0);
 
 	if(!mb.ownData)
-		throwStdException(t, "ValueException", "Attempting to append to a memblock which does not own its data");
+		throwStdException(t, "ValueError", "Attempting to append to a memblock which does not own its data");
 
 	checkAnyParam(t, 1);
 	auto numParams = stackSize(t) - 1;
@@ -530,7 +530,7 @@ uword _opCatAssign(CrocThread* t)
 	}
 
 	if(totalLen > uword.max)
-		throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
+		throwStdException(t, "RangeError", "Invalid size ({})", totalLen);
 
 	auto oldLen = mb.data.length;
 	memblock.resize(t.vm.alloc, mb, cast(uword)totalLen);
@@ -569,7 +569,7 @@ version(CrocBuiltinDocs)
 		\param[fill] is the value to fill each byte of the memblock with. Defaults to 0. The value will be wrapped to the
 		range of an unsigned byte.
 
-		\throws[exceptions.RangeException] if \tt{size} is invalid (negative or too large to be represented).`},
+		\throws[exceptions.RangeError] if \tt{size} is invalid (negative or too large to be represented).`},
 
 		{kind: "function", name: "fromArray",
 		params: [Param("arr", "array")],
@@ -582,7 +582,7 @@ version(CrocBuiltinDocs)
 		\param[arr] is the array holding the data from which the memblock will be constructed.
 		\returns the new memblock.
 
-		\throws[exceptions.TypeException] if \tt{arr} has any non-integer elements.`}
+		\throws[exceptions.TypeError] if \tt{arr} has any non-integer elements.`}
 	];
 
 	Docs[] _methodFuncDocs =
@@ -626,7 +626,7 @@ version(CrocBuiltinDocs)
 
 		\param[offs] the byte offset from where the value should be read. Can be negative to mean from the end of the memblock.
 		\returns the value read, as either an \tt{int} or a \tt{float}, depending on the function.
-		\throws[exceptions.BoundsException] if \tt{offs < 0 || offs >= #this - (size of value)}.
+		\throws[exceptions.BoundsError] if \tt{offs < 0 || offs >= #this - (size of value)}.
 
 		\see \link{Vector} for a typed numerical array type which may suit your needs better than raw memblock access.`},
 
@@ -654,7 +654,7 @@ version(CrocBuiltinDocs)
 
 		\param[offs] the byte offset to which the value should be written. Can be negative to mean from the end of the memblock.
 		\param[val] the value to write.
-		\throws[exceptions.BoundsException] if \tt{offs < 0 || offs >= #this - (size of value)}.
+		\throws[exceptions.BoundsError] if \tt{offs < 0 || offs >= #this - (size of value)}.
 
 		\see \link{Vector} for a typed numerical array type which may suit your needs better than raw memblock access.`},
 
@@ -678,8 +678,8 @@ version(CrocBuiltinDocs)
 		\param[srcOffs] the byte offset in the source memblock from which the data should be copied. May \b{not} be negative.
 		\param[size] the number of bytes to copy. 0 is an acceptable value.
 
-		\throws[exceptions.RangeException] if the \tt{size} parameter is negative.
-		\throws[exceptions.BoundsException] if \tt{dstOffs} or \tt{srcOffs} are invalid indices into their respective memblocks,
+		\throws[exceptions.RangeError] if the \tt{size} parameter is negative.
+		\throws[exceptions.BoundsError] if \tt{dstOffs} or \tt{srcOffs} are invalid indices into their respective memblocks,
 			or if either the source or destination ranges extend past the ends of their respective memblocks.`},
 
 		{kind: "function", name: "opEquals",
@@ -734,7 +734,7 @@ foreach(val; m, "reverse")
 		from the source memblocks.
 
 		\param[vararg] the memblocks to be appended.
-		\throws[exceptions.ValueException] if \tt{this} does not own its data (and therefore cannot be resized).
-		\throws[exceptions.RangeException] if the total length of \tt{this} after appending would be too large to be represented.`},
+		\throws[exceptions.ValueError] if \tt{this} does not own its data (and therefore cannot be resized).
+		\throws[exceptions.RangeError] if the total length of \tt{this} after appending would be too large to be represented.`},
 	];
 }

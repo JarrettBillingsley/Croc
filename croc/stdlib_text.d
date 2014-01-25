@@ -78,40 +78,30 @@ decoding when erroneous input is encountered. There are three error behaviors: \
 
 For encoding, the input text is always well-formed, since Croc strings are always valid sequences of Unicode codepoints.
 However, many text encodings only support a subset of all available Unicode codepoints, so the error handling mechanism
-is used when an unencodable character is encountered. If the error behavior is \tt{"strict"}, a \tt{UnicodeException} is
+is used when an unencodable character is encountered. If the error behavior is \tt{"strict"}, a \tt{UnicodeError} is
 thrown. If the error behavior is \tt{"ignore"}, the unencodable character is simply skipped. If the error behavior is
 \tt{"replace"}, the unencodable character is skipped, and a codec-defined replacement character is encoded in its place.
 Usually this will be a question mark character, but not necessarily.
 
 For decoding, the input data may or may nor be well-formed; thus the error handling mechanism is used when malformed or
-invalid input is encountered. If the error behavior is \tt{"strict"}, a \tt{UnicodeException} is thrown. If the error
+invalid input is encountered. If the error behavior is \tt{"strict"}, a \tt{UnicodeError} is thrown. If the error
 behavior is \tt{"ignore"}, the invalid input is skipped. If the error behavior is \tt{"replace"}, the invalid input is
 skipped, and the Unicode Replacement Character (U+00FFFD) is used in its place.
 */
 
 module text
 
-import exceptions:
-	BoundsException,
-	LookupException,
-	NotImplementedException,
-	ParamException,
-	RangeException,
-	TypeException,
-	UnicodeException,
-	ValueException
-
 local textCodecs = {}
 
 /**
 Register a text codec of the given name. The codec can then be retrieved with \link{getCodec}.
 
-\throws[exceptions.LookupException] if there is already a codec registered named \tt{name}.
+\throws[exceptions.LookupError] if there is already a codec registered named \tt{name}.
 */
 function registerCodec(name: string, codec: TextCodec)
 {
 	if(name in textCodecs)
-		throw LookupException("Already a codec for '{}' registered".format(name))
+		throw LookupError("Already a codec for '{}' registered".format(name))
 
 	textCodecs[name] = codec
 }
@@ -130,22 +120,22 @@ Then \tt{getCodec("foo-bar")} and \tt{getCodec("FOOBAR")} would give the same co
 \param[name] is the name of the codec to alias. It must have been previously registered with \link{registerCodec}.
 \param[vararg] is one or more strings that will be registered as aliases to the given codec.
 
-\throws[exceptions.ParamException] if you don't pass at least one variadic argument.
-\throws[exceptions.TypeException] if any of the variadic arguments are not strings.
+\throws[exceptions.ParamError] if you don't pass at least one variadic argument.
+\throws[exceptions.TypeError] if any of the variadic arguments are not strings.
 */
 function aliasCodec(name: string, vararg)
 {
 	local c = getCodec(name)
 
 	if(#vararg == 0)
-		throw ParamException("Must have at least one variadic argument")
+		throw ParamError("Must have at least one variadic argument")
 
 	for(i: 0 .. #vararg)
 	{
 		local rename = vararg[i]
 
 		if(!isString(rename))
-			throw TypeException("All variadic arguments must be strings")
+			throw TypeError("All variadic arguments must be strings")
 
 		registerCodec(rename, c)
 	}
@@ -154,14 +144,14 @@ function aliasCodec(name: string, vararg)
 /**
 Gets the codec object that was registered with the given name.
 
-\throws[exceptions.LookupException] if there was no codec registered with the given name.
+\throws[exceptions.LookupError] if there was no codec registered with the given name.
 */
 function getCodec(name: string)
 {
 	if(local ret = textCodecs[name])
 		return ret
 
-	throw LookupException("No codec registered for '{}'".format(name))
+	throw LookupError("No codec registered for '{}'".format(name))
 }
 
 /**
@@ -190,7 +180,7 @@ range of Unicode.
 function charUtf8Length(c: string)
 {
 	if(#c != 1)
-		throw ValueException("One-character string expected")
+		throw ValueError("One-character string expected")
 
 	local i = c.ord(0)
 
@@ -230,12 +220,12 @@ local Utf8StartCharLengths =
 Given the value of an initial UTF-8 code unit, returns how many bytes long this character is, or 0 if this is an invalid
 initial code unit.
 
-\throws[exceptions.RangeException] if \tt{firstByte} is not in the range \tt{[0 .. 255]}.
+\throws[exceptions.RangeError] if \tt{firstByte} is not in the range \tt{[0 .. 255]}.
 */
 function utf8SequenceLength(firstByte: int)
 {
 	if(firstByte < 0 || firstByte > 255)
-		throw RangeException("{} is not in the range 0 to 255 inclusive".format(firstByte))
+		throw RangeError("{} is not in the range 0 to 255 inclusive".format(firstByte))
 
 	return Utf8StartCharLengths[firstByte]
 }
@@ -319,7 +309,7 @@ class TextCodec
 	\returns \tt{dest}.
 	*/
 	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict")
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Same as calling \link{encodeInto} with a new, empty memblock and a starting index of 0.
@@ -337,12 +327,12 @@ class TextCodec
 
 	\returns the decoded text as a string.
 
-	\throws[exceptions.ValueException] if the given slice of data cannot be consumed in its entirety, such as if there
+	\throws[exceptions.ValueError] if the given slice of data cannot be consumed in its entirety, such as if there
 		is an incomplete character encoding at the end of the data. If you need to be able to decode data piecemeal,
 		such as in a stream decoding situation, this is what \link{incrementalDecoder} is for.
 	*/
 	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Same as calling \link{decodeRange} with a slice of the entire memblock.
@@ -355,14 +345,14 @@ class TextCodec
 	incrementally. See that class's docs for more info.
 	*/
 	function incrementalEncoder(errors: string = "strict")
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Returns a new instance of a class derived from \link{IncrementalDecoder} that allows you to decode a stream of text
 	incrementally. See that class's docs for more info.
 	*/
 	function incrementalDecoder(errors: string = "strict")
-		throw NotImplementedException()
+		throw NotImplementedError()
 }
 
 /**
@@ -379,7 +369,7 @@ class IncrementalEncoder
 	constructor.
 	*/
 	this(errors: string = "strict")
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Similar to \link{TextCodec.encodeInto}.
@@ -396,7 +386,7 @@ class IncrementalEncoder
 	\returns \tt{dest}.
 	*/
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Same as caling \link{encodeInto} with a new, empty memblock and a starting index of 0.
@@ -409,7 +399,7 @@ class IncrementalEncoder
 	will be called automatically by \link{encodeInto} if its \tt{final} param was \tt{true}.
 	*/
 	function reset()
-		throw NotImplementedException()
+		throw NotImplementedError()
 }
 
 /**
@@ -426,7 +416,7 @@ class IncrementalDecoder
 	constructor.
 	*/
 	this(errors: string = "strict")
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Similar to \link{TextCodec.decodeRange}.
@@ -447,7 +437,7 @@ class IncrementalDecoder
 	\returns as much of the data as could be decoded as a string.
 	*/
 	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Same as calling \link{decodeRange} with a slice of the entire memblock.
@@ -460,7 +450,7 @@ class IncrementalDecoder
 	will be called automatically by \link{decodeRange} if its \tt{final} param was \tt{true}.
 	*/
 	function reset()
-		throw NotImplementedException()
+		throw NotImplementedError()
 }
 
 /**
@@ -504,7 +494,7 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 		from the given slice of the memblock.
 	*/
 	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
 	{
@@ -525,7 +515,7 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 		if(eaten < sliceLen)
 		{
 			if(final)
-				throw ValueException("Incomplete text at end of data")
+				throw ValueError("Incomplete text at end of data")
 
 			#:__scratch = sliceLen - eaten
 			:__scratch.copy(0, src, lo + eaten, #:__scratch)

@@ -154,13 +154,13 @@ uword _utf16DecodeInternal(CrocThread* t)
 			skipBadChar(src, end);
 
 			if(errors == "strict")
-				throwStdException(t, "UnicodeException", "Invalid UTF-16");
+				throwStdException(t, "UnicodeError", "Invalid UTF-16");
 			else if(errors == "ignore")
 				continue;
 			else if(errors == "replace")
 				s.addChar('\uFFFD');
 			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+				throwStdException(t, "ValueError", "Invalid error handling type '{}'", errors);
 		}
 	}
 
@@ -173,7 +173,6 @@ const char[] _code =
 `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.utf16EncodeInternal, _internal.utf16DecodeInternal
-import exceptions: ValueException, UnicodeException
 
 // =====================================================================================================================
 // UTF-16 (BOM + native on encoding, BOM + either on decoding)
@@ -236,7 +235,7 @@ local class Utf16IncrementalDecoder : BufferedIncrementalDecoder
 				:__order = 's'
 			}
 			else
-				throw UnicodeException("UTF-16 encoded text has no BOM")
+				throw UnicodeError("UTF-16 encoded text has no BOM")
 		}
 
 		local ret, eaten = _decodeRange(src, lo, hi, errors, :__order)
@@ -267,7 +266,7 @@ class Utf16Codec : TextCodec
 	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 	{
 		if(hi - lo < #BOM_UTF16)
-			throw UnicodeException("UTF-16 encoded text is too short to have a BOM")
+			throw UnicodeError("UTF-16 encoded text is too short to have a BOM")
 
 		local ret, eaten
 
@@ -276,12 +275,12 @@ class Utf16Codec : TextCodec
 		else if(BOM_UTF16_BS.compare(0, src, lo, #BOM_UTF16_BS) == 0)
 			ret, eaten = _decodeRange(src, lo + #BOM_UTF16_BS, hi, errors, 's')
 		else
-			throw UnicodeException("UTF-16 encoded text has no BOM")
+			throw UnicodeError("UTF-16 encoded text has no BOM")
 
 		eaten += #BOM_UTF16
 
 		if(eaten < (hi - lo))
-			throw ValueException("Incomplete text at end of data")
+			throw ValueError("Incomplete text at end of data")
 
 		return ret
 	}
@@ -330,7 +329,7 @@ class Utf16LECodec : TextCodec
 		local ret, eaten = _decodeRange(src, lo, hi, errors, 'l')
 
 		if(eaten < (hi - lo))
-			throw ValueException("Incomplete text at end of data")
+			throw ValueError("Incomplete text at end of data")
 
 		return ret
 	}
@@ -379,7 +378,7 @@ class Utf16BECodec : TextCodec
 		local ret, eaten = _decodeRange(src, lo, hi, errors, 'b')
 
 		if(eaten < (hi - lo))
-			throw ValueException("Incomplete text at end of data")
+			throw ValueError("Incomplete text at end of data")
 
 		return ret
 	}

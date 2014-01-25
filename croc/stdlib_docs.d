@@ -128,11 +128,6 @@ extra work.
 */
 module docs
 
-import exceptions:
-	TypeException,
-	ValueException,
-	NotImplementedException
-
 local docTables = {}
 local _processComment, _parseCommentText, _getMetatable = _docstmp.processComment, _docstmp.parseCommentText, _docstmp.getMetatable
 
@@ -159,7 +154,7 @@ variadic arguments are given, the table itself is set as the documentation table
 
 \returns \tt{val} as per the decorator protocol.
 
-\throws[exceptions.TypeException] if any of the \tt{varargs} are not ints, or if the value that will be set as the
+\throws[exceptions.TypeError] if any of the \tt{varargs} are not ints, or if the value that will be set as the
 doctable for \tt{val} is not a table.
 */
 function _doc_(
@@ -174,13 +169,13 @@ function _doc_(
 		local idx = vararg[i]
 
 		if(!isInt(idx))
-			throw TypeException("_doc_ - Parameter {} expected to be 'int', not '{}'".format(i + 2, typeof(idx)))
+			throw TypeError("_doc_ - Parameter {} expected to be 'int', not '{}'".format(i + 2, typeof(idx)))
 
 		d = d.children[idx]
 	}
 
 	if(!isTable(d))
-		throw TypeException("_doc_ - Doc table is not a table, it is of type '{}'", typeof(d))
+		throw TypeError("_doc_ - Doc table is not a table, it is of type '{}'", typeof(d))
 
 	docTables[val] = d
 	return val
@@ -215,24 +210,24 @@ the \tt{format} method of strings). This function lets you get docs for those me
 
 \returns the doc table for the given method if one has been set, or \tt{null} if not.
 
-\throws[exceptions.ValueException] if \tt{type} does not name a valid built-in type, or if \tt{type} has no metatable
+\throws[exceptions.ValueError] if \tt{type} does not name a valid built-in type, or if \tt{type} has no metatable
 set for it.
-\throws[exceptions.FieldException] if there is no method named \tt{method} in \tt{type}'s metatable.
+\throws[exceptions.FieldError] if there is no method named \tt{method} in \tt{type}'s metatable.
 */
 function metamethodDocs(type: string, method: string)
 {
 	local ok, mt = _getMetatable(type)
 
 	if(!ok)
-		throw ValueException("Invalid type")
+		throw ValueError("Invalid type")
 
 	if(mt is null)
-		throw ValueException("Type has no metatable")
+		throw ValueError("Type has no metatable")
 
 	local func = mt[method]
 
 	if(func is null)
-		throw FieldException("No method '{}' in given type's metatable".format(method))
+		throw FieldError("No method '{}' in given type's metatable".format(method))
 
 	return docsOf(func)
 }
@@ -248,17 +243,17 @@ access their doc tables through their parents' \tt{children} doctable member. Th
 
 \returns the doc table for the given field if one has been set, or \tt{null} if not.
 
-\throws[exceptions.ValueException] if \tt{obj} has no child named \tt{child}, or if \tt{obj} has no doctable.
+\throws[exceptions.ValueError] if \tt{obj} has no child named \tt{child}, or if \tt{obj} has no doctable.
 */
 function childDocs(obj: class|namespace, child: string)
 {
 	if(child !in obj)
-		throw ValueException("Object has no child named '{}'".format(child))
+		throw ValueError("Object has no child named '{}'".format(child))
 
 	local docs = docsOf(obj)
 
 	if(docs is null)
-		throw ValueException("Object has no doc table")
+		throw ValueError("Object has no doc table")
 
 	foreach outerLoop(c; docs.children)
 	{
@@ -325,7 +320,7 @@ class DocVisitor
 	Visits one program item's doctable. This dispatches based on \tt{item.kind} to one of the six methods after this
 	one.
 
-	\throws[exceptions.ValueException] if the given doctable has an invalid \tt{kind} field.
+	\throws[exceptions.ValueError] if the given doctable has an invalid \tt{kind} field.
 	*/
 	function visitItem(item: table)
 	{
@@ -337,19 +332,19 @@ class DocVisitor
 			case "namespace": :visitNamespace(item); break
 			case "field":     :visitField(item);     break
 			case "variable":  :visitVariable(item);  break
-			default: throw ValueException("Malformed documentation (invalid doctable kind '{}')".format(item.kind))
+			default: throw ValueError("Malformed documentation (invalid doctable kind '{}')".format(item.kind))
 		}
 	}
 
 	/**
 	These methods are called by \link{visitItem}. You must implement these methods yourself.
 	*/
-	function visitModule(item: table) throw NotImplementedException()
-	function visitClass(item: table) throw NotImplementedException()
-	function visitNamespace(item: table) throw NotImplementedException()
-	function visitFunction(item: table) throw NotImplementedException()
-	function visitField(item: table) throw NotImplementedException()
-	function visitVariable(item: table) throw NotImplementedException()
+	function visitModule(item: table) throw NotImplementedError()
+	function visitClass(item: table) throw NotImplementedError()
+	function visitNamespace(item: table) throw NotImplementedError()
+	function visitFunction(item: table) throw NotImplementedError()
+	function visitField(item: table) throw NotImplementedError()
+	function visitVariable(item: table) throw NotImplementedError()
 
 	/**
 	A convenience method for doctables which have children (such as modules, classes, and namespaces). This just loops
@@ -392,7 +387,7 @@ class DocVisitor
 			else if(isArray(elem))
 			{
 				if(#elem == 0)
-					throw ValueException("Malformed documentation (invalid paragraph element)")
+					throw ValueError("Malformed documentation (invalid paragraph element)")
 
 				local type = elem[0]
 
@@ -415,53 +410,53 @@ class DocVisitor
 						if(isString(type) && type.startsWith("_"))
 							:visitCustomSpan(type, elem[1..])
 						else
-							throw ValueException("Malformed documentation (invalid paragraph element type)")
+							throw ValueError("Malformed documentation (invalid paragraph element type)")
 				}
 			}
 			else
-				throw ValueException("Malformed documentation (invalid paragraph element)")
+				throw ValueError("Malformed documentation (invalid paragraph element)")
 		}
 	}
 
 	/// Visits a segment of plain text that appears in a paragraph. Must be overridden.
-	function visitText(elem: string) throw NotImplementedException()
+	function visitText(elem: string) throw NotImplementedError()
 
 	/// Visits a code snippet. Must be overridden.
-	function visitCode(language: string, contents: string) throw NotImplementedException()
+	function visitCode(language: string, contents: string) throw NotImplementedError()
 
 	/// Visits a verbatim block. Must be overridden.
-	function visitVerbatim(contents: string) throw NotImplementedException()
+	function visitVerbatim(contents: string) throw NotImplementedError()
 
 	/// Visits a bulleted list. Must be overridden.
-	function visitBlist(items: array) throw NotImplementedException()
+	function visitBlist(items: array) throw NotImplementedError()
 
 	/// Visits a numbered list. Must be overridden.
-	function visitNlist(type: string, items: array) throw NotImplementedException()
+	function visitNlist(type: string, items: array) throw NotImplementedError()
 
 	/// Visits a definition list. Must be overridden.
-	function visitDlist(items: array) throw NotImplementedException()
+	function visitDlist(items: array) throw NotImplementedError()
 
 	/// Visits a table. Must be overridden.
-	function visitTable(rows: array) throw NotImplementedException()
+	function visitTable(rows: array) throw NotImplementedError()
 
 	/// Visits an emphasis text span. Must be overridden.
-	function visitEmphasis(contents: array) throw NotImplementedException()
+	function visitEmphasis(contents: array) throw NotImplementedError()
 
 	/// Visits a link text span. Must be overridden.
-	function visitLink(link: string, contents: array) throw NotImplementedException()
+	function visitLink(link: string, contents: array) throw NotImplementedError()
 
 	/// Visits a subscript text span. Must be overridden.
-	function visitSubscript(contents: array) throw NotImplementedException()
+	function visitSubscript(contents: array) throw NotImplementedError()
 
 	/// Visits a superscript text span. Must be overridden.
-	function visitSuperscript(contents: array) throw NotImplementedException()
+	function visitSuperscript(contents: array) throw NotImplementedError()
 
 	/// Visits a monospace text span. Must be overridden.
-	function visitMonospace(contents: array) throw NotImplementedException()
+	function visitMonospace(contents: array) throw NotImplementedError()
 
 	/// Visits an underline text span. Must be overridden.
-	function visitUnderline(contents: array) throw NotImplementedException()
+	function visitUnderline(contents: array) throw NotImplementedError()
 
 	/// Visits a custom text span. Must be overridden.
-	function visitCustomSpan(type: string, contents: array) throw NotImplementedException()
+	function visitCustomSpan(type: string, contents: array) throw NotImplementedError()
 }`;

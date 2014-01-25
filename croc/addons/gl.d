@@ -214,7 +214,7 @@ static:
 		auto size = checkIntParam(t, 3);
 
 		if(size < 0 || size > uword.max)
-			throwStdException(t, "RangeException", "Invalid size: {}", size);
+			throwStdException(t, "RangeError", "Invalid size: {}", size);
 
 		auto ptr = glMapBuffer(target, access);
 

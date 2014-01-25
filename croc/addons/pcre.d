@@ -210,7 +210,7 @@ static:
 		field(t, 0, Ptrs);
 
 		if(isNull(t, -1))
-			throwStdException(t, "StateException", "Attempting to call method on an uninitialized Regex instance");
+			throwStdException(t, "StateError", "Attempting to call method on an uninitialized Regex instance");
 
 		return cast(PtrStruct*)getMemblockData(t, -1).ptr;
 	}
@@ -287,7 +287,7 @@ static:
 		pop(t);
 
 		if(numGroups == 0)
-			throwStdException(t, "ValueException", "No more matches");
+			throwStdException(t, "ValueError", "No more matches");
 
 		field(t, 0, GroupIdx);
 		auto gi = cast(GroupIdxType)getMemblockData(t, -1);
@@ -304,7 +304,7 @@ static:
 			auto i = getInt(t, group);
 
 			if(i < 0 || i >= numGroups)
-				throwStdException(t, "RangeException", "Invalid group index {} (have {} groups)", i, numGroups);
+				throwStdException(t, "RangeError", "Invalid group index {} (have {} groups)", i, numGroups);
 
 			i *= 2;
 
@@ -318,7 +318,7 @@ static:
 			idx(t, -2);
 
 			if(isNull(t, -1))
-				throwStdException(t, "NameException", "Invalid group name '{}'", getString(t, group));
+				throwStdException(t, "NameError", "Invalid group name '{}'", getString(t, group));
 
 			auto i = cast(uword)getInt(t, -1);
 			pop(t, 2);
@@ -340,7 +340,7 @@ static:
 		field(t, 0, Ptrs);
 
 		if(!isNull(t, -1))
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Regex");
+			throwStdException(t, "StateError", "Attempting to call constructor on an already-initialized Regex");
 
 		auto pat = checkStringParam(t, 1);
 		auto attrs = parseAttrs(optStringParam(t, 2, ""));
@@ -583,7 +583,7 @@ static:
 				if(!isString(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwStdException(t, "TypeException", "replacement function should return a 'string', not a '{}'", getString(t, -1));
+					throwStdException(t, "TypeError", "replacement function should return a 'string', not a '{}'", getString(t, -1));
 				}
 
 				buf.addTop();

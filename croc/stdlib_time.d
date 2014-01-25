@@ -155,7 +155,7 @@ static:
 		auto sec = field(t, tab, "sec");
 
 		if(!isInt(t, year) || !isInt(t, month) || !isInt(t, day))
-			throwStdException(t, "ValueException", "year, month, and day fields in time table must exist and must be integers");
+			throwStdException(t, "ValueError", "year, month, and day fields in time table must exist and must be integers");
 
 		Time time = void;
 

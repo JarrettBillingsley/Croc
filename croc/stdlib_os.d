@@ -90,7 +90,7 @@ static:
 		auto dur = checkNumParam(t, 1);
 
 		if(dur < 0)
-			throwStdException(t, "RangeException", "Invalid sleep duration: {}", dur);
+			throwStdException(t, "RangeError", "Invalid sleep duration: {}", dur);
 
 		Thread.sleep(dur);
 		return 0;
@@ -143,7 +143,7 @@ static:
 			field(t, 0, processField);
 
 			if(!isNull(t, -1))
-				throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Process");
+				throwStdException(t, "StateError", "Attempting to call constructor on an already-initialized Process");
 
 			pop(t);
 
@@ -198,7 +198,7 @@ static:
 				foreach(word k, word v; foreachLoop(t, 1))
 				{
 					if(!isString(t, k) || !isString(t, v))
-						throwStdException(t, "ValueException", "env parameter must be a table mapping from strings to strings");
+						throwStdException(t, "ValueError", "env parameter must be a table mapping from strings to strings");
 
 					env[getString(t, k)] = getString(t, v);
 				}
@@ -222,7 +222,7 @@ static:
 					idxi(t, 1, i);
 
 					if(!isString(t, -1))
-						throwStdException(t, "ValueException", "cmd parameter must be an array of strings");
+						throwStdException(t, "ValueError", "cmd parameter must be an array of strings");
 
 					cmd[i] = getString(t, -1);
 					pop(t);
@@ -242,7 +242,7 @@ static:
 			auto p = getProcess(t);
 
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
-				throwStdException(t, "StateException", "Attempting to get stdin of process that isn't running");
+				throwStdException(t, "StateError", "Attempting to get stdin of process that isn't running");
 
 			field(t, 0, stdinField);
 
@@ -268,7 +268,7 @@ static:
 			auto p = getProcess(t);
 
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
-				throwStdException(t, "StateException", "Attempting to get stdout of process that isn't running");
+				throwStdException(t, "StateError", "Attempting to get stdout of process that isn't running");
 
 			field(t, 0, stdoutField);
 
@@ -294,7 +294,7 @@ static:
 			auto p = getProcess(t);
 
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
-				throwStdException(t, "StateException", "Attempting to get stderr of process that isn't running");
+				throwStdException(t, "StateError", "Attempting to get stderr of process that isn't running");
 
 			field(t, 0, stderrField);
 

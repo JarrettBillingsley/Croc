@@ -281,7 +281,7 @@ static:
 			if(!isTable(t, -1))
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "Array element {} is a '{}', not a table", i, getString(t, -1));
+				throwStdException(t, "TypeError", "Array element {} is a '{}', not a table", i, getString(t, -1));
 			}
 
 			field(t, -1, "x");
@@ -293,7 +293,7 @@ static:
 			else
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "Array element {}'s 'x' field is a '{}', not a number", i, getString(t, -1));
+				throwStdException(t, "TypeError", "Array element {}'s 'x' field is a '{}', not a number", i, getString(t, -1));
 			}
 
 			pop(t);
@@ -306,7 +306,7 @@ static:
 			else
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "Array element {}'s 'y' field is a '{}', not a number", i, getString(t, -1));
+				throwStdException(t, "TypeError", "Array element {}'s 'y' field is a '{}', not a number", i, getString(t, -1));
 			}
 
 			pop(t, 2);
@@ -341,7 +341,7 @@ static:
 			if(!isTable(t, -1))
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "Array element {} is a '{}', not a table", i, getString(t, -1));
+				throwStdException(t, "TypeError", "Array element {} is a '{}', not a table", i, getString(t, -1));
 			}
 
 			field(t, -1, "x");
@@ -351,7 +351,7 @@ static:
 			else
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "Array element {}'s 'x' field is a '{}', not an int", i, getString(t, -1));
+				throwStdException(t, "TypeError", "Array element {}'s 'x' field is a '{}', not an int", i, getString(t, -1));
 			}
 
 			pop(t);
@@ -362,7 +362,7 @@ static:
 			else
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "Array element {}'s 'y' field is a '{}', not an int", i, getString(t, -1));
+				throwStdException(t, "TypeError", "Array element {}'s 'y' field is a '{}', not an int", i, getString(t, -1));
 			}
 
 			pop(t, 2);

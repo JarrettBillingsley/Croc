@@ -54,12 +54,6 @@ module doctools.output
 
 import docs: DocVisitor, docsOf
 
-import exceptions:
-	StateException,
-	ValueException,
-	NotImplementedException,
-	RangeException
-
 /**
 This class defines a default behavior for mapping documentation links (made with the \tt{\\link} command) to the things
 they refer to. It uses a \link{LinkTranslator} which you define in order to turn the mapped links into outputtable link
@@ -148,42 +142,42 @@ class LinkResolver
 	/**
 	Switches from global scope to module scope, so that links will be resolved in the context of the given module.
 
-	\throws[exceptions.StateException] if the current scope is not global scope.
-	\throws[exceptions.ValueException] if there is no module of the given name.
+	\throws[exceptions.StateError] if the current scope is not global scope.
+	\throws[exceptions.ValueError] if there is no module of the given name.
 	*/
 	function enterModule(name: string)
 	{
 		if(:__item !is null || :__module !is null)
-			throw StateException("Attempting to enter a module from {} scope".format(:currentScope()))
+			throw StateError("Attempting to enter a module from {} scope".format(:currentScope()))
 
 		if(local m = :__modules[name])
 			:__module = m
 		else
-			throw ValueException("No module named '{}' (did you import it after creating this resolver?)".format(name))
+			throw ValueError("No module named '{}' (did you import it after creating this resolver?)".format(name))
 	}
 
 	/**
 	Switches from module scope to item scope, so that links will be resolved in the context of the given item (class or
 	namespace declaration).
 
-	\throws[exceptions.StateException] if the current scope is not module scope.
-	\throws[exceptions.ValueException] if there is no item of the given name in the current module.
+	\throws[exceptions.StateError] if the current scope is not module scope.
+	\throws[exceptions.ValueError] if there is no item of the given name in the current module.
 	*/
 	function enterItem(name: string)
 	{
 		if(:__item !is null || :__module is null)
-			throw StateException("Attempting to enter an item from {} scope".format(:currentScope()))
+			throw StateError("Attempting to enter an item from {} scope".format(:currentScope()))
 
 		if(local i = :__module.children[name])
 			:__item = i
 		else
-			throw ValueException("No item named '{}' in {}".format(name, __module.name))
+			throw ValueError("No item named '{}' in {}".format(name, __module.name))
 	}
 
 	/**
 	Switches from the current scope to the owning scope.
 
-	\throws[exceptions.StateException] if the current scope is global scope.
+	\throws[exceptions.StateError] if the current scope is global scope.
 	*/
 	function leave()
 	{
@@ -192,7 +186,7 @@ class LinkResolver
 		else if(:__module !is null)
 			:__module = null
 		else
-			throw StateException("Attempting to leave at global scope")
+			throw StateError("Attempting to leave at global scope")
 	}
 
 	/**
@@ -392,7 +386,7 @@ class LinkTranslator
 	\returns the link translated into a form that makes sense to whatever output format you're using.
 	*/
 	function translateLink(mod: string, item: string)
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Given a URI, translates it into a suitable link string.
@@ -404,22 +398,22 @@ class LinkTranslator
 	\returns the link translated into a form that makes sense to whatever output format you're using.
 	*/
 	function translateURI(uri: string)
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	This method is called when the given link fails to resolve.
 
 	\link{LinkResolver.resolveLink} will call this method if it fails to find a valid target for the given link. This
 	method can return a string which will then be returned by \link{LinkResolver.resolveLink}. By default, this method
-	throws a \link{exceptions.ValueException} saying which link failed, but you can override it so that it does
+	throws a \link{exceptions.ValueError} saying which link failed, but you can override it so that it does
 	something else (such as returning a dummy link and logging the error to stderr).
 
 	\param[link] is the link that failed to resolve.
 	\returns a replacement string, optionally.
-	\throws[exceptions.ValueException] by default as explained above.
+	\throws[exceptions.ValueError] by default as explained above.
 	*/
 	function invalidLink(link: string)
-		throw ValueException("No target found for link '{}'".format(link))
+		throw ValueError("No target found for link '{}'".format(link))
 }
 
 /// Checks if a given name is a valid name for a doc section.
@@ -453,12 +447,12 @@ are wrapped around (100 becomes 1, 101 becomes 2, etc.).
 \param[n] is the number.
 \param[lower] is whether or not the result should be lowercase.
 \returns a string.
-\throws[exceptions.RangeException] if \tt{n <= 0}.
+\throws[exceptions.RangeError] if \tt{n <= 0}.
 */
 function numToRoman(n: int, lower: bool)
 {
 	if(n <= 0)
-		throw RangeException("Invalid number")
+		throw RangeError("Invalid number")
 
 	n = ((n - 1) % 99) + 1
 	local table = lower ? LowerRomanNumTable : UpperRomanNumTable
@@ -482,12 +476,12 @@ than this are wrapped around.
 \param[n] is the number.
 \param[lower] is whether or not the result should be lowercase.
 \returns a string.
-\throws[exceptions.RangeException] if \tt{n <= 0}.
+\throws[exceptions.RangeError] if \tt{n <= 0}.
 */
 function numToLetter(n: int, lower: bool)
 {
 	if(n <= 0)
-		throw RangeException("Invalid number")
+		throw RangeError("Invalid number")
 
 	return (lower ? LowerLetterTable : UpperLetterTable)[(n - 1) % 26]
 }
@@ -529,7 +523,7 @@ is the empty string, then the name in the result will simply be \tt{"foo"}.
 
 \returns a string containing the header representation.
 
-\throws[exceptions.ValueException] if \tt{doctable}'s kind is \tt{"parameter"} or some invalid kind.
+\throws[exceptions.ValueError] if \tt{doctable}'s kind is \tt{"parameter"} or some invalid kind.
 */
 function toHeader(doctable: table, parentFQN: string, full: bool = true)
 {
@@ -618,10 +612,10 @@ function toHeader(doctable: table, parentFQN: string, full: bool = true)
 			break
 
 		case "parameter":
-			throw ValueException("Cannot call toHeader on a parameter doctable")
+			throw ValueError("Cannot call toHeader on a parameter doctable")
 
 		default:
-			throw ValueException("Malformed documentation for {}".format(doctable.name))
+			throw ValueError("Malformed documentation for {}".format(doctable.name))
 	}
 
 	return "".join(ret)
@@ -723,7 +717,7 @@ class SectionOrder
 	\endlist
 
 	\param[order] order is the new order as described above.
-	\throws[exceptions.ValueException] if any of the given constraints are not satisfied.
+	\throws[exceptions.ValueError] if any of the given constraints are not satisfied.
 	*/
 	function setOrder(order: array)
 	{
@@ -731,15 +725,15 @@ class SectionOrder
 		foreach(name; order)
 		{
 			if(!isString(name))
-				throw ValueException("Order must be an array of nothing but strings")
+				throw ValueError("Order must be an array of nothing but strings")
 			else if(!validSectionName(name))
-				throw ValueException("Invalid section name '{}' in given order".format(name))
+				throw ValueError("Invalid section name '{}' in given order".format(name))
 		}
 
 		// Make sure all standard sections are accounted for
 		foreach(sec; stdSections)
 			if(sec !in order)
-				throw ValueException("Standard section '{}' does not exist in the given order".format(sec))
+				throw ValueError("Standard section '{}' does not exist in the given order".format(sec))
 
 		// Make sure there are no duplicates
 		local temp = order.dup().sort()
@@ -747,7 +741,7 @@ class SectionOrder
 		for(i: 0 .. #temp - 1)
 		{
 			if(temp[i] is temp[i + 1])
-				throw ValueException("Section '{}' is repeated in the given order".format(temp[i]))
+				throw ValueError("Section '{}' is repeated in the given order".format(temp[i]))
 		}
 
 		:__sectionOrder = order.dup()
@@ -772,13 +766,13 @@ class SectionOrder
 	function __insertSectionImpl(sec: string, target: string, after: bool)
 	{
 		if(!validSectionName(sec))
-			throw ValueException("Invalid section name '{}'".format(sec))
+			throw ValueError("Invalid section name '{}'".format(sec))
 		else if(!validSectionName(target))
-			throw ValueException("Invalid section name '{}'".format(target))
+			throw ValueError("Invalid section name '{}'".format(target))
 		else if(sec == target)
-			throw ValueException("Section names must be different")
+			throw ValueError("Section names must be different")
 		else if(target !in ord)
-			throw ValueException("Section '{}' does not exist in the section order".format(target))
+			throw ValueError("Section '{}' does not exist in the section order".format(target))
 
 		local ord = :__sectionOrder
 
@@ -819,18 +813,18 @@ class DocOutputter
 
 	\param[doctable] is the doc table of the given item.
 	*/
-	function beginModule(doctable: table) throw NotImplementedException()
-	function endModule() throw NotImplementedException() /// ditto
-	function beginFunction(doctable: table) throw NotImplementedException() /// ditto
-	function endFunction() throw NotImplementedException() /// ditto
-	function beginClass(doctable: table) throw NotImplementedException() /// ditto
-	function endClass() throw NotImplementedException() /// ditto
-	function beginNamespace(doctable: table) throw NotImplementedException() /// ditto
-	function endNamespace() throw NotImplementedException() /// ditto
-	function beginField(doctable: table) throw NotImplementedException() /// ditto
-	function endField() throw NotImplementedException() /// ditto
-	function beginVariable(doctable: table) throw NotImplementedException() /// ditto
-	function endVariable() throw NotImplementedException() /// ditto
+	function beginModule(doctable: table) throw NotImplementedError()
+	function endModule() throw NotImplementedError() /// ditto
+	function beginFunction(doctable: table) throw NotImplementedError() /// ditto
+	function endFunction() throw NotImplementedError() /// ditto
+	function beginClass(doctable: table) throw NotImplementedError() /// ditto
+	function endClass() throw NotImplementedError() /// ditto
+	function beginNamespace(doctable: table) throw NotImplementedError() /// ditto
+	function endNamespace() throw NotImplementedError() /// ditto
+	function beginField(doctable: table) throw NotImplementedError() /// ditto
+	function endField() throw NotImplementedError() /// ditto
+	function beginVariable(doctable: table) throw NotImplementedError() /// ditto
+	function endVariable() throw NotImplementedError() /// ditto
 
 	// Section-level stuff
 
@@ -846,10 +840,10 @@ class DocOutputter
 	\param[name] is the name of the section, completely unmodified (so it will be lowercase and, if it's a custom
 		section, will still have the underscore at the beginning).
 	*/
-	function beginSection(name: string) throw NotImplementedException()
+	function beginSection(name: string) throw NotImplementedError()
 
 	/// Called when a section ends.
-	function endSection() throw NotImplementedException()
+	function endSection() throw NotImplementedError()
 
 	/**
 	When outputting a \tt{"params"} section, this is called for each parameter.
@@ -860,10 +854,10 @@ class DocOutputter
 
 	\param[doctable] is the doctable of the parameter being begun.
 	*/
-	function beginParameter(doctable: table) throw NotImplementedException()
+	function beginParameter(doctable: table) throw NotImplementedError()
 
 	/// Called when a parameter ends.
-	function endParameter() throw NotImplementedException()
+	function endParameter() throw NotImplementedError()
 
 	/**
 	When outputting a \tt{"throws"} section, this is called for each exception.
@@ -873,10 +867,10 @@ class DocOutputter
 
 	\param[name] is the exception name.
 	*/
-	function beginException(name: string) throw NotImplementedException()
+	function beginException(name: string) throw NotImplementedError()
 
 	/// Called when an exception ends.
-	function endException() throw NotImplementedException()
+	function endException() throw NotImplementedError()
 
 	// Paragraph-level stuff
 
@@ -887,15 +881,15 @@ class DocOutputter
 
 	\param[vararg] are all strings to be output.
 	*/
-	function outputText(vararg) throw NotImplementedException()
+	function outputText(vararg) throw NotImplementedError()
 
 	/**
 	Begin and end a single paragraph as defined by the doc comment spec.
 
 	Between these calls, you'll get calls to output the paragraph's contents.
 	*/
-	function beginParagraph() throw NotImplementedException()
-	function endParagraph() throw NotImplementedException() /// ditto
+	function beginParagraph() throw NotImplementedError()
+	function endParagraph() throw NotImplementedError() /// ditto
 
 	/**
 	Begin and end code and verbatim sections.
@@ -904,10 +898,10 @@ class DocOutputter
 
 	Within these sections, only \link{outputText} will be called.
 	*/
-	function beginCode(language: string) throw NotImplementedException()
-	function endCode() throw NotImplementedException() /// ditto
-	function beginVerbatim() throw NotImplementedException() /// ditto
-	function endVerbatim() throw NotImplementedException() /// ditto
+	function beginCode(language: string) throw NotImplementedError()
+	function endCode() throw NotImplementedError() /// ditto
+	function beginVerbatim() throw NotImplementedError() /// ditto
+	function endVerbatim() throw NotImplementedError() /// ditto
 
 	/**
 	Begin and end bulleted and numbered lists.
@@ -915,18 +909,18 @@ class DocOutputter
 	The \tt{type} parameter of \tt{beginNumList} specifies the type of list (one of \tt{"1", "a", "A", "i",} and
 	\tt{"I"}).
 	*/
-	function beginBulletList() throw NotImplementedException()
-	function endBulletList() throw NotImplementedException() /// ditto
-	function beginNumList(type: string) throw NotImplementedException() /// ditto
-	function endNumList() throw NotImplementedException() /// ditto
+	function beginBulletList() throw NotImplementedError()
+	function endBulletList() throw NotImplementedError() /// ditto
+	function beginNumList(type: string) throw NotImplementedError() /// ditto
+	function endNumList() throw NotImplementedError() /// ditto
 
 	/**
 	Begin and end list items in bulleted and numbered lists.
 
 	Each list item will be bracketed by these two calls. Sub-lists are not treated as their own list items.
 	*/
-	function beginListItem() throw NotImplementedException()
-	function endListItem() throw NotImplementedException() /// ditto
+	function beginListItem() throw NotImplementedError()
+	function endListItem() throw NotImplementedError() /// ditto
 
 	/**
 	Begin and end definition lists.
@@ -934,8 +928,8 @@ class DocOutputter
 	Each item will consist of a definition term followed by a definition ... definition. Hey, you come up with a better
 	name!
 	*/
-	function beginDefList() throw NotImplementedException()
-	function endDefList() throw NotImplementedException() /// ditto
+	function beginDefList() throw NotImplementedError()
+	function endDefList() throw NotImplementedError() /// ditto
 
 	/**
 	Begin and end definition list items.
@@ -943,10 +937,10 @@ class DocOutputter
 	For each item, you will get a \tt{beginDefTerm}, then some paragraph elements for the term, then \tt{endDefTerm};
 	then comes \tt{beginDefDef}, then the contents of the definition, and finally \tt{endDefDef}.
 	*/
-	function beginDefTerm() throw NotImplementedException()
-	function endDefTerm() throw NotImplementedException() /// ditto
-	function beginDefDef() throw NotImplementedException() /// ditto
-	function endDefDef() throw NotImplementedException() /// ditto
+	function beginDefTerm() throw NotImplementedError()
+	function endDefTerm() throw NotImplementedError() /// ditto
+	function beginDefDef() throw NotImplementedError() /// ditto
+	function endDefDef() throw NotImplementedError() /// ditto
 
 	/**
 	Begin and end tables, their rows, and their cells.
@@ -954,26 +948,26 @@ class DocOutputter
 	Each row is bracketed by \tt{beginRow/endRow} calls; each cell in each row is bracketed by \tt{beginCell/endCell}
 	calls. It's simple.
 	*/
-	function beginTable() throw NotImplementedException()
-	function endTable() throw NotImplementedException() /// ditto
-	function beginRow() throw NotImplementedException() /// ditto
-	function endRow() throw NotImplementedException() /// ditto
-	function beginCell() throw NotImplementedException() /// ditto
-	function endCell() throw NotImplementedException() /// ditto
+	function beginTable() throw NotImplementedError()
+	function endTable() throw NotImplementedError() /// ditto
+	function beginRow() throw NotImplementedError() /// ditto
+	function endRow() throw NotImplementedError() /// ditto
+	function beginCell() throw NotImplementedError() /// ditto
+	function endCell() throw NotImplementedError() /// ditto
 
 	/// Begin and end text spans.
-	function beginBold() throw NotImplementedException()
-	function endBold() throw NotImplementedException() /// ditto
-	function beginEmphasis() throw NotImplementedException() /// ditto
-	function endEmphasis() throw NotImplementedException() /// ditto
-	function beginSubscript() throw NotImplementedException() /// ditto
-	function endSubscript() throw NotImplementedException() /// ditto
-	function beginSuperscript() throw NotImplementedException() /// ditto
-	function endSuperscript() throw NotImplementedException() /// ditto
-	function beginMonospace() throw NotImplementedException() /// ditto
-	function endMonospace() throw NotImplementedException() /// ditto
-	function beginUnderline() throw NotImplementedException() /// ditto
-	function endUnderline() throw NotImplementedException() /// ditto
+	function beginBold() throw NotImplementedError()
+	function endBold() throw NotImplementedError() /// ditto
+	function beginEmphasis() throw NotImplementedError() /// ditto
+	function endEmphasis() throw NotImplementedError() /// ditto
+	function beginSubscript() throw NotImplementedError() /// ditto
+	function endSubscript() throw NotImplementedError() /// ditto
+	function beginSuperscript() throw NotImplementedError() /// ditto
+	function endSuperscript() throw NotImplementedError() /// ditto
+	function beginMonospace() throw NotImplementedError() /// ditto
+	function endMonospace() throw NotImplementedError() /// ditto
+	function beginUnderline() throw NotImplementedError() /// ditto
+	function endUnderline() throw NotImplementedError() /// ditto
 
 	/**
 	Begin and end link text spans.
@@ -981,8 +975,8 @@ class DocOutputter
 	\param[link] is the link target, and if you want the link to work, you'll have to use a \link{LinkResolver} with
 	an implementation of \link{LinkTranslator} to do so.
 	*/
-	function beginLink(link: string) throw NotImplementedException()
-	function endLink() throw NotImplementedException() /// ditto
+	function beginLink(link: string) throw NotImplementedError()
+	function endLink() throw NotImplementedError() /// ditto
 }
 
 /**

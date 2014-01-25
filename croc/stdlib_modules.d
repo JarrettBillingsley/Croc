@@ -204,7 +204,7 @@ uword commonLoad(CrocThread* t, char[] name)
 		else if(!isNull(t, reg))
 		{
 			pushTypeString(t, reg);
-			throwStdException(t, "TypeException", "modules.loaders[{}] expected to return a function, funcdef, namespace, or null, not '{}'", i, getString(t, -1));
+			throwStdException(t, "TypeError", "modules.loaders[{}] expected to return a function, funcdef, namespace, or null, not '{}'", i, getString(t, -1));
 		}
 
 		pop(t);
@@ -218,7 +218,7 @@ uword commonLoad(CrocThread* t, char[] name)
 void initModule(CrocThread* t, char[] name, word reg)
 {
 	if(isFunction(t, reg) && !funcIsNative(t, reg))
-		throwStdException(t, "ValueException", "Top-level module function must be a native function");
+		throwStdException(t, "ValueError", "Top-level module function must be a native function");
 
 	// Make the namespace
 	auto ns = pushGlobal(t, "_G");
@@ -540,31 +540,6 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	`Very similar to \link{modules.load}, but reloads an already-loaded module. This function replaces step 1 of
 	\link{modules.load}'s process with a check to see if the module has already been loaded; if it has, it continues
 	on with the process. If it hasn't been loaded, throws an error.`},
-
-	// {kind: "function", name: "modules.initModule",
-	// params: [Param("topLevel", "function|funcdef"), Param("name", "string")],
-	// extra: [Extra("protection", "global")],
-	// docs:
-	// `Initialize a module with a top-level function/funcdef and a name.
-
-	// The name is used to create the namespace for the module in the global namespace hierarchy if it doesn't already exist.
-	// If the module namespace does already exist (such as in the case when a module is being reloaded), it is cleared before
-	// the top-level is called. Once the namespace has been created, the top-level function (or if the first parameter is a
-	// funcdef, the result of creating a new closure of that funcdef with the new namespace as the environment) is called with
-	// the module namespace as the 'this' parameter.
-
-	// If the top-level function completes successfully, the module's namespace will be inserted into the global namespace
-	// hierarchy and also be added to the \link{modules.loaded} table.
-
-	// If the top-level function fails, no change will be made to the global namespace hierarchy (unless the module's namespace
-	// was cleared).
-
-	// Note that if you pass a function as the \tt{topLevel} parameter, it can only be a native function. Script functions'
-	// environments are fixed and cannot be set to the new module namespace. For that matter, if you pass a funcdef, that funcdef
-	// must not have had any closures created from it yet, as that would associate a namespace with that funcdef as well.
-
-	// \param[topLevel] Either a native function or a script function definition, used as the top-level statements of the module.
-	// \param[name]     The name of the module, in dotted form (such as "foo.bar").`},
 
 	{kind: "function", name: "modules.runMain",
 	params: [Param("ns", "namespace"), Param("vararg", "vararg")],

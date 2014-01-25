@@ -375,63 +375,61 @@ template Desc(char[] name, char[] derives, char[] docs)
 
 private const ExDesc[] ExDescs =
 [
-	Desc!("Exception", "Throwable", `Base class for all "generally non-fatal" exceptions. This is exported in the
-		global namespace as well, to make it more convenient to access.`),
+	Desc!("Exception", "Throwable", `Base class for all "generally non-fatal" exceptions.`),
 
 		Desc!("CompileException", "Exception", `Base class for exceptions that the Croc compiler throws. The
 			\tt{location} field is the source location that caused the exception to be thrown.`),
 			Desc!("LexicalException", "CompileException", `Thrown for lexical errors in source code.`),
 			Desc!("SyntaxException", "CompileException", `Thrown for syntactic errors in source code.`),
 			Desc!("SemanticException", "CompileException", `Thrown for semantic errors in source code.`),
-		Desc!("TypeException", "Exception", `Thrown when an incorrect type is given to an operation (i.e. trying
-			to add strings, or when invalid types are given to function parameters).`),
-		Desc!("ValueException", "Exception", `Generally speaking, indicates that an operation was given a value
-			of the proper type, but the value is invalid somehow - not an acceptible value, or incorrectly formed, or
-			in an invalid state. If possible, try to use one of the more specific classes that derive from this, or
-			derive your own.`),
-			Desc!("RangeException", "ValueException", `A more specific kind of ValueException indicating that a
-				value is out of a valid range of acceptible values. Typically used for mathematical functions, i.e.
-				square root only works on non-negative values. Note that if the error is because a value is out of the
-				range of valid indices for a container, you should use a \link{exceptions.BoundsException} instead.`),
-			Desc!("StateException", "ValueException", `A more specific kind of ValueException indicating that an object
-				is in an invalid state.`),
-			Desc!("UnicodeException", "ValueException", `Thrown when Croc is given malformed/invalid Unicode data
-				for a string, or when invalid Unicode data is encountered during transcoding.`),
 		Desc!("IOException", "Exception", `Thrown when an IO operation fails or is given invalid inputs.`),
-		Desc!("OSException", "Exception", `Thrown when the OS is angry.`),
-		Desc!("ImportException", "Exception", `Thrown when an import fails; may also have a 'cause' exception in
-			case the import failed because of an exception being thrown.`),
-		Desc!("LookupException", "Exception", `Base class for "lookup" errors, which covers several kinds of
-			lookups. Sometimes this base class can be thrown too.`),
-			Desc!("NameException", "LookupException", `Thrown on invalid global access (either the name doesn't
-				exist or trying to redefine an existing global). Also for invalid local names when using the debug
-				library.`),
-			Desc!("BoundsException", "LookupException", `Thrown when trying to access an array-like object out of
-				bounds. You could also use this for other kinds of containers.`),
-			Desc!("FieldException", "LookupException", `Thrown when trying to access an invalid field from a
-				namespace, class, instance etc. Unless it's global access, in which case a \link{exceptions.NameException}
-				is thrown.`),
-			Desc!("MethodException", "LookupException", `Thrown when trying to call an invalid method on an object.`),
-		Desc!("RuntimeException", "Exception", `Kind of a catchall type for other random runtime errors. Other
-			exceptions will probably grow out of this one.`),
-			Desc!("NotImplementedException", "RuntimeException", `An exception type that you can throw in methods
-				that are unimplemented (such as in abstract base class methods). This way when an un-overridden method
-				is called, you get an error instead of it silently working.`),
-		Desc!("CallException", "Exception", `Thrown for some kinds of invalid function calls, such as invalid supercalls.`),
-			Desc!("ParamException", "CallException", `Thrown for function calls which are invalid because they
-				were given an improper number of parameters. However if a function is given parameters of incorrect
-				type, a \link{exceptions.TypeException} is thrown instead.`),
+		Desc!("ImportException", "Exception", `Thrown when an import fails; may also have a 'cause' exception in case
+			the import failed because of an exception being thrown from the module's top-level function.`),
+		Desc!("OSException", "Exception", `OS error APIs are often a poor match for the way Croc does error handling,
+			but unhandled OS errors can lead to bad things happening. Therefore Croc libraries are encouraged to
+			translate OS errors into OSExceptions so that code won't blindly march on past errors, but they can still be
+			caught and handled appropriately.`),
 
-	Desc!("Error", "Throwable", `Base class for all "generally unrecoverable" errors. When an \tt{Error} is thrown,
-		it usually means the program can't continue functioning properly unless the bug is fixed. This is also exported
-		in the global namespace, like \link{exceptions.Exception}, for convenience.`),
+	Desc!("Error", "Throwable", `Base class for all "generally unrecoverable" errors. When an \tt{Error} is thrown, it
+		usually means the program can't continue functioning properly unless the bug is fixed.`),
 		Desc!("AssertError", "Error", `Thrown when an assertion fails.`),
-		Desc!("ApiError", "Error", `Thrown when the native API is given certain kinds of invalid input,
-			generally inputs which mean the host is malfunctioning or incorrectly programmed. Not thrown for i.e.
-			incorrect types passed to the native API.`),
-		Desc!("FinalizerError", "Error", `Thrown when an exception is thrown by a class finalizer. This is typically
-			a big problem as finalizers should never fail. The exception that the finalizer threw is set as the 'cause'.`),
-		Desc!("SwitchError", "Error", `Thrown when a switch without a 'default' is given a value not listed in its cases.`),
+		Desc!("ApiError", "Error", `Thrown when the native API is given certain kinds of invalid input, generally inputs
+			which mean the host is malfunctioning or incorrectly programmed.`),
+		Desc!("CallError", "Error", `Thrown for some kinds of invalid function calls, such as invalid supercalls.`),
+			Desc!("ParamError", "CallError", `Thrown for function calls which are invalid because they were given an
+				improper number of parameters. However if a function is given parameters of incorrect type, a
+				\link{exceptions.TypeError} is thrown instead.`),
+		Desc!("FinalizerError", "Error", `Thrown when an exception is thrown by a class finalizer. This is typically a
+			big problem as finalizers should never fail. The exception that the finalizer threw is set as the 'cause'.`),
+		Desc!("LookupError", "Error", `Base class for "lookup" errors, which covers several kinds of lookups. Sometimes
+			this base class can be thrown too.`),
+			Desc!("NameError", "LookupError", `Thrown on invalid global access (either the name doesn't exist or trying
+				to redefine an existing global). Also for invalid local names when using the debug library.`),
+			Desc!("BoundsError", "LookupError", `Thrown when trying to access an array-like object out of bounds. You
+				could also use this for other kinds of containers.`),
+			Desc!("FieldError", "LookupError", `Thrown when trying to access an invalid field from a namespace, class,
+				instance etc., unless it's global access, in which case a \link{exceptions.NameError} is thrown.`),
+			Desc!("MethodError", "LookupError", `Thrown when trying to call an invalid method on an object.`),
+		Desc!("RuntimeError", "Error", `Kind of a catchall type for other random runtime errors. Other exceptions will
+			probably grow out of this one.`),
+			Desc!("NotImplementedError", "RuntimeError", `An exception type that you can throw in methods that are
+				unimplemented (such as in abstract base class methods). This way when an un-overridden method is called,
+				you get an error instead of it silently working.`),
+		Desc!("SwitchError", "Error", `Thrown when a switch without a 'default' is given a value not listed in its
+			cases.`),
+		Desc!("TypeError", "Error", `Thrown when an incorrect type is given to an operation (i.e. trying to add strings,
+			or when invalid types are given to function parameters).`),
+		Desc!("ValueError", "Error", `Generally speaking, indicates that an operation was given a value of the proper
+			type, but the value is invalid somehow - not an acceptable value, or incorrectly formed, or in an invalid
+			state. If possible, try to use one of the more specific classes that derive from this, or derive your own.`),
+			Desc!("RangeError", "ValueError", `A more specific kind of ValueError indicating that a value is out of
+				a valid range of acceptable values. Typically used for mathematical functions, i.e. square root only
+				works on non-negative values. Note that if the error is because a value is out of the range of valid
+				indices for a container, you should use a \link{exceptions.BoundsError} instead.`),
+			Desc!("StateError", "ValueError", `A more specific kind of ValueError indicating that an object is in an
+				invalid state.`),
+			Desc!("UnicodeError", "ValueError", `Thrown when Croc is given malformed/invalid Unicode data for a string,
+				or when invalid Unicode data is encountered during transcoding.`),
 		Desc!("VMError", "Error", `Thrown for some kinds of internal VM errors.`),
 ];
 

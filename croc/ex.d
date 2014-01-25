@@ -99,7 +99,7 @@ word importModule(CrocThread* t, word name)
 	if(!isString(t, name))
 	{
 		pushTypeString(t, name);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
 	}
 
 	lookup(t, "modules.load");
@@ -215,7 +215,7 @@ public:
 		char[] s = void;
 
 		if(encodeUtf8Char(outbuf, c, s) != UtfError.OK)
-			throwStdException(t, "UnicodeException", "Invalid character U+{:X6}", cast(uint)c);
+			throwStdException(t, "UnicodeError", "Invalid character U+{:X6}", cast(uint)c);
 
 		if(pos + s.length - 1 >= data.length)
 			flush();
@@ -278,7 +278,7 @@ public:
 		else
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", "Trying to add a '{}' to a StrBuffer", getString(t, -1));
+			throwStdException(t, "TypeError", "Trying to add a '{}' to a StrBuffer", getString(t, -1));
 		}
 	}
 
@@ -473,7 +473,7 @@ word loadString(CrocThread* t, char[] code, bool customEnv = false, char[] name 
 		if(!isNamespace(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
 		}
 	}
 	else
@@ -525,7 +525,7 @@ uword eval(CrocThread* t, char[] code, word numReturns = 1, bool customEnv = fal
 		if(!isNamespace(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
 		}
 	}
 	else
@@ -1002,7 +1002,7 @@ of parameters were passed to your function.
 void checkAnyParam(CrocThread* t, word index)
 {
 	if(!isValidIndex(t, index))
-		throwStdException(t, "ParamException", "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
+		throwStdException(t, "ParamError", "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
 }
 
 /**
@@ -1115,9 +1115,9 @@ void checkInstParam(CrocThread* t, word index, char[] name)
 		pushTypeString(t, index);
 
 		if(index == 0)
-			throwStdException(t, "TypeException", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
 		else
-			throwStdException(t, "TypeException", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
 	}
 
 	pop(t);
@@ -1144,9 +1144,9 @@ void checkInstParamRef(CrocThread* t, word index, ulong classRef)
 		pushTypeString(t, index);
 
 		if(index == 0)
-			throwStdException(t, "TypeException", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
 		else
-			throwStdException(t, "TypeException", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
 	}
 
 	pop(t);
@@ -1169,9 +1169,9 @@ void checkInstParamSlot(CrocThread* t, word index, word classIndex)
 		pushTypeString(t, index);
 
 		if(index == 0)
-			throwStdException(t, "TypeException", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
 		else
-			throwStdException(t, "TypeException", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
 	}
 }
 
@@ -1198,9 +1198,9 @@ void paramTypeError(CrocThread* t, word index, char[] expected)
 	pushTypeString(t, index);
 
 	if(index == 0)
-		throwStdException(t, "TypeException", "Expected type '{}' for 'this', not '{}'", expected, getString(t, -1));
+		throwStdException(t, "TypeError", "Expected type '{}' for 'this', not '{}'", expected, getString(t, -1));
 	else
-		throwStdException(t, "TypeException", "Expected type '{}' for parameter {}, not '{}'", expected, absIndex(t, index), getString(t, -1));
+		throwStdException(t, "TypeError", "Expected type '{}' for parameter {}, not '{}'", expected, absIndex(t, index), getString(t, -1));
 }
 
 /**

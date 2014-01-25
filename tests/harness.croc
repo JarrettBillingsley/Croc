@@ -1,6 +1,5 @@
 module tests.harness
 
-import exceptions: CompileException
 import compiler: loadString
 
 namespace Test {}

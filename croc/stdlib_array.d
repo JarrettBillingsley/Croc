@@ -113,7 +113,7 @@ uword _new(CrocThread* t)
 	auto numParams = stackSize(t) - 1;
 
 	if(length < 0 || length > uword.max)
-		throwStdException(t, "RangeException", "Invalid length: {}", length);
+		throwStdException(t, "RangeError", "Invalid length: {}", length);
 
 	newArray(t, cast(uword)length);
 
@@ -147,7 +147,7 @@ uword _range(CrocThread* t)
 	}
 
 	if(step <= 0)
-		throwStdException(t, "RangeException", "Step may not be negative or 0");
+		throwStdException(t, "RangeError", "Step may not be negative or 0");
 
 	crocint range = abs(v2 - v1);
 	crocint size = range / step;
@@ -156,7 +156,7 @@ uword _range(CrocThread* t)
 		size++;
 
 	if(size > uword.max)
-		throwStdException(t, "RangeException", "Array is too big");
+		throwStdException(t, "RangeError", "Array is too big");
 
 	newArray(t, cast(uword)size);
 	auto a = getArray(t, -1);
@@ -246,7 +246,7 @@ uword _sort(CrocThread* t)
 				};
 			}
 			else
-				throwStdException(t, "ValueException", "Unknown array sorting method");
+				throwStdException(t, "ValueError", "Unknown array sorting method");
 		}
 		else
 		{
@@ -264,7 +264,7 @@ uword _sort(CrocThread* t)
 				if(!isInt(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwStdException(t, "TypeException", "comparison function expected to return 'int', not '{}'", getString(t, -1));
+					throwStdException(t, "TypeError", "comparison function expected to return 'int', not '{}'", getString(t, -1));
 				}
 
 				auto v = getInt(t, -1);
@@ -457,7 +457,7 @@ uword _reduce(CrocThread* t)
 	if(length == 0)
 	{
 		if(numParams == 1)
-			throwStdException(t, "ParamException", "Attempting to reduce an empty array without an initial value");
+			throwStdException(t, "ParamError", "Attempting to reduce an empty array without an initial value");
 		else
 		{
 			dup(t, 2);
@@ -499,7 +499,7 @@ uword _rreduce(CrocThread* t)
 	if(length == 0)
 	{
 		if(numParams == 1)
-			throwStdException(t, "ParamException", "Attempting to reduce an empty array without an initial value");
+			throwStdException(t, "ParamError", "Attempting to reduce an empty array without an initial value");
 		else
 		{
 			dup(t, 2);
@@ -574,7 +574,7 @@ uword _filter(CrocThread* t)
 		if(!isBool(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", "filter function expected to return 'bool', not '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "filter function expected to return 'bool', not '{}'", getString(t, -1));
 		}
 
 		if(getBool(t, -1))
@@ -635,7 +635,7 @@ uword _findIf(CrocThread* t)
 		if(!isBool(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", "find function expected to return 'bool', not '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "find function expected to return 'bool', not '{}'", getString(t, -1));
 		}
 
 		if(getBool(t, -1))
@@ -704,13 +704,13 @@ uword _pop(CrocThread* t)
 	crocint index = optIntParam(t, 1, -1);
 
 	if(data.length == 0)
-		throwStdException(t, "ValueException", "Array is empty");
+		throwStdException(t, "ValueError", "Array is empty");
 
 	if(index < 0)
 		index += data.length;
 
 	if(index < 0 || index >= data.length)
-		throwStdException(t, "BoundsException", "Invalid array index: {}", index);
+		throwStdException(t, "BoundsError", "Invalid array index: {}", index);
 
 	idxi(t, 0, index);
 
@@ -736,7 +736,7 @@ uword _insert(CrocThread* t)
 		index += data.length;
 
 	if(index < 0 || index > data.length)
-		throwStdException(t, "BoundsException", "Invalid array index: {}", index);
+		throwStdException(t, "BoundsError", "Invalid array index: {}", index);
 
 	array.resize(t.vm.alloc, getArray(t, 0), data.length + 1);
 	data = a.toArray();
@@ -762,10 +762,10 @@ uword _swap(CrocThread* t)
 	if(idx2 < 0) idx2 += data.length;
 
 	if(idx1 < 0 || idx1 >= data.length)
-		throwStdException(t, "BoundsException", "Invalid array index: {}", idx1);
+		throwStdException(t, "BoundsError", "Invalid array index: {}", idx1);
 
 	if(idx2 < 0 || idx2 >= data.length)
-		throwStdException(t, "BoundsException", "Invalid array index: {}", idx2);
+		throwStdException(t, "BoundsError", "Invalid array index: {}", idx2);
 
 	if(idx1 != idx2)
 	{
@@ -797,7 +797,7 @@ uword _minMaxImpl(CrocThread* t, uword numParams, bool max)
 	auto data = getArray(t, 0).toArray();
 
 	if(data.length == 0)
-		throwStdException(t, "ValueException", "Array is empty");
+		throwStdException(t, "ValueError", "Array is empty");
 
 	auto extreme = data[0].value;
 	uword extremeIdx = 0;
@@ -815,7 +815,7 @@ uword _minMaxImpl(CrocThread* t, uword numParams, bool max)
 			if(!isBool(t, -1))
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "extrema function should return 'bool', not '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "extrema function should return 'bool', not '{}'", getString(t, -1));
 			}
 
 			if(getBool(t, -1))
@@ -1005,7 +1005,7 @@ uword _flatten(CrocThread* t)
 		auto a = absIndex(t, arr);
 
 		if(opin(t, a, flattening))
-			throwStdException(t, "ValueException", "Attempting to flatten a self-referencing array");
+			throwStdException(t, "ValueError", "Attempting to flatten a self-referencing array");
 
 		dup(t, a);
 		pushBool(t, true);
@@ -1058,7 +1058,7 @@ uword _count(CrocThread* t)
 			if(!isBool(t, -1))
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "count predicate expected to return 'bool', not '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "count predicate expected to return 'bool', not '{}'", getString(t, -1));
 			}
 
 			auto ret = getBool(t, -1);
@@ -1098,7 +1098,7 @@ uword _countIf(CrocThread* t)
 		if(!isBool(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", "count predicate expected to return 'bool', not '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "count predicate expected to return 'bool', not '{}'", getString(t, -1));
 		}
 
 		auto ret = getBool(t, -1);
@@ -1381,7 +1381,7 @@ foreach(i, v; a, "reverse")
 
 		If the array only has one value, returns that value.
 
-		\throws[exceptions.ValueException] if the array is empty.`},
+		\throws[exceptions.ValueError] if the array is empty.`},
 
 		{kind: "function", name: "all",
 		params: [Param("pred", "function", "null")],

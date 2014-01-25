@@ -157,7 +157,7 @@ CrocNamespace* getEnv(CrocThread* t, uword depth = 0)
 		if(depth == 0)
 			return t.actRecs[cast(uword)idx].func.environment;
 		else if(depth <= t.actRecs[cast(uword)idx].numTailcalls)
-			throwStdException(t, "RuntimeException", "Attempting to get environment of function whose activation record was overwritten by a tail call");
+			throwStdException(t, "RuntimeError", "Attempting to get environment of function whose activation record was overwritten by a tail call");
 
 		depth -= (t.actRecs[cast(uword)idx].numTailcalls + 1);
 	}
@@ -215,7 +215,7 @@ bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* 
 		if(mm is null)
 		{
 			typeString(t, lookup);
-			throwStdException(t, "MethodException", "No implementation of method '{}' or {} for type '{}'", methodName.toString(), MetaNames[MM.Method], getString(t, -1));
+			throwStdException(t, "MethodError", "No implementation of method '{}' or {} for type '{}'", methodName.toString(), MetaNames[MM.Method], getString(t, -1));
 		}
 
 		t.stack[slot] = *self;
@@ -245,7 +245,7 @@ CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocCl
 			if(auto ret = classobj.getMethod(v.mClass, name))
 			{
 				if(!checkAccess(ret.value, t.currentAR))
-					throwStdException(t, "MethodException", "Attempting to call {} method '{}' from outside class '{}'",
+					throwStdException(t, "MethodError", "Attempting to call {} method '{}' from outside class '{}'",
 						ret.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), ret.value.proto.name.toString());
 
 				proto = ret.value.proto;
@@ -277,7 +277,7 @@ CrocValue getInstanceMethod(CrocThread* t, CrocInstance* inst, CrocString* name,
 	if(auto ret = instance.getMethod(inst, name))
 	{
 		if(!checkAccess(ret.value, t.currentAR))
-			throwStdException(t, "MethodException", "Attempting to call {} method '{}' from outside class '{}'",
+			throwStdException(t, "MethodError", "Attempting to call {} method '{}' from outside class '{}'",
 				ret.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), ret.value.proto.name.toString());
 
 		proto = ret.value.proto;
@@ -404,7 +404,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 				freezeImpl(t, cls);
 
 			if(cls.constructor is null && numParams > 1)
-				throwStdException(t, "ParamException", "Class '{}' has no constructor but was called with {} parameters", cls.name.toString(), numParams - 1);
+				throwStdException(t, "ParamError", "Class '{}' has no constructor but was called with {} parameters", cls.name.toString(), numParams - 1);
 
 			auto inst = instance.create(t.vm.alloc, cls);
 
@@ -451,13 +451,13 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 			auto thread = func.mThread;
 
 			if(thread is t)
-				throwStdException(t, "RuntimeException", "Thread attempting to resume itself");
+				throwStdException(t, "RuntimeError", "Thread attempting to resume itself");
 
 			if(thread is t.vm.mainThread)
-				throwStdException(t, "RuntimeException", "Attempting to resume VM's main thread");
+				throwStdException(t, "RuntimeError", "Attempting to resume VM's main thread");
 
 			if(thread.state != CrocThread.State.Initial && thread.state != CrocThread.State.Suspended)
-				throwStdException(t, "StateException", "Attempting to resume a {} coroutine", CrocThread.StateStrings[thread.state]);
+				throwStdException(t, "StateError", "Attempting to resume a {} coroutine", CrocThread.StateStrings[thread.state]);
 
 			auto ar = pushAR(t);
 
@@ -525,7 +525,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 			if(method is null)
 			{
 				typeString(t, func);
-				throwStdException(t, "TypeException", "No implementation of {} for type '{}'", MetaNames[MM.Call], getString(t, -1));
+				throwStdException(t, "TypeError", "No implementation of {} for type '{}'", MetaNames[MM.Call], getString(t, -1));
 			}
 
 			t.stack[slot + 1] = *func;
@@ -551,7 +551,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 
 
 	if(numParams > func.maxParams)
-		throwStdException(t, "ParamException", "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.maxParams - 1, numParams - 1);
+		throwStdException(t, "ParamError", "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.maxParams - 1, numParams - 1);
 
 	if(!func.isNative)
 	{
@@ -809,7 +809,7 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 			if(t.stack[t.stackIndex - 1].type != CrocValue.Type.String)
 			{
 				typeString(t, &t.stack[t.stackIndex - 1]);
-				throwStdException(t, "TypeException", "toString was supposed to return a string, but returned a '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "toString was supposed to return a string, but returned a '{}'", getString(t, -1));
 			}
 
 			return stackSize(t) - 1;
@@ -864,7 +864,7 @@ bool inImpl(CrocThread* t, CrocValue* item, CrocValue* container)
 			else
 			{
 				typeString(t, item);
-				throwStdException(t, "TypeException", "Can only use strings to look in strings, not '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "Can only use strings to look in strings, not '{}'", getString(t, -1));
 			}
 
 		case CrocValue.Type.Table:
@@ -877,7 +877,7 @@ bool inImpl(CrocThread* t, CrocValue* item, CrocValue* container)
 			if(item.type != CrocValue.Type.String)
 			{
 				typeString(t, item);
-				throwStdException(t, "TypeException", "Can only use strings to look in namespaces, not '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "Can only use strings to look in namespaces, not '{}'", getString(t, -1));
 			}
 
 			return namespace.contains(container.mNamespace, item.mString);
@@ -889,7 +889,7 @@ bool inImpl(CrocThread* t, CrocValue* item, CrocValue* container)
 			if(method is null)
 			{
 				typeString(t, container);
-				throwStdException(t, "TypeException", "No implementation of {} for type '{}'", MetaNames[MM.In], getString(t, -1));
+				throwStdException(t, "TypeError", "No implementation of {} for type '{}'", MetaNames[MM.In], getString(t, -1));
 			}
 
 			auto containersave = *container;
@@ -914,7 +914,7 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 			if(key.type != CrocValue.Type.Int)
 			{
 				typeString(t, key);
-				throwStdException(t, "TypeException", "Attempting to index an array with a '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to index an array with a '{}'", getString(t, -1));
 			}
 
 			auto index = key.mInt;
@@ -924,7 +924,7 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 				index += arr.length;
 
 			if(index < 0 || index >= arr.length)
-				throwStdException(t, "BoundsException", "Invalid array index {} (length is {})", key.mInt, arr.length);
+				throwStdException(t, "BoundsError", "Invalid array index {} (length is {})", key.mInt, arr.length);
 
 			t.stack[dest] = arr.toArray()[cast(uword)index].value;
 			return;
@@ -933,7 +933,7 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 			if(key.type != CrocValue.Type.Int)
 			{
 				typeString(t, key);
-				throwStdException(t, "TypeException", "Attempting to index a memblock with a '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to index a memblock with a '{}'", getString(t, -1));
 			}
 
 			auto index = key.mInt;
@@ -943,7 +943,7 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 				index += mb.data.length;
 
 			if(index < 0 || index >= mb.data.length)
-				throwStdException(t, "BoundsException", "Invalid memblock index {} (length is {})", key.mInt, mb.data.length);
+				throwStdException(t, "BoundsError", "Invalid memblock index {} (length is {})", key.mInt, mb.data.length);
 
 			t.stack[dest] = cast(crocint)mb.data[cast(uword)index];
 			return;
@@ -952,7 +952,7 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 			if(key.type != CrocValue.Type.Int)
 			{
 				typeString(t, key);
-				throwStdException(t, "TypeException", "Attempting to index a string with a '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to index a string with a '{}'", getString(t, -1));
 			}
 
 			auto index = key.mInt;
@@ -962,7 +962,7 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 				index += str.cpLength;
 
 			if(index < 0 || index >= str.cpLength)
-				throwStdException(t, "BoundsException", "Invalid string index {} (length is {})", key.mInt, str.cpLength);
+				throwStdException(t, "BoundsError", "Invalid string index {} (length is {})", key.mInt, str.cpLength);
 
 			auto s = str.toString();
 			auto offs = utf8CPIdxToByte(s, cast(uword)index);
@@ -978,7 +978,7 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 				return;
 
 			typeString(t, container);
-			throwStdException(t, "TypeException", "Attempting to index a value of type '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "Attempting to index a value of type '{}'", getString(t, -1));
 	}
 }
 
@@ -998,7 +998,7 @@ void idxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue* valu
 			if(key.type != CrocValue.Type.Int)
 			{
 				typeString(t, key);
-				throwStdException(t, "TypeException", "Attempting to index-assign an array with a '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to index-assign an array with a '{}'", getString(t, -1));
 			}
 
 			auto index = key.mInt;
@@ -1008,7 +1008,7 @@ void idxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue* valu
 				index += arr.length;
 
 			if(index < 0 || index >= arr.length)
-				throwStdException(t, "BoundsException", "Invalid array index {} (length is {})", key.mInt, arr.length);
+				throwStdException(t, "BoundsError", "Invalid array index {} (length is {})", key.mInt, arr.length);
 
 			array.idxa(t.vm.alloc, arr, cast(uword)index, *value);
 			return;
@@ -1017,7 +1017,7 @@ void idxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue* valu
 			if(key.type != CrocValue.Type.Int)
 			{
 				typeString(t, key);
-				throwStdException(t, "TypeException", "Attempting to index-assign a memblock with a '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to index-assign a memblock with a '{}'", getString(t, -1));
 			}
 
 			auto index = key.mInt;
@@ -1027,12 +1027,12 @@ void idxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue* valu
 				index += mb.data.length;
 
 			if(index < 0 || index >= mb.data.length)
-				throwStdException(t, "BoundsException", "Invalid memblock index {} (length is {})", key.mInt, mb.data.length);
+				throwStdException(t, "BoundsError", "Invalid memblock index {} (length is {})", key.mInt, mb.data.length);
 
 			if(value.type != CrocValue.Type.Int)
 			{
 				typeString(t, value);
-				throwStdException(t, "TypeException", "Attempting to index-assign a value of type '{}' into a memblock", getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to index-assign a value of type '{}' into a memblock", getString(t, -1));
 			}
 
 			mb.data[cast(uword)index] = cast(ubyte)value.mInt;
@@ -1046,14 +1046,14 @@ void idxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue* valu
 				return;
 
 			typeString(t, &t.stack[container]);
-			throwStdException(t, "TypeException", "Attempting to index-assign a value of type '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "Attempting to index-assign a value of type '{}'", getString(t, -1));
 	}
 }
 
 void tableIdxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue* value)
 {
 	if(key.type == CrocValue.Type.Null)
-		throwStdException(t, "TypeException", "Attempting to index-assign a table with a key of type 'null'");
+		throwStdException(t, "TypeError", "Attempting to index-assign a table with a key of type 'null'");
 
 	table.idxa(t.vm.alloc, t.stack[container].mTable, *key, *value);
 }
@@ -1089,11 +1089,11 @@ void fieldImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocString* n
 				v = classobj.getMethod(c, name);
 
 				if(v is null)
-					throwStdException(t, "FieldException", "Attempting to access nonexistent field '{}' from class '{}'", name.toString(), c.name.toString());
+					throwStdException(t, "FieldError", "Attempting to access nonexistent field '{}' from class '{}'", name.toString(), c.name.toString());
 			}
 
 			if(!checkAccess(v.value, t.currentAR))
-				throwStdException(t, "FieldException", "Attempting to access {} field '{}' from outside class '{}'",
+				throwStdException(t, "FieldError", "Attempting to access {} field '{}' from outside class '{}'",
 					v.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), v.value.proto.name.toString());
 
 			return t.stack[dest] = v.value.value;
@@ -1111,12 +1111,12 @@ void fieldImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocString* n
 					if(!raw && tryMM!(2, true)(t, MM.Field, &t.stack[dest], container, &CrocValue(name)))
 						return;
 
-					throwStdException(t, "FieldException", "Attempting to access nonexistent field '{}' from instance of class '{}'", name.toString(), i.parent.name.toString());
+					throwStdException(t, "FieldError", "Attempting to access nonexistent field '{}' from instance of class '{}'", name.toString(), i.parent.name.toString());
 				}
 			}
 
 			if(!checkAccess(v.value, t.currentAR))
-				throwStdException(t, "FieldException", "Attempting to access {} field '{}' from outside class '{}'",
+				throwStdException(t, "FieldError", "Attempting to access {} field '{}' from outside class '{}'",
 					v.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), v.value.proto.name.toString());
 
 			return t.stack[dest] = v.value.value;
@@ -1127,7 +1127,7 @@ void fieldImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocString* n
 			if(v is null)
 			{
 				toStringImpl(t, *container, false);
-				throwStdException(t, "FieldException", "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
+				throwStdException(t, "FieldError", "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
 			}
 
 			return t.stack[dest] = *v;
@@ -1137,7 +1137,7 @@ void fieldImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocString* n
 				return;
 
 			typeString(t, container);
-			throwStdException(t, "TypeException", "Attempting to access field '{}' from a value of type '{}'", name.toString(), getString(t, -1));
+			throwStdException(t, "TypeError", "Attempting to access field '{}' from a value of type '{}'", name.toString(), getString(t, -1));
 	}
 }
 
@@ -1155,7 +1155,7 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 			if(auto slot = classobj.getField(c, name))
 			{
 				if(!checkAccess(slot.value, t.currentAR))
-					throwStdException(t, "FieldException", "Attempting to access {} field '{}' from outside class '{}'",
+					throwStdException(t, "FieldError", "Attempting to access {} field '{}' from outside class '{}'",
 						slot.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), slot.value.proto.name.toString());
 
 				classobj.setField(t.vm.alloc, c, slot, value);
@@ -1163,16 +1163,16 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 			else if(auto slot = classobj.getMethod(c, name))
 			{
 				if(!checkAccess(slot.value, t.currentAR))
-					throwStdException(t, "FieldException", "Attempting to access {} method '{}' from outside class '{}'",
+					throwStdException(t, "FieldError", "Attempting to access {} method '{}' from outside class '{}'",
 						slot.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), slot.value.proto.name.toString());
 
 				if(c.isFrozen)
-					throwStdException(t, "FieldException", "Attempting to change method '{}' in class '{}' after it has been frozen", name.toString(), c.name.toString());
+					throwStdException(t, "FieldError", "Attempting to change method '{}' in class '{}' after it has been frozen", name.toString(), c.name.toString());
 
 				classobj.setMethod(t.vm.alloc, c, slot, value);
 			}
 			else
-				throwStdException(t, "FieldException", "Attempting to assign to nonexistent field '{}' in class '{}'", name.toString(), c.name.toString());
+				throwStdException(t, "FieldError", "Attempting to assign to nonexistent field '{}' in class '{}'", name.toString(), c.name.toString());
 
 			return;
 
@@ -1182,7 +1182,7 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 			if(auto slot = instance.getField(i, name))
 			{
 				if(!checkAccess(slot.value, t.currentAR))
-					throwStdException(t, "FieldException", "Attempting to access {} field '{}' from outside class '{}'",
+					throwStdException(t, "FieldError", "Attempting to access {} field '{}' from outside class '{}'",
 						slot.value.privacy is Privacy.Private ? "private" : "protected", name.toString(), slot.value.proto.name.toString());
 
 				instance.setField(t.vm.alloc, i, slot, value);
@@ -1190,7 +1190,7 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 			else if(!raw && tryMM!(3, false)(t, MM.FieldAssign, &t.stack[container], &CrocValue(name), value))
 				return;
 			else
-				throwStdException(t, "FieldException", "Attempting to assign to nonexistent field '{}' in instance of class '{}'", name.toString(), i.parent.name.toString());
+				throwStdException(t, "FieldError", "Attempting to assign to nonexistent field '{}' in instance of class '{}'", name.toString(), i.parent.name.toString());
 			return;
 
 		case CrocValue.Type.Namespace:
@@ -1201,7 +1201,7 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 				return;
 
 			typeString(t, &t.stack[container]);
-			throwStdException(t, "TypeException", "Attempting to assign field '{}' into a value of type '{}'", name.toString(), getString(t, -1));
+			throwStdException(t, "TypeError", "Attempting to assign field '{}' into a value of type '{}'", name.toString(), getString(t, -1));
 	}
 }
 
@@ -1252,7 +1252,7 @@ crocint compareImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 	auto bsave = *b;
 	typeString(t, a);
 	typeString(t, &bsave);
-	throwStdException(t, "TypeException", "Can't compare types '{}' and '{}'", getString(t, -2), getString(t, -1));
+	throwStdException(t, "TypeError", "Can't compare types '{}' and '{}'", getString(t, -2), getString(t, -1));
 	assert(false);
 }
 
@@ -1272,7 +1272,7 @@ crocint commonCompare(CrocThread* t, CrocFunction* method, CrocValue* a, CrocVal
 	if(ret.type != CrocValue.Type.Int)
 	{
 		typeString(t, &ret);
-		throwStdException(t, "TypeException", "{} is expected to return an int, but '{}' was returned instead", MetaNames[MM.Cmp], getString(t, -1));
+		throwStdException(t, "TypeError", "{} is expected to return an int, but '{}' was returned instead", MetaNames[MM.Cmp], getString(t, -1));
 	}
 
 	return ret.mInt;
@@ -1346,7 +1346,7 @@ bool equalsImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 	auto bsave = *b;
 	typeString(t, a);
 	typeString(t, &bsave);
-	throwStdException(t, "TypeException", "Can't compare types '{}' and '{}' for equality", getString(t, -2), getString(t, -1));
+	throwStdException(t, "TypeError", "Can't compare types '{}' and '{}' for equality", getString(t, -2), getString(t, -1));
 	assert(false);
 }
 
@@ -1366,7 +1366,7 @@ bool commonEquals(CrocThread* t, CrocFunction* method, CrocValue* a, CrocValue* 
 	if(ret.type != CrocValue.Type.Bool)
 	{
 		typeString(t, &ret);
-		throwStdException(t, "TypeException", "{} is expected to return a bool, but '{}' was returned instead", MetaNames[MM.Equals], getString(t, -1));
+		throwStdException(t, "TypeError", "{} is expected to return a bool, but '{}' was returned instead", MetaNames[MM.Equals], getString(t, -1));
 	}
 
 	return ret.mBool;
@@ -1387,7 +1387,7 @@ void lenImpl(CrocThread* t, AbsStack dest, CrocValue* src)
 				return;
 
 			typeString(t, src);
-			throwStdException(t, "TypeException", "Can't get the length of a '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "Can't get the length of a '{}'", getString(t, -1));
 	}
 }
 
@@ -1399,13 +1399,13 @@ void lenaImpl(CrocThread* t, AbsStack dest, CrocValue* len)
 			if(len.type != CrocValue.Type.Int)
 			{
 				typeString(t, len);
-				throwStdException(t, "TypeException", "Attempting to set the length of an array using a length of type '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to set the length of an array using a length of type '{}'", getString(t, -1));
 			}
 
 			auto l = len.mInt;
 
 			if(l < 0 || l > uword.max)
-				throwStdException(t, "RangeException", "Invalid length ({})", l);
+				throwStdException(t, "RangeError", "Invalid length ({})", l);
 
 			return array.resize(t.vm.alloc, t.stack[dest].mArray, cast(uword)l);
 
@@ -1413,18 +1413,18 @@ void lenaImpl(CrocThread* t, AbsStack dest, CrocValue* len)
 			if(len.type != CrocValue.Type.Int)
 			{
 				typeString(t, len);
-				throwStdException(t, "TypeException", "Attempting to set the length of a memblock using a length of type '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to set the length of a memblock using a length of type '{}'", getString(t, -1));
 			}
 
 			auto mb = t.stack[dest].mMemblock;
 
 			if(!mb.ownData)
-				throwStdException(t, "ValueException", "Attempting to resize a memblock which does not own its data");
+				throwStdException(t, "ValueError", "Attempting to resize a memblock which does not own its data");
 
 			auto l = len.mInt;
 
 			if(l < 0 || l > uword.max)
-				throwStdException(t, "RangeException", "Invalid length ({})", l);
+				throwStdException(t, "RangeError", "Invalid length ({})", l);
 
 			return memblock.resize(t.vm.alloc, mb, cast(uword)l);
 
@@ -1433,7 +1433,7 @@ void lenaImpl(CrocThread* t, AbsStack dest, CrocValue* len)
 				return;
 
 			typeString(t, &t.stack[dest]);
-			throwStdException(t, "TypeException", "Can't set the length of a '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "Can't set the length of a '{}'", getString(t, -1));
 	}
 }
 
@@ -1454,11 +1454,11 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 				auto hisave = *hi;
 				typeString(t, lo);
 				typeString(t, &hisave);
-				throwStdException(t, "TypeException", "Attempting to slice an array with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to slice an array with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
 			if(!validIndices(loIndex, hiIndex, arr.length))
-				throwStdException(t, "BoundsException", "Invalid slice indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
+				throwStdException(t, "BoundsError", "Invalid slice indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
 
 			return t.stack[dest] = array.slice(t.vm.alloc, arr, cast(uword)loIndex, cast(uword)hiIndex);
 
@@ -1475,11 +1475,11 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 				auto hisave = *hi;
 				typeString(t, lo);
 				typeString(t, &hisave);
-				throwStdException(t, "TypeException", "Attempting to slice a memblock with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to slice a memblock with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
 			if(!validIndices(loIndex, hiIndex, mb.data.length))
-				throwStdException(t, "BoundsException", "Invalid slice indices [{} .. {}] (memblock length = {})", loIndex, hiIndex, mb.data.length);
+				throwStdException(t, "BoundsError", "Invalid slice indices [{} .. {}] (memblock length = {})", loIndex, hiIndex, mb.data.length);
 
 			return t.stack[dest] = memblock.slice(t.vm.alloc, mb, cast(uword)loIndex, cast(uword)hiIndex);
 
@@ -1496,11 +1496,11 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 				auto hisave = *hi;
 				typeString(t, lo);
 				typeString(t, &hisave);
-				throwStdException(t, "TypeException", "Attempting to slice a string with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to slice a string with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
 			if(!validIndices(loIndex, hiIndex, str.cpLength))
-				throwStdException(t, "BoundsException", "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.cpLength);
+				throwStdException(t, "BoundsError", "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.cpLength);
 
 			return t.stack[dest] = string.slice(t.vm, str, cast(uword)loIndex, cast(uword)hiIndex);
 
@@ -1509,7 +1509,7 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 				return;
 
 			typeString(t, src);
-			throwStdException(t, "TypeException", "Attempting to slice a value of type '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "Attempting to slice a value of type '{}'", getString(t, -1));
 	}
 }
 
@@ -1527,23 +1527,23 @@ void sliceaImpl(CrocThread* t, CrocValue* container, CrocValue* lo, CrocValue* h
 				auto hisave = *hi;
 				typeString(t, lo);
 				typeString(t, &hisave);
-				throwStdException(t, "TypeException", "Attempting to slice-assign an array with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to slice-assign an array with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
 			if(!validIndices(loIndex, hiIndex, arr.length))
-				throwStdException(t, "BoundsException", "Invalid slice-assign indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
+				throwStdException(t, "BoundsError", "Invalid slice-assign indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
 
 			if(value.type == CrocValue.Type.Array)
 			{
 				if((hiIndex - loIndex) != value.mArray.length)
-					throwStdException(t, "RangeException", "Array slice-assign lengths do not match (destination is {}, source is {})", hiIndex - loIndex, value.mArray.length);
+					throwStdException(t, "RangeError", "Array slice-assign lengths do not match (destination is {}, source is {})", hiIndex - loIndex, value.mArray.length);
 
 				return array.sliceAssign(t.vm.alloc, arr, cast(uword)loIndex, cast(uword)hiIndex, value.mArray);
 			}
 			else
 			{
 				typeString(t, value);
-				throwStdException(t, "TypeException", "Attempting to slice-assign a value of type '{}' into an array", getString(t, -1));
+				throwStdException(t, "TypeError", "Attempting to slice-assign a value of type '{}' into an array", getString(t, -1));
 			}
 
 		default:
@@ -1551,7 +1551,7 @@ void sliceaImpl(CrocThread* t, CrocValue* container, CrocValue* lo, CrocValue* h
 				return;
 
 			typeString(t, container);
-			throwStdException(t, "TypeException", "Attempting to slice-assign a value of type '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "Attempting to slice-assign a value of type '{}'", getString(t, -1));
 	}
 }
 
@@ -1575,13 +1575,13 @@ void binOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* RS, CrocVa
 
 				case Op.Div:
 					if(i2 == 0)
-						throwStdException(t, "ValueException", "Integer divide by zero");
+						throwStdException(t, "ValueError", "Integer divide by zero");
 
 					return t.stack[dest] = i1 / i2;
 
 				case Op.Mod:
 					if(i2 == 0)
-						throwStdException(t, "ValueException", "Integer modulo by zero");
+						throwStdException(t, "ValueError", "Integer modulo by zero");
 
 					return t.stack[dest] = i1 % i2;
 
@@ -1639,7 +1639,7 @@ void binOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* RS, CrocVa
 	auto RTsave = *RT;
 	typeString(t, RS);
 	typeString(t, &RTsave);
-	throwStdException(t, "TypeException", "Attempting to {} a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
+	throwStdException(t, "TypeError", "Attempting to {} a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
 }
 
 void reflBinOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* src)
@@ -1661,13 +1661,13 @@ void reflBinOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* src)
 
 				case Op.DivEq:
 					if(i2 == 0)
-						throwStdException(t, "ValueException", "Integer divide by zero");
+						throwStdException(t, "ValueError", "Integer divide by zero");
 
 					return t.stack[dest].mInt /= i2;
 
 				case Op.ModEq:
 					if(i2 == 0)
-						throwStdException(t, "ValueException", "Integer modulo by zero");
+						throwStdException(t, "ValueError", "Integer modulo by zero");
 
 					return t.stack[dest].mInt %= i2;
 
@@ -1725,7 +1725,7 @@ void reflBinOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* src)
 	auto srcsave = *src;
 	typeString(t, &t.stack[dest]);
 	typeString(t, &srcsave);
-	throwStdException(t, "TypeException", "Attempting to {}-assign a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
+	throwStdException(t, "TypeError", "Attempting to {}-assign a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
 }
 
 void binaryBinOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* RS, CrocValue* RT)
@@ -1760,7 +1760,7 @@ void binaryBinOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* RS, 
 	auto RTsave = *RT;
 	typeString(t, RS);
 	typeString(t, &RTsave);
-	throwStdException(t, "TypeException", "Attempting to bitwise {} a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
+	throwStdException(t, "TypeError", "Attempting to bitwise {} a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
 }
 
 void reflBinaryBinOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* src)
@@ -1795,7 +1795,7 @@ void reflBinaryBinOpImpl(CrocThread* t, Op operation, AbsStack dest, CrocValue* 
 	auto srcsave = *src;
 	typeString(t, &t.stack[dest]);
 	typeString(t, &srcsave);
-	throwStdException(t, "TypeException", "Attempting to bitwise {}-assign a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
+	throwStdException(t, "TypeError", "Attempting to bitwise {}-assign a '{}' and a '{}'", name, getString(t, -2), getString(t, -1));
 }
 
 void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
@@ -1848,7 +1848,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 				else
 				{
 					typeString(t, &stack[slot + 1]);
-					throwStdException(t, "TypeException", "Can't concatenate 'string' and '{}'", getString(t, -1));
+					throwStdException(t, "TypeError", "Can't concatenate 'string' and '{}'", getString(t, -1));
 				}
 
 			case CrocValue.Type.Array:
@@ -1962,7 +1962,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 			error:
 				typeString(t, &t.stack[slot]);
 				typeString(t, &stack[slot + 1]);
-				throwStdException(t, "TypeException", "Can't concatenate '{}' and '{}'", getString(t, -2), getString(t, -1));
+				throwStdException(t, "TypeError", "Can't concatenate '{}' and '{}'", getString(t, -2), getString(t, -1));
 		}
 
 		break;
@@ -2044,7 +2044,7 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 				else
 				{
 					typeString(t, &stack[idx]);
-					throwStdException(t, "TypeException", "Can't append a '{}' to a 'string'", getString(t, -1));
+					throwStdException(t, "TypeError", "Can't append a '{}' to a 'string'", getString(t, -1));
 				}
 			}
 
@@ -2063,7 +2063,7 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 			if(method is null)
 			{
 				typeString(t, &t.stack[dest]);
-				throwStdException(t, "TypeException", "Can't append to a value of type '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "Can't append to a value of type '{}'", getString(t, -1));
 			}
 
 			checkStack(t, t.stackIndex);
@@ -2153,7 +2153,7 @@ void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 		if(!asImpl(t, &ex, &CrocValue(t.vm.throwable)))
 		{
 			typeString(t, &ex);
-			throwStdException(t, "TypeException", "Attempting to throw a '{}'; must be an instance of a class derived from Throwable", getString(t, -1));
+			throwStdException(t, "TypeError", "Attempting to throw a '{}'; must be an instance of a class derived from Throwable", getString(t, -1));
 		}
 
 		push(t, CrocValue(ex));
@@ -2211,7 +2211,7 @@ bool asImpl(CrocThread* t, CrocValue* o, CrocValue* p)
 	if(p.type != CrocValue.Type.Class)
 	{
 		typeString(t, p);
-		throwStdException(t, "TypeException", "Attempting to use 'as' with a '{}' instead of a 'class' as the type", getString(t, -1));
+		throwStdException(t, "TypeError", "Attempting to use 'as' with a '{}' instead of a 'class' as the type", getString(t, -1));
 	}
 
 	return
@@ -2240,7 +2240,7 @@ CrocValue superOfImpl(CrocThread* t, CrocValue* v)
 	else
 	{
 		typeString(t, v);
-		throwStdException(t, "TypeException", "Can only get super of classes, instances, and namespaces, not values of type '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", "Can only get super of classes, instances, and namespaces, not values of type '{}'", getString(t, -1));
 	}
 
 	assert(false);
@@ -2253,7 +2253,7 @@ CrocClass* newClassImpl(CrocThread* t, CrocString* name, CrocClass* base)
 		freezeImpl(t, base);
 
 		if(base.finalizer)
-			throwStdException(t, "ValueException", "Attempting to derive from class '{}' which has a finalizer", base.name.toString());
+			throwStdException(t, "ValueError", "Attempting to derive from class '{}' which has a finalizer", base.name.toString());
 	}
 
 	return classobj.create(t.vm.alloc, name, base);
@@ -2269,7 +2269,7 @@ void freezeImpl(CrocThread* t, CrocClass* c)
 		if(ctor.value.value.type != CrocValue.Type.Function)
 		{
 			typeString(t, &ctor.value.value);
-			throwStdException(t, "TypeException", "Class constructor must be of type 'function', not '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "Class constructor must be of type 'function', not '{}'", getString(t, -1));
 		}
 
 		c.constructor = &ctor.value;
@@ -2280,7 +2280,7 @@ void freezeImpl(CrocThread* t, CrocClass* c)
 		if(finalizer.value.value.type != CrocValue.Type.Function)
 		{
 			typeString(t, &finalizer.value.value);
-			throwStdException(t, "TypeException", "Class finalizer must be of type 'function', not '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "Class finalizer must be of type 'function', not '{}'", getString(t, -1));
 		}
 
 		finalizer.value.privacy = Privacy.Private;
@@ -2305,7 +2305,7 @@ CrocValue* getGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env)
 			return glob;
 	}
 
-	throwStdException(t, "NameException", "Attempting to get a nonexistent global '{}'", name.toString());
+	throwStdException(t, "NameError", "Attempting to get a nonexistent global '{}'", name.toString());
 	assert(false);
 }
 
@@ -2317,14 +2317,14 @@ void setGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env, CrocValu
 	if(env.root && namespace.setIfExists(t.vm.alloc, env.root, name, val))
 		return;
 
-	throwStdException(t, "NameException", "Attempting to set a nonexistent global '{}'", name.toString());
+	throwStdException(t, "NameError", "Attempting to set a nonexistent global '{}'", name.toString());
 	assert(false);
 }
 
 void newGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env, CrocValue* val)
 {
 	if(namespace.contains(env, name))
-		throwStdException(t, "NameException", "Attempting to create global '{}' that already exists", name.toString());
+		throwStdException(t, "NameError", "Attempting to create global '{}' that already exists", name.toString());
 
 	namespace.set(t.vm.alloc, env, name, val);
 }
@@ -2771,7 +2771,7 @@ void execute(CrocThread* t, uword depth = 1)
 					else
 					{
 						typeString(t, RS);
-						throwStdException(t, "TypeException", "Cannot perform negation on a '{}'", getString(t, -1));
+						throwStdException(t, "TypeError", "Cannot perform negation on a '{}'", getString(t, -1));
 					}
 					break;
 
@@ -2783,7 +2783,7 @@ void execute(CrocThread* t, uword depth = 1)
 					else
 					{
 						typeString(t, RS);
-						throwStdException(t, "TypeException", "Cannot perform bitwise complement on a '{}'", getString(t, -1));
+						throwStdException(t, "TypeError", "Cannot perform bitwise complement on a '{}'", getString(t, -1));
 					}
 					break;
 
@@ -2798,7 +2798,7 @@ void execute(CrocThread* t, uword depth = 1)
 					else
 					{
 						typeString(t, &t.stack[dest]);
-						throwStdException(t, "TypeException", "Cannot increment a '{}'", getString(t, -1));
+						throwStdException(t, "TypeError", "Cannot increment a '{}'", getString(t, -1));
 					}
 					break;
 
@@ -2812,7 +2812,7 @@ void execute(CrocThread* t, uword depth = 1)
 					else
 					{
 						typeString(t, &t.stack[dest]);
-						throwStdException(t, "TypeException", "Cannot decrement a '{}'", getString(t, -1));
+						throwStdException(t, "TypeError", "Cannot decrement a '{}'", getString(t, -1));
 					}
 					break;
 
@@ -2926,14 +2926,14 @@ void execute(CrocThread* t, uword depth = 1)
 					auto step = hi + 1;
 
 					if(idx.type != CrocValue.Type.Int || hi.type != CrocValue.Type.Int || step.type != CrocValue.Type.Int)
-						throwStdException(t, "TypeException", "Numeric for loop low, high, and step values must be integers");
+						throwStdException(t, "TypeError", "Numeric for loop low, high, and step values must be integers");
 
 					auto intIdx = idx.mInt;
 					auto intHi = hi.mInt;
 					auto intStep = step.mInt;
 
 					if(intStep == 0)
-						throwStdException(t, "ValueException", "Numeric for loop step value may not be 0");
+						throwStdException(t, "ValueError", "Numeric for loop step value may not be 0");
 
 					if(intIdx > intHi && intStep > 0 || intIdx < intHi && intStep < 0)
 						intStep = -intStep;
@@ -2983,7 +2983,7 @@ void execute(CrocThread* t, uword depth = 1)
 						if(method is null)
 						{
 							typeString(t, src);
-							throwStdException(t, "TypeException", "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
+							throwStdException(t, "TypeError", "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
 						}
 
 						t.stack[stackBase + rd + 2] = t.stack[stackBase + rd + 1];
@@ -2999,12 +2999,12 @@ void execute(CrocThread* t, uword depth = 1)
 						if(src.type != CrocValue.Type.Function && src.type != CrocValue.Type.Thread)
 						{
 							typeString(t, src);
-							throwStdException(t, "TypeException", "Invalid iterable type '{}' returned from opApply", getString(t, -1));
+							throwStdException(t, "TypeError", "Invalid iterable type '{}' returned from opApply", getString(t, -1));
 						}
 					}
 
 					if(src.type == CrocValue.Type.Thread && src.mThread.state != CrocThread.State.Initial)
-						throwStdException(t, "StateException", "Attempting to iterate over a thread that is not in the 'initial' state");
+						throwStdException(t, "StateError", "Attempting to iterate over a thread that is not in the 'initial' state");
 
 					(*pc) += jump;
 					break;
@@ -3098,7 +3098,7 @@ void execute(CrocThread* t, uword depth = 1)
 					if(RT.type != CrocValue.Type.String)
 					{
 						typeString(t, RT);
-						throwStdException(t, "TypeException", "Attempting to get a method with a non-string name (type '{}' instead)", getString(t, -1));
+						throwStdException(t, "TypeError", "Attempting to get a method with a non-string name (type '{}' instead)", getString(t, -1));
 					}
 
 					CrocValue* self = void;
@@ -3112,7 +3112,7 @@ void execute(CrocThread* t, uword depth = 1)
 					else
 					{
 						if(t.currentAR.proto is null || t.currentAR.proto.parent is null)
-							throwStdException(t, "CallException", "Attempting to perform a supercall in a function where there is no super class");
+							throwStdException(t, "CallError", "Attempting to perform a supercall in a function where there is no super class");
 
 						self = &t.stack[stackBase];
 						lookup = CrocValue(t.currentAR.proto.parent);
@@ -3120,7 +3120,7 @@ void execute(CrocThread* t, uword depth = 1)
 						if(self.type != CrocValue.Type.Instance && self.type != CrocValue.Type.Class)
 						{
 							typeString(t, self);
-							throwStdException(t, "TypeException", "Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
+							throwStdException(t, "TypeError", "Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
 						}
 					}
 
@@ -3284,7 +3284,7 @@ void execute(CrocThread* t, uword depth = 1)
 					if(RS.type != CrocValue.Type.Int)
 					{
 						typeString(t, RS);
-						throwStdException(t, "TypeException", "Attempting to index 'vararg' with a '{}'", getString(t, -1));
+						throwStdException(t, "TypeError", "Attempting to index 'vararg' with a '{}'", getString(t, -1));
 					}
 
 					auto index = RS.mInt;
@@ -3293,7 +3293,7 @@ void execute(CrocThread* t, uword depth = 1)
 						index += numVarargs;
 
 					if(index < 0 || index >= numVarargs)
-						throwStdException(t, "BoundsException", "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
+						throwStdException(t, "BoundsError", "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
 
 					t.stack[stackBase + rd] = t.stack[t.currentAR.vargBase + cast(uword)index];
 					break;
@@ -3307,7 +3307,7 @@ void execute(CrocThread* t, uword depth = 1)
 					if(RS.type != CrocValue.Type.Int)
 					{
 						typeString(t, RS);
-						throwStdException(t, "TypeException", "Attempting to index 'vararg' with a '{}'", getString(t, -1));
+						throwStdException(t, "TypeError", "Attempting to index 'vararg' with a '{}'", getString(t, -1));
 					}
 
 					auto index = RS.mInt;
@@ -3316,7 +3316,7 @@ void execute(CrocThread* t, uword depth = 1)
 						index += numVarargs;
 
 					if(index < 0 || index >= numVarargs)
-						throwStdException(t, "BoundsException", "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
+						throwStdException(t, "BoundsError", "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
 
 					t.stack[t.currentAR.vargBase + cast(uword)index] = *RT;
 					break;
@@ -3335,11 +3335,11 @@ void execute(CrocThread* t, uword depth = 1)
 					{
 						typeString(t, &t.stack[stackBase + rd]);
 						typeString(t, &t.stack[stackBase + rd + 1]);
-						throwStdException(t, "TypeException", "Attempting to slice 'vararg' with '{}' and '{}'", getString(t, -2), getString(t, -1));
+						throwStdException(t, "TypeError", "Attempting to slice 'vararg' with '{}' and '{}'", getString(t, -2), getString(t, -1));
 					}
 
 					if(lo > hi || lo < 0 || lo > numVarargs || hi < 0 || hi > numVarargs)
-						throwStdException(t, "BoundsException", "Invalid vararg slice indices [{} .. {}]", lo, hi);
+						throwStdException(t, "BoundsError", "Invalid vararg slice indices [{} .. {}]", lo, hi);
 
 					auto sliceSize = cast(uword)(hi - lo);
 					auto src = t.currentAR.vargBase + cast(uword)lo;
@@ -3368,10 +3368,10 @@ void execute(CrocThread* t, uword depth = 1)
 					auto numResults = cast(word)mixin(GetUImm) - 1;
 
 					if(t is t.vm.mainThread)
-						throwStdException(t, "RuntimeException", "Attempting to yield out of the main thread");
+						throwStdException(t, "RuntimeError", "Attempting to yield out of the main thread");
 
 					if(t.nativeCallDepth > 0)
-						throwStdException(t, "RuntimeException", "Attempting to yield across native / metamethod call boundary");
+						throwStdException(t, "RuntimeError", "Attempting to yield across native / metamethod call boundary");
 
 					t.savedCallDepth = depth;
 					yieldImpl(t, stackBase + rd, numParams, numResults);
@@ -3387,9 +3387,9 @@ void execute(CrocThread* t, uword depth = 1)
 							typeString(t, val);
 
 							if(idx == 0)
-								throwStdException(t, "TypeException", "'this' parameter: type '{}' is not allowed", getString(t, -1));
+								throwStdException(t, "TypeError", "'this' parameter: type '{}' is not allowed", getString(t, -1));
 							else
-								throwStdException(t, "TypeException", "Parameter {}: type '{}' is not allowed", idx, getString(t, -1));
+								throwStdException(t, "TypeError", "Parameter {}: type '{}' is not allowed", idx, getString(t, -1));
 						}
 
 						val++;
@@ -3410,9 +3410,9 @@ void execute(CrocThread* t, uword depth = 1)
 							typeString(t, RS);
 
 							if(rd == 0)
-								throwStdException(t, "TypeException", "'this' parameter: instance type constraint type must be 'class', not '{}'", getString(t, -1));
+								throwStdException(t, "TypeError", "'this' parameter: instance type constraint type must be 'class', not '{}'", getString(t, -1));
 							else
-								throwStdException(t, "TypeException", "Parameter {}: instance type constraint type must be 'class', not '{}'", rd, getString(t, -1));
+								throwStdException(t, "TypeError", "Parameter {}: instance type constraint type must be 'class', not '{}'", rd, getString(t, -1));
 						}
 
 						if(instance.derivesFrom(RD.mInstance, RS.mClass))
@@ -3424,9 +3424,9 @@ void execute(CrocThread* t, uword depth = 1)
 					typeString(t, &t.stack[stackBase + rd]);
 
 					if(rd == 0)
-						throwStdException(t, "TypeException", "'this' parameter: type '{}' is not allowed", getString(t, -1));
+						throwStdException(t, "TypeError", "'this' parameter: type '{}' is not allowed", getString(t, -1));
 					else
-						throwStdException(t, "TypeException", "Parameter {}: type '{}' is not allowed", rd, getString(t, -1));
+						throwStdException(t, "TypeError", "Parameter {}: type '{}' is not allowed", rd, getString(t, -1));
 
 					break;
 
@@ -3435,9 +3435,9 @@ void execute(CrocThread* t, uword depth = 1)
 					mixin(GetRS);
 
 					if(rd == 0)
-						throwStdException(t, "TypeException", "'this' parameter: type '{}' does not satisfy constraint '{}'", getString(t, -1), RS.mString.toString());
+						throwStdException(t, "TypeError", "'this' parameter: type '{}' does not satisfy constraint '{}'", getString(t, -1), RS.mString.toString());
 					else
-						throwStdException(t, "TypeException", "Parameter {}: type '{}' does not satisfy constraint '{}'", rd, getString(t, -1), RS.mString.toString());
+						throwStdException(t, "TypeError", "Parameter {}: type '{}' does not satisfy constraint '{}'", rd, getString(t, -1), RS.mString.toString());
 					break;
 
 				case Op.AssertFail:
@@ -3497,7 +3497,7 @@ void execute(CrocThread* t, uword depth = 1)
 					if(RT.type != CrocValue.Type.String)
 					{
 						typeString(t, RT);
-						throwStdException(t, "TypeException", "Field name must be a string, not a '{}'", getString(t, -1));
+						throwStdException(t, "TypeError", "Field name must be a string, not a '{}'", getString(t, -1));
 					}
 
 					fieldImpl(t, stackBase + rd, RS, RT.mString, false);
@@ -3510,7 +3510,7 @@ void execute(CrocThread* t, uword depth = 1)
 					if(RS.type != CrocValue.Type.String)
 					{
 						typeString(t, RS);
-						throwStdException(t, "TypeException", "Field name must be a string, not a '{}'", getString(t, -1));
+						throwStdException(t, "TypeError", "Field name must be a string, not a '{}'", getString(t, -1));
 					}
 
 					fieldaImpl(t, stackBase + rd, RS.mString, RT, false);
@@ -3550,7 +3550,7 @@ void execute(CrocThread* t, uword depth = 1)
 					{
 						CrocValue def = newDef;
 						toStringImpl(t, def, false);
-						throwStdException(t, "RuntimeException", "Attempting to instantiate {} with a different namespace than was associated with it", getString(t, -1));
+						throwStdException(t, "RuntimeError", "Attempting to instantiate {} with a different namespace than was associated with it", getString(t, -1));
 					}
 
 					auto uvTable = newDef.upvals;
@@ -3578,7 +3578,7 @@ void execute(CrocThread* t, uword depth = 1)
 					else
 					{
 						typeString(t, RT);
-						throwStdException(t, "TypeException", "Attempting to derive a class from a value of type '{}'", getString(t, -1));
+						throwStdException(t, "TypeError", "Attempting to derive a class from a value of type '{}'", getString(t, -1));
 					}
 
 					maybeGC(t);
@@ -3594,7 +3594,7 @@ void execute(CrocThread* t, uword depth = 1)
 					{
 						typeString(t, RT);
 						push(t, CrocValue(name));
-						throwStdException(t, "TypeException", "Attempted to use a '{}' as a parent namespace for namespace '{}'", getString(t, -2), getString(t, -1));
+						throwStdException(t, "TypeError", "Attempted to use a '{}' as a parent namespace for namespace '{}'", getString(t, -2), getString(t, -1));
 					}
 					else
 						t.stack[stackBase + rd] = namespace.create(t.vm.alloc, name, RT.mNamespace);
@@ -3637,7 +3637,7 @@ void execute(CrocThread* t, uword depth = 1)
 					{
 						auto name = RS.mString.toString();
 						auto clsName = cls.mClass.name.toString();
-						throwStdException(t, "FieldException", "Attempting to add a field '{}' which already exists to class '{}'", name, clsName);
+						throwStdException(t, "FieldError", "Attempting to add a field '{}' which already exists to class '{}'", name, clsName);
 					}
 					break;
 
@@ -3654,7 +3654,7 @@ void execute(CrocThread* t, uword depth = 1)
 					{
 						auto name = RS.mString.toString();
 						auto clsName = cls.mClass.name.toString();
-						throwStdException(t, "FieldException", "Attempting to add a method '{}' which already exists to class '{}'", name, clsName);
+						throwStdException(t, "FieldError", "Attempting to add a method '{}' which already exists to class '{}'", name, clsName);
 					}
 					break;
 

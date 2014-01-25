@@ -117,13 +117,13 @@ uword _utf8DecodeInternal(CrocThread* t)
 			last = src;
 
 			if(errors == "strict")
-				throwStdException(t, "UnicodeException", "Invalid UTF-8");
+				throwStdException(t, "UnicodeError", "Invalid UTF-8");
 			else if(errors == "ignore")
 				continue;
 			else if(errors == "replace")
 				s.addChar('\uFFFD');
 			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+				throwStdException(t, "ValueError", "Invalid error handling type '{}'", errors);
 		}
 	}
 
@@ -139,7 +139,6 @@ const char[] _code =
 `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.utf8EncodeInternal, _internal.utf8DecodeInternal
-import exceptions: ValueException
 
 // =====================================================================================================================
 // "Raw" UTF-8
@@ -172,7 +171,7 @@ class Utf8Codec : TextCodec
 		local ret, eaten = _decodeRange(src, lo, hi, errors)
 
 		if(eaten < (hi - lo))
-			throw ValueException("Incomplete text at end of data")
+			throw ValueError("Incomplete text at end of data")
 
 		return ret
 	}
@@ -274,7 +273,7 @@ class Utf8SigCodec : TextCodec
 		local ret, eaten = _decodeRange(src, lo, hi, errors)
 
 		if(eaten < (hi - lo))
-			throw ValueException("Incomplete text at end of data")
+			throw ValueError("Incomplete text at end of data")
 
 		return ret
 	}

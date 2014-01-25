@@ -21,5 +21,5 @@ template apiParamTypeError(char[] idx, char[] paramName, char[] expected, char[]
 {
 	const char[] apiParamTypeError =
 	"pushTypeString(" ~ t ~ ", " ~ idx ~ ");" ~
-	"throwStdException(" ~ t ~ ", \"TypeException\", __FUNCTION__ ~ \" - Expected type '" ~ expected ~ "' for " ~ paramName ~ ", not '{}'\", getString(t, -1));";
+	"throwStdException(" ~ t ~ ", \"TypeError\", __FUNCTION__ ~ \" - Expected type '" ~ expected ~ "' for " ~ paramName ~ ", not '{}'\", getString(t, -1));";
 }

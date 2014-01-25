@@ -149,7 +149,7 @@ CrocMemblock* _getData(CrocThread* t, word idx = 0)
 	field(t, idx, Data);
 
 	if(!isMemblock(t, -1))
-		throwStdException(t, "StateException", "Attempting to operate on an uninitialized StringBuffer");
+		throwStdException(t, "StateError", "Attempting to operate on an uninitialized StringBuffer");
 
 	auto ret = getMemblock(t, -1);
 	pop(t);
@@ -188,7 +188,7 @@ void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
 		while(size > l)
 		{
 			if(l & (1 << ((uword.sizeof * 8) - 1)))
-				throwStdException(t, "RangeException", "StringBuffer too big ({} elements)", size);
+				throwStdException(t, "RangeError", "StringBuffer too big ({} elements)", size);
 			l <<= 1;
 		}
 
@@ -271,7 +271,7 @@ uword _constructor(CrocThread* t)
 			auto l = getInt(t, 1);
 
 			if(l < 0 || l > uword.max)
-				throwStdException(t, "RangeException", "Invalid length: {}", l);
+				throwStdException(t, "RangeError", "Invalid length: {}", l);
 
 			length = cast(uword)l;
 		}
@@ -329,7 +329,7 @@ uword _toString(CrocThread* t)
 		hi += len;
 
 	if(lo < 0 || lo > hi || hi > len)
-		throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
+		throwStdException(t, "BoundsError", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
 
 	pushFormat(t, "{}", (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi]);
 	return 1;
@@ -455,7 +455,7 @@ uword _opLengthAssign(CrocThread* t)
 	auto newLen = checkIntParam(t, 1);
 
 	if(newLen < 0 || newLen > uword.max)
-		throwStdException(t, "RangeException", "Invalid length: {}", newLen);
+		throwStdException(t, "RangeError", "Invalid length: {}", newLen);
 
 	auto oldLen = _getLength(t);
 
@@ -481,7 +481,7 @@ uword _opIndex(CrocThread* t)
 		index += len;
 
 	if(index < 0 || index >= len)
-		throwStdException(t, "BoundsException", "Invalid index: {} (buffer length: {})", index, len);
+		throwStdException(t, "BoundsError", "Invalid index: {} (buffer length: {})", index, len);
 
 	pushChar(t, (cast(dchar[])mb.data)[cast(uword)index]);
 	return 1;
@@ -495,13 +495,13 @@ uword _opIndexAssign(CrocThread* t)
 	auto ch = checkStringParam(t, 2);
 
 	if(.len(t, 2) != 1)
-		throwStdException(t, "ValueException", "Expected single-character string as the RHS");
+		throwStdException(t, "ValueError", "Expected single-character string as the RHS");
 
 	if(index < 0)
 		index += len;
 
 	if(index < 0 || index >= len)
-		throwStdException(t, "BoundsException", "Invalid index: {} (buffer length: {})", index, len);
+		throwStdException(t, "BoundsError", "Invalid index: {} (buffer length: {})", index, len);
 
 	auto ptr = ch.ptr;
 	(cast(dchar[])mb.data)[cast(uword)index] = fastDecodeUtf8Char(ptr);
@@ -522,7 +522,7 @@ uword _opSlice(CrocThread* t)
 		hi += len;
 
 	if(lo < 0 || lo > hi || hi > len)
-		throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
+		throwStdException(t, "BoundsError", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
 
 	auto newStr = (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi];
 
@@ -546,7 +546,7 @@ uword _opCat(CrocThread* t)
 		auto totalLen = len + addLen;
 
 		if(totalLen > uword.max)
-			throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
+			throwStdException(t, "RangeError", "Result too big ({} elements)", totalLen);
 
 		pushGlobal(t, "StringBuffer");
 		pushNull(t);
@@ -594,7 +594,7 @@ uword _opCat_r(CrocThread* t)
 		auto totalLen = len + addLen;
 
 		if(totalLen > uword.max)
-			throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
+			throwStdException(t, "RangeError", "Result too big ({} elements)", totalLen);
 
 		pushGlobal(t, "StringBuffer");
 		pushNull(t);
@@ -637,7 +637,7 @@ uword _opCatAssign(CrocThread* t)
 		auto totalLen = len + addLen;
 
 		if(totalLen > uword.max)
-			throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
+			throwStdException(t, "RangeError", "Result too big ({} elements)", totalLen);
 
 		_ensureSize(t, mb, cast(uword)totalLen);
 		_setLength(t, cast(uword)totalLen);
@@ -744,7 +744,7 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 		auto otherLen = _getLength(t, filler);
 
 		if(otherLen != (hi - lo))
-			throwStdException(t, "ValueException", "Length of destination ({}) and length of source ({}) do not match", hi - lo, otherLen);
+			throwStdException(t, "ValueError", "Length of destination ({}) and length of source ({}) do not match", hi - lo, otherLen);
 
 		(cast(dchar[])mb.data)[lo .. hi] = other[0 .. otherLen];
 	}
@@ -762,7 +762,7 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 			if(!isString(t, -1))
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "filler function expected to return a 'string', not '{}'", getString(t, -1));
+				throwStdException(t, "TypeError", "filler function expected to return a 'string', not '{}'", getString(t, -1));
 			}
 
 			data[i] = getChar(t, -1);
@@ -774,7 +774,7 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 		auto cpLen = cast(uword)len(t, filler);
 
 		if(cpLen != (hi - lo))
-			throwStdException(t, "ValueException", "Length of destination ({}) and length of source string ({}) do not match", hi - lo, cpLen);
+			throwStdException(t, "ValueError", "Length of destination ({}) and length of source string ({}) do not match", hi - lo, cpLen);
 
 		_toUtf32(getString(t, filler), (cast(dchar[])mb.data)[lo .. hi]);
 	}
@@ -787,7 +787,7 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 			idxi(t, filler, ai);
 
 			if(!isChar(t, -1))
-				throwStdException(t, "TypeException", "array element {} expected to be a one-character string");
+				throwStdException(t, "TypeError", "array element {} expected to be a one-character string");
 
 			data[ai] = getChar(t, -1);
 			pop(t);
@@ -823,7 +823,7 @@ uword _fillRange(CrocThread* t)
 		hi += len;
 
 	if(lo < 0 || lo > hi || hi > len)
-		throwStdException(t, "BoundsException", "Invalid range indices: {} .. {} (buffer length: {})", lo, hi, len);
+		throwStdException(t, "BoundsError", "Invalid range indices: {} .. {} (buffer length: {})", lo, hi, len);
 
 	fillImpl(t, mb, 3, cast(uword)lo, cast(uword)hi);
 	dup(t, 0);
@@ -845,7 +845,7 @@ uword _fillChar(CrocThread* t)
 		hi += len;
 
 	if(lo < 0 || lo > hi || hi > len)
-		throwStdException(t, "BoundsException", "Invalid range indices {} .. {} (buffer length: {}", lo, hi, len);
+		throwStdException(t, "BoundsError", "Invalid range indices {} .. {} (buffer length: {}", lo, hi, len);
 
 	(cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi] = ch;
 	return 0;
@@ -863,14 +863,14 @@ uword _insert(CrocThread* t)
 
 	// yes, greater, because it's possible to insert at one past the end of the buffer (it appends)
 	if(len < 0 || idx > len)
-		throwStdException(t, "BoundsException", "Invalid index: {} (length: {})", idx, len);
+		throwStdException(t, "BoundsError", "Invalid index: {} (length: {})", idx, len);
 
 	dchar[] doResize(crocint otherLen)
 	{
 		auto totalLen = len + otherLen;
 
 		if(totalLen > uword.max)
-			throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
+			throwStdException(t, "RangeError", "Invalid size ({})", totalLen);
 
 		auto oldLen = len;
 
@@ -951,7 +951,7 @@ uword _remove(CrocThread* t)
 	auto len = _getLength(t);
 
 	if(len == 0)
-		throwStdException(t, "ValueException", "StringBuffer is empty");
+		throwStdException(t, "ValueError", "StringBuffer is empty");
 
 	auto lo = checkIntParam(t, 1);
 	auto hi = optIntParam(t, 2, lo + 1);
@@ -963,7 +963,7 @@ uword _remove(CrocThread* t)
 		hi += len;
 
 	if(lo < 0 || lo > hi || hi > len)
-		throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (length: {})", lo, hi, len);
+		throwStdException(t, "BoundsError", "Invalid indices: {} .. {} (length: {})", lo, hi, len);
 
 	if(lo != hi)
 	{
@@ -1000,7 +1000,7 @@ uword _commonFind(bool reverse)(CrocThread* t)
 		start += src.length;
 
 	if(start < 0 || start >= src.length)
-		throwStdException(t, "BoundsException", "Invalid start index {}", start);
+		throwStdException(t, "BoundsError", "Invalid start index {}", start);
 
 	// Search
 
@@ -1080,7 +1080,7 @@ uword _vsplit(CrocThread* t)
 		num++;
 
 		if(num > VSplitMax)
-			throwStdException(t, "ValueException", "Too many (>{}) parts when splitting", VSplitMax);
+			throwStdException(t, "ValueError", "Too many (>{}) parts when splitting", VSplitMax);
 	}
 
 	return num;
@@ -1126,7 +1126,7 @@ uword _vsplitWS(CrocThread* t)
 			num++;
 
 			if(num > VSplitMax)
-				throwStdException(t, "ValueException", "Too many (>{}) parts when splitting string", VSplitMax);
+				throwStdException(t, "ValueError", "Too many (>{}) parts when splitting string", VSplitMax);
 		}
 	}
 
@@ -1168,7 +1168,7 @@ uword _vsplitLines(CrocThread* t)
 		num++;
 
 		if(num > VSplitMax)
-			throwStdException(t, "ValueException", "Too many (>{}) parts when splitting string", VSplitMax);
+			throwStdException(t, "ValueError", "Too many (>{}) parts when splitting string", VSplitMax);
 	}
 
 	return num;
@@ -1181,7 +1181,7 @@ uword _repeat_ip(CrocThread* t)
 	auto numTimes = checkIntParam(t, 1);
 
 	if(numTimes < 0)
-		throwStdException(t, "RangeException", "Invalid number of repetitions: {}", numTimes);
+		throwStdException(t, "RangeError", "Invalid number of repetitions: {}", numTimes);
 
 	auto newLen = cast(uword)numTimes * oldLen;
 
@@ -1383,7 +1383,7 @@ uword _format(CrocThread* t)
 		ulong totalLen = cast(uword)len + datalen;
 
 		if(totalLen > uword.max)
-			throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
+			throwStdException(t, "RangeError", "Invalid size ({})", totalLen);
 
 		_ensureSize(t, mb, cast(uword)totalLen);
 		_setLength(t, cast(uword)totalLen);
@@ -1415,7 +1415,7 @@ uword _opSerialize(CrocThread* t)
 
 	// don't know if this is possible, but can't hurt to check
 	if(!mb.ownData)
-		throwStdException(t, "ValueException", "Attempting to serialize a string buffer which does not own its data");
+		throwStdException(t, "ValueError", "Attempting to serialize a string buffer which does not own its data");
 
 	dup(t, 2);
 	pushNull(t);
@@ -1440,7 +1440,7 @@ uword _opDeserialize(CrocThread* t)
 	auto len = getInt(t, -1);
 
 	if(len < 0 || len > uword.max)
-		throwStdException(t, "ValueException", "Malformed data (invalid stringbuffer length)");
+		throwStdException(t, "ValueError", "Malformed data (invalid stringbuffer length)");
 
 	fielda(t, 0, Length);
 
@@ -1452,7 +1452,7 @@ uword _opDeserialize(CrocThread* t)
 	auto mblen = .len(t, -1);
 
 	if(len > mblen || (mblen & 0b11) != 0) // not a multiple of 4
-		throwStdException(t, "ValueException", "Malformed data (invalid stringbuffer data)");
+		throwStdException(t, "ValueError", "Malformed data (invalid stringbuffer data)");
 
 	fielda(t, 0, Data);
 
@@ -1488,7 +1488,7 @@ version(CrocBuiltinDocs)
 		preallocated in the buffer. However, the length of the \tt{StringBuffer} will still be 0; it's just that no memory will
 		have to be allocated until you put at least \tt{init} characters into it.
 
-		\throws[exceptions.RangeException] if \tt{init} is a negative integer or is an integer so large that the memory cannot
+		\throws[exceptions.RangeError] if \tt{init} is a negative integer or is an integer so large that the memory cannot
 		be allocated.`},
 
 		{kind: "function", name: "dup",
@@ -1503,7 +1503,7 @@ version(CrocBuiltinDocs)
 		`Converts this \tt{StringBuffer} to a string. You can optionally slice out only a part of the buffer to turn into a
 		string with the \tt{lo} and \tt{hi} parameters, which work like regular slice indices.
 
-		\throws[exceptions.BoundsException] if the slice boundaries are invalid.`},
+		\throws[exceptions.BoundsError] if the slice boundaries are invalid.`},
 
 		{kind: "function", name: "opEquals",
 		params: [Param("other", "string|StringBuffer")],
@@ -1537,22 +1537,22 @@ local s = StringBuffer()
 // now s can hold up to 1000 characters before it will have to reallocate its memory.
 \endcode
 
-		\throws[exceptions.RangeException] if \tt{len} is negative or is so large that the memory cannot be allocated.`},
+		\throws[exceptions.RangeError] if \tt{len} is negative or is so large that the memory cannot be allocated.`},
 
 		{kind: "function", name: "opIndex",
 		params: [Param("idx", "int")],
 		docs:
 		`Gets the character at the given index.
 
-		\throws[exceptions.BoundsException] if the index is invalid.`},
+		\throws[exceptions.BoundsError] if the index is invalid.`},
 
 		{kind: "function", name: "opIndexAssign",
 		params: [Param("idx", "int"), Param("c", "string")],
 		docs:
 		`Sets the character at the given index to the given character.
 
-		\throws[exceptions.BoundsException] if the index is invalid.
-		\throws[exceptions.ValueException] if \tt{#c != 1}.`},
+		\throws[exceptions.BoundsError] if the index is invalid.
+		\throws[exceptions.ValueError] if \tt{#c != 1}.`},
 
 		{kind: "function", name: "opCat",
 		params: [Param("o")],
@@ -1578,7 +1578,7 @@ local s = StringBuffer()
 		the same method and do the same thing. Thus, \tt{"s ~= a ~ b ~ c"} is functionally identical to \tt{"s.append(a, b, c)"} and
 		vice versa.
 
-		\throws[exceptions.RangeException] if the size of the buffer grows so large that the memory cannot be allocated.`},
+		\throws[exceptions.RangeError] if the size of the buffer grows so large that the memory cannot be allocated.`},
 
 		{kind: "function", name: "opSlice",
 		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")],
@@ -1642,7 +1642,7 @@ local s = StringBuffer()
 		If \tt{start < 0} it is treated as an index from the end of \tt{this}. If \tt{start >= #this} then this function simply returns
 		\tt{#this} (that is, it didn't find anything).
 
-		\throws[exceptions.BoundsException] if \tt{start} is negative and out-of-bounds (that is, \tt{abs(start) > #this}).`},
+		\throws[exceptions.BoundsError] if \tt{start} is negative and out-of-bounds (that is, \tt{abs(start) > #this}).`},
 
 		{kind: "function", name: "rfind",
 		params: [Param("sub", "string|StringBuffer"), Param("start", "int", "#this")],
@@ -1654,7 +1654,7 @@ local s = StringBuffer()
 
 		If \tt{start < 0} it is treated as an index from the end of \tt{this}.
 
-		\throws[exceptions.BoundsException] if \tt{start >= #this} or if \tt{start} is negative an out-of-bounds (that is, \tt{abs(start > #this}).`},
+		\throws[exceptions.BoundsError] if \tt{start >= #this} or if \tt{start} is negative an out-of-bounds (that is, \tt{abs(start > #this}).`},
 
 		{kind: "function", name: "startsWith",
 		params: [Param("other", "string|StringBuffer")],
@@ -1704,7 +1704,7 @@ local s = StringBuffer()
 		docs:
 		`\returns a new \tt{StringBuffer} which is the concatenation of \tt{n} instances of \tt{this}. If \tt{n == 0}, returns an empty \tt{StringBuffer}.
 
-		\throws[exceptions.RangeException] if \tt{n < 0}.`},
+		\throws[exceptions.RangeError] if \tt{n < 0}.`},
 
 		{kind: "function", name: "s.reverse",
 		docs:

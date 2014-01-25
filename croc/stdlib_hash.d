@@ -204,7 +204,7 @@ static:
 				if(!isBool(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwStdException(t, "TypeException", "'each' function expected to return 'bool', not '{}'", getString(t, -1));
+					throwStdException(t, "TypeError", "'each' function expected to return 'bool', not '{}'", getString(t, -1));
 				}
 
 				if(getBool(t, -1) == false)
@@ -481,7 +481,7 @@ static:
 					table.idxa(t.vm.alloc, tab, *k, CrocValue.nullValue);
 			}
 			else
-				throwStdException(t, "ValueException", "Attempting to take from an empty table");
+				throwStdException(t, "ValueError", "Attempting to take from an empty table");
 		}
 		else if(isNamespace(t, 1))
 		{
@@ -497,7 +497,7 @@ static:
 					namespace.remove(t.vm.alloc, ns, *s);
 			}
 			else
-				throwStdException(t, "ValueException", "Attempting to take from an empty namespace");
+				throwStdException(t, "ValueError", "Attempting to take from an empty namespace");
 		}
 		else
 			paramTypeError(t, 1, "table|namespace");

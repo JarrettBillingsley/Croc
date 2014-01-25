@@ -83,14 +83,14 @@ uword _streamCtor(CrocThread* t)
 	if(cast(IConduit)stream)
 	{
 		if(!haveReadable || !haveWritable)
-			throwStdException(t, "TypeException", "Both readable and writable parameters must be provided with an IConduit");
+			throwStdException(t, "TypeError", "Both readable and writable parameters must be provided with an IConduit");
 	}
 	else if(cast(InputStream)stream)
 		readable = true;
 	else if(cast(OutputStream)stream)
 		writable = true;
 	else
-		throwStdException(t, "TypeException", "stream parameter does not implement any of the valid Tango interfaces");
+		throwStdException(t, "TypeError", "stream parameter does not implement any of the valid Tango interfaces");
 
 	dup(t, 1);
 	pushBool(t, closable);
@@ -192,15 +192,6 @@ host can create instances of it.
 */
 module stream
 
-import exceptions:
-	BoundsException,
-	IOException,
-	NotImplementedException,
-	RangeException,
-	StateException,
-	TypeException,
-	ValueException
-
 import math: min, intMax
 import text
 
@@ -243,15 +234,15 @@ A helper function for checking the params to stream \tt{read} and \tt{write} fun
 
 This ensures that the \tt{offset} and \tt{size} parameters are valid, and throws exceptions if not.
 
-\throws[exceptions.BoundsException] if either \tt{offset} or \tt{size} is invalid.
+\throws[exceptions.BoundsError] if either \tt{offset} or \tt{size} is invalid.
 */
 function checkRWParams(m, offset, size)
 {
 	if(offset < 0 || offset > #m)
-		throw BoundsException("Invalid offset {} in memblock of size {}".format(offset, #m))
+		throw BoundsError("Invalid offset {} in memblock of size {}".format(offset, #m))
 
 	if(size < 0 || size > #m - offset)
-		throw BoundsException("Invalid size {} in memblock of size {} starting from offset {}".format(size, #m, offset))
+		throw BoundsError("Invalid size {} in memblock of size {} starting from offset {}".format(size, #m, offset))
 }
 
 local checkRWParams = checkRWParams
@@ -315,13 +306,13 @@ class Stream
 		\endlist
 	\endlist
 
-	\throws[exceptions.BoundsException] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
+	\throws[exceptions.BoundsError] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
 	is outside the range \tt{[0, #m - offset]}.
 
 	\throws[exceptions.IOException] or a derived class if some error occurred.
 	*/
 	function read(this: @InStream, m: memblock, offset: int = 0, size: int = #m - offset)
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Writes data into the stream from the given memblock.
@@ -341,14 +332,14 @@ class Stream
 			until the desired number of bytes has been written. The \link{writeExact} method does this for you.
 	\endlist
 
-	\throws[exceptions.BoundsException] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
+	\throws[exceptions.BoundsError] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
 	is outside the range \tt{[0, #m - offset]}.
 
 	\throws[exceptions.IOException] or a derived class if some error occurred.
 	\throws[EOFException] if end-of-file was reached.
 	*/
 	function write(this: @OutStream, m: memblock, offset: int = 0, size: int = #m - offset)
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Changes the position of the stream's read/write position, and reports the new position once changed.
@@ -372,7 +363,7 @@ class Stream
 	\throws[exceptions.IOException] if the resulting stream position would be negative, or if some error occurred.
 	*/
 	function seek(this: @SeekStream, offset: int, where: string)
-		throw NotImplementedException()
+		throw NotImplementedError()
 
 	/**
 	Tells whether or not \link{read} can be called on this stream.
@@ -484,14 +475,14 @@ class Stream
 	\param[this] must be readable, and may optionally be seekable.
 	\param[dist] is the number of bytes to skip. Can be 0.
 
-	\throws[exceptions.RangeException] if \tt{dist} is negative.
+	\throws[exceptions.RangeError] if \tt{dist} is negative.
 	\throws[exceptions.IOException] or a derived class if some error occurred.
 	\throws[EOFException] if end-of-file was reached.
 	*/
 	function skip(this: @InStream, dist: int)
 	{
 		if(dist < 0)
-			throw RangeException("Invalid skip distance ({})".format(dist))
+			throw RangeError("Invalid skip distance ({})".format(dist))
 		else if(dist == 0)
 			return
 
@@ -563,7 +554,7 @@ class Stream
 	\param[s] is the source stream from which the data will be read, and must be readable.
 	\param[size] is the number of bytes to copy, or -1 to mean all data until \tt{s} reaches end-of-file.
 
-	\throws[exceptions.RangeException] if \tt{size < -1}.
+	\throws[exceptions.RangeError] if \tt{size < -1}.
 	\throws[EOFException] if \tt{size > 0} and end-of-file was reached before copying could finish.
 	*/
 	function copy(this: @OutStream, s: @InStream, size: int = -1)
@@ -572,7 +563,7 @@ class Stream
 		local buf = :__scratch
 
 		if(size < -1)
-			throw RangeException("Invalid size: {}".format(size))
+			throw RangeError("Invalid size: {}".format(size))
 
 		if(size == -1)
 		{
@@ -751,7 +742,7 @@ class MemblockStream : Stream
 	If you seek past the end of the memblock, the memblock will be resized to the new offset. This is to match the
 	behavior of seeking on files.
 
-	\throws[exceptions.ValueException] if \tt{where} is invalid.
+	\throws[exceptions.ValueError] if \tt{where} is invalid.
 	\throws[exceptions.IOException] if the resulting offset is negative.
 	*/
 	function seek(offset: int, where: string)
@@ -761,7 +752,7 @@ class MemblockStream : Stream
 			case "b": break
 			case "c": offset += :__pos; break
 			case "e": offset += #:__mb; break
-			default: throw ValueException("Invalid seek type '{}'".format(where))
+			default: throw ValueError("Invalid seek type '{}'".format(where))
 		}
 
 		if(offset < 0)
@@ -903,13 +894,13 @@ class BinaryStream : StreamWrapper
 
 	\returns a \tt{string} representing the characters read.
 
-	\throws[exceptions.RangeException] if \tt{n < 1}.
+	\throws[exceptions.RangeError] if \tt{n < 1}.
 	\throws[EOFException] if end-of-file was reached.
 	*/
 	function readChars(n: int)
 	{
 		if(n < 1)
-			throw RangeException("Invalid number of characters ({})".format(n))
+			throw RangeError("Invalid number of characters ({})".format(n))
 
 		#:__strBuf = n
 		:__stream.readExact(:__strBuf)
@@ -959,13 +950,13 @@ class BinaryStream : StreamWrapper
 
 	\param[x] is the string containing the characters to be written. It must be ASCII.
 	\returns \tt{this}.
-	\throws[exceptions.ValueException] if \tt{x} is not ASCII.
+	\throws[exceptions.ValueError] if \tt{x} is not ASCII.
 	\throws[EOFException] if end-of-file was reached.
 	*/
 	function writeChars(x: string)
 	{
 		if(!ascii.isAscii(x))
-			throw ValueException("Can only write ASCII strings as raw characters")
+			throw ValueError("Can only write ASCII strings as raw characters")
 
 		asciiCodec.encodeInto(x, :__strBuf, 0)
 		:__stream.writeExact(:__strBuf)
@@ -1307,7 +1298,7 @@ foreach(i, line; TextReader(fileStream))
 		else if(mode is "nostrip")
 			return :nostripIterator, this, 0
 		else
-			throw ValueException("Invalid iteration mode '{}'".format(mode))
+			throw ValueError("Invalid iteration mode '{}'".format(mode))
 	}
 
 	/**
@@ -1466,7 +1457,7 @@ class NativeStream : Stream
 	this(stream: nativeobj, closable: bool = true, readable: null|bool, writable: null|bool)
 	{
 		if(:__stream !is null)
-			throw StateException("Attempting to call constructor on an already-initialized stream")
+			throw StateError("Attempting to call constructor on an already-initialized stream")
 
 		:__stream, :__closable, :__readable, :__writable, :__seekable =
 			streamCtor(stream, closable, readable, writable)
@@ -1509,7 +1500,7 @@ class NativeStream : Stream
 		if(:__writable) :__checkDirty()
 
 		if(where != "b" && where != "c" && where != "e")
-			throw ValueException("Invalid seek location '{}'".format(where))
+			throw ValueError("Invalid seek location '{}'".format(where))
 
 		return streamSeek(:__stream, offset, where)
 	}
@@ -1531,12 +1522,12 @@ class NativeStream : Stream
 	/**
 	Closes the stream.
 
-	\throws[exceptions.StateException] if you try to close a stream that was not set to be closable in the constructor.
+	\throws[exceptions.StateError] if you try to close a stream that was not set to be closable in the constructor.
 	*/
 	function close()
 	{
 		if(!:__closable)
-			throw StateException("Trying to close an unclosable stream")
+			throw StateError("Trying to close an unclosable stream")
 
 		streamClose(:__stream)
 		:__closed = true
@@ -1548,9 +1539,9 @@ class NativeStream : Stream
 	function isOpen() =
 		!:__closed
 
-	function __checkReadable() { if(!:__readable) throw TypeException("Attempting to read from an unreadable stream") }
-	function __checkWritable() { if(!:__writable) throw TypeException("Attempting to write to an unwritable stream") }
-	function __checkSeekable() { if(!:__seekable) throw TypeException("Attempting to seek an unseekable stream") }
+	function __checkReadable() { if(!:__readable) throw TypeError("Attempting to read from an unreadable stream") }
+	function __checkWritable() { if(!:__writable) throw TypeError("Attempting to write to an unwritable stream") }
+	function __checkSeekable() { if(!:__seekable) throw TypeError("Attempting to seek an unseekable stream") }
 
 	function __checkDirty()
 	{

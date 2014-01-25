@@ -4,9 +4,6 @@ import docs: docsOf
 import doctools.output: SectionOrder, LinkResolver, LinkTranslator, OutputDocVisitor
 import doctools.trac: TracWikiOutputter
 
-import exceptions:
-	ValueException
-
 function main()
 {
 	local o = OutputDocVisitor(SectionOrder(), TracWikiOutputter$ LinkResolver$ CrocWikiLinkTranslator())
@@ -74,7 +71,7 @@ class CrocWikiLinkTranslator : LinkTranslator
 			local ret = StdlibLookup[mod]
 
 			if(ret is null)
-				throw ValueException("Unknown stdlib module '{}'".format(mod))
+				throw ValueError("Unknown stdlib module '{}'".format(mod))
 
 			if(item is "")
 				return ret
