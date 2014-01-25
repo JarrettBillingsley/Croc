@@ -139,7 +139,6 @@ import stream: InStream, OutStream, BinaryStream
 import math: intMin, intSize, floatSize
 import text
 import ascii
-import object: bindInstMethod
 
 local TypeTags = _serializationtmp.TypeTags
 
@@ -249,7 +248,8 @@ class Serializer
 	{
 		:setOutput(output)
 		:_strBuf = memblock.new(256)
-		:_serializeFunc = bindInstMethod(this, "_serialize")
+		local self = this
+		:_serializeFunc = \val { self._serialize(val) }
 		:_rawBuf = memblock.new(0)
 	}
 
@@ -577,7 +577,8 @@ class Deserializer
 	{
 		:setInput(input)
 		:_strBuf = memblock.new(256)
-		:_deserializeFunc = bindInstMethod(this, "_deserializeCB")
+		local self = this
+		:_deserializeFunc = \type -> self._deserializeCB(type)
 		:_rawBuf = memblock.new(0)
 	}
 
