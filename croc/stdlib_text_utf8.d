@@ -145,13 +145,13 @@ local _encodeInto, _decodeRange = _internal.utf8EncodeInternal, _internal.utf8De
 
 local class Utf8IncrementalEncoder : IncrementalEncoder
 {
-	__errors
+	_errors
 
 	this(errors: string = "strict")
-		:__errors = errors
+		:_errors = errors
 
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
-		_encodeInto(str, dest, start, :__errors)
+		_encodeInto(str, dest, start, :_errors)
 
 	function reset() {}
 }
@@ -193,38 +193,38 @@ aliasCodec("utf-8", "utf8")
 
 local class Utf8SigIncrementalEncoder : IncrementalEncoder
 {
-	__errors
-	__first = true
+	_errors
+	_first = true
 
 	this(errors: string = "strict")
-		:__errors = errors
+		:_errors = errors
 
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
 	{
-		if(!:__first)
-			_encodeInto(str, dest, start, :__errors)
+		if(!:_first)
+			_encodeInto(str, dest, start, :_errors)
 		else
 		{
-			:__first = false
-			_encodeInto(BOM_UTF8_STR ~ str, dest, start, :__errors)
+			:_first = false
+			_encodeInto(BOM_UTF8_STR ~ str, dest, start, :_errors)
 		}
 	}
 
 	function reset()
 	{
-		:__first = true
+		:_first = true
 	}
 }
 
 local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 {
-	__first = true
+	_first = true
 
 	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 	{
 		local prefix = 0
 
-		if(:__first)
+		if(:_first)
 		{
 			local sliceLen = hi - lo
 
@@ -233,11 +233,11 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 				if(BOM_UTF8.compare(0, src, lo, sliceLen) == 0)
 					return "", 0
 				else
-					:__first = false
+					:_first = false
 			}
 			else
 			{
-				:__first = false
+				:_first = false
 
 				if(BOM_UTF8.compare(0, src, lo, 3) == 0)
 				{
@@ -254,7 +254,7 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 	function reset()
 	{
 		super.reset()
-		:__first = true
+		:_first = true
 	}
 }
 

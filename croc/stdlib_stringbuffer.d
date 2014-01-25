@@ -53,8 +53,8 @@ void initStringBuffer(CrocThread* t)
 {
 	CreateClass(t, "StringBuffer", (CreateClass* c)
 	{
-		pushNull(t);   c.field("__data");
-		pushInt(t, 0); c.field("__length");
+		pushNull(t);   c.hfield("data");
+		pushInt(t, 0); c.hfield("length");
 
 		c.method("constructor",    1, &_constructor);
 		c.method("dup",            0, &_dup);
@@ -141,12 +141,12 @@ private:
 // =============================================================
 // Helpers
 
-const Data = "StringBuffer__data";
-const Length = "StringBuffer__length";
+const Data = "data";
+const Length = "length";
 
 CrocMemblock* _getData(CrocThread* t, word idx = 0)
 {
-	field(t, idx, Data);
+	hfield(t, idx, Data);
 
 	if(!isMemblock(t, -1))
 		throwStdException(t, "StateError", "Attempting to operate on an uninitialized StringBuffer");
@@ -158,7 +158,7 @@ CrocMemblock* _getData(CrocThread* t, word idx = 0)
 
 uword _getLength(CrocThread* t, word idx = 0)
 {
-	field(t, idx, Length);
+	hfield(t, idx, Length);
 	auto ret = cast(uword)getInt(t, -1);
 	pop(t);
 	return ret;
@@ -168,7 +168,7 @@ void _setLength(CrocThread* t, uword l, word idx = 0)
 {
 	idx = absIndex(t, idx);
 	pushInt(t, cast(crocint)l);
-	fielda(t, idx, Length);
+	hfielda(t, idx, Length);
 }
 
 void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
@@ -295,7 +295,7 @@ uword _constructor(CrocThread* t)
 	else
 		_setLength(t, 0);
 
-	fielda(t, 0, Data);
+	hfielda(t, 0, Data);
 	return 0;
 }
 
@@ -445,7 +445,7 @@ uword _opCmp(CrocThread* t)
 uword _opLength(CrocThread* t)
 {
 	_getData(t);
-	fielda(t, 0, Length);
+	hfielda(t, 0, Length);
 	return 1;
 }
 
@@ -1419,12 +1419,12 @@ uword _opSerialize(CrocThread* t)
 
 	dup(t, 2);
 	pushNull(t);
-	field(t, 0, Length);
+	hfield(t, 0, Length);
 	rawCall(t, -3, 0);
 
 	dup(t, 2);
 	pushNull(t);
-	field(t, 0, Data);
+	hfield(t, 0, Data);
 	rawCall(t, -3, 0);
 
 	return 0;
@@ -1442,7 +1442,7 @@ uword _opDeserialize(CrocThread* t)
 	if(len < 0 || len > uword.max)
 		throwStdException(t, "ValueError", "Malformed data (invalid stringbuffer length)");
 
-	fielda(t, 0, Length);
+	hfielda(t, 0, Length);
 
 	dup(t, 2);
 	pushNull(t);
@@ -1454,7 +1454,7 @@ uword _opDeserialize(CrocThread* t)
 	if(len > mblen || (mblen & 0b11) != 0) // not a multiple of 4
 		throwStdException(t, "ValueError", "Malformed data (invalid stringbuffer data)");
 
-	fielda(t, 0, Data);
+	hfielda(t, 0, Data);
 
 	return 0;
 }

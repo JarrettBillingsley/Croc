@@ -134,23 +134,23 @@ static:
 
 	alias word[] GroupIdxType;
 
-	const Ptrs = "Regex__ptrs";
-	const Names = "Regex__names";
-	const GroupIdx = "Regex__groupIdx";
-	const Subject = "Regex__subject";
-	const NumGroups = "Regex__numGroups";
-	const NextStart = "Regex__nextStart";
+	const _Ptrs = "ptrs";
+	const _Names = "names";
+	const _GroupIdx = "groupIdx";
+	const _Subject = "subject";
+	const _NumGroups = "numGroups";
+	const _NextStart = "nextStart";
 
 	void init(CrocThread* t)
 	{
 		CreateClass(t, "Regex", (CreateClass* c)
 		{
-			pushNull(t);   c.field("__ptrs");      // memblock
-			pushNull(t);   c.field("__names");     // table
-			pushNull(t);   c.field("__groupIdx");  // memblock
-			pushNull(t);   c.field("__subject");   // string
-			pushInt(t, 0); c.field("__numGroups"); // int
-			pushInt(t, 0); c.field("__nextStart"); // int
+			pushNull(t);   c.hfield(_Ptrs);      // memblock
+			pushNull(t);   c.hfield(_Names);     // table
+			pushNull(t);   c.hfield(_GroupIdx);  // memblock
+			pushNull(t);   c.hfield(_Subject);   // string
+			pushInt(t, 0); c.hfield(_NumGroups); // int
+			pushInt(t, 0); c.hfield(_NextStart); // int
 
 			c.method("constructor",   &constructor);
 			c.method("finalizer",     &finalizer);
@@ -184,7 +184,7 @@ static:
 
 	uword finalizer(CrocThread* t)
 	{
-		field(t, 0, Ptrs);
+		hfield(t, 0, _Ptrs);
 		auto ptrs = cast(PtrStruct*)getMemblockData(t, -1).ptr;
 
 		if(ptrs.extra !is null)
@@ -207,7 +207,7 @@ static:
 
 	PtrStruct* getThis(CrocThread* t)
 	{
-		field(t, 0, Ptrs);
+		hfield(t, 0, _Ptrs);
 
 		if(isNull(t, -1))
 			throwStdException(t, "StateError", "Attempting to call method on an uninitialized Regex instance");
@@ -233,9 +233,9 @@ static:
 
 	void setSubject(CrocThread* t, word str)
 	{
-		dup(t, str);   fielda(t, 0, Subject);
-		pushInt(t, 0); fielda(t, 0, NumGroups);
-		pushInt(t, 0); fielda(t, 0, NextStart);
+		dup(t, str);   hfielda(t, 0, _Subject);
+		pushInt(t, 0); hfielda(t, 0, _NumGroups);
+		pushInt(t, 0); hfielda(t, 0, _NextStart);
 	}
 
 	pcre* compilePattern(CrocThread* t, char[] pat, word attrs)
@@ -282,14 +282,14 @@ static:
 
 	word[] getGroupRange(CrocThread* t, word group)
 	{
-		field(t, 0, NumGroups);
+		hfield(t, 0, _NumGroups);
 		auto numGroups = getInt(t, -1);
 		pop(t);
 
 		if(numGroups == 0)
 			throwStdException(t, "ValueError", "No more matches");
 
-		field(t, 0, GroupIdx);
+		hfield(t, 0, _GroupIdx);
 		auto gi = cast(GroupIdxType)getMemblockData(t, -1);
 		pop(t);
 
@@ -313,7 +313,7 @@ static:
 		else if(isString(t, group))
 		{
 			// get named regex match
-			field(t, 0, Names);
+			hfield(t, 0, _Names);
 			dup(t, group);
 			idx(t, -2);
 
@@ -337,7 +337,7 @@ static:
 
 	uword constructor(CrocThread* t)
 	{
-		field(t, 0, Ptrs);
+		hfield(t, 0, _Ptrs);
 
 		if(!isNull(t, -1))
 			throwStdException(t, "StateError", "Attempting to call constructor on an already-initialized Regex");
@@ -359,16 +359,16 @@ static:
 		auto ptrs = cast(PtrStruct*)getMemblockData(t, -1).ptr;
 		ptrs.re = re;
 		ptrs.extra = extra;
-		fielda(t, 0, Ptrs);
+		hfielda(t, 0, _Ptrs);
 
 		word numGroups;
 		pcre_fullinfo(re, extra, PCRE_INFO_CAPTURECOUNT, &numGroups);
 
 		newMemblock(t, word.sizeof * ((numGroups + 1) * 3));
-		fielda(t, 0, GroupIdx);
+		hfielda(t, 0, _GroupIdx);
 
 		getNameTable(t, re, extra);
-		fielda(t, 0, Names);
+		hfielda(t, 0, _Names);
 
 		return 0;
 	}
@@ -376,7 +376,7 @@ static:
 	uword numGroups(CrocThread* t)
 	{
 		getThis(t);
-		field(t, 0, NumGroups);
+		hfield(t, 0, _NumGroups);
 		return 1;
 	}
 
@@ -386,7 +386,7 @@ static:
 
 		pushGlobal(t, "hash");
 		pushNull(t);
-		field(t, 0, Names);
+		hfield(t, 0, _Names);
 		methodCall(t, -3, "keys", 1);
 
 		return 1;
@@ -403,9 +403,9 @@ static:
 			setSubject(t, 1);
 		}
 
-		field(t, 0, NextStart);
+		hfield(t, 0, _NextStart);
 		auto nextStart = cast(word)getInt(t, -1);
-		field(t, 0, Subject);
+		hfield(t, 0, _Subject);
 		auto subject = getString(t, -1);
 		pop(t, 2);
 
@@ -415,7 +415,7 @@ static:
 			return 1;
 		}
 
-		field(t, 0, GroupIdx);
+		hfield(t, 0, _GroupIdx);
 		auto groupIdx = cast(GroupIdxType)getMemblockData(t, -1);
 		pop(t);
 
@@ -434,16 +434,16 @@ static:
 		if(numGroups == PCRE_ERROR_NOMATCH)
 		{
 			// done
-			pushInt(t, 0);              fielda(t, 0, NumGroups);
-			pushInt(t, subject.length); fielda(t, 0, NextStart);
+			pushInt(t, 0);              hfielda(t, 0, _NumGroups);
+			pushInt(t, subject.length); hfielda(t, 0, _NextStart);
 			pushBool(t, false);
 		}
 		else if(numGroups < 0)
 			throwNamedException(t, "PcreException", "PCRE Error matching against string (code {})", numGroups);
 		else
 		{
-			pushInt(t, numGroups);   fielda(t, 0, NumGroups);
-			pushInt(t, groupIdx[1]); fielda(t, 0, NextStart);
+			pushInt(t, numGroups);   hfielda(t, 0, _NumGroups);
+			pushInt(t, groupIdx[1]); hfielda(t, 0, _NextStart);
 			pushBool(t, true);
 		}
 
@@ -464,7 +464,7 @@ static:
 		auto numParams = stackSize(t) - 1;
 		getThis(t);
 		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
-		field(t, 0, Subject);
+		hfield(t, 0, _Subject);
 		auto subject = getString(t, -1);
 		pushString(t, subject[range[0] .. range[1]]);
 		return 1;
@@ -475,7 +475,7 @@ static:
 		auto numParams = stackSize(t) - 1;
 		getThis(t);
 		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
-		field(t, 0, Subject);
+		hfield(t, 0, _Subject);
 		auto subject = getString(t, -1);
 		pushString(t, subject[0 .. range[0]]);
 		return 1;
@@ -486,7 +486,7 @@ static:
 		auto numParams = stackSize(t) - 1;
 		getThis(t);
 		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
-		field(t, 0, Subject);
+		hfield(t, 0, _Subject);
 		auto subject = getString(t, -1);
 		pushString(t, subject[range[1] .. $]);
 		return 1;
@@ -497,7 +497,7 @@ static:
 		auto numParams = stackSize(t) - 1;
 		getThis(t);
 		auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
-		field(t, 0, Subject);
+		hfield(t, 0, _Subject);
 		auto subject = getString(t, -1);
 		pushString(t, subject[0 .. range[0]]);
 		pushString(t, subject[range[0] .. range[1]]);
@@ -554,7 +554,7 @@ static:
 		uword start = 0;
 		char[] tmp = str;
 
-		field(t, 0, GroupIdx);
+		hfield(t, 0, _GroupIdx);
 		auto groupIdx = cast(GroupIdxType)getMemblockData(t, -1);
 		pop(t);
 
@@ -605,7 +605,7 @@ static:
 		getThis(t);
 		auto str = checkStringParam(t, 1);
 		setSubject(t, 1);
-		field(t, 0, GroupIdx);
+		hfield(t, 0, _GroupIdx);
 		auto groupIdx = cast(GroupIdxType)getMemblockData(t, -1);
 		pop(t);
 
@@ -643,9 +643,9 @@ static:
 
 		if(getBool(t, -1))
 		{
-			field(t, 0, Subject);
+			hfield(t, 0, _Subject);
 			auto subject = getString(t, -1);
-			field(t, 0, GroupIdx);
+			hfield(t, 0, _GroupIdx);
 			auto groupIdx = cast(GroupIdxType)getMemblockData(t, -1);
 			pop(t, 2);
 			pos = utf8ByteIdxToCP(subject, groupIdx[0]);

@@ -58,17 +58,17 @@ import doctools.output:
 
 class TracWikiOutputter : DocOutputter
 {
-	__linkResolver
-	__listType
-	__inTable = false
-	__itemDepth = 0
-	__isFirstInSection = false
-	__isSpecialSection = false
+	_linkResolver
+	_listType
+	_inTable = false
+	_itemDepth = 0
+	_isFirstInSection = false
+	_isSpecialSection = false
 
 	this(lr: LinkResolver)
 	{
-		:__linkResolver = lr
-		:__listType = []
+		:_linkResolver = lr
+		:_listType = []
 	}
 
 	// =================================================================================================================
@@ -78,12 +78,12 @@ class TracWikiOutputter : DocOutputter
 	{
 		:outputText("[[PageOutline]]\n")
 		:beginItem(doctable)
-		:__linkResolver.enterModule(doctable.name)
+		:_linkResolver.enterModule(doctable.name)
 	}
 
 	function endModule()
 	{
-		:__linkResolver.leave()
+		:_linkResolver.leave()
 		:endItem()
 	}
 
@@ -93,24 +93,24 @@ class TracWikiOutputter : DocOutputter
 	function beginClass(doctable: table)
 	{
 		:beginItem(doctable)
-		:__linkResolver.enterItem(doctable.name)
+		:_linkResolver.enterItem(doctable.name)
 	}
 
 	function endClass()
 	{
-		:__linkResolver.leave()
+		:_linkResolver.leave()
 		:endItem()
 	}
 
 	function beginNamespace(doctable: table)
 	{
 		:beginItem(doctable)
-		:__linkResolver.enterItem(doctable.name)
+		:_linkResolver.enterItem(doctable.name)
 	}
 
 	function endNamespace()
 	{
-		:__linkResolver.leave()
+		:_linkResolver.leave()
 		:endItem()
 	}
 
@@ -122,18 +122,18 @@ class TracWikiOutputter : DocOutputter
 	function beginItem(doctable: table)
 	{
 		:outputHeader(doctable)
-		:__itemDepth++
+		:_itemDepth++
 	}
 
 	function endItem()
 	{
 		:outputText("\n")
-		:__itemDepth--
+		:_itemDepth--
 	}
 
 	function outputHeader(doctable: table)
 	{
-		local h = "=".repeat(:__itemDepth + 1)
+		local h = "=".repeat(:_itemDepth + 1)
 		:outputWikiHeader(doctable, h)
 
 		if(doctable.dittos)
@@ -195,21 +195,21 @@ class TracWikiOutputter : DocOutputter
 
 			:endBold()
 			:outputText(" ")
-			:__isFirstInSection = true
+			:_isFirstInSection = true
 		}
 
-		:__isSpecialSection = name is "params" || name is "throws"
+		:_isSpecialSection = name is "params" || name is "throws"
 
-		if(:__isSpecialSection)
+		if(:_isSpecialSection)
 			:beginDefList()
 	}
 
 	function endSection()
 	{
-		if(:__isSpecialSection)
+		if(:_isSpecialSection)
 		{
 			:endDefList()
-			:__isSpecialSection = false
+			:_isSpecialSection = false
 		}
 	}
 
@@ -226,7 +226,7 @@ class TracWikiOutputter : DocOutputter
 	function beginException(name: string)
 	{
 		:beginDefTerm()
-		:beginLink(:__linkResolver.resolveLink(name))
+		:beginLink(:_linkResolver.resolveLink(name))
 		:outputText(name)
 		:endLink()
 		:endDefTerm()
@@ -240,9 +240,9 @@ class TracWikiOutputter : DocOutputter
 
 	function beginParagraph()
 	{
-		if(:__isFirstInSection)
-			:__isFirstInSection = false
-		else if(!:__inTable)
+		if(:_isFirstInSection)
+			:_isFirstInSection = false
+		else if(!:_inTable)
 		{
 			:outputText("\n")
 			:outputIndent()
@@ -251,7 +251,7 @@ class TracWikiOutputter : DocOutputter
 
 	function endParagraph()
 	{
-		if(:__inTable)
+		if(:_inTable)
 			:outputText(" ")
 		else
 			:outputText("\n")
@@ -278,34 +278,34 @@ class TracWikiOutputter : DocOutputter
 	function beginBulletList()
 	{
 		:checkNotInTable()
-		:__listType.append("*")
+		:_listType.append("*")
 		:outputText("\n")
 	}
 
 	function endBulletList()
 	{
-		:__listType.pop()
+		:_listType.pop()
 		:outputText("\n")
 	}
 
 	function beginNumList(type: string)
 	{
 		:checkNotInTable()
-		:__listType.append(type ~ ".")
+		:_listType.append(type ~ ".")
 		:outputText("\n")
 	}
 
 	function endNumList()
 	{
-		:__listType.pop()
+		:_listType.pop()
 		:outputText("\n")
 	}
 
 	function beginListItem()
 	{
-		assert(#:__listType > 0)
+		assert(#:_listType > 0)
 		:outputIndent()
-		:outputText(:__listType[-1], " ")
+		:outputText(:_listType[-1], " ")
 	}
 
 	function endListItem() {}
@@ -313,19 +313,19 @@ class TracWikiOutputter : DocOutputter
 	function beginDefList()
 	{
 		:checkNotInTable()
-		:__listType.append(null)
+		:_listType.append(null)
 		:outputText("\n")
 	}
 
 	function endDefList()
 	{
-		:__listType.pop()
+		:_listType.pop()
 		:outputText("\n")
 	}
 
 	function beginDefTerm()
 	{
-		assert(#:__listType > 0)
+		assert(#:_listType > 0)
 		:outputIndent()
 	}
 
@@ -339,16 +339,16 @@ class TracWikiOutputter : DocOutputter
 
 	function beginTable()
 	{
-		if(#:__listType > 0)
+		if(#:_listType > 0)
 			throw ValueError("Sorry, tables inside lists are unsupported in Trac wiki markup")
 
-		:__inTable = true
+		:_inTable = true
 		:outputText("\n")
 	}
 
 	function endTable()
 	{
-		:__inTable = false
+		:_inTable = false
 		:outputText("\n")
 	}
 
@@ -367,7 +367,7 @@ class TracWikiOutputter : DocOutputter
 	function endBold() :outputText("'''")
 	function beginEmphasis() :outputText("''")
 	function endEmphasis() :outputText("''")
-	function beginLink(link: string) :outputText("[",  :__linkResolver.resolveLink(link), " ")
+	function beginLink(link: string) :outputText("[",  :_linkResolver.resolveLink(link), " ")
 	function endLink() :outputText("]")
 	function beginMonospace() :outputText("` "`" `")
 	function endMonospace() :outputText("` "`" `")
@@ -390,14 +390,14 @@ class TracWikiOutputter : DocOutputter
 
 	function checkNotInTable()
 	{
-		if(:__inTable)
+		if(:_inTable)
 			throw ValueError("Sorry, text structures inside tables are unsupported in Trac wiki markup")
 	}
 
 	function outputIndent()
 	{
-		if(#:__listType > 0)
-			:outputText(" ".repeat(#:__listType * 2 - 1))
+		if(#:_listType > 0)
+			:outputText(" ".repeat(#:_listType * 2 - 1))
 	}
 }
 `;

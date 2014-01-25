@@ -50,9 +50,8 @@ void initVector(CrocThread* t)
 {
 	CreateClass(t, "Vector", (CreateClass* c)
 	{
-		pushNull(t);   c.field("__data");
-		pushInt(t, 0); c.field("__kind");
-		pushInt(t, 0); c.field("__itemLength");
+		pushNull(t);   c.field(Data);
+		pushInt(t, 0); c.hfield(Kind);
 
 		c.method("constructor",    3, &_constructor);
 		c.method("fromArray",      2, &_fromArray);
@@ -174,9 +173,8 @@ const TypeStruct[] _typeStructs =
 	TypeCode.f64: { TypeCode.f64, 8, 3, "f64" }
 ];
 
-const Data = "Vector__data";
-const Kind = "Vector__kind";
-const ItemLength = "Vector__itemLength";
+const Data = "_data";
+const Kind = "_kind";
 
 struct Members
 {
@@ -236,7 +234,7 @@ Members _getMembers(CrocThread* t, uword slot = 0)
 	ret.data = getMemblock(t, -1);
 	pop(t);
 
-	field(t, slot, Kind);
+	hfield(t, slot, Kind);
 	ret.kind = cast(TypeStruct*)getInt(t, -1);
 	pop(t);
 
@@ -245,86 +243,9 @@ Members _getMembers(CrocThread* t, uword slot = 0)
 	if(len << ret.kind.sizeShift != ret.data.data.length)
 		throwStdException(t, "ValueError", "Vector's underlying memblock length is not an even multiple of its item size");
 
-	pushInt(t, len);
-	fielda(t, slot, ItemLength);
 	ret.itemLength = len;
-
 	return ret;
 }
-
-/*
-TODO: these
-
-word memblockFromDArray(_T)(CrocThread* t, _T[] arr)
-{
-	alias realType!(_T) T;
-
-	static      if(is(T == byte))   const code = "i8";
-	else static if(is(T == ubyte))  const code = "u8";
-	else static if(is(T == short))  const code = "i16";
-	else static if(is(T == ushort)) const code = "u16";
-	else static if(is(T == int))    const code = "i32";
-	else static if(is(T == uint))   const code = "u32";
-	else static if(is(T == long))   const code = "i64";
-	else static if(is(T == ulong))  const code = "u64";
-	else static if(is(T == float))  const code = "f32";
-	else static if(is(T == double)) const code = "f64";
-	else static assert(false, "memblockFromDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
-
-	auto ret = newMemblock(t, code, arr.length);
-	auto data = getMemblock(t, ret).data;
-	(cast(_T*)data)[0 .. arr.length] = arr[];
-	return ret;
-}
-
-word memblockViewDArray(_T)(CrocThread* t, _T[] arr)
-{
-	alias realType!(_T) T;
-	CrocMemblock.TypeStruct* ts = void;
-
-	static      if(is(T == byte))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i8];
-	else static if(is(T == ubyte))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u8];
-	else static if(is(T == short))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i16];
-	else static if(is(T == ushort)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u16];
-	else static if(is(T == int))    ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i32];
-	else static if(is(T == uint))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u32];
-	else static if(is(T == long))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i64];
-	else static if(is(T == ulong))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u64];
-	else static if(is(T == float))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f32];
-	else static if(is(T == double)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f64];
-	else static assert(false, "memblockViewDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
-
-	return push(t, CrocValue(memblock.createView(t.vm.alloc, ts, cast(void[])arr)));
-}
-
-void memblockReviewDArray(_T)(CrocThread* t, word slot, _T[] arr)
-{
-	mixin(apiCheckNumParams!("1"));
-	auto m = getMemblock(t, slot);
-
-	if(m is null)
-	{
-		pushTypeString(t, slot);
-		throwStdException(t, "TypeError", __FUNCTION__ ~ " - slot must be a memblock, not a '{}'", getString(t, -1));
-	}
-
-	alias realType!(_T) T;
-	CrocMemblock.TypeStruct* ts = void;
-
-	static      if(is(T == byte))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i8];
-	else static if(is(T == ubyte))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u8];
-	else static if(is(T == short))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i16];
-	else static if(is(T == ushort)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u16];
-	else static if(is(T == int))    ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i32];
-	else static if(is(T == uint))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u32];
-	else static if(is(T == long))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i64];
-	else static if(is(T == ulong))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u64];
-	else static if(is(T == float))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f32];
-	else static if(is(T == double)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f64];
-	else static assert(false, "memblockViewDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
-
-	memblock.view(t.vm.alloc, m, ts, cast(void[])arr);
-} */
 
 TypeStruct* _typeCodeToKind(char[] typeCode)
 {
@@ -359,7 +280,7 @@ uword _constructor(CrocThread* t)
 		throwStdException(t, "ValueError", "Invalid type code '{}'", getString(t, 1));
 
 	pushInt(t, cast(crocint)kind);
-	fielda(t, 0, Kind);
+	hfielda(t, 0, Kind);
 
 	auto size = checkIntParam(t, 2);
 
@@ -368,8 +289,6 @@ uword _constructor(CrocThread* t)
 
 	newMemblock(t, cast(uword)size * kind.itemSize);
 	fielda(t, 0, Data);
-	pushInt(t, size);
-	fielda(t, 0, ItemLength);
 
 	if(isValidIndex(t, 3))
 	{
@@ -492,7 +411,7 @@ uword _type(CrocThread* t)
 			throwStdException(t, "ValueError", "Vector's byte size is not an even multiple of new type's item size");
 
 		pushInt(t, cast(crocint)ts);
-		fielda(t, 0, Kind);
+		hfielda(t, 0, Kind);
 		return 0;
 	}
 }
@@ -792,8 +711,6 @@ uword _insert(CrocThread* t)
 		pop(t);
 
 		m.itemLength = cast(uword)totalLen;
-		pushInt(t, m.itemLength);
-		fielda(t, 0, ItemLength);
 
 		if(idx < oldLen)
 		{
@@ -884,7 +801,6 @@ uword _remove(CrocThread* t)
 		push(t, CrocValue(m.data));
 		lenai(t, -1, cast(uword)((m.itemLength - diff) * isize));
 		pop(t);
-		// don't have to update ItemLength here cause _getMembers does that on every method call
 	}
 
 	dup(t, 0);
@@ -1441,7 +1357,7 @@ uword _opDeserialize(CrocThread* t)
 		throwStdException(t, "ValueError", "Malformed data (invalid Vector type code '{}')", getString(t, -1));
 
 	pushInt(t, cast(crocint)kind);
-	fielda(t, 0, Kind);
+	hfielda(t, 0, Kind);
 
 	dup(t, 2);
 	pushNull(t);

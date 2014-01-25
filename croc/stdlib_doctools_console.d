@@ -159,15 +159,15 @@ Links are not translated by this outputter. Only the text within link spans is o
 */
 class BasicConsoleOutputter : DocOutputter
 {
-	__output
-	__listType
-	__listCounters
+	_output
+	_listType
+	_listCounters
 
-	__lineEnd
-	__lineLength = 0
-	__consecNewlines = 0
-	__alreadyIndented = false
-	__isSpecialSection = false
+	_lineEnd
+	_lineLength = 0
+	_consecNewlines = 0
+	_alreadyIndented = false
+	_isSpecialSection = false
 
 	/**
 	\param[lineEnd] is the number of characters to which line will be wrapped. This simply calls \link{setLineLength}
@@ -177,9 +177,9 @@ class BasicConsoleOutputter : DocOutputter
 	*/
 	this(lineEnd: int = 80, output = console.stdout)
 	{
-		:__output = output
-		:__listType = []
-		:__listCounters = []
+		:_output = output
+		:_listType = []
+		:_listCounters = []
 		:setLineLength(lineEnd)
 	}
 
@@ -190,7 +190,7 @@ class BasicConsoleOutputter : DocOutputter
 		than this will simply set the length to 40.
 	*/
 	function setLineLength(lineEnd: int)
-		:__lineEnd = math.max(lineEnd, 40)
+		:_lineEnd = math.max(lineEnd, 40)
 
 	// =================================================================================================================
 	// Item-level stuff
@@ -203,24 +203,24 @@ class BasicConsoleOutputter : DocOutputter
 	function beginClass(doctable: table)
 	{
 		:beginItem(doctable)
-		:__listType.append(null)
+		:_listType.append(null)
 	}
 
 	function endClass()
 	{
-		:__listType.pop()
+		:_listType.pop()
 		:endItem()
 	}
 
 	function beginNamespace(doctable: table)
 	{
 		:beginItem(doctable)
-		:__listType.append(null)
+		:_listType.append(null)
 	}
 
 	function endNamespace()
 	{
-		:__listType.pop()
+		:_listType.pop()
 		:endItem()
 	}
 
@@ -235,7 +235,7 @@ class BasicConsoleOutputter : DocOutputter
 	function outputHeader(doctable: table)
 	{
 		local head = toHeader(doctable, "", true)
-		local barLength = math.min(#head + 2, :__lineEnd)
+		local barLength = math.min(#head + 2, :_lineEnd)
 		local headers
 
 		if(doctable.dittos)
@@ -245,7 +245,7 @@ class BasicConsoleOutputter : DocOutputter
 			foreach(dit; doctable.dittos)
 			{
 				local header = toHeader(dit, "", true)
-				barLength = math.max(barLength, math.min(#header + 2, :__lineEnd))
+				barLength = math.max(barLength, math.min(#header + 2, :_lineEnd))
 				headers ~= header
 			}
 		}
@@ -290,18 +290,18 @@ class BasicConsoleOutputter : DocOutputter
 			:outputText(" ")
 		}
 
-		:__isSpecialSection = name is "params" || name is "throws"
+		:_isSpecialSection = name is "params" || name is "throws"
 
-		if(:__isSpecialSection)
+		if(:_isSpecialSection)
 			:beginDefList()
 	}
 
 	function endSection()
 	{
-		if(:__isSpecialSection)
+		if(:_isSpecialSection)
 		{
 			:endDefList()
-			:__isSpecialSection = false
+			:_isSpecialSection = false
 		}
 	}
 
@@ -370,43 +370,43 @@ class BasicConsoleOutputter : DocOutputter
 
 	function beginBulletList()
 	{
-		:__listType.append("*")
+		:_listType.append("*")
 		:newline()
 	}
 
 	function endBulletList()
 	{
-		:__listType.pop()
+		:_listType.pop()
 		:newline()
 	}
 
 	function beginNumList(type: string)
 	{
-		:__listType.append(type)
-		:__listCounters.append(1)
+		:_listType.append(type)
+		:_listCounters.append(1)
 		:newline()
 	}
 
 	function endNumList()
 	{
-		:__listType.pop()
-		:__listCounters.pop()
+		:_listType.pop()
+		:_listCounters.pop()
 		:newline()
 	}
 
 	function beginListItem()
 	{
-		assert(#:__listType > 0)
+		assert(#:_listType > 0)
 		:newline()
 
-		local type = :__listType[-1]
+		local type = :_listType[-1]
 		local str
 
 		if(type == '*')
 			:outputText("* ")
 		else
 		{
-			local count = :__listCounters[-1]
+			local count = :_listCounters[-1]
 
 			switch(type)
 			{
@@ -419,17 +419,17 @@ class BasicConsoleOutputter : DocOutputter
 			}
 
 			:outputText(str, ". ")
-			:__listCounters[-1]++
+			:_listCounters[-1]++
 		}
 	}
 
 	function endListItem() :newline()
 
-	function beginDefList() :__listType.append(null)
+	function beginDefList() :_listType.append(null)
 
 	function endDefList()
 	{
-		:__listType.pop()
+		:_listType.pop()
 		:newline()
 	}
 
@@ -438,7 +438,7 @@ class BasicConsoleOutputter : DocOutputter
 	function endDefTerm()
 	{
 		:outputText(": ")
-		:__listType.append(null)
+		:_listType.append(null)
 		:newline()
 	}
 
@@ -446,7 +446,7 @@ class BasicConsoleOutputter : DocOutputter
 
 	function endDefDef()
 	{
-		:__listType.pop()
+		:_listType.pop()
 		:newline()
 	}
 
@@ -454,12 +454,12 @@ class BasicConsoleOutputter : DocOutputter
 	{
 		:newline()
 		:outputText("<table>")
-		:__listType.append(null)
+		:_listType.append(null)
 	}
 
 	function endTable()
 	{
-		:__listType.pop()
+		:_listType.pop()
 		:newline()
 	}
 
@@ -467,11 +467,11 @@ class BasicConsoleOutputter : DocOutputter
 	{
 		:newline()
 		:outputText("<row>")
-		:__listType.append(null)
+		:_listType.append(null)
 	}
 
 	function endRow()
-		:__listType.pop()
+		:_listType.pop()
 
 	function beginCell()
 	{
@@ -510,7 +510,7 @@ class BasicConsoleOutputter : DocOutputter
 
 			:indent()
 
-			local remaining = :__lineEnd - :__lineLength
+			local remaining = :_lineEnd - :_lineLength
 			local firstLoop = true
 
 			while(true)
@@ -520,7 +520,7 @@ class BasicConsoleOutputter : DocOutputter
 					if(#s > 0)
 					{
 						:baseWrite(s)
-						:__lineLength += #s
+						:_lineLength += #s
 					}
 
 					break
@@ -547,7 +547,7 @@ class BasicConsoleOutputter : DocOutputter
 
 					s = second
 					:indent()
-					remaining = :__lineEnd - :__lineLength
+					remaining = :_lineEnd - :_lineLength
 					firstLoop = false
 				}
 			}
@@ -556,31 +556,31 @@ class BasicConsoleOutputter : DocOutputter
 
 	function newline()
 	{
-		if(:__consecNewlines < 2)
+		if(:_consecNewlines < 2)
 		{
-			:__consecNewlines++
-			:__output.write("\n")
-			:__lineLength = 0
-			:__alreadyIndented = false
+			:_consecNewlines++
+			:_output.write("\n")
+			:_lineLength = 0
+			:_alreadyIndented = false
 		}
 	}
 
 	function baseWrite(s: string)
 	{
-		:__consecNewlines = 0
+		:_consecNewlines = 0
 		:indent()
-		:__output.write(s)
+		:_output.write(s)
 	}
 
 	function indent()
 	{
-		if(:__alreadyIndented || #:__listType == 0)
+		if(:_alreadyIndented || #:_listType == 0)
 			return
 
-		local indent = "  ".repeat(#:__listType)
-		:__output.write(indent)
-		:__lineLength = #indent
-		:__alreadyIndented = true
+		local indent = "  ".repeat(#:_listType)
+		:_output.write(indent)
+		:_lineLength = #indent
+		:_alreadyIndented = true
 	}
 }
 `;

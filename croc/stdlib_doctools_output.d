@@ -73,11 +73,11 @@ The results of those methods are returned from \link{resolveLink}.
 class LinkResolver
 {
 	// struct ItemDesc { string name, fqn; DocTable docTable; ItemDesc[string] children; }
-	__modules // ItemDesc[string]
-	__globals // ItemDesc[string]
-	__module = null // ItemDesc
-	__item = null // ItemDesc
-	__trans
+	_modules // ItemDesc[string]
+	_globals // ItemDesc[string]
+	_module = null // ItemDesc
+	_item = null // ItemDesc
+	_trans
 
 	/**
 	Constructs a resolver with the given link translator.
@@ -92,30 +92,30 @@ class LinkResolver
 	*/
 	this(trans: LinkTranslator)
 	{
-		:__trans = trans
+		:_trans = trans
 
 		// Setup modules
-		:__modules = {}
+		:_modules = {}
 
 		foreach(name, m; modules.loaded)
 		{
 			if(local dt = docsOf(m))
-				:__modules[name] = :__makeMapRec(dt)
+				:_modules[name] = :_makeMapRec(dt)
 		}
 
 		// Setup globals
 		if(local dt = docsOf(_G))
-			:__globals = :__makeMapRec(dt).children
+			:_globals = :_makeMapRec(dt).children
 		else
-			:__globals = {}
+			:_globals = {}
 
 		// Might be some globals added by user code that aren't in docsOf(_G).children
 		foreach(name, val; _G)
 		{
-			if(name !is "_G" && name !in :__globals && name !in modules.loaded)
+			if(name !is "_G" && name !in :_globals && name !in modules.loaded)
 			{
 				if(local dt = docsOf(val))
-					:__globals[name] = :__makeMapRec(dt)
+					:_globals[name] = :_makeMapRec(dt)
 			}
 		}
 	}
@@ -128,9 +128,9 @@ class LinkResolver
 	*/
 	function currentScope()
 	{
-		if(:__item is null)
+		if(:_item is null)
 		{
-			if(:__module is null)
+			if(:_module is null)
 				return "global"
 			else
 				return "module"
@@ -147,11 +147,11 @@ class LinkResolver
 	*/
 	function enterModule(name: string)
 	{
-		if(:__item !is null || :__module !is null)
+		if(:_item !is null || :_module !is null)
 			throw StateError("Attempting to enter a module from {} scope".format(:currentScope()))
 
-		if(local m = :__modules[name])
-			:__module = m
+		if(local m = :_modules[name])
+			:_module = m
 		else
 			throw ValueError("No module named '{}' (did you import it after creating this resolver?)".format(name))
 	}
@@ -165,13 +165,13 @@ class LinkResolver
 	*/
 	function enterItem(name: string)
 	{
-		if(:__item !is null || :__module is null)
+		if(:_item !is null || :_module is null)
 			throw StateError("Attempting to enter an item from {} scope".format(:currentScope()))
 
-		if(local i = :__module.children[name])
-			:__item = i
+		if(local i = :_module.children[name])
+			:_item = i
 		else
-			throw ValueError("No item named '{}' in {}".format(name, __module.name))
+			throw ValueError("No item named '{}' in {}".format(name, _module.name))
 	}
 
 	/**
@@ -181,10 +181,10 @@ class LinkResolver
 	*/
 	function leave()
 	{
-		if(:__item !is null)
-			:__item = null
-		else if(:__module !is null)
-			:__module = null
+		if(:_item !is null)
+			:_item = null
+		else if(:_module !is null)
+			:_module = null
 		else
 			throw StateError("Attempting to leave at global scope")
 	}
@@ -203,7 +203,7 @@ class LinkResolver
 		{
 			// URI; no further processing necessary. If someone writes something like "www.example.com" it's ambiguous
 			// and it's their fault when it doesn't resolve :P
-			return :__trans.translateURI(link)
+			return :_trans.translateURI(link)
 		}
 		else
 		{
@@ -217,41 +217,41 @@ class LinkResolver
 
 			local isDotted = "." in link
 
-			if(!isDotted && :__inItem(link)) // not dotted, could be item name
-				return :__trans.translateLink(:__module.name, :__item.name ~ "." ~ link)
-			else if(:__inCurModule(link)) // maybe it's something in the current module
-				return :__trans.translateLink(:__module.name, link)
+			if(!isDotted && :_inItem(link)) // not dotted, could be item name
+				return :_trans.translateLink(:_module.name, :_item.name ~ "." ~ link)
+			else if(:_inCurModule(link)) // maybe it's something in the current module
+				return :_trans.translateLink(:_module.name, link)
 			else
 			{
 				// tryyyy all the modules!
-				local isFQN, modName, itemName = :__inModules(link)
+				local isFQN, modName, itemName = :_inModules(link)
 
 				if(isFQN)
-					return :__trans.translateLink(modName, itemName)
+					return :_trans.translateLink(modName, itemName)
 
 				// um. um. global?!
 				// it might be a member of a global class or something, or just a plain old global
-				if(:__inGlobalItem(link) || :__inGlobals(link))
-					return :__trans.translateLink("", link)
+				if(:_inGlobalItem(link) || :_inGlobals(link))
+					return :_trans.translateLink("", link)
 			}
 		}
 
 		// noooooo nothing matched :(
-		return :__trans.invalidLink(link)
+		return :_trans.invalidLink(link)
 	}
 
 	// =================================================================================================================
 	// Private
 
-	function __inItem(link: string) =
-		:__item !is null && link in :__item.children
+	function _inItem(link: string) =
+		:_item !is null && link in :_item.children
 
-	function __inCurModule(link: string) =
-		:__module !is null && :__inModule(:__module, link)
+	function _inCurModule(link: string) =
+		:_module !is null && :_inModule(:_module, link)
 
-	function __inModules(link: string)
+	function _inModules(link: string)
 	{
-		if(link in :__modules)
+		if(link in :_modules)
 			return true, link, ""
 
 		// What we're doing here is trying every possible prefix as a module name. So for the name "a.b.c.d" we try
@@ -263,7 +263,7 @@ class LinkResolver
 			lastDot = dot
 			local modName = link[0 .. dot]
 
-			if(local m = :__modules[modName])
+			if(local m = :_modules[modName])
 			{
 				// There can only be ONE match to the module name. Once you find it, there can't be any other modules
 				// with names that are a prefix, since that's enforced by the module system. So if the item doesn't
@@ -271,7 +271,7 @@ class LinkResolver
 
 				local itemName = link[dot + 1 ..]
 
-				if(:__inModule(m, itemName))
+				if(:_inModule(m, itemName))
 					return true, modName, itemName
 				else
 					return false
@@ -281,7 +281,7 @@ class LinkResolver
 		return false
 	}
 
-	function __inModule(mod: table, item: string)
+	function _inModule(mod: table, item: string)
 	{
 		local t = mod
 
@@ -299,7 +299,7 @@ class LinkResolver
 		return true
 	}
 
-	function __inGlobalItem(link: string)
+	function _inGlobalItem(link: string)
 	{
 		local dot = link.find(".")
 
@@ -308,15 +308,15 @@ class LinkResolver
 
 		local n = link[0 .. dot]
 		local f = link[dot + 1 ..]
-		local i = :__globals[n]
+		local i = :_globals[n]
 
 		return i !is null && i.children && f in i.children
 	}
 
-	function __inGlobals(link: string) =
-		link in :__globals
+	function _inGlobals(link: string) =
+		link in :_globals
 
-	function __makeMapRec(dt: table)
+	function _makeMapRec(dt: table)
 	{
 		local ret = { name = dt.name }
 
@@ -326,7 +326,7 @@ class LinkResolver
 
 			foreach(child; dt.children)
 			{
-				local c = :__makeMapRec(child)
+				local c = :_makeMapRec(child)
 				ret.children[child.name] = c
 
 				if(local dit = child.dittos)
@@ -504,7 +504,7 @@ If the \tt{full} parameter is true (the default), you will get headers that look
 	\endlist
 	\li For classes and namespaces, it will look like the first line of the declaration, like \tt{"class Foo : Bar"} or
 		\tt{"namespace N"}.
-	\li For fields, it will be the name of the field, followed by the initializer if it has one. Examples: \tt{"__x"},
+	\li For fields, it will be the name of the field, followed by the initializer if it has one. Examples: \tt{"_x"},
 		\tt{"numThings = 0"}.
 	\li For variables, it will look just like the variable declaration, like \tt{"local a = 4"} or \tt{"global y"}.
 \endlist
@@ -679,14 +679,14 @@ Defines an ordering of sections as used by documentation visitors.
 */
 class SectionOrder
 {
-	__sectionOrder
+	_sectionOrder
 
 	/**
 	The new instance will have its order set to the same order as defined in \link{stdSections}.
 	*/
 	this()
 	{
-		:__sectionOrder = stdSections.dup()
+		:_sectionOrder = stdSections.dup()
 	}
 
 	/**
@@ -696,7 +696,7 @@ class SectionOrder
 	function dup()
 	{
 		local ret = SectionOrder()
-		ret.setOrder(:__sectionOrder)
+		ret.setOrder(:_sectionOrder)
 		return ret
 	}
 
@@ -704,7 +704,7 @@ class SectionOrder
 	\returns the current order as an array.
 	*/
 	function getOrder() =
-		:__sectionOrder.dup()
+		:_sectionOrder.dup()
 
 	/**
 	Sets the current order to the given array. It must satisfy all of the following conditions:
@@ -744,7 +744,7 @@ class SectionOrder
 				throw ValueError("Section '{}' is repeated in the given order".format(temp[i]))
 		}
 
-		:__sectionOrder = order.dup()
+		:_sectionOrder = order.dup()
 	}
 
 	/**
@@ -755,15 +755,15 @@ class SectionOrder
 	\param[before] is the name of the section before which \tt{sec} will be inserted.
 	*/
 	function insertSectionBefore(sec: string, before: string)
-		:__insertSectionImpl(sec, before, false)
+		:_insertSectionImpl(sec, before, false)
 
 	/**
 	Same as \link{insertSectionBefore}, but puts \tt{sec} after \tt{after} instead of before it.
 	*/
 	function insertSectionAfter(sec: string, after: string)
-		:__insertSectionImpl(sec, after, true)
+		:_insertSectionImpl(sec, after, true)
 
-	function __insertSectionImpl(sec: string, target: string, after: bool)
+	function _insertSectionImpl(sec: string, target: string, after: bool)
 	{
 		if(!validSectionName(sec))
 			throw ValueError("Invalid section name '{}'".format(sec))
@@ -774,7 +774,7 @@ class SectionOrder
 		else if(target !in ord)
 			throw ValueError("Section '{}' does not exist in the section order".format(target))
 
-		local ord = :__sectionOrder
+		local ord = :_sectionOrder
 
 		// Check if this section is already in the order. It's possible for it not to be,
 		// if it's a custom section.

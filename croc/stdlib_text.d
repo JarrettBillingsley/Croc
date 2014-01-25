@@ -461,13 +461,13 @@ Subclasses need only implement the \link{_bufferedDecode} method.
 */
 class BufferedIncrementalDecoder : IncrementalDecoder
 {
-	__errors
-	__scratch
+	_errors
+	_scratch
 
 	this(errors: string = "strict")
 	{
-		:__errors = errors
-		:__scratch = memblock.new(0)
+		:_errors = errors
+		:_scratch = memblock.new(0)
 	}
 
 	/**
@@ -498,18 +498,18 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 
 	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
 	{
-		if(#:__scratch > 0)
+		if(#:_scratch > 0)
 		{
-			local m = memblock.new(#:__scratch + (hi - lo))
-			m.copy(0, :__scratch, 0, #:__scratch)
-			m.copy(#:__scratch, src, lo, hi - lo)
+			local m = memblock.new(#:_scratch + (hi - lo))
+			m.copy(0, :_scratch, 0, #:_scratch)
+			m.copy(#:_scratch, src, lo, hi - lo)
 			src = m
 			lo = 0
 			hi = #src
 		}
 
 		writeln("bout to call it weeee")
-		local ret, eaten = :_bufferedDecode(src, lo, hi, :__errors, final)
+		local ret, eaten = :_bufferedDecode(src, lo, hi, :_errors, final)
 		local sliceLen = hi - lo
 
 		if(eaten < sliceLen)
@@ -517,18 +517,18 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 			if(final)
 				throw ValueError("Incomplete text at end of data")
 
-			#:__scratch = sliceLen - eaten
-			:__scratch.copy(0, src, lo + eaten, #:__scratch)
+			#:_scratch = sliceLen - eaten
+			:_scratch.copy(0, src, lo + eaten, #:_scratch)
 		}
 		else
-			#:__scratch = 0
+			#:_scratch = 0
 
 		return ret
 	}
 
 	function reset()
 	{
-		#:__scratch = 0
+		#:_scratch = 0
 	}
 }
 `;

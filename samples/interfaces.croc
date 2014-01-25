@@ -2,62 +2,59 @@ module samples.interfaces
 
 class Method
 {
-	__name
-	__numParams
+	_name
+	_numParams
 
 	this(name: string, numParams: int)
 	{
-		:__name = name
-		:__numParams = numParams
+		:_name = name
+		:_numParams = numParams
 	}
 
 	function name() =
-		:__name
+		:_name
 
 	function implements(f: function) =
-		f.numParams() == :__numParams
+		f.numParams() == :_numParams
 
 	function toString() =
-		"{} ({} params)".format(:__name, :__numParams)
+		"{} ({} params)".format(:_name, :_numParams)
 }
 
 class Interface
 {
-	__name
-	__methods
-	__implementors
+	_name
+	_methods
+	_implementors
 
 	this(name: string, methods: array)
 	{
 		if(!methods.all(\m -> m as Method))
 			throw TypeError("All methods must be Methods")
 
-		:__name = name
-		:__methods = methods.dup()
-		:__implementors = {}
+		:_name = name
+		:_methods = methods.dup()
+		:_implementors = {}
 	}
 
 	function implement(T: class)
 	{
-		foreach(m; :__methods)
+		foreach(m; :_methods)
 		{
 			local name = m.name()
 
 			if(!hasMethod(T, name) || !m.implements(T.(name)))
-				throw TypeError("Class {} does not implement method '{}' from {}".format(nameOf(T), m, :__name))
+				throw TypeError("Class {} does not implement method '{}' from {}".format(nameOf(T), m, :_name))
 		}
 
-		:__implementors[T] = true
+		:_implementors[T] = true
 	}
 
 	function opCall(val: instance)
 	{
-		return true
+		if(val.super not in :_implementors)
+			:implement(val.super)
 
-		if(:__implementors[val.super])
-			return true
-
-		:implement(val.super)
 		return true
 	}
 }

@@ -236,31 +236,31 @@ function deserializeModule(input: @InStream)
 @addMethods(_serializationtmp.ExtraSerializeMethods)
 class Serializer
 {
-	__output
-	__strBuf
-	__objTable
-	__objIndex = 0
-	__trans
-	__serializeFunc
-	__rawBuf
-	__wroteSignature = false
+	_output
+	_strBuf
+	_objTable
+	_objIndex = 0
+	_trans
+	_serializeFunc
+	_rawBuf
+	_wroteSignature = false
 
 	this(output: @OutStream)
 	{
 		:setOutput(output)
-		:__strBuf = memblock.new(256)
-		:__serializeFunc = bindInstMethod(this, "_serialize")
-		:__rawBuf = memblock.new(0)
+		:_strBuf = memblock.new(256)
+		:_serializeFunc = bindInstMethod(this, "_serialize")
+		:_rawBuf = memblock.new(0)
 	}
 
 	function setOutput(output: @OutStream)
 	{
 		if(output as BinaryStream)
-			:__output = output
+			:_output = output
 		else
-			:__output = BinaryStream(output)
+			:_output = BinaryStream(output)
 
-		:__wroteSignature = false
+		:_wroteSignature = false
 	}
 
 	function writeGraph(val, transients: table|instance)
@@ -268,26 +268,26 @@ class Serializer
 		if(val is transients)
 			throw ValueError("Object to serialize is the same as the transients table")
 
-		:__trans = transients
-		:__objTable = {}
-		:__objIndex = 0
+		:_trans = transients
+		:_objTable = {}
+		:_objIndex = 0
 
 		scope(exit)
-			hash.clear(:__objTable)
+			hash.clear(:_objTable)
 
-		if(!:__wroteSignature)
+		if(!:_wroteSignature)
 		{
 			:_writeSignature()
-			:__wroteSignature = true
+			:_wroteSignature = true
 		}
 
 		:_serialize(val)
-		:__output.flush()
+		:_output.flush()
 	}
 
 	function _writeSignature()
 	{
-		:__output.writeUInt8(Endianness)
+		:_output.writeUInt8(Endianness)
 		:_integer(PlatformBits)
 		:_integer(intSize)
 		:_integer(floatSize)
@@ -295,11 +295,11 @@ class Serializer
 	}
 
 	function _tag(v: int)
-		:__output.writeUInt8(v)
+		:_output.writeUInt8(v)
 
 	function _integer(v: int)
 	{
-		local o = :__output
+		local o = :_output
 
 		do
 		{
@@ -316,7 +316,7 @@ class Serializer
 
 	function _serialize(val)
 	{
-		if(local replacement = :__trans[val])
+		if(local replacement = :_trans[val])
 		{
 			:_tag(TypeTags["transient"])
 			:_serialize(replacement)
@@ -334,7 +334,7 @@ class Serializer
 	function _serializeBool(v)
 	{
 		:_tag(TypeTags["bool"])
-		:__output.writeUInt8(toInt(v))
+		:_output.writeUInt8(toInt(v))
 	}
 
 	function _serializeInt(v)
@@ -346,7 +346,7 @@ class Serializer
 	function _serializeFloat(v)
 	{
 		:_tag(TypeTags["float"])
-		:__output.writeFloat64(v)
+		:_output.writeFloat64(v)
 	}
 
 	function _serializeNativeobj(v)
@@ -358,10 +358,10 @@ class Serializer
 			return
 
 		:_tag(TypeTags["string"])
-		local buf = :__strBuf
+		local buf = :_strBuf
 		utf8.encodeInto(v, buf, 0)
 		:_integer(#buf)
-		:__output.writeExact(buf)
+		:_output.writeExact(buf)
 	}
 
 	function _serializeWeakref(v)
@@ -374,10 +374,10 @@ class Serializer
 		local obj = deref(v)
 
 		if(obj is null)
-			:__output.writeUInt8(0)
+			:_output.writeUInt8(0)
 		else
 		{
-			:__output.writeUInt8(1)
+			:_output.writeUInt8(1)
 			:_serialize(obj)
 		}
 	}
@@ -406,10 +406,10 @@ class Serializer
 			:_serialize(nameOf(v))
 
 		if(v.super is null)
-			:__output.writeUInt8(0)
+			:_output.writeUInt8(0)
 		else
 		{
-			:__output.writeUInt8(1)
+			:_output.writeUInt8(1)
 			:_serialize(v.super)
 		}
 
@@ -444,7 +444,7 @@ class Serializer
 
 		:_tag(TypeTags["memblock"])
 		:_integer(#v)
-		:__output.writeExact(v)
+		:_output.writeExact(v)
 	}
 
 	function _serializeFunction(v)
@@ -482,14 +482,14 @@ class Serializer
 
 		if(v.super)
 		{
-			:__output.writeUInt8(1)
+			:_output.writeUInt8(1)
 			:_serialize(v.super)
 		}
 		else
-			:__output.writeUInt8(0)
+			:_output.writeUInt8(0)
 
 		:_nativeSerializeClass(v)
-		:__output.writeUInt8(toInt(object.isFrozen(v)))
+		:_output.writeUInt8(toInt(object.isFrozen(v)))
 	}
 
 	function _serializeInstance(v)
@@ -507,8 +507,8 @@ class Serializer
 
 			if(isFunction(s))
 			{
-				:__output.writeUInt8(1)
-				v.opSerialize(:__output, :__serializeFunc)
+				:_output.writeUInt8(1)
+				v.opSerialize(:_output, :_serializeFunc)
 				return
 			}
 			else if(isBool(s))
@@ -528,7 +528,7 @@ class Serializer
 		if(object.finalizable(v))
 			throw ValueError("Attempting to serialize '{}' which has a finalizer".format(rawToString(v)))
 
-		:__output.writeUInt8(0)
+		:_output.writeUInt8(0)
 		:_nativeSerializeInstance(v)
 	}
 
@@ -544,17 +544,17 @@ class Serializer
 
 	function _alreadyWritten(v)
 	{
-		if(local idx = :__objTable[v])
+		if(local idx = :_objTable[v])
 		{
 			:_tag(TypeTags["backref"])
 			:_integer(idx)
 			return true
 		}
 
-		// writefln("objTable[{}] = {}", v, :__objIndex)
+		// writefln("objTable[{}] = {}", v, :_objIndex)
 
-		:__objTable[v] = :__objIndex
-		:__objIndex++
+		:_objTable[v] = :_objIndex
+		:_objIndex++
 		return false
 	}
 }
@@ -564,38 +564,38 @@ class Serializer
 @addMethods(_serializationtmp.ExtraDeserializeMethods)
 class Deserializer
 {
-	__input
-	__strBuf
-	__objTable
-	__trans
-	__deserializeFunc
-	__rawBuf
-	__dummyObj
-	__readSignature = false
+	_input
+	_strBuf
+	_objTable
+	_trans
+	_deserializeFunc
+	_rawBuf
+	_dummyObj
+	_signatureRead = false
 
 	this(input: @InStream)
 	{
 		:setInput(input)
-		:__strBuf = memblock.new(256)
-		:__deserializeFunc = bindInstMethod(this, "_deserializeCB")
-		:__rawBuf = memblock.new(0)
+		:_strBuf = memblock.new(256)
+		:_deserializeFunc = bindInstMethod(this, "_deserializeCB")
+		:_rawBuf = memblock.new(0)
 	}
 
 	function setInput(input: @InStream)
 	{
-		if(input is :__input)
+		if(input is :_input)
 			return
 		else if(input as BinaryStream)
-			:__input = input
+			:_input = input
 		else
-			:__input = BinaryStream(input)
+			:_input = BinaryStream(input)
 
-		:__readSignature = false
+		:_signatureRead = false
 	}
 
 	function _readSignature()
 	{
-		local endian = :__input.readUInt8()
+		local endian = :_input.readUInt8()
 
 		if(endian != Endianness)
 			throw ValueError("Data was serialized with a different endianness")
@@ -632,7 +632,7 @@ class Deserializer
 
 	function _integer()
 	{
-		local i = :__input
+		local i = :_input
 		local ret = 0
 		local shift = 0
 		local b
@@ -667,7 +667,7 @@ class Deserializer
 	}
 
 	function _tag() =
-		:__input.readUInt8()
+		:_input.readUInt8()
 
 	function _checkTag(wanted: int)
 	{
@@ -715,8 +715,8 @@ class Deserializer
 
 	function _addObject(val)
 	{
-		// writefln("objTable[{}] = {}", #:__objTable, typeof(val))
-		:__objTable.append(val)
+		// writefln("objTable[{}] = {}", #:_objTable, typeof(val))
+		:_objTable.append(val)
 		return val
 	}
 
@@ -749,7 +749,7 @@ class Deserializer
 	function _deserializeTransientImpl()
 	{
 		local key = :_deserialize()
-		local ret = :__trans[key]
+		local ret = :_trans[key]
 
 		if(ret is null)
 			throw ValueError("Malformed data or invalid transient table (transient key {r} does not exist)".format(key))
@@ -761,10 +761,10 @@ class Deserializer
 	{
 		local idx = :_integer()
 
-		if(idx < 0 || idx >= #:__objTable)
+		if(idx < 0 || idx >= #:_objTable)
 			throw ValueError("Malformed data (invalid back-reference)")
 
-		return :__objTable[idx]
+		return :_objTable[idx]
 	}
 
 	function _deserializeNull()      { :_checkTag(TypeTags["null"]);  return :_deserializeNullImpl()  }
@@ -790,27 +790,27 @@ class Deserializer
 		null
 
 	function _deserializeBoolImpl() =
-		:__input.readUInt8() != 0 ? true : false
+		:_input.readUInt8() != 0 ? true : false
 
 	function _deserializeIntImpl() =
 		:_integer()
 
 	function _deserializeFloatImpl() =
-		:__input.readFloat64()
+		:_input.readFloat64()
 
 	function _deserializeWeakrefImpl()
 	{
-		if(:__input.readUInt8() != 0)
+		if(:_input.readUInt8() != 0)
 			return weakref(:_deserialize())
 		else
-			return weakref(:__dummyObj)
+			return weakref(:_dummyObj)
 	}
 
 	function _deserializeStringImpl()
 	{
-		#:__strBuf = :_length()
-		:__input.readExact(:__strBuf)
-		return :_addObject(utf8.decode(:__strBuf))
+		#:_strBuf = :_length()
+		:_input.readExact(:_strBuf)
+		return :_addObject(utf8.decode(:_strBuf))
 	}
 
 	function _deserializeTableImpl()
@@ -844,7 +844,7 @@ class Deserializer
 	{
 		local len = :_length()
 		local ret = memblock.new(len)
-		:__input.readExact(ret)
+		:_input.readExact(ret)
 		return ret
 	}
 

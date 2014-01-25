@@ -145,15 +145,15 @@ uword _listen(CrocThread* t)
 struct SocketObj
 {
 static:
-	const Socket =  "Socket__socket";
-	const Closed =  "Socket__closed";
+	const _Socket = "socket";
+	const _Closed = "closed";
 
 	void init(CrocThread* t)
 	{
 		CreateClass(t, "Socket", "stream.Stream", (CreateClass* c)
 		{
-			pushNull(t);        c.field("__socket");
-			pushBool(t, false); c.field("__closed");
+			pushNull(t);        c.hfield(_Socket);
+			pushBool(t, false); c.hfield(_Closed);
 
 			c.method("constructor",  1, &_constructor);
 			c.method("finalizer",    0, &_finalizer);
@@ -171,7 +171,7 @@ static:
 
 	void checkOpen(CrocThread* t)
 	{
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 
 		if(getBool(t, -1))
 			throwStdException(t, "StateError", "Attempting to perform operation on a closed socket");
@@ -179,15 +179,15 @@ static:
 		pop(t);
 	}
 
-	.Socket getThis(CrocThread* t)
+	Socket getThis(CrocThread* t)
 	{
-		field(t, 0, Socket);
-		auto ret = cast(.Socket)getNativeObj(t, -1); assert(ret !is null);
+		hfield(t, 0, _Socket);
+		auto ret = cast(Socket)getNativeObj(t, -1); assert(ret !is null);
 		pop(t);
 		return ret;
 	}
 
-	.Socket getOpenThis(CrocThread* t)
+	Socket getOpenThis(CrocThread* t)
 	{
 		checkOpen(t);
 		return getThis(t);
@@ -195,7 +195,7 @@ static:
 
 	uword _constructor(CrocThread* t)
 	{
-		field(t, 0, Socket);
+		hfield(t, 0, _Socket);
 
 		if(!isNull(t, -1))
 			throwStdException(t, "StateError", "Attempting to call constructor on an already-initialized Socket");
@@ -203,13 +203,13 @@ static:
 		pop(t);
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
-		auto socket = cast(.Socket)getNativeObj(t, 1);
+		auto socket = cast(Socket)getNativeObj(t, 1);
 
 		if(socket is null)
 			throwStdException(t, "ValueError", "instances of Socket may only be created using instances of the Tango Socket class");
 
 		dup(t, 1);
-		fielda(t, 0, Socket);
+		hfielda(t, 0, _Socket);
 
 		pushNull(t);
 		pushNull(t);
@@ -312,14 +312,14 @@ static:
 	{
 		auto socket = getThis(t);
 
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 
 		if(!getBool(t, -1))
 		{
 			// Set closed to true first, in case either shutdown or close fails, so that the finalizer won't try to
 			// close it again.
 			pushBool(t, true);
-			fielda(t, 0, Closed);
+			hfielda(t, 0, _Closed);
 			safeCode(t, "NetException", socket.shutdown());
 			safeCode(t, "NetException", socket.close());
 		}
@@ -329,7 +329,7 @@ static:
 
 	uword _isOpen(CrocThread* t)
 	{
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 		pushBool(t, !getBool(t, -1));
 		return 1;
 	}
@@ -351,17 +351,17 @@ static:
 struct ServerSocketObj
 {
 static:
-	const Socket = "ServerSocket__socket";
-	const Closed = "ServerSocket__closed";
-	const Linger = "ServerSocket__linger";
+	const _Socket = "socket";
+	const _Closed = "closed";
+	const _Linger = "linger";
 
 	void init(CrocThread* t)
 	{
 		CreateClass(t, "ServerSocket", (CreateClass* c)
 		{
-			pushNull(t);        c.field("__socket");
-			pushBool(t, false); c.field("__closed");
-			pushInt(t, -1);     c.field("__linger");
+			pushNull(t);        c.hfield(_Socket);
+			pushBool(t, false); c.hfield(_Closed);
+			pushInt(t, -1);     c.hfield(_Linger);
 
 			c.method("constructor",  1, &_constructor);
 			c.method("finalizer",    0, &_finalizer);
@@ -376,7 +376,7 @@ static:
 
 	void checkOpen(CrocThread* t)
 	{
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 
 		if(getBool(t, -1))
 			throwStdException(t, "StateError", "Attempting to perform operation on a closed socket");
@@ -386,7 +386,7 @@ static:
 
 	ServerSocket getThis(CrocThread* t)
 	{
-		field(t, 0, Socket);
+		hfield(t, 0, _Socket);
 		auto ret = cast(ServerSocket)getNativeObj(t, -1); assert(ret !is null);
 		pop(t);
 		return ret;
@@ -400,7 +400,7 @@ static:
 
 	uword _constructor(CrocThread* t)
 	{
-		field(t, 0, Socket);
+		hfield(t, 0, _Socket);
 
 		if(!isNull(t, -1))
 			throwStdException(t, "StateError", "Attempting to call constructor on an already-initialized Socket");
@@ -408,13 +408,13 @@ static:
 		pop(t);
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
-		auto socket = cast(.Socket)getNativeObj(t, 1);
+		auto socket = cast(Socket)getNativeObj(t, 1);
 
 		if(socket is null)
 			throwStdException(t, "ValueError", "instances of Socket may only be created using instances of the Tango Socket class");
 
 		dup(t, 1);
-		fielda(t, 0, Socket);
+		hfielda(t, 0, _Socket);
 
 		return 0;
 	}
@@ -430,14 +430,14 @@ static:
 	{
 		auto socket = getThis(t);
 
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 
 		if(!getBool(t, -1))
 		{
 			// Set closed to true first, in case either shutdown or close fails, so that the finalizer won't try to
 			// close it again.
 			pushBool(t, true);
-			fielda(t, 0, Closed);
+			hfielda(t, 0, _Closed);
 			safeCode(t, "NetException", socket.shutdown());
 			safeCode(t, "NetException", socket.close());
 		}
@@ -447,7 +447,7 @@ static:
 
 	uword _isOpen(CrocThread* t)
 	{
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 		pushBool(t, !getBool(t, -1));
 		return 1;
 	}
@@ -457,7 +457,7 @@ static:
 		checkOpen(t);
 		checkIntParam(t, 1);
 		dup(t, 1);
-		fielda(t, 0, Linger);
+		hfielda(t, 0, _Linger);
 		return 0;
 	}
 
@@ -466,7 +466,7 @@ static:
 		auto socket = getOpenThis(t);
 		auto newSock = safeCode(t, "NetException", socket.accept());
 
-		field(t, 0, Linger);
+		hfield(t, 0, _Linger);
 		auto linger = getInt(t, -1);
 
 		if(linger)

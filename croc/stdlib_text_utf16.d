@@ -179,49 +179,49 @@ local _encodeInto, _decodeRange = _internal.utf16EncodeInternal, _internal.utf16
 
 local class Utf16IncrementalEncoder : IncrementalEncoder
 {
-	__errors
-	__first = true
+	_errors
+	_first = true
 
 	this(errors: string = "strict")
-		:__errors = errors
+		:_errors = errors
 
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
 	{
-		if(!:__first)
-			_encodeInto(str, dest, start, :__errors)
+		if(!:_first)
+			_encodeInto(str, dest, start, :_errors)
 		else
 		{
-			:__first = false
+			:_first = false
 
 			if(start + #BOM_UTF16 > #dest)
 				#dest = start + #BOM_UTF16
 
 			dest.copy(start, BOM_UTF16, 0, #BOM_UTF16)
-			_encodeInto(str, dest, start + #BOM_UTF16, :__errors)
+			_encodeInto(str, dest, start + #BOM_UTF16, :_errors)
 		}
 	}
 
 	function reset()
 	{
-		:__first = true
+		:_first = true
 	}
 }
 
 local class Utf16IncrementalDecoder : BufferedIncrementalDecoder
 {
-	__first = true
-	__order = 'n'
+	_first = true
+	_order = 'n'
 
 	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 	{
 		local prefix = 0
 
-		if(:__first)
+		if(:_first)
 		{
 			if(hi - lo < #BOM_UTF16)
 				return "", 0
 
-			:__first = false
+			:_first = false
 
 			if(BOM_UTF16.compare(0, src, lo, #BOM_UTF16) == 0)
 			{
@@ -232,21 +232,21 @@ local class Utf16IncrementalDecoder : BufferedIncrementalDecoder
 			{
 				lo += #BOM_UTF16_BS
 				prefix = #BOM_UTF16_BS
-				:__order = 's'
+				:_order = 's'
 			}
 			else
 				throw UnicodeError("UTF-16 encoded text has no BOM")
 		}
 
-		local ret, eaten = _decodeRange(src, lo, hi, errors, :__order)
+		local ret, eaten = _decodeRange(src, lo, hi, errors, :_order)
 		return ret, prefix + eaten
 	}
 
 	function reset()
 	{
 		super.reset()
-		:__first = true
-		:__order = 'n'
+		:_first = true
+		:_order = 'n'
 	}
 }
 
@@ -300,13 +300,13 @@ aliasCodec("utf-16", "utf16")
 
 local class Utf16LEIncrementalEncoder : IncrementalEncoder
 {
-	__errors
+	_errors
 
 	this(errors: string = "strict")
-		:__errors = errors
+		:_errors = errors
 
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
-		_encodeInto(str, dest, start, :__errors, 'l')
+		_encodeInto(str, dest, start, :_errors, 'l')
 
 	function reset() {}
 }
@@ -349,13 +349,13 @@ aliasCodec("utf-16-le", "utf16le")
 
 local class Utf16BEIncrementalEncoder : IncrementalEncoder
 {
-	__errors
+	_errors
 
 	this(errors: string = "strict")
-		:__errors = errors
+		:_errors = errors
 
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
-		_encodeInto(str, dest, start, :__errors, 'b')
+		_encodeInto(str, dest, start, :_errors, 'b')
 
 	function reset() {}
 }

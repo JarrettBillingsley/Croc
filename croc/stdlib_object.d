@@ -562,11 +562,6 @@ local boundGetProt = object.bindClassMethod(C, "getProt")
 writeln(boundGetProt(with c)) // also prints 5
 \endcode
 
-	This function can be used to bind protected and private methods as well, but only as long as you call it from within
-	a method from the appropriate class. It uses the exact same rules as normal field/method access in this regard. If
-	you want to bind a private method, pass its unmangled name (such as \tt{"__foo"}) to this function; it will be
-	automatically mangled for you.
-
 	Note that this function will intelligently cache the function that it returns. If you use
 	\tt{bindClassMethod(C, name)} twice, both times it will return the same function closure. If you happen to change
 	the method in the class in between those calls (such as might happen before the class is frozen), the cache will

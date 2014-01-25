@@ -48,8 +48,8 @@ protected:
 struct Ser
 {
 static:
-	const __Output = "Serializer__output";
-	const __RawBuf = "Serializer__rawBuf";
+	const _Output = "_output";
+	const _RawBuf = "_rawBuf";
 
 	void _integer(T)(CrocThread* t, T v)
 	{
@@ -74,7 +74,7 @@ static:
 
 	void _writeUInt8(CrocThread* t, ubyte b)
 	{
-		field(t, 0, __Output);
+		field(t, 0, _Output);
 		pushNull(t);
 		pushInt(t, b);
 		methodCall(t, -3, "writeUInt8", 0);
@@ -95,9 +95,9 @@ static:
 
 	void _append(CrocThread* t, void[] arr)
 	{
-		field(t, 0, __Output);
+		field(t, 0, _Output);
 		pushNull(t);
-		field(t, 0, __RawBuf);
+		field(t, 0, _RawBuf);
 		memblockReviewNativeArray(t, -1, arr);
 		methodCall(t, -3, "writeExact", 0);
 	}
@@ -440,13 +440,13 @@ static:
 struct Deser
 {
 static:
-	const __Input = "Deserializer__input";
-	const __RawBuf = "Deserializer__rawBuf";
-	const __Trans = "Deserializer__trans";
-	const __ObjTable = "Deserializer__objTable";
-	const __DummyObj = "Deserializer__dummyObj";
-	const __DeserializeFunc = "Deserializer__deserializeFunc";
-	const __ReadSignature = "Deserializer__readSignature";
+	const _Input = "_input";
+	const _RawBuf = "_rawBuf";
+	const _Trans = "_trans";
+	const _ObjTable = "_objTable";
+	const _DummyObj = "_dummyObj";
+	const _DeserializeFunc = "_deserializeFunc";
+	const _SignatureRead = "_signatureRead";
 
 	uword _readGraph(CrocThread* t)
 	{
@@ -463,9 +463,9 @@ static:
 				"Expected type 'table|instance' for parameter 1, not '{}'", getString(t, -1));
 		}
 
-		dup(t, 1);      fielda(t, 0, __Trans);
-		newArray(t, 0); fielda(t, 0, __ObjTable);
-		newTable(t);    fielda(t, 0, __DummyObj);
+		dup(t, 1);      fielda(t, 0, _Trans);
+		newArray(t, 0); fielda(t, 0, _ObjTable);
+		newTable(t);    fielda(t, 0, _DummyObj);
 
 		{
 			disableGC(t.vm);
@@ -473,14 +473,14 @@ static:
 			scope(exit)
 			{
 				enableGC(t.vm);
-				field(t, 0, __ObjTable);
+				field(t, 0, _ObjTable);
 				lenai(t, -1, 0);
 				pop(t);
 				pushNull(t);
-				fielda(t, 0, __DummyObj);
+				fielda(t, 0, _DummyObj);
 			}
 
-			field(t, 0, __ReadSignature);
+			field(t, 0, _SignatureRead);
 
 			if(!getBool(t, -1))
 			{
@@ -489,7 +489,7 @@ static:
 				methodCall(t, -2, "_readSignature", 0);
 
 				pushBool(t, true);
-				fielda(t, 0, __ReadSignature);
+				fielda(t, 0, _SignatureRead);
 			}
 
 			pop(t);
@@ -533,7 +533,7 @@ static:
 
 	ubyte _readUInt8(CrocThread* t)
 	{
-		field(t, 0, __Input);
+		field(t, 0, _Input);
 		pushNull(t);
 		methodCall(t, -2, "readUInt8", 1);
 		auto ret = cast(ubyte)getInt(t, -1);
@@ -543,9 +543,9 @@ static:
 
 	void _readBlock(CrocThread* t, void[] arr)
 	{
-		field(t, 0, __Input);
+		field(t, 0, _Input);
 		pushNull(t);
-		field(t, 0, __RawBuf);
+		field(t, 0, _RawBuf);
 		memblockReviewNativeArray(t, -1, arr);
 		methodCall(t, -3, "readExact", 0);
 	}
@@ -817,8 +817,8 @@ static:
 			}
 
 			pushNull(t);
-			field(t, 0, __Input);
-			field(t, 0, __DeserializeFunc);
+			field(t, 0, _Input);
+			field(t, 0, _DeserializeFunc);
 			methodCall(t, -4, "opDeserialize", 0);
 		}
 		else

@@ -533,29 +533,29 @@ local class WeakTableBase
 
 class WeakKeyTable : WeakTableBase
 {
-	__data
+	_data
 
 	this()
 	{
-		:__data = {}
+		:_data = {}
 		super()
 	}
 
-	function opIn(k) = weakref(k) in :__data
-	function opIndex(k) = :__data[weakref(k)]
-	function opIndexAssign(k, v) :__data[weakref(k)] = v
-	function opLength() = #:__data
+	function opIn(k) = weakref(k) in :_data
+	function opIndex(k) = :_data[weakref(k)]
+	function opIndexAssign(k, v) :_data[weakref(k)] = v
+	function opLength() = #:_data
 
 	function opApply(_) // can modify with this implementation too
 	{
-		local keys = hash.keys(:__data)
+		local keys = hash.keys(:_data)
 		local idx = -1
 
 		function iterator(_)
 		{
 			for(idx++; idx < #keys; idx++)
 			{
-				local v = :__data[keys[idx]]
+				local v = :_data[keys[idx]]
 
 				if(v !is null)
 					return deref(keys[idx]), v
@@ -565,44 +565,44 @@ class WeakKeyTable : WeakTableBase
 		return iterator, this, null
 	}
 
-	function keys() = [deref(k) foreach k, _; :__data if deref(k) !is null]
-	function values() = hash.values(:__data)
+	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
+	function values() = hash.values(:_data)
 
 	function normalize()
 	{
-		foreach(k, _; :__data, "modify")
+		foreach(k, _; :_data, "modify")
 		{
 			if(deref(k) is null)
-				:__data[k] = null
+				:_data[k] = null
 		}
 	}
 }
 
 class WeakValTable : WeakTableBase
 {
-	__data
+	_data
 
 	this()
 	{
-		:__data = {}
+		:_data = {}
 		super()
 	}
 
-	function opIn(k) = k in :__data
-	function opIndex(k) = deref(:__data[k])
-	function opIndexAssign(k, v) :__data[k] = weakref(v)
-	function opLength() = #:__data
+	function opIn(k) = k in :_data
+	function opIndex(k) = deref(:_data[k])
+	function opIndexAssign(k, v) :_data[k] = weakref(v)
+	function opLength() = #:_data
 
 	function opApply(_) // can modify with this implementation too
 	{
-		local keys = hash.keys(:__data)
+		local keys = hash.keys(:_data)
 		local idx = -1
 
 		function iterator(_)
 		{
 			for(idx++; idx < #keys; idx++)
 			{
-				local v = deref(:__data[keys[idx]])
+				local v = deref(:_data[keys[idx]])
 
 				if(v !is null)
 					return keys[idx], v
@@ -612,44 +612,44 @@ class WeakValTable : WeakTableBase
 		return iterator, this, null
 	}
 
-	function keys() = hash.keys(:__data)
-	function values() = [deref(v) foreach _, v; :__data if deref(v) !is null]
+	function keys() = hash.keys(:_data)
+	function values() = [deref(v) foreach _, v; :_data if deref(v) !is null]
 
 	function normalize()
 	{
-		foreach(k, v; :__data, "modify")
+		foreach(k, v; :_data, "modify")
 		{
 			if(deref(v) is null)
-				:__data[k] = null
+				:_data[k] = null
 		}
 	}
 }
 
 class WeakKeyValTable : WeakTableBase
 {
-	__data
+	_data
 
 	this()
 	{
-		:__data = {}
+		:_data = {}
 		super()
 	}
 
-	function opIn(k) = weakref(k) in :__data
-	function opIndex(k) = deref(:__data[weakref(k)])
-	function opIndexAssign(k, v) :__data[weakref(k)] = weakref(v)
-	function opLength() = #:__data
+	function opIn(k) = weakref(k) in :_data
+	function opIndex(k) = deref(:_data[weakref(k)])
+	function opIndexAssign(k, v) :_data[weakref(k)] = weakref(v)
+	function opLength() = #:_data
 
 	function opApply(_) // can modify with this implementation too
 	{
-		local keys = hash.keys(:__data)
+		local keys = hash.keys(:_data)
 		local idx = -1
 
 		function iterator(_)
 		{
 			for(idx++; idx < #keys; idx++)
 			{
-				local v = deref(:__data[keys[idx]])
+				local v = deref(:_data[keys[idx]])
 
 				if(v !is null)
 					return deref(keys[idx]), v
@@ -659,13 +659,13 @@ class WeakKeyValTable : WeakTableBase
 		return iterator, this, null
 	}
 
-	function keys() = [deref(k) foreach k, _; :__data if deref(k) !is null]
-	function values() = [deref(v) foreach _, v; :__data if deref(v) !is null]
+	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
+	function values() = [deref(v) foreach _, v; :_data if deref(v) !is null]
 
 	function normalize()
 	{
-		foreach(k, v; :__data, "modify")
+		foreach(k, v; :_data, "modify")
 			if(deref(k) is null || deref(v) is null)
-				:__data[k] = null
+				:_data[k] = null
 	}
 }`;
