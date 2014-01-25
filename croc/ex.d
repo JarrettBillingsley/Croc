@@ -143,18 +143,17 @@ word importModuleFromString(CrocThread* t, char[] name, char[] src, char[] srcNa
 	if(srcName is null)
 		srcName = name;
 
-	scope c = new Compiler(t);
-	auto f = lookup(t, "modules.initModule");
-	pushNull(t);
+	lookup(t, "modules.customLoaders");
 	char[] modName;
+	scope c = new Compiler(t);
 	c.compileModule(src, srcName, modName);
 
 	if(name != modName)
 		throwStdException(t, "ImportException", "Import name ({}) does not match name given in module statement ({})", name, modName);
 
-	pushString(t, name);
-	rawCall(t, f, 0);
-	return importModule(t, name);
+	fielda(t, -2, modName);
+	pop(t);
+	return importModule(t, modName);
 }
 
 /**
@@ -588,12 +587,11 @@ void runFile(CrocThread* t, char[] filename, uword numParams = 0)
 		deserializeModule(t, modName, f);
 	}
 
-	lookup(t, "modules.initModule");
-	pushNull(t);
-	moveToTop(t, -3);
-	pushString(t, modName);
-	rawCall(t, -4, 1);
-	commonRun(t, numParams, modName);
+	lookup(t, "modules.customLoaders");
+	swap(t);
+	fielda(t, -2, modName);
+	pop(t);
+	runModule(t, modName, numParams);
 }
 
 /**
@@ -603,7 +601,11 @@ void runModule(CrocThread* t, char[] moduleName, uword numParams = 0)
 	mixin(apiCheckNumParams!("numParams"));
 
 	importModule(t, moduleName);
-	commonRun(t, numParams, moduleName);
+	pushNull(t);
+	lookup(t, "modules.runMain");
+	swap(t, -3);
+	rotate(t, numParams + 3, 3);
+	rawCall(t, -3 - numParams, 0);
 }
 
 /**
@@ -1304,15 +1306,6 @@ bool optParam(CrocThread* t, word index, CrocValue.Type type)
 // ================================================================================================================================================
 
 private:
-
-void commonRun(CrocThread* t, uword numParams, char[] modName)
-{
-	pushNull(t);
-	lookup(t, "modules.runMain");
-	swap(t, -3);
-	rotate(t, numParams + 3, 3);
-	rawCall(t, -3 - numParams, 0);
-}
 
 // Check the format of a name of the form "\w[\w\d]*(\.\w[\w\d]*)*". Could we use an actual regex for this?  I guess,
 // but then we'd have to create a regex object, and either it'd have to be static and access to it would have to be
