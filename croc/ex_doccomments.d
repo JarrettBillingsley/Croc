@@ -270,6 +270,7 @@ CodeSnippet:
 
 Verbatim:
 	'\verbatim' Newline Anything '\endverbatim' EOL
+	'\verbatim[' Word ']' Newline Anything '\endverbatim' EOL
 
 List:
 	('\blist' | '\nlist' | '\nlist[' Word ']') Newline ListItem+ '\endlist' EOL
@@ -599,7 +600,7 @@ private:
 					}
 					else if(mCharacter == '[')
 					{
-						// has to be one of param, throws, link, code, or nlist
+						// has to be one of param, throws, link, code, verbatim, or nlist
 						nextChar();
 
 						eatWhitespace();
@@ -633,6 +634,11 @@ private:
 								readRawBlock("Code", "endcode");
 								break;
 
+							case "verbatim":
+								mTok.type = Token.Verbatim;
+								readRawBlock("Verbatim", "endverbatim");
+								break;
+
 							case "nlist": mTok.type = Token.NList; break;
 							default:      error("Invalid command name '{}'", mTok.string);
 						}
@@ -654,7 +660,10 @@ private:
 							readRawBlock("Code", "endcode");
 						}
 						else if(mTok.type == Token.Verbatim)
+						{
+							mTok.arg = "";
 							readRawBlock("Verbatim", "endverbatim");
+						}
 					}
 					else
 						error("Invalid command '{}'", mTok.string);
@@ -1042,11 +1051,13 @@ private:
 		if(!l.isFirstOnLine())
 			error("Verbatim command must come at the beginning of a line");
 
-		newArray(t, 2);
+		newArray(t, 3);
 		pushString(t, "verbatim");
 		idxai(t, -2, 0);
-		pushString(t, l.tok.contents);
+		pushString(t, l.tok.arg);
 		idxai(t, -2, 1);
+		pushString(t, l.tok.contents);
+		idxai(t, -2, 2);
 
 		l.next();
 

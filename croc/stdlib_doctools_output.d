@@ -900,7 +900,7 @@ class DocOutputter
 	*/
 	function beginCode(language: string) throw NotImplementedError()
 	function endCode() throw NotImplementedError() /// ditto
-	function beginVerbatim() throw NotImplementedError() /// ditto
+	function beginVerbatim(type: string) throw NotImplementedError() /// ditto
 	function endVerbatim() throw NotImplementedError() /// ditto
 
 	/**
@@ -1142,9 +1142,9 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitVerbatim(contents: string)
+	function visitVerbatim(type: string, contents: string)
 	{
-		:_output.beginVerbatim()
+		:_output.beginVerbatim(type)
 		:_output.outputText(contents)
 		:_output.endVerbatim()
 	}

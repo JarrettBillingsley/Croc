@@ -393,18 +393,18 @@ class DocVisitor
 
 				switch(type)
 				{
-					case "code":     :visitCode(elem[1], elem[2..]);  break
-					case "verbatim": :visitVerbatim(elem[1]);         break
-					case "blist":    :visitBlist(elem[1..]);          break
-					case "nlist":    :visitNlist(elem[1], elem[2..]); break
-					case "dlist":    :visitDlist(elem[1..]);          break
-					case "table":    :visitTable(elem[1..]);          break
-					case "em":       :visitEmphasis(elem[1..]);       break
-					case "link":     :visitLink(elem[1], elem[2..]);  break
-					case "sub":      :visitSubscript(elem[1..]);      break
-					case "sup":      :visitSuperscript(elem[1..]);    break
-					case "tt":       :visitMonospace(elem[1..]);      break
-					case "u":        :visitUnderline(elem[1..]);      break
+					case "code":     :visitCode(elem[1], elem[2]);     break
+					case "verbatim": :visitVerbatim(elem[1], elem[2]); break
+					case "blist":    :visitBlist(elem[1..]);           break
+					case "nlist":    :visitNlist(elem[1], elem[2..]);  break
+					case "dlist":    :visitDlist(elem[1..]);           break
+					case "table":    :visitTable(elem[1..]);           break
+					case "em":       :visitEmphasis(elem[1..]);        break
+					case "link":     :visitLink(elem[1], elem[2..]);   break
+					case "sub":      :visitSubscript(elem[1..]);       break
+					case "sup":      :visitSuperscript(elem[1..]);     break
+					case "tt":       :visitMonospace(elem[1..]);       break
+					case "u":        :visitUnderline(elem[1..]);       break
 
 					default:
 						if(isString(type) && type.startsWith("_"))
@@ -425,7 +425,7 @@ class DocVisitor
 	function visitCode(language: string, contents: string) throw NotImplementedError()
 
 	/// Visits a verbatim block. Must be overridden.
-	function visitVerbatim(contents: string) throw NotImplementedError()
+	function visitVerbatim(type: string, contents: string) throw NotImplementedError()
 
 	/// Visits a bulleted list. Must be overridden.
 	function visitBlist(items: array) throw NotImplementedError()

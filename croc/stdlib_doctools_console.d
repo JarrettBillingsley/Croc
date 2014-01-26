@@ -352,7 +352,7 @@ class BasicConsoleOutputter : DocOutputter
 		:newline()
 	}
 
-	function beginVerbatim()
+	function beginVerbatim(type: string)
 	{
 		:newline()
 		:newline()

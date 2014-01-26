@@ -266,7 +266,7 @@ class TracWikiOutputter : DocOutputter
 	function endCode()
 		:outputText("\n}}}\n")
 
-	function beginVerbatim()
+	function beginVerbatim(type: string)
 	{
 		:checkNotInTable()
 		:outputText("\n{{{\n")
