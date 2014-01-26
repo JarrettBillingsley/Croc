@@ -428,6 +428,8 @@ private:
 		ret.refCount = 1;
 		decBuffer.add(*this, cast(GCObject*)ret);
 
+		nurseryBytes += size; // yes, this is right; this prevents large RC objects from never triggering collections.
+
 		debug(CROC_LEAK_DETECTOR)
 			*_rcBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
 
