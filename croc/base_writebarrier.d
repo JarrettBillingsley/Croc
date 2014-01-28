@@ -373,6 +373,9 @@ void visitThread(CrocThread* o, void delegate(GCObject*) callback, bool isRoots)
 	{
 		mixin(CondCallback!("o.coroFunc"));
 		mixin(CondCallback!("o.hookFunc"));
+
+		version(CrocExtendedThreads)
+			mixin(CondCallback!("o.threadFiber"));
 	}
 }
 

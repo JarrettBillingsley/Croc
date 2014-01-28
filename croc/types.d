@@ -26,6 +26,9 @@ subject to the following restrictions:
 
 module croc.types;
 
+version(CrocExtendedThreads)
+	import tango.core.Thread;
+
 import tango.text.convert.Format;
 import tango.text.convert.Layout;
 
@@ -134,6 +137,14 @@ final class CrocFatalException : Exception
 		super(msg);
 	}
 }
+
+/**
+A string constant indicating the level of coroutine support compiled in. Is either "Normal" or "Extended."
+*/
+version(CrocExtendedThreads)
+	const char[] CrocCoroSupport = "Extended";
+else
+	const char[] CrocCoroSupport = "Normal";
 
 // ================================================================================================================================================
 // Package
@@ -632,7 +643,22 @@ package:
 	uint hookCounter;
 	CrocFunction* hookFunc;
 
-	uword savedCallDepth;
+	version(CrocExtendedThreads)
+	{
+		// References a Fiber object
+		CrocNativeObj* threadFiber;
+
+		Fiber getFiber()
+		{
+			assert(threadFiber !is null);
+			return cast(Fiber)cast(void*)threadFiber.obj;
+		}
+	}
+	else
+	{
+		uword savedCallDepth;
+	}
+
 	uword nativeCallDepth = 0;
 }
 
@@ -695,4 +721,8 @@ package:
 	CrocNativeObj*[Object] nativeObjs;
 	Layout!(char) formatter;
 	CrocException dexception;
+
+	version(CrocExtendedThreads)
+		version(CrocPoolFibers)
+			bool[Fiber] fiberPool;
 }

@@ -28,6 +28,9 @@ subject to the following restrictions:
 
 module croc.api_interpreter;
 
+version(CrocExtendedThreads)
+	import tango.core.Thread;
+
 import tango.core.Exception;
 import tango.core.Memory;
 import tango.core.Traits;
@@ -993,8 +996,11 @@ word newThread(CrocThread* t, word func)
 		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Thread function must be of type 'function', not '{}'", getString(t, -1));
 	}
 
-	if(f.isNative)
-		throwStdException(t, "ValueError", __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
+	version(CrocExtendedThreads) {} else
+	{
+		if(f.isNative)
+			throwStdException(t, "ValueError", __FUNCTION__ ~ " - Native functions may not be used as the body of a thread");
+	}
 
 	maybeGC(t);
 
@@ -2679,14 +2685,79 @@ void resetThread(CrocThread* t, word slot, bool newFunction = false)
 			throwStdException(t, "TypeError", __FUNCTION__ ~ " - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
 		}
 
-		if(f.isNative)
-			throwStdException(t, "ValueError", __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
+		version(CrocExtendedThreads) {} else
+		{
+			if(f.isNative)
+				throwStdException(t, "ValueError", __FUNCTION__ ~ " - Native functions may not be used as the body of a thread");
+		}
 
 		thread.setCoroFunc(t.vm.alloc, other, f);
 		pop(t);
 	}
 
 	thread.reset(other);
+}
+
+version(CrocExtendedThreads)
+{
+	/**
+	Yield out of a thread. This function is not available in normal thread mode, only in extended mode.
+
+	You cannot _yield out of a thread that is not currently executing, nor can you _yield out of the main thread of
+	a VM.
+
+	This function works very similarly to the call family of functions. You push the values that you want to _yield
+	on the stack, then pass how many you pushed and how many you want back. It then returns how many values this
+	thread was resumed with, and that many values will be on the stack.
+
+	Example:
+-----
+// Let's translate `x = yield(5, "hi")` into API calls.
+
+// 1. Push the values to be yielded.
+pushInt(t, 5);
+pushString(t, "hi");
+
+// 2. Yield from the thread, telling that we are yielding 2 values and want 1 in return.
+yield(t, 2, 1);
+
+// 3. Do something with the return value. setGlobal pops the return value off the stack, so now the
+// stack is back the way it was when we started.
+setGlobal(t, "x");
+-----
+
+	Params:
+		numVals = The number of values that you are yielding. These values should be on top of the stack, in order.
+		numReturns = The number of return values you are expecting, or -1 for as many returns as you can get.
+
+	Returns:
+		How many values were returned. If numReturns was >= 0, this is the same as numReturns.
+	*/
+	uword yield(CrocThread* t, uword numVals, word numReturns)
+	{
+		mixin(apiCheckNumParams!("numVals"));
+
+		if(t is t.vm.mainThread)
+			throwStdException(t, "ApiError", __FUNCTION__ ~ " - Attempting to yield out of the main thread");
+
+		if(Fiber.getThis() !is t.getFiber())
+			throwStdException(t, "ApiError", __FUNCTION__ ~ " - Attempting to yield the wrong thread (trying to yield an inactive thread)");
+
+		if(numReturns < -1)
+			throwStdException(t, "ApiError", __FUNCTION__ ~ " - invalid number of returns (must be >= -1)");
+
+		auto slot = t.stackIndex - numVals;
+
+		yieldImpl(t, slot, numVals, numReturns);
+
+		if(numReturns == -1)
+			return t.stackIndex - slot;
+		else
+		{
+			t.stackIndex = slot + numReturns;
+			return numReturns;
+		}
+	}
 }
 
 /**

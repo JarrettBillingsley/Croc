@@ -25,6 +25,9 @@ subject to the following restrictions:
 
 module croc.types_thread;
 
+version(CrocExtendedThreads)
+	import tango.core.Thread;
+
 import croc.base_alloc;
 import croc.base_writebarrier;
 import croc.types;
@@ -74,12 +77,42 @@ package:
 	{
 		auto t = create(vm);
 		t.coroFunc = coroFunc;
+
+		version(CrocExtendedThreads)
+		{
+			version(CrocPoolFibers)
+			{
+				if(vm.fiberPool.length > 0)
+				{
+					Fiber f = void;
+
+					foreach(fiber, _; vm.fiberPool)
+					{
+						f = fiber;
+						break;
+					}
+
+					vm.fiberPool.remove(f);
+					t.threadFiber = nativeobj.create(vm, f);
+				}
+			}
+		}
+
 		return t;
 	}
 
 	void reset(CrocThread* t)
 	{
 		assert(t.upvalHead is null); // should be..?
+
+		version(CrocExtendedThreads)
+		{
+			if(t.threadFiber)
+			{
+				assert(t.getFiber().state == Fiber.State.TERM);
+				t.getFiber().reset();
+			}
+		}
 
 		t.currentTR = null;
 		t.trIndex = 0;
@@ -110,6 +143,18 @@ package:
 		}
 	}
 
+	version(CrocExtendedThreads)
+	{
+		void setThreadFiber(ref Allocator alloc, CrocThread* t, CrocNativeObj* f)
+		{
+			if(t.threadFiber !is f)
+			{
+				mixin(writeBarrier!("alloc", "t"));
+				t.threadFiber = f;
+			}
+		}
+	}
+
 	// Free a thread object.
 	void free(CrocThread* t)
 	{
@@ -118,6 +163,15 @@ package:
 
 		if(t.vm.allThreads is t)
 			t.vm.allThreads = t.next;
+
+		version(CrocExtendedThreads)
+		{
+			version(CrocPoolFibers)
+			{
+				if(t.threadFiber)
+					t.vm.fiberPool[t.getFiber()] = true;
+			}
+		}
 
 		for(auto uv = t.upvalHead; uv !is null; uv = t.upvalHead)
 		{

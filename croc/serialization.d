@@ -264,7 +264,9 @@ static:
 
 	void _serializeCallStack(CrocThread* t, CrocThread* v)
 	{
-		_integer(t, v.savedCallDepth);
+		version(CrocExtendedThreads) {} else
+			_integer(t, v.savedCallDepth);
+
 		_integer(t, v.arIndex);
 
 		foreach(ref rec; v.actRecs[0 .. v.arIndex])
@@ -368,6 +370,9 @@ static:
 
     	if(t is v)
     		throwStdException(t, "ValueError", "Attempting to serialize the currently-executing thread");
+
+		version(CrocExtendedThreads)
+			throwStdException(t, "ValueError", "Attempting to serialize an extended coroutine");
 
 		if(v.nativeCallDepth > 0)
 		{
@@ -959,7 +964,10 @@ static:
 	void _deserializeCallStack(CrocThread* t, CrocThread* ret)
 	{
 		// TODO: define some "recursion limit" for threads so that we know when stuff is borked
-		ret.savedCallDepth = _limitedSize(t, 100_000, "invalid thread saved call stack size");
+
+		version(CrocExtendedThreads) {} else
+			ret.savedCallDepth = _limitedSize(t, 100_000, "invalid thread saved call stack size");
+
 		ret.arIndex = _limitedSize(t, 100_000, "invalid thread call stack size");
 
 		t.vm.alloc.resizeArray(ret.actRecs, ret.arIndex < 10 ? 10 : ret.arIndex);
@@ -1063,6 +1071,9 @@ static:
 
 	uword _deserializeThreadImpl(CrocThread* t)
 	{
+		version(CrocExtendedThreads)
+			throwStdException(t, "ValueError", "Attempting to deserialize a thread while extended coroutines were compiled in");
+
 		auto ret = thread.createPartial(t.vm);
 		_addObject(t, cast(CrocBaseObject*)ret);
 

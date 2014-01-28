@@ -25,6 +25,9 @@ subject to the following restrictions:
 
 module croc.interpreter;
 
+version(CrocExtendedThreads)
+	import tango.core.Thread;
+
 import tango.core.Tuple;
 import tango.text.convert.Integer;
 
@@ -47,6 +50,7 @@ import croc.types_function;
 import croc.types_instance;
 import croc.types_memblock;
 import croc.types_namespace;
+import croc.types_nativeobj;
 import croc.types_string;
 import croc.types_table;
 import croc.types_thread;
@@ -2429,6 +2433,33 @@ word typeString(CrocThread* t, CrocValue* v)
 // ============================================================================
 // Coroutines
 
+version(CrocExtendedThreads)
+{
+	class ThreadFiber : Fiber
+	{
+		CrocThread* t;
+		uword numParams;
+
+		this(CrocThread* t, uword numParams)
+		{
+			super(&run, 16384); // TODO: provide the stack size as a user-settable value
+			this.t = t;
+			this.numParams = numParams;
+		}
+
+		void run()
+		{
+			assert(t.state == CrocThread.State.Initial);
+
+			push(t, CrocValue(t.coroFunc));
+			insert(t, 1);
+
+			if(callPrologue(t, cast(AbsStack)1, -1, numParams, null))
+				execute(t);
+		}
+	}
+}
+
 void yieldImpl(CrocThread* t, AbsStack firstValue, word numValues, word numReturns)
 {
 	auto ar = pushAR(t);
@@ -2451,24 +2482,51 @@ void yieldImpl(CrocThread* t, AbsStack firstValue, word numValues, word numRetur
 	}
 
 	t.state = CrocThread.State.Suspended;
+
+	version(CrocExtendedThreads)
+	{
+		Fiber.yield();
+		t.state = CrocThread.State.Running;
+		t.vm.curThread = t;
+		callEpilogue(t, true);
+	}
 }
 
 uword resume(CrocThread* t, uword numParams)
 {
 	try
 	{
-		if(t.state == CrocThread.State.Initial)
+		version(CrocExtendedThreads)
 		{
-			push(t, CrocValue(t.coroFunc));
-			insert(t, 1);
-			auto result = callPrologue(t, cast(AbsStack)1, -1, numParams, null);
-			assert(result == true, "resume callPrologue must return true");
-			execute(t);
+			if(t.state == CrocThread.State.Initial)
+			{
+				if(t.threadFiber is null)
+					thread.setThreadFiber(t.vm.alloc, t, nativeobj.create(t.vm, new ThreadFiber(t, numParams)));
+				else
+				{
+					auto f = cast(ThreadFiber)cast(void*)t.threadFiber.obj;
+					f.t = t;
+					f.numParams = numParams;
+				}
+			}
+
+			t.getFiber().call();
 		}
 		else
 		{
-			callEpilogue(t, true);
-			execute(t, t.savedCallDepth);
+			if(t.state == CrocThread.State.Initial)
+			{
+				push(t, CrocValue(t.coroFunc));
+				insert(t, 1);
+				auto result = callPrologue(t, cast(AbsStack)1, -1, numParams, null);
+				assert(result == true, "resume callPrologue must return true");
+				execute(t);
+			}
+			else
+			{
+				callEpilogue(t, true);
+				execute(t, t.savedCallDepth);
+			}
 		}
 	}
 	catch(CrocHaltException e)
@@ -3334,12 +3392,20 @@ void execute(CrocThread* t, uword depth = 1)
 					if(t is t.vm.mainThread)
 						throwStdException(t, "RuntimeError", "Attempting to yield out of the main thread");
 
-					if(t.nativeCallDepth > 0)
-						throwStdException(t, "RuntimeError", "Attempting to yield across native / metamethod call boundary");
+					version(CrocExtendedThreads)
+					{
+						yieldImpl(t, stackBase + rd, numParams, numResults);
+						break;
+					}
+					else
+					{
+						if(t.nativeCallDepth > 0)
+							throwStdException(t, "RuntimeError", "Attempting to yield across native / metamethod call boundary");
 
-					t.savedCallDepth = depth;
-					yieldImpl(t, stackBase + rd, numParams, numResults);
-					return;
+						t.savedCallDepth = depth;
+						yieldImpl(t, stackBase + rd, numParams, numResults);
+						return;
+					}
 
 				case Op.CheckParams:
 					auto val = &t.stack[stackBase];
