@@ -27,6 +27,7 @@ module croc.stdlib_hash;
 
 import croc.api_interpreter;
 import croc.api_stack;
+import croc.compiler;
 import croc.ex;
 import croc.ex_library;
 import croc.types;
@@ -57,14 +58,24 @@ void initHashLib(CrocThread* t)
 			registerFields(t, _namespaceMetamethods);
 		setTypeMT(t, CrocValue.Type.Namespace);
 
-		loadString(t, WeakTableCode, false, "hash.croc");
+		version(CrocBuiltinDocs)
+			scope c = new Compiler(t, Compiler.getDefaultFlags(t) | Compiler.DocTable);
+		else
+			scope c = new Compiler(t);
+
+		c.compileStatements(WeakTableCode, "hash.croc");
+		newFunction(t, -1);
 		pushNull(t);
 		rawCall(t, -2, 0);
+		pop(t);
+
+		version(CrocBuiltinDocs)
+			newGlobal(t, "_subdocs"); // store the sub-doctable in a global temporarily
 
 		return 0;
 	});
 
-	importModule(t, "hash");
+	auto hash = importModule(t, "hash");
 
 	version(CrocBuiltinDocs)
 	{
@@ -74,7 +85,15 @@ void initHashLib(CrocThread* t)
 		tables. It also defines the metatables for tables and namespaces.`));
 
 		// docFields(t, doc, _globalFuncDocs);
+
+		field(t, hash, "_subdocs");
+		doc.mergeModuleDocs();
+		pop(t);
+
 		doc.pop(-1);
+
+		pushString(t, "_subdocs");
+		removeKey(t, hash);
 	}
 
 	pop(t);

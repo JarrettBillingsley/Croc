@@ -492,6 +492,44 @@ public:
 		.pop(t, 2);
 	}
 
+	void mergeModuleDocs()
+	{
+		auto subModule = absIndex(t, -1);
+
+		if(!isValidIndex(t, subModule) || !isTable(t, subModule))
+			throwStdException(t, "ApiError", "No sub-module doc table on top of the stack");
+
+		field(t, subModule, "kind");
+
+		if(!isString(t, -1) || getString(t, -1) != "module" || !hasField(t, subModule, "children"))
+			throwStdException(t, "ApiError", "Sub-module doc table is malformed or not a module doc table");
+
+		.pop(t);
+
+		auto dt = getDocTables();
+
+		if(len(t, dt) == 0)
+			throwStdException(t, "ApiError", "No parent module to merge docs with");
+
+		auto parent = idxi(t, dt, -1);
+
+		pushString(t, "children");
+
+		if(!opin(t, -1, parent))
+		{
+			newArray(t, 0);
+			fielda(t, parent, "children");
+		}
+
+		field(t, parent);
+		insertAndPop(t, parent);
+
+		field(t, subModule, "children");
+		cateq(t, parent, 1);
+
+		.pop(t, 2);
+	}
+
 private:
 	word getDocTables()
 	{
