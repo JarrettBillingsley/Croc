@@ -165,7 +165,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	}
 
 	// Finish up the safe libs.
-	HashLib.init(t);
+	initHashLib(t);
 	initMathLib(t);
 	initObjectLib(t);
 	initMemblockLib(t);
