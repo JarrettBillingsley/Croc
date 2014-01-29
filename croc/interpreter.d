@@ -130,7 +130,7 @@ void runFinalizers(CrocThread* t)
 			getStdException(t, "FinalizerError");
 			pushNull(t);
 			pushFormat(t, "Error finalizing instance of class '{}'", i.parent.name.toString());
-			rawCall(t, -3, 1);
+			call(t, -3, 1);
 			swap(t);
 			fielda(t, -2, "cause");
 			t.hooksEnabled = hooksEnabled;
@@ -400,7 +400,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 				t.stack[slot] = cls.constructor.mFunction;
 				t.stack[slot + 1] = inst;
 
-				// do this instead of rawCall so the proto is set correctly
+				// do this instead of call so the proto is set correctly
 				if(callPrologue(t, slot, 0, numParams, cls))
 					execute(t);
 			}

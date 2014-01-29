@@ -504,7 +504,7 @@ private:
 		auto ex = getStdException(t, exType);
 		pushNull(t);
 		pushVFormat(t, msg, arguments, argptr);
-		rawCall(t, ex, 1);
+		call(t, ex, 1);
 		dup(t);
 		pushNull(t);
 		pushLocationObject(t, loc.file, loc.line, loc.col);

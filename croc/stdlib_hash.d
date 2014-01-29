@@ -66,7 +66,7 @@ void initHashLib(CrocThread* t)
 		c.compileStatements(WeakTableCode, "hash.croc");
 		newFunction(t, -1);
 		pushNull(t);
-		rawCall(t, -2, 0);
+		call(t, -2, 0);
 		pop(t);
 
 		version(CrocBuiltinDocs)
@@ -424,7 +424,7 @@ uword _apply(CrocThread* t)
 		auto reg = dup(t, 1);
 		dup(t, 0);
 		push(t, v);
-		rawCall(t, reg, 1);
+		call(t, reg, 1);
 		table.idxa(t.vm.alloc, tab, k, *getValue(t, -1));
 		pop(t);
 	}
@@ -446,7 +446,7 @@ uword _map(CrocThread* t)
 		auto reg = dup(t, 1);
 		dup(t, 0);
 		push(t, v);
-		rawCall(t, reg, 1);
+		call(t, reg, 1);
 		table.idxa(t.vm.alloc, nt, k, *getValue(t, -1));
 		pop(t);
 	}
@@ -477,7 +477,7 @@ uword _each(CrocThread* t)
 		push(t, *k);
 		push(t, *v);
 
-		rawCall(t, reg, 1);
+		call(t, reg, 1);
 
 		if(!isNull(t, -1))
 		{

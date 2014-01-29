@@ -51,7 +51,7 @@ void serializeGraph(CrocThread* t, word idx, word trans, OutputStream output)
 	dup(t, idx);
 	dup(t, trans);
 	_makeOutputStream(t, output);
-	rawCall(t, func, 0);
+	call(t, func, 0);
 }
 
 /**
@@ -64,7 +64,7 @@ word deserializeGraph(CrocThread* t, word trans, InputStream input)
 	pushNull(t);
 	dup(t, trans);
 	_makeInputStream(t, input);
-	rawCall(t, func, 1);
+	call(t, func, 1);
 	return func;
 }
 
@@ -79,7 +79,7 @@ void serializeModule(CrocThread* t, word idx, char[] name, OutputStream output)
 	dup(t, idx);
 	pushString(t, name);
 	_makeOutputStream(t, output);
-	rawCall(t, func, 0);
+	call(t, func, 0);
 }
 
 /**
@@ -89,7 +89,7 @@ word deserializeModule(CrocThread* t, out char[] name, InputStream input)
 	auto func = lookupCT!("serialization.deserializeModule")(t);
 	pushNull(t);
 	_makeInputStream(t, input);
-	rawCall(t, func, 2);
+	call(t, func, 2);
 	name = getString(t, -1);
 	pop(t);
 	return func;
@@ -109,7 +109,7 @@ void _makeOutputStream(CrocThread* t, OutputStream output)
 	pushBool(t, false);
 	pushBool(t, false);
 	pushBool(t, true);
-	rawCall(t, stream, 1);
+	call(t, stream, 1);
 }
 
 void _makeInputStream(CrocThread* t, InputStream input)
@@ -120,5 +120,5 @@ void _makeInputStream(CrocThread* t, InputStream input)
 	pushBool(t, false);
 	pushBool(t, true);
 	pushBool(t, false);
-	rawCall(t, stream, 1);
+	call(t, stream, 1);
 }

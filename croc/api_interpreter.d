@@ -367,7 +367,7 @@ uword gc(CrocThread* t, bool fullCollect = false)
 	{
 		dup(t, v);
 		pushNull(t);
-		rawCall(t, -2, 0);
+		call(t, -2, 0);
 	}
 
 	pop(t);
@@ -1071,7 +1071,7 @@ word pushLocationObject(CrocThread* t, char[] file, int line, int col)
 	pushString(t, file);
 	pushInt(t, line);
 	pushInt(t, col);
-	rawCall(t, ret, 1);
+	call(t, ret, 1);
 	return ret;
 }
 
@@ -1564,7 +1564,7 @@ public:
 			auto funcReg = dup(t, src);
 			dup(t, src + 1);
 			dup(t, src + 2);
-			rawCall(t, funcReg, numIndices);
+			call(t, funcReg, numIndices);
 
 			if(isFunction(t, src))
 			{
@@ -1625,7 +1625,7 @@ void throwStdException(CrocThread* t, char[] exName, char[] fmt, ...)
 	getStdException(t, exName);
 	pushNull(t);
 	pushVFormat(t, fmt, _arguments, _argptr);
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 	throwException(t);
 }
 
@@ -3503,7 +3503,7 @@ pushInt(t, 5);
 pushString(t, "hi");
 
 // 4. Call it.
-rawCall(t, slot, 1);
+call(t, slot, 1);
 
 // 5. Do something with the return values. setGlobal pops the return value off the stack, so now the
 // stack is back the way it was when we started.
@@ -3519,7 +3519,7 @@ Returns:
 	many returns the function gave. If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
-uword rawCall(CrocThread* t, word slot, word numReturns)
+uword call(CrocThread* t, word slot, word numReturns)
 {
 	mixin(FuncNameMix);
 

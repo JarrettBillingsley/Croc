@@ -255,7 +255,7 @@ static:
 				pushBool(t, true);
 				pushBool(t, false);
 				pushBool(t, true);
-				rawCall(t, slot, 1);
+				call(t, slot, 1);
 				dup(t);
 				hfielda(t, 0, stdinField);
 			}
@@ -281,7 +281,7 @@ static:
 				pushBool(t, true);
 				pushBool(t, true);
 				pushBool(t, false);
-				rawCall(t, slot, 1);
+				call(t, slot, 1);
 				dup(t);
 				hfielda(t, 0, stdoutField);
 			}
@@ -307,7 +307,7 @@ static:
 				pushBool(t, true);
 				pushBool(t, true);
 				pushBool(t, false);
-				rawCall(t, slot, 1);
+				call(t, slot, 1);
 				dup(t);
 				hfielda(t, 0, stderrField);
 			}

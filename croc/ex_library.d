@@ -435,7 +435,7 @@ public:
 					pushNull(t);
 					dup(t, idx);
 					dup(t, dittoed);
-					rawCall(t, -4, 0);
+					call(t, -4, 0);
 					.pop(t, 2);
 					return;
 
@@ -459,7 +459,7 @@ public:
 				pushNull(t);
 				dup(t, idx);
 				dup(t, docTab);
-				rawCall(t, -4, 1);
+				call(t, -4, 1);
 				swap(t, -1, idx);
 				.pop(t);
 				break;

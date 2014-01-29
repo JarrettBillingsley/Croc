@@ -196,7 +196,7 @@ static:
 
 		StopWatch w;
 		w.start();
-		rawCall(t, 1, 0);
+		call(t, 1, 0);
 		pushFloat(t, w.stop());
 
 		return 1;

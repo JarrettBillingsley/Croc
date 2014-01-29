@@ -67,7 +67,7 @@ void initExceptionsLib(CrocThread* t)
 		pushGlobal(t, "Throwable");
 			pushGlobal(t, "Location");
 			pushNull(t);
-			rawCall(t, -2, 1);
+			call(t, -2, 1);
 			addField(t, -2, "location");
 
 			pushString(t, ""); addField(t, -2, "msg");

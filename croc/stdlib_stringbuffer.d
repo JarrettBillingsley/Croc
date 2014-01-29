@@ -209,7 +209,7 @@ word _stringBufferFromUtf32(CrocThread* t, dchar[] text)
 	auto ret = pushGlobal(t, "StringBuffer");
 	pushNull(t);
 	pushInt(t, text.length);
-	rawCall(t, ret, 1);
+	call(t, ret, 1);
 	_setLength(t, text.length, ret);
 	_stringBufferAsUtf32(t, ret)[] = text[];
 	return ret;
@@ -307,7 +307,7 @@ uword _dup(CrocThread* t)
 	pushGlobal(t, "StringBuffer");
 	pushNull(t);
 	pushInt(t, len);
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 
 	auto other = _getData(t, -1);
 	other.data[0 .. len << 2] = mb.data[0 .. len << 2];
@@ -529,7 +529,7 @@ uword _opSlice(CrocThread* t)
 	pushGlobal(t, "StringBuffer");
 	pushNull(t);
 	pushInt(t, newStr.length);
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 	(cast(dchar[])_getData(t, -1).data)[] = newStr[];
 	_setLength(t, newStr.length, -1);
 	return 1;
@@ -551,7 +551,7 @@ uword _opCat(CrocThread* t)
 		pushGlobal(t, "StringBuffer");
 		pushNull(t);
 		pushInt(t, totalLen);
-		rawCall(t, -3, 1);
+		call(t, -3, 1);
 		_setLength(t, cast(uword)totalLen, -1);
 		auto ret = cast(dchar[])_getData(t, -1).data;
 		ret[0 .. len] = src[0 .. len];
@@ -599,7 +599,7 @@ uword _opCat_r(CrocThread* t)
 		pushGlobal(t, "StringBuffer");
 		pushNull(t);
 		pushInt(t, totalLen);
-		rawCall(t, -3, 1);
+		call(t, -3, 1);
 		_setLength(t, cast(uword)totalLen, -1);
 		auto ret = cast(dchar[])_getData(t, -1).data;
 		ret[cast(uword)addLen .. $] = src[0 .. len];
@@ -757,7 +757,7 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 			dup(t, filler);
 			pushNull(t);
 			pushInt(t, i);
-			rawCall(t, -3, 1);
+			call(t, -3, 1);
 
 			if(!isString(t, -1))
 			{
@@ -1345,7 +1345,7 @@ uword _replace(CrocThread* t)
 	auto ret = pushGlobal(t, "StringBuffer");
 	pushNull(t);
 	pushInt(t, src.length);
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 
 	auto destmb = _getData(t, ret);
 	auto dest = cast(dchar[])destmb.data;
@@ -1420,12 +1420,12 @@ uword _opSerialize(CrocThread* t)
 	dup(t, 2);
 	pushNull(t);
 	hfield(t, 0, Length);
-	rawCall(t, -3, 0);
+	call(t, -3, 0);
 
 	dup(t, 2);
 	pushNull(t);
 	hfield(t, 0, Data);
-	rawCall(t, -3, 0);
+	call(t, -3, 0);
 
 	return 0;
 }
@@ -1435,7 +1435,7 @@ uword _opDeserialize(CrocThread* t)
 	dup(t, 2);
 	pushNull(t);
 	pushString(t, "int");
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 
 	auto len = getInt(t, -1);
 
@@ -1447,7 +1447,7 @@ uword _opDeserialize(CrocThread* t)
 	dup(t, 2);
 	pushNull(t);
 	pushString(t, "memblock");
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 
 	auto mblen = .len(t, -1);
 

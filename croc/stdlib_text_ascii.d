@@ -48,7 +48,7 @@ void initAsciiCodec(CrocThread* t)
 	newTable(t);
 		registerFields(t, _funcs);
 
-	rawCall(t, -3, 0);
+	call(t, -3, 0);
 }
 
 // =====================================================================================================================

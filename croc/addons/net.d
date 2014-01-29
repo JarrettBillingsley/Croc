@@ -118,7 +118,7 @@ uword _connect(CrocThread* t)
 	pushGlobal(t, "Socket");
 	pushNull(t);
 	pushNativeObj(t, socket);
-	return rawCall(t, -3, 1);
+	return call(t, -3, 1);
 }
 
 uword _listen(CrocThread* t)
@@ -135,7 +135,7 @@ uword _listen(CrocThread* t)
 	pushGlobal(t, "ServerSocket");
 	pushNull(t);
 	pushNativeObj(t, socket);
-	return rawCall(t, -3, 1);
+	return call(t, -3, 1);
 
 }
 
@@ -475,7 +475,7 @@ static:
 		pushGlobal(t, "Socket");
 		pushNull(t);
 		pushNativeObj(t, newSock);
-		return rawCall(t, -3, 1);
+		return call(t, -3, 1);
 	}
 }
 

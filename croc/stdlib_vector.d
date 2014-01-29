@@ -311,7 +311,7 @@ uword _fromArray(CrocThread* t)
 	dup(t, 1);
 	pushInt(t, len(t, 2));
 	dup(t, 2);
-	rawCall(t, -5, 1);
+	call(t, -5, 1);
 
 	return 1;
 }
@@ -352,7 +352,7 @@ void _rangeImpl(alias check, T)(CrocThread* t, char[] type)
 	pushNull(t);
 	pushString(t, type);
 	pushInt(t, size);
-	rawCall(t, -4, 1);
+	call(t, -4, 1);
 
 	auto m = _getMembers(t, -1);
 	auto val = v1;
@@ -503,7 +503,7 @@ uword _dup(CrocThread* t)
 	pushNull(t);
 	pushString(t, m.kind.name);
 	pushInt(t, m.itemLength);
-	rawCall(t, -4, 1);
+	call(t, -4, 1);
 
 	auto n = _getMembers(t, -1);
 	auto byteSize = m.itemLength * m.kind.itemSize;
@@ -566,7 +566,7 @@ uword _apply(CrocThread* t)
 			dup(t, 1);
 			pushNull(t);
 			push(t, _rawIndex(m, i));
-			rawCall(t, -3, 1);
+			call(t, -3, 1);
 
 			if(!test(t, -1))
 			{
@@ -992,7 +992,7 @@ void fillImpl(CrocThread* t, ref Members m, word filler, uword lo, uword hi)
 			dup(t, filler);
 			pushNull(t);
 			pushInt(t, i);
-			rawCall(t, -3, 1);
+			call(t, -3, 1);
 		}
 
 		if(m.kind.code <= TypeCode.u64)
@@ -1262,7 +1262,7 @@ uword _opSlice(CrocThread* t)
 	pushNull(t);
 	pushString(t, m.kind.name);
 	pushInt(t, hi - lo);
-	rawCall(t, -4, 1);
+	call(t, -4, 1);
 	auto n = _getMembers(t, -1);
 	auto isize = m.kind.itemSize;
 
@@ -1333,12 +1333,12 @@ uword _opSerialize(CrocThread* t)
 	dup(t, 2);
 	pushNull(t);
 	pushString(t, m.kind.name);
-	rawCall(t, -3, 0);
+	call(t, -3, 0);
 
 	dup(t, 2);
 	pushNull(t);
 	push(t, CrocValue(m.data));
-	rawCall(t, -3, 0);
+	call(t, -3, 0);
 
 	return 0;
 }
@@ -1348,7 +1348,7 @@ uword _opDeserialize(CrocThread* t)
 	dup(t, 2);
 	pushNull(t);
 	pushString(t, "string");
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 
 	auto kind = _typeCodeToKind(getString(t, -1));
 	pop(t);
@@ -1362,7 +1362,7 @@ uword _opDeserialize(CrocThread* t)
 	dup(t, 2);
 	pushNull(t);
 	pushString(t, "memblock");
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 	fielda(t, 0, Data);
 	return 0;
 }
@@ -1385,7 +1385,7 @@ uword _opCat(CrocThread* t)
 		pushNull(t);
 		pushString(t, m.kind.name);
 		pushInt(t, m.itemLength + other.itemLength);
-		rawCall(t, -4, 1);
+		call(t, -4, 1);
 
 		auto n = _getMembers(t, -1);
 		n.data.data[0 .. m.data.data.length] = m.data.data[];
@@ -1402,7 +1402,7 @@ uword _opCat(CrocThread* t)
 		pushNull(t);
 		pushString(t, m.kind.name);
 		pushInt(t, m.itemLength + 1);
-		rawCall(t, -4, 1);
+		call(t, -4, 1);
 
 		auto n = _getMembers(t, -1);
 		n.data.data[0 .. m.data.data.length] = m.data.data[];
@@ -1426,7 +1426,7 @@ uword _opCat_r(CrocThread* t)
 	pushNull(t);
 	pushString(t, m.kind.name);
 	pushInt(t, m.itemLength + 1);
-	rawCall(t, -4, 1);
+	call(t, -4, 1);
 
 	auto n = _getMembers(t, -1);
 	_rawIndexAssign(n, 0, *getValue(t, 1));

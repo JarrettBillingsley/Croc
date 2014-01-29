@@ -59,7 +59,7 @@ void throwNamedException(CrocThread* t, char[] exName, char[] fmt, ...)
 	lookup(t, exName);
 	pushNull(t);
 	pushVFormat(t, fmt, _arguments, _argptr);
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 	throwException(t);
 }
 
@@ -105,7 +105,7 @@ word importModule(CrocThread* t, word name)
 	lookup(t, "modules.load");
 	pushNull(t);
 	dup(t, name);
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 
 	assert(t.stack[t.stackIndex - 1].type == CrocValue.Type.Namespace);
 	return stackSize(t) - 1;
@@ -366,7 +366,7 @@ metamethods are respected.
 -----
 auto slot = lookup(t, "time.Timer");
 pushNull(t);
-rawCall(t, slot, 1);
+call(t, slot, 1);
 // We now have an instance of time.Timer on top of the stack.
 -----
 
@@ -499,7 +499,7 @@ void runString(CrocThread* t, char[] code, bool customEnv = false, char[] name =
 {
 	loadString(t, code, customEnv, name);
 	pushNull(t);
-	rawCall(t, -2, 0);
+	call(t, -2, 0);
 }
 
 /**
@@ -541,7 +541,7 @@ uword eval(CrocThread* t, char[] code, word numReturns = 1, bool customEnv = fal
 	insertAndPop(t, -2);
 
 	pushNull(t);
-	return rawCall(t, -2, numReturns);
+	return call(t, -2, numReturns);
 }
 
 /**
@@ -605,7 +605,7 @@ void runModule(CrocThread* t, char[] moduleName, uword numParams = 0)
 	lookup(t, "modules.runMain");
 	swap(t, -3);
 	rotate(t, numParams + 3, 3);
-	rawCall(t, -3 - numParams, 0);
+	call(t, -3 - numParams, 0);
 }
 
 /**

@@ -578,7 +578,7 @@ static:
 				dup(t, 2);
 				pushNull(t);
 				dup(t, 0);
-				rawCall(t, -3, 1);
+				call(t, -3, 1);
 
 				if(!isString(t, -1))
 				{

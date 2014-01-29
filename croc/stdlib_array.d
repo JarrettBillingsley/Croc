@@ -259,7 +259,7 @@ uword _sort(CrocThread* t)
 				pushNull(t);
 				push(t, v1.value);
 				push(t, v2.value);
-				rawCall(t, reg, 1);
+				call(t, reg, 1);
 
 				if(!isInt(t, -1))
 				{
@@ -420,7 +420,7 @@ uword _apply(CrocThread* t)
 		auto reg = dup(t, 1);
 		dup(t, 0);
 		push(t, v.value);
-		rawCall(t, reg, 1);
+		call(t, reg, 1);
 		idxai(t, 0, i);
 	}
 
@@ -439,7 +439,7 @@ uword _map(CrocThread* t)
 		auto reg = dup(t, 1);
 		dup(t, 0);
 		push(t, v.value);
-		rawCall(t, reg, 1);
+		call(t, reg, 1);
 		idxai(t, newArr, i);
 	}
 
@@ -481,7 +481,7 @@ uword _reduce(CrocThread* t)
 		pushNull(t);
 		dup(t, -3);
 		idxi(t, 0, i);
-		rawCall(t, -4, 1);
+		call(t, -4, 1);
 		insertAndPop(t, -2);
 	}
 
@@ -523,7 +523,7 @@ uword _rreduce(CrocThread* t)
 		pushNull(t);
 		idxi(t, 0, i);
 		dup(t, -4);
-		rawCall(t, -4, 1);
+		call(t, -4, 1);
 		insertAndPop(t, -2);
 
 		if(i == 0)
@@ -544,7 +544,7 @@ uword _each(CrocThread* t)
 		dup(t, 0);
 		pushInt(t, i);
 		push(t, v.value);
-		rawCall(t, -4, 1);
+		call(t, -4, 1);
 
 		if(isBool(t, -1) && getBool(t, -1) == false)
 			break;
@@ -569,7 +569,7 @@ uword _filter(CrocThread* t)
 		dup(t, 0);
 		pushInt(t, i);
 		push(t, v.value);
-		rawCall(t, -4, 1);
+		call(t, -4, 1);
 
 		if(!isBool(t, -1))
 		{
@@ -630,7 +630,7 @@ uword _findIf(CrocThread* t)
 		auto reg = dup(t, 1);
 		pushNull(t);
 		push(t, v.value);
-		rawCall(t, reg, 1);
+		call(t, reg, 1);
 
 		if(!isBool(t, -1))
 		{
@@ -810,7 +810,7 @@ uword _minMaxImpl(CrocThread* t, uword numParams, bool max)
 			pushNull(t);
 			idxi(t, 0, i);
 			push(t, extreme);
-			rawCall(t, -4, 1);
+			call(t, -4, 1);
 
 			if(!isBool(t, -1))
 			{
@@ -900,7 +900,7 @@ uword _all(CrocThread* t)
 			dup(t, 1);
 			pushNull(t);
 			push(t, v.value);
-			rawCall(t, -3, 1);
+			call(t, -3, 1);
 
 			if(!isTrue(t, -1))
 			{
@@ -941,7 +941,7 @@ uword _any(CrocThread* t)
 			dup(t, 1);
 			pushNull(t);
 			push(t, v.value);
-			rawCall(t, -3, 1);
+			call(t, -3, 1);
 
 			if(isTrue(t, -1))
 			{
@@ -1053,7 +1053,7 @@ uword _count(CrocThread* t)
 			pushNull(t);
 			push(t, a.value);
 			push(t, b.value);
-			rawCall(t, reg, 1);
+			call(t, reg, 1);
 
 			if(!isBool(t, -1))
 			{
@@ -1093,7 +1093,7 @@ uword _countIf(CrocThread* t)
 		auto reg = dup(t, 1);
 		pushNull(t);
 		push(t, a.value);
-		rawCall(t, reg, 1);
+		call(t, reg, 1);
 
 		if(!isBool(t, -1))
 		{

@@ -95,7 +95,7 @@ static:
 			haltThread(thread);
 			auto reg = pushThread(t, thread);
 			pushNull(t);
-			rawCall(t, reg, 0);
+			call(t, reg, 0);
 		}
 
 		return 0;

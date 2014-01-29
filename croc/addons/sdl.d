@@ -794,7 +794,7 @@ uword _imgLoad(CrocThread* t)
 
 	lookup(t, "SdlSurface");
 	pushNull(t);
-	return rawCall(t, -2, 1);
+	return call(t, -2, 1);
 }
 
 // =====================================================================================================================

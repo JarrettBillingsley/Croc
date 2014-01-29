@@ -426,7 +426,7 @@ public:
 				newFunction(t, reg);
 				insertAndPop(t, -2);
 				pushNull(t);
-				rawCall(t, reg, 0);
+				call(t, reg, 0);
 			}
 			catch(CrocException e2)
 			{
@@ -467,7 +467,7 @@ public:
 				insertAndPop(t, -2);
 
 				pushNull(t);
-				auto numRets = rawCall(t, reg, -1);
+				auto numRets = call(t, reg, -1);
 
 				if(numRets > 0)
 				{
@@ -486,7 +486,7 @@ public:
 						pushNull(t);
 						dup(t, i);
 						pushBool(t, false);
-						rawCall(t, reg, 0);
+						call(t, reg, 0);
 					}
 
 					Stdout.newline;
@@ -653,7 +653,7 @@ private:
 		// Set up the exit object
 		pushNull(t);
 		pushNativeObj(t, new Goober(this));
-		rawCall(t, -3, 1);
+		call(t, -3, 1);
 
 		// Is there already an 'exit'?
 		if(findGlobal(t, "exit"))

@@ -189,7 +189,7 @@ uword commonLoad(CrocThread* t, char[] name)
 		auto reg = idxi(t, loaders, i);
 		pushNull(t);
 		pushString(t, name);
-		rawCall(t, reg, 1);
+		call(t, reg, 1);
 
 		if(isFuncDef(t, reg) || isFunction(t, reg))
 		{
@@ -278,7 +278,7 @@ void initModule(CrocThread* t, char[] name, word reg)
 	// Call the top-level function
 	croctry(t,
 	{
-		rawCall(t, funcSlot, 0);
+		call(t, funcSlot, 0);
 	},
 	(CrocException e, word exSlot)
 	{
@@ -286,7 +286,7 @@ void initModule(CrocThread* t, char[] name, word reg)
 		pushNull(t);
 		pushFormat(t, "Error loading module '{}': exception thrown from module's top-level function", name);
 		dup(t, exSlot);
-		rawCall(t, slot, 1);
+		call(t, slot, 1);
 		throwException(t);
 	});
 
@@ -347,7 +347,7 @@ uword _runMain(CrocThread* t)
 		if(isFunction(t, main))
 		{
 			insert(t, 1);
-			rawCall(t, 1, 0);
+			call(t, 1, 0);
 		}
 	}
 
