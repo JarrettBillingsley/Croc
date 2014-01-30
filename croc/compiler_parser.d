@@ -41,7 +41,6 @@ private:
 	Lexer* l;
 	bool mDanglingDoc = false;
 	uword mDummyNameCounter = 0;
-	char[] mCurrentClassName = null;
 
 // ================================================================================================================================================
 // Public
@@ -405,16 +404,16 @@ public:
 						return ret;
 
 					case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
-					case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
-					case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
+					case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret, docs, docsLoc); return ret;
+					case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret, docs, docsLoc); return ret;
 
 					default:
 						c.synException(l.loc, "Illegal token '{}' after '{}'", l.peek.typeString(), l.tok.typeString());
 				}
 
 			case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
-			case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
-			case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
+			case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret, docs, docsLoc); return ret;
+			case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret, docs, docsLoc); return ret;
 
 			default:
 				l.expected("Declaration");
@@ -867,35 +866,9 @@ public:
 			l.next();
 		}
 
-		auto def = parseClassDef(false);
-		return new(c) ClassDecl(location, protection, def, deco);
-	}
+		l.expect(Token.Class);
 
-	/**
-	Parse a class definition.
-
-	Params:
-		nameOptional = If true, the name is optional (such as with class literal expressions).
-			Otherwise, the name is required (such as with class declarations).
-
-	Returns:
-		An instance of ClassDef.
-	*/
-	ClassDef parseClassDef(bool nameOptional)
-	{
-		auto location = l.expect(Token.Class).loc;
-
-		Identifier className;
-
-		if(nameOptional)
-		{
-			if(l.type == Token.Ident)
-				className = parseIdentifier();
-			else
-				className = dummyClassLiteralName(location);
-		}
-		else
-			className = parseIdentifier();
+		auto className = parseIdentifier();
 
 		Expression baseClass = null;
 
@@ -907,13 +880,7 @@ public:
 
 		l.expect(Token.LBrace);
 
-		auto oldClassName = mCurrentClassName;
-		mCurrentClassName = className.name;
-
-		scope(exit)
-			mCurrentClassName = oldClassName;
-
-		alias ClassDef.Field Field;
+		alias ClassDecl.Field Field;
 		scope fields = new List!(Field)(c);
 
 		void addField(Identifier name, Expression v, bool isMethod, char[] preDocs, CompileLoc preDocsLoc)
@@ -1015,7 +982,7 @@ public:
 		}
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) ClassDef(location, endLocation, className, baseClass, fields.toArray());
+		return new(c) ClassDecl(location, endLocation, protection, deco, className, baseClass, fields.toArray());
 	}
 
 	/**
@@ -1037,19 +1004,6 @@ public:
 			l.next();
 		}
 
-		auto def = parseNamespaceDef();
-		return new(c) NamespaceDecl(location, protection, def, deco);
-	}
-
-	/**
-	Parse a namespace. Both literals and declarations require a name.
-
-	Returns:
-		An instance of this class.
-	*/
-	NamespaceDef parseNamespaceDef()
-	{
-		auto location = l.loc;
 		l.expect(Token.Namespace);
 
 		auto name = parseIdentifier();
@@ -1061,7 +1015,6 @@ public:
 			parent.sourceStr = capture({parent = parseExpression();});
 		}
 
-
 		l.expect(Token.LBrace);
 
 		auto fieldMap = newTable(c.thread);
@@ -1069,7 +1022,7 @@ public:
 		scope(exit)
 			pop(c.thread);
 
-		alias NamespaceDef.Field Field;
+		alias NamespaceDecl.Field Field;
 		scope fields = new List!(Field)(c);
 
 		void addField(char[] name, Expression v, char[] preDocs, CompileLoc preDocsLoc)
@@ -1161,9 +1114,8 @@ public:
 			}
 		}
 
-
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) NamespaceDef(location, endLocation, name, parent, fields.toArray());
+		return new(c) NamespaceDecl(location, endLocation, protection, deco, name, parent, fields.toArray());
 	}
 
 	/**
@@ -2428,11 +2380,9 @@ public:
 			case Token.StringLiteral:          exp = parseStringExp(); break;
 			case Token.Function:               exp = parseFuncLiteralExp(); break;
 			case Token.Backslash:              exp = parseHaskellFuncLiteralExp(); break;
-			case Token.Class:                  exp = parseClassLiteralExp(); break;
 			case Token.LParen:                 exp = parseParenExp(); break;
 			case Token.LBrace:                 exp = parseTableCtorExp(); break;
 			case Token.LBracket:               exp = parseArrayCtorExp(); break;
-			case Token.Namespace:              exp = parseNamespaceCtorExp(); break;
 			case Token.Yield:                  exp = parseYieldExp(); break;
 			case Token.Super:                  exp = parseSuperCallExp(); break;
 			case Token.Colon:                  exp = parseMemberExp(); break;
@@ -2534,15 +2484,6 @@ public:
 		auto location = l.loc;
 		auto def = parseHaskellFuncLiteral();
 		return new(c) FuncLiteralExp(location, def);
-	}
-
-	/**
-	*/
-	ClassLiteralExp parseClassLiteralExp()
-	{
-		auto location = l.loc;
-		auto def = parseClassDef(true);
-		return new(c) ClassLiteralExp(location, def);
 	}
 
 	/**
@@ -2672,15 +2613,6 @@ public:
 
 		auto endLocation = l.expect(Token.RBracket).loc;
 		return new(c) ArrayCtorExp(location, endLocation, values.toArray());
-	}
-
-	/**
-	*/
-	NamespaceCtorExp parseNamespaceCtorExp()
-	{
-		auto location = l.loc;
-		auto def = parseNamespaceDef();
-		return new(c) NamespaceCtorExp(location, def);
 	}
 
 	/**
@@ -3126,14 +3058,6 @@ import tango.io.Stdout;
 	Identifier dummyFuncLiteralName(CompileLoc loc)
 	{
 		pushFormat(c.thread, "<literal at {}({}:{})>", loc.file, loc.line, loc.col);
-		auto str = c.newString(getString(c.thread, -1));
-		pop(c.thread);
-		return new(c) Identifier(loc, str);
-	}
-
-	Identifier dummyClassLiteralName(CompileLoc loc)
-	{
-		pushFormat(c.thread, "<class at {}({}:{})>", loc.file, loc.line, loc.col);
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
 		return new(c) Identifier(loc, str);

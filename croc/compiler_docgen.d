@@ -199,20 +199,6 @@ public:
 
 	override ClassDecl visit(ClassDecl d)
 	{
-		if(d.def.docs.length == 0)
-			return d;
-
-		d.def = visit(d.def);
-		doProtection(d.protection);
-
-		if(c.docDecorators)
-			d.decorator = makeDeco(d.location, d.decorator);
-
-		return d;
-	}
-
-	override ClassDef visit(ClassDef d)
-	{
 		if(d.docs.length == 0)
 			return d;
 
@@ -226,15 +212,6 @@ public:
 
 		doFields(d.fields);
 		popDocTable();
-		return d;
-	}
-
-	override NamespaceDecl visit(NamespaceDecl d)
-	{
-		if(d.def.docs.length == 0)
-			return d;
-
-		d.def = visit(d.def);
 		doProtection(d.protection);
 
 		if(c.docDecorators)
@@ -243,7 +220,7 @@ public:
 		return d;
 	}
 
-	override NamespaceDef visit(NamespaceDef d)
+	override NamespaceDecl visit(NamespaceDecl d)
 	{
 		if(d.docs.length == 0)
 			return d;
@@ -258,6 +235,11 @@ public:
 
 		doFields(d.fields);
 		popDocTable();
+		doProtection(d.protection);
+
+		if(c.docDecorators)
+			d.decorator = makeDeco(d.location, d.decorator);
+
 		return d;
 	}
 

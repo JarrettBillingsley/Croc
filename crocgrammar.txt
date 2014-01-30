@@ -478,11 +478,9 @@ PrimaryExpression:
 	: (Identifier | super | '(' Expression ')')
 	function Identifier? FunctionBody
 	\ Parameters ((-> Expression) | BlockStatement)
-	class Identifier? (: Expression)? { ClassMember* }
 	'(' Expression ')'
 	TableCtorExp
 	ArrayLiteral
-	namespace Identifier (: Expression)? { NamespaceMember* }
 	yield '(' Arguments? ')'
 
 ArrayLiteral:

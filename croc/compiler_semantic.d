@@ -163,28 +163,6 @@ public:
 		return d;
 	}
 
-	override ClassDef visit(ClassDef d)
-	{
-		if(d.baseClass)
-			d.baseClass = visit(d.baseClass);
-
-		foreach(ref field; d.fields)
-			field.initializer = visit(field.initializer);
-
-		return d;
-	}
-
-	override NamespaceDef visit(NamespaceDef d)
-	{
-		if(d.parent)
-			visit(d.parent);
-
-		foreach(ref field; d.fields)
-			field.initializer = visit(field.initializer);
-
-		return d;
-	}
-
 	override Statement visit(AssertStmt s)
 	{
 		if(!c.asserts())
@@ -348,10 +326,14 @@ public:
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
 
-		d.def = visit(d.def);
-
 		if(d.decorator !is null)
 			d.decorator = visit(d.decorator);
+
+		if(d.baseClass)
+			d.baseClass = visit(d.baseClass);
+
+		foreach(ref field; d.fields)
+			field.initializer = visit(field.initializer);
 
 		return d;
 	}
@@ -361,10 +343,14 @@ public:
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
 
-		d.def = visit(d.def);
-
 		if(d.decorator !is null)
 			d.decorator = visit(d.decorator);
+
+		if(d.parent)
+			visit(d.parent);
+
+		foreach(ref field; d.fields)
+			field.initializer = visit(field.initializer);
 
 		return d;
 	}
@@ -1719,18 +1705,6 @@ public:
 	}
 
 	override FuncLiteralExp visit(FuncLiteralExp e)
-	{
-		e.def = visit(e.def);
-		return e;
-	}
-
-	override ClassLiteralExp visit(ClassLiteralExp e)
-	{
-		e.def = visit(e.def);
-		return e;
-	}
-
-	override NamespaceCtorExp visit(NamespaceCtorExp e)
 	{
 		e.def = visit(e.def);
 		return e;

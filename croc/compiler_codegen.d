@@ -122,96 +122,6 @@ public:
 		return m;
 	}
 
-	override ClassDef visit(ClassDef d)
-	{
-		classDefBegin(d); // leaves local containing class on the stack
-		classDefEnd(d); // still leaves it
-
-		return d;
-	}
-
-	void classDefBegin(ClassDef d)
-	{
-		fs.pushString(d.name.name);
-
-		if(d.baseClass)
-		{
-			visit(d.baseClass);
-			fs.toSource(d.baseClass.location);
-		}
-		else
-		{
-			fs.pushNull();
-			fs.toSource(d.location);
-		}
-
-		fs.newClass(d.location);
-	}
-
-	void classDefEnd(ClassDef d)
-	{
-		if(d.fields.length == 0)
-			return;
-
-		fs.toSource(d.location);
-
-		foreach(ref field; d.fields)
-		{
-			fs.dup();
-			fs.pushString(field.name);
-			visit(field.initializer);
-			fs.toSource(field.initializer.location);
-
-			if(field.isMethod)
-				fs.addClassMethod(field.initializer.location);
-			else
-				fs.addClassField(field.initializer.location);
-		}
-	}
-
-	override NamespaceDef visit(NamespaceDef d)
-	{
-		auto desc = namespaceDefBegin(d);
-		namespaceDefEnd(d, desc);
-		return d;
-	}
-
-	NamespaceDesc namespaceDefBegin(NamespaceDef d)
-	{
-		fs.pushString(d.name.name);
-
-		if(d.parent)
-		{
-			visit(d.parent);
-			fs.toSource(d.parent.location);
-			fs.newNamespace(d.location);
-		}
-		else
-			fs.newNamespaceNP(d.location);
-
-		return fs.beginNamespace(d.location);
-	}
-
-	void namespaceDefEnd(NamespaceDef d, ref NamespaceDesc desc)
-	{
-		if(d.fields.length)
-		{
-			fs.toSource(d.location);
-
-			foreach(ref field; d.fields)
-			{
-				fs.dup();
-				fs.pushString(field.name);
-				fs.toSource(field.initializer.location);
-				fs.field();
-				visit(field.initializer);
-				fs.assign(field.initializer.location, 1, 1);
-			}
-		}
-
-		fs.endNamespace(desc);
-	}
-
 	override FuncDef visit(FuncDef d)
 	{
 		scope inner = new FuncState(c, d.location, d.name.name, fs);
@@ -404,30 +314,61 @@ public:
 	{
 		if(d.protection == Protection.Local)
 		{
-			fs.insertLocal(d.def.name);
+			fs.insertLocal(d.name);
 			fs.activateLocals(1);
-			fs.pushVar(d.def.name);
+			fs.pushVar(d.name);
 		}
 		else
 		{
 			assert(d.protection == Protection.Global);
-			fs.pushNewGlobal(d.def.name);
+			fs.pushNewGlobal(d.name);
 		}
 
 		// put empty class in d.name
-		classDefBegin(d.def);
+		fs.pushString(d.name.name);
+
+		if(d.baseClass)
+		{
+			visit(d.baseClass);
+			fs.toSource(d.baseClass.location);
+		}
+		else
+		{
+			fs.pushNull();
+			fs.toSource(d.location);
+		}
+
+		fs.newClass(d.location);
 		fs.assign(d.location, 1, 1);
 
 		// evaluate rest of decl
-		fs.pushVar(d.def.name);
-		classDefEnd(d.def);
+		fs.pushVar(d.name);
+
+		if(d.fields.length != 0)
+		{
+			fs.toSource(d.location);
+
+			foreach(ref field; d.fields)
+			{
+				fs.dup();
+				fs.pushString(field.name);
+				visit(field.initializer);
+				fs.toSource(field.initializer.location);
+
+				if(field.isMethod)
+					fs.addClassMethod(field.initializer.location);
+				else
+					fs.addClassField(field.initializer.location);
+			}
+		}
+
 		fs.pop();
 
 		if(d.decorator)
 		{
 			// reassign decorated class into name
-			fs.pushVar(d.def.name);
-			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.pushVar(d.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.name); });
 			fs.assign(d.endLocation, 1, 1);
 		}
 
@@ -438,30 +379,58 @@ public:
 	{
 		if(d.protection == Protection.Local)
 		{
-			fs.insertLocal(d.def.name);
+			fs.insertLocal(d.name);
 			fs.activateLocals(1);
-			fs.pushVar(d.def.name);
+			fs.pushVar(d.name);
 		}
 		else
 		{
 			assert(d.protection == Protection.Global);
-			fs.pushNewGlobal(d.def.name);
+			fs.pushNewGlobal(d.name);
 		}
 
 		// put empty namespace in d.name
-		auto desc = namespaceDefBegin(d.def);
+		fs.pushString(d.name.name);
+
+		if(d.parent)
+		{
+			visit(d.parent);
+			fs.toSource(d.parent.location);
+			fs.newNamespace(d.location);
+		}
+		else
+			fs.newNamespaceNP(d.location);
+
+		auto desc = fs.beginNamespace(d.location);
+
 		fs.assign(d.location, 1, 1);
 
 		// evaluate rest of decl
-		fs.pushVar(d.def.name);
-		namespaceDefEnd(d.def, desc);
+		fs.pushVar(d.name);
+
+		if(d.fields.length)
+		{
+			fs.toSource(d.location);
+
+			foreach(ref field; d.fields)
+			{
+				fs.dup();
+				fs.pushString(field.name);
+				fs.toSource(field.initializer.location);
+				fs.field();
+				visit(field.initializer);
+				fs.assign(field.initializer.location, 1, 1);
+			}
+		}
+
+		fs.endNamespace(desc);
 		fs.pop();
 
 		if(d.decorator)
 		{
 			// reassign decorated namespace into name
-			fs.pushVar(d.def.name);
-			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.pushVar(d.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.name); });
 			fs.assign(d.endLocation, 1, 1);
 		}
 
@@ -1426,18 +1395,6 @@ public:
 	}
 
 	override FuncLiteralExp visit(FuncLiteralExp e)
-	{
-		visit(e.def);
-		return e;
-	}
-
-	override ClassLiteralExp visit(ClassLiteralExp e)
-	{
-		visit(e.def);
-		return e;
-	}
-
-	override NamespaceCtorExp visit(NamespaceCtorExp e)
 	{
 		visit(e.def);
 		return e;
