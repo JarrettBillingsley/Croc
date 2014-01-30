@@ -195,7 +195,6 @@ const RegisterFunc[] _methodFuncs =
 	{"map",      &_map,      maxParams: 1},
 	{"reduce",   &_reduce,   maxParams: 2},
 	{"rreduce",  &_rreduce,  maxParams: 2},
-	{"each",     &_each,     maxParams: 1},
 	{"filter",   &_filter,   maxParams: 1},
 	{"find",     &_find,     maxParams: 1},
 	{"findIf",   &_findIf,   maxParams: 1},
@@ -530,27 +529,6 @@ uword _rreduce(CrocThread* t)
 			break;
 	}
 
-	return 1;
-}
-
-uword _each(CrocThread* t)
-{
-	checkParam(t, 0, CrocValue.Type.Array);
-	checkParam(t, 1, CrocValue.Type.Function);
-
-	foreach(i, ref v; getArray(t, 0).toArray())
-	{
-		dup(t, 1);
-		dup(t, 0);
-		pushInt(t, i);
-		push(t, v.value);
-		call(t, -4, 1);
-
-		if(isBool(t, -1) && getBool(t, -1) == false)
-			break;
-	}
-
-	dup(t, 0);
 	return 1;
 }
 
@@ -1269,15 +1247,6 @@ foreach(i, v; a, "reverse")
 		will still sum all the elements, because addition is commutative, but the order in which this
 		is done becomes \tt{(1 + (2 + (3 + (4 + 5))))}. Obviously if \tt{func} is not commutative, \tt{reduce}
 		and \tt{rreduce} will give different results.`},
-
-		{kind: "function", name: "each",
-		params: [Param("func", "function")],
-		extra: [Extra("section", "Methods")],
-		docs:
-		`This is an alternate way of iterating over an array. The function is called once for each
-		element, starting at the first element. The parameters to the function are the array as the
-		\tt{this} param, then the index, and then the value. If the function returns \tt{false}, iteration will
-		stop and this function will return. This function returns the array on which it was called.`},
 
 		{kind: "function", name: "filter",
 		params: [Param("func", "function")],

@@ -334,7 +334,6 @@ const RegisterFunc[] _globalFuncs =
 	{"map",    &_map,    maxParams: 2},
 	{"reduce", &_reduce, maxParams: 3},
 	{"filter", &_filter, maxParams: 2},
-	{"each",   &_each,   maxParams: 2},
 	{"take",   &_take,   maxParams: 1},
 	{"pop",    &_pop,    maxParams: 1},
 	{"clear",  &_clear,  maxParams: 1},
@@ -530,72 +529,6 @@ uword _filter(CrocThread* t)
 		pop(t);
 	}
 
-	return 1;
-}
-
-uword _each(CrocThread* t)
-{
-	checkParam(t, 2, CrocValue.Type.Function);
-
-	CrocValue* k = void, v = void;
-
-	bool guts()
-	{
-		auto reg = dup(t, 2);
-		dup(t, 1);
-		push(t, *k);
-		push(t, *v);
-
-		call(t, reg, 1);
-
-		if(!isNull(t, -1))
-		{
-			if(!isBool(t, -1))
-			{
-				pushTypeString(t, -1);
-				throwStdException(t, "TypeError", "'each' function expected to return 'bool', not '{}'", getString(t, -1));
-			}
-
-			if(getBool(t, -1) == false)
-			{
-				pop(t);
-				return false;
-			}
-		}
-
-		pop(t);
-		return true;
-	}
-
-	if(isTable(t, 1))
-	{
-		auto tab = getTable(t, 1);
-		uword idx = 0;
-
-		while(table.next(tab, idx, k, v))
-			if(!guts())
-				break;
-	}
-	else if(isNamespace(t, 1))
-	{
-		auto ns = getNamespace(t, 1);
-		uword idx = 0;
-		CrocString** s = void;
-		CrocValue key = void;
-		k = &key;
-
-		while(ns.data.next(idx, s, v))
-		{
-			key = *s;
-
-			if(!guts())
-				break;
-		}
-	}
-	else
-		paramTypeError(t, 1, "table|namespace");
-
-	dup(t, 1);
 	return 1;
 }
 
@@ -967,11 +900,6 @@ const Docs[] _globalFuncDocs =
 	\returns the new table.
 
 	\throws[exceptions.TypeError] if \tt{f} returns anything other than a boolean value.`},
-
-	{kind: "function", name: "each",
-	params: [Param("h", "table|namespace"), Param("f", "function")],
-	docs:
-	`This function is stupid.`},
 
 	{kind: "function", name: "take",
 	params: [Param("h", "table|namespace")],
