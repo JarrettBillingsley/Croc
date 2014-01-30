@@ -84,7 +84,7 @@ void initHashLib(CrocThread* t)
 		`This library contains functionality common to both tables and namespaces, which are two similar kinds of hash
 		tables. It also defines the metatables for tables and namespaces.`));
 
-		// docFields(t, doc, _globalFuncDocs);
+		docFields(t, doc, _globalFuncDocs);
 
 		field(t, hash, "_subdocs");
 		doc.mergeModuleDocs();
@@ -333,8 +333,8 @@ const RegisterFunc[] _globalFuncs =
 	{"apply",  &_apply,  maxParams: 2},
 	{"map",    &_map,    maxParams: 2},
 	{"reduce", &_reduce, maxParams: 3},
-	{"each",   &_each,   maxParams: 2},
 	{"filter", &_filter, maxParams: 2},
+	{"each",   &_each,   maxParams: 2},
 	{"take",   &_take,   maxParams: 1},
 	{"pop",    &_pop,    maxParams: 1},
 	{"clear",  &_clear,  maxParams: 1},
@@ -657,29 +657,55 @@ gc.postCallback$ function postGC()
 	}
 }
 
+/**
+Base class for all types of weak tables.
+
+All the weak table classes present an interface as similar to actual tables as possible.
+*/
 local class WeakTableBase
 {
+	/**
+	All subclasses of this class must call this constructor with \tt{super()}.
+	*/
 	this()
 	{
 		allWeakTables[weakref(this)] = true
 	}
 }
 
+/**
+A table with weak keys and strong values. This kind of table is often useful for associating data with objects, using
+the object as the key and the data you want to associate as the value.
+
+\warnings It is possible for memory leaks to occur with this kind of table! Even though the keys are weak, the values
+may directly or indirectly reference the key objects, which means those objects can be kept alive even if the only thing
+that references them is a table like this. Be careful.
+*/
 class WeakKeyTable : WeakTableBase
 {
 	_data
 
+	/**
+	Constructor.
+	*/
 	this()
 	{
 		:_data = {}
 		super()
 	}
 
+	/**
+	Operator overloads for \tt{in}, getting and setting key-value pairs, and getting the length of the table.
+	*/
 	function opIn(k) = weakref(k) in :_data
-	function opIndex(k) = :_data[weakref(k)]
-	function opIndexAssign(k, v) :_data[weakref(k)] = v
-	function opLength() = #:_data
+	function opIndex(k) = :_data[weakref(k)] /// ditto
+	function opIndexAssign(k, v) :_data[weakref(k)] = v /// ditto
+	function opLength() = #:_data /// ditto
 
+	/**
+	Allows you to use a foreach loop over the table. You will not get weakref objects for the keys, but rather strong
+	references. Also, you can modify the table during iteration.
+	*/
 	function opApply(_) // can modify with this implementation too
 	{
 		local keys = hash.keys(:_data)
@@ -699,9 +725,20 @@ class WeakKeyTable : WeakTableBase
 		return iterator, this, null
 	}
 
+	/**
+	Gets an array of the keys (dereferenced) of this table.
+	*/
 	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
+
+	/**
+	Gets an array of the values of this table.
+	*/
 	function values() = hash.values(:_data)
 
+	/**
+	Normalizes the table by removing any key-value pairs where the key has been collected. This is usually called
+	automatically for you.
+	*/
 	function normalize()
 	{
 		foreach(k, _; :_data, "modify")
@@ -712,21 +749,38 @@ class WeakKeyTable : WeakTableBase
 	}
 }
 
+/**
+A table with strong keys and weak values.
+
+\warnings It is possible for memory leaks to occur with this kind of table! Even though the values are weak, the keys
+may directly or indirectly reference the value objects, which means those objects can be kept alive even if the only
+thing that references them is a table like this. Be careful.
+*/
 class WeakValTable : WeakTableBase
 {
 	_data
 
+	/**
+	Constructor.
+	*/
 	this()
 	{
 		:_data = {}
 		super()
 	}
 
+	/**
+	Operator overloads for \tt{in}, getting and setting key-value pairs, and getting the length of the table.
+	*/
 	function opIn(k) = k in :_data
-	function opIndex(k) = deref(:_data[k])
-	function opIndexAssign(k, v) :_data[k] = weakref(v)
-	function opLength() = #:_data
+	function opIndex(k) = deref(:_data[k]) /// ditto
+	function opIndexAssign(k, v) :_data[k] = weakref(v) /// ditto
+	function opLength() = #:_data /// ditto
 
+	/**
+	Allows you to use a foreach loop over the table. You will not get weakref objects for the values, but rather strong
+	references. Also, you can modify the table during iteration.
+	*/
 	function opApply(_) // can modify with this implementation too
 	{
 		local keys = hash.keys(:_data)
@@ -746,9 +800,20 @@ class WeakValTable : WeakTableBase
 		return iterator, this, null
 	}
 
+	/**
+	Gets an array of the keys of this table.
+	*/
 	function keys() = hash.keys(:_data)
+
+	/**
+	Gets an array of the values (dereferenced) of this table.
+	*/
 	function values() = [deref(v) foreach _, v; :_data if deref(v) !is null]
 
+	/**
+	Normalizes the table by removing any key-value pairs where the value has been collected. This is usually called
+	automatically for you.
+	*/
 	function normalize()
 	{
 		foreach(k, v; :_data, "modify")
@@ -759,21 +824,36 @@ class WeakValTable : WeakTableBase
 	}
 }
 
+/**
+A table with weak keys \em{and} weak values.
+
+Unlike the other two varieties of weak tables, you can't cause memory leaks with this one!
+*/
 class WeakKeyValTable : WeakTableBase
 {
 	_data
 
+	/**
+	Constructor.
+	*/
 	this()
 	{
 		:_data = {}
 		super()
 	}
 
+	/**
+	Operator overloads for \tt{in}, getting and setting key-value pairs, and getting the length of the table.
+	*/
 	function opIn(k) = weakref(k) in :_data
-	function opIndex(k) = deref(:_data[weakref(k)])
-	function opIndexAssign(k, v) :_data[weakref(k)] = weakref(v)
-	function opLength() = #:_data
+	function opIndex(k) = deref(:_data[weakref(k)]) /// ditto
+	function opIndexAssign(k, v) :_data[weakref(k)] = weakref(v) /// ditto
+	function opLength() = #:_data /// ditto
 
+	/**
+	Allows you to use a foreach loop over the table. You will not get weakref objects for the keys and values, but
+	rather strong references. Also, you can modify the table during iteration.
+	*/
 	function opApply(_) // can modify with this implementation too
 	{
 		local keys = hash.keys(:_data)
@@ -793,9 +873,20 @@ class WeakKeyValTable : WeakTableBase
 		return iterator, this, null
 	}
 
+	/**
+	Gets an array of the keys (dereferenced) of this table.
+	*/
 	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
+
+	/**
+	Gets an array of the values (dereferenced) of this table.
+	*/
 	function values() = [deref(v) foreach _, v; :_data if deref(v) !is null]
 
+	/**
+	Normalizes the table by removing any key-value pairs where the key or value have been collected. This is usually
+	called automatically for you.
+	*/
 	function normalize()
 	{
 		foreach(k, v; :_data, "modify")
@@ -803,3 +894,111 @@ class WeakKeyValTable : WeakTableBase
 				:_data[k] = null
 	}
 }`;
+
+const Docs[] _globalFuncDocs =
+[
+	{kind: "function", name: "dup",
+	params: [Param("t", "table")],
+	docs:
+	`Makes a shallow duplicate of a table.
+
+	\returns a new table that has the same key-value pairs as \tt{t}.`},
+
+	{kind: "function", name: "keys",
+	params: [Param("h", "table|namespace")],
+	docs:
+	`\returns an array containing all the keys of the given table or namespace. The order of the keys is arbitrary.
+
+	\notes This function is nontrivial, involving a memory allocation and a traversal of the given hashtable.`},
+
+	{kind: "function", name: "values",
+	params: [Param("h", "table|namespace")],
+	docs:
+	`\returns an array containing all the values of the given table or namespace. The order of the values is arbitrary.
+
+	\notes This function is nontrivial, involving a memory allocation and a traversal of the given hashtable.`},
+
+	{kind: "function", name: "apply",
+	params: [Param("t", "table"), Param("f", "function")],
+	docs:
+	`Similar to the \link{array.apply} function, this iterates over the values of the table, calling the function \tt{f}
+	on each value, and storing the value it returns back into the same key. This works in-place on the table.
+
+	\examples If you have a table \tt{t = \{x = 1, y = 2, z = 3\}} and call \tt{hash.apply(t, \\x -> x + 5)}, \tt{t}
+	will now contain \tt{\{x = 6, y = 7, z = 8\}}.
+
+	\returns \tt{t}.
+
+	\throws[exceptions.TypeError] if \tt{f} returns \tt{null}.`},
+
+	{kind: "function", name: "map",
+	params: [Param("t", "table"), Param("f", "function")],
+	docs:
+	`Like \link{apply}, but instead of operating in-place, creates a new table which holds the transformed key-value
+	pairs, leaving \tt{t} unmodified.
+
+	\returns the new table.
+
+	throws[exceptions.TypeError] if \tt{f} returns \tt{null}.`},
+
+	{kind: "function", name: "reduce",
+	params: [Param("t", "table"), Param("f", "function"), Param("initial", "any", "null")],
+	docs:
+	`Works just like the \link{array.reduce} function, but the order of the values is arbitrary. \tt{f} will be called
+	with two parameters, the current value of the accumulator and a new value from the table, and is expected to return
+	the new value of the accumulator.
+
+	Just like \link{array.reduce}, the \tt{initial} parameter can be given to set the accumulator to an initial value.
+
+	\throws[exceptions.ParamError] if you call this function on an empty table and \em{don't} pass an \tt{initial}
+	parameter.`},
+
+	{kind: "function", name: "filter",
+	params: [Param("t", "table"), Param("f", "function")],
+	docs:
+	`Similar to the \link{array.filter} function, this creates a new table which holds only those key-value pairs for
+	which the given filter function \tt{f} returns \tt{true}. \tt{f} is given two arguments, the key and the value, and
+	must return a boolean value. \tt{true} means the key-value pair will be included in the result.
+
+	\examples \tt{hash.filter(\{a = 1, b = 2, c = "hi", d = 4.5, e = 6\}, \\k, v -> isInt(v))} will give a table
+	containing only those key-value pairs from the original where the values were integers, so you will get
+	\tt{\{a = 1, b = 2, e = 6\}}.
+
+	\returns the new table.
+
+	\throws[exceptions.TypeError] if \tt{f} returns anything other than a boolean value.`},
+
+	{kind: "function", name: "each",
+	params: [Param("h", "table|namespace"), Param("f", "function")],
+	docs:
+	`This function is stupid.`},
+
+	{kind: "function", name: "take",
+	params: [Param("h", "table|namespace")],
+	docs:
+	`\returns an arbitrary key-value pair as two values (first the key, then the value). The key-value pair is not
+	removed. This is often useful when using a hashtable as a set.
+
+	\throws[exceptions.ValueError] if \tt{#h == 0}.`},
+
+	{kind: "function", name: "pop",
+	params: [Param("h", "table|namespace")],
+	docs:
+	`Similar to \link{take}, but it \b{does} remove the key-value pair that is returned.
+
+	\returns the arbitrary key-value pair as two values (first the key, then the value).
+
+	\throws[exceptions.ValueError] if \tt{#h == 0}.`},
+
+	{kind: "function", name: "clear",
+	params: [Param("h", "table|namespace")],
+	docs:
+	`Removes all key-value pairs from \tt{h}.`},
+
+	{kind: "function", name: "remove",
+	params: [Param("h", "table|namespace"), Param("key")],
+	docs:
+	`Removes from \tt{h} the key-value pair with key \tt{key}, if any exists. For tables, you can also do this by
+	assigning a \tt{null} value to a key-value pair, but this function is the only way to remove key-value pairs from
+	namespaces.`},
+];
