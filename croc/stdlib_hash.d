@@ -332,7 +332,7 @@ const RegisterFunc[] _globalFuncs =
 	{"values", &_values, maxParams: 1},
 	{"apply",  &_apply,  maxParams: 2},
 	{"map",    &_map,    maxParams: 2},
-	{"reduce", &_reduce, maxParams: 2},
+	{"reduce", &_reduce, maxParams: 3},
 	{"each",   &_each,   maxParams: 2},
 	{"filter", &_filter, maxParams: 2},
 	{"take",   &_take,   maxParams: 1},
@@ -414,40 +414,45 @@ uword _namespaceOpApply(CrocThread* t)
 
 uword _apply(CrocThread* t)
 {
-	checkParam(t, 0, CrocValue.Type.Table);
-	checkParam(t, 1, CrocValue.Type.Function);
+	checkParam(t, 1, CrocValue.Type.Table);
+	checkParam(t, 2, CrocValue.Type.Function);
 
-	auto tab = getTable(t, 0);
+	auto tab = getTable(t, 1);
 
 	foreach(ref k, ref v; tab.data)
 	{
-		auto reg = dup(t, 1);
-		dup(t, 0);
+		dup(t, 2);
+		pushNull(t);
 		push(t, v);
-		call(t, reg, 1);
+		call(t, -3, 1);
+
+		if(isNull(t, -1))
+			throwStdException(t, "TypeError", "Callback function returned null");
+
 		table.idxa(t.vm.alloc, tab, k, *getValue(t, -1));
 		pop(t);
 	}
 
-	dup(t, 0);
+	dup(t, 1);
 	return 1;
 }
 
-// TODO: Finish these three
 uword _map(CrocThread* t)
 {
-	checkParam(t, 0, CrocValue.Type.Table);
-	checkParam(t, 1, CrocValue.Type.Function);
-	auto newTab = newTable(t, cast(uword)len(t, 0));
-	auto nt = getTable(t, -1);
+	checkParam(t, 1, CrocValue.Type.Table);
+	checkParam(t, 2, CrocValue.Type.Function);
 
-	foreach(ref k, ref v; getTable(t, 0).data)
+	newTable(t);
+
+	auto newTab = getTable(t, -1);
+
+	foreach(ref k, ref v; getTable(t, 1).data)
 	{
-		auto reg = dup(t, 1);
-		dup(t, 0);
+		dup(t, 2);
+		pushNull(t);
 		push(t, v);
-		call(t, reg, 1);
-		table.idxa(t.vm.alloc, nt, k, *getValue(t, -1));
+		call(t, -3, 1);
+		table.idxa(t.vm.alloc, newTab, k, *getValue(t, -1));
 		pop(t);
 	}
 
@@ -456,12 +461,76 @@ uword _map(CrocThread* t)
 
 uword _reduce(CrocThread* t)
 {
-	return 0;
+	auto numParams = stackSize(t) - 1;
+	checkParam(t, 1, CrocValue.Type.Table);
+	checkParam(t, 2, CrocValue.Type.Function);
+
+	uword length = cast(uword)len(t, 1);
+
+	if(length == 0)
+	{
+		if(numParams == 2)
+			throwStdException(t, "ParamError", "Attempting to reduce an empty table without an initial value");
+		else
+		{
+			dup(t, 3);
+			return 1;
+		}
+	}
+
+	bool haveInitial = numParams > 2;
+
+	foreach(ref k, ref v; getTable(t, 1).data)
+	{
+		if(!haveInitial)
+		{
+			push(t, v);
+			haveInitial = true;
+		}
+		else
+		{
+			dup(t, 2);
+			pushNull(t);
+			dup(t, -3);
+			push(t, v);
+			call(t, -4, 1);
+			insertAndPop(t, -2);
+		}
+	}
+
+	return 1;
 }
 
 uword _filter(CrocThread* t)
 {
-	return 0;
+	checkParam(t, 1, CrocValue.Type.Table);
+	checkParam(t, 2, CrocValue.Type.Function);
+
+	newTable(t);
+
+	auto newTab = getTable(t, -1);
+
+	foreach(ref k, ref v; getTable(t, 1).data)
+	{
+		dup(t, 2);
+		pushNull(t);
+		push(t, k);
+		push(t, v);
+		call(t, -4, 1);
+
+		if(!isBool(t, -1))
+		{
+			pushTypeString(t, -1);
+			throwStdException(t, "TypeError", "Callback function did not return a bool, it returned '{}'", getString(t, -1));
+		}
+
+		if(getBool(t, -1))
+			table.idxa(t.vm.alloc, newTab, k, v);
+
+		pop(t);
+	}
+
+	return 1;
 }
 
 uword _each(CrocThread* t)
