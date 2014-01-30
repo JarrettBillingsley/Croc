@@ -399,8 +399,11 @@ class DocVisitor
 					case "nlist":    :visitNlist(elem[1], elem[2..]);  break
 					case "dlist":    :visitDlist(elem[1..]);           break
 					case "table":    :visitTable(elem[1..]);           break
+
+					case "b":        :visitBold(elem[1..]);            break
 					case "em":       :visitEmphasis(elem[1..]);        break
 					case "link":     :visitLink(elem[1], elem[2..]);   break
+					case "s":        :visitStrikethrough(elem[1..]);   break
 					case "sub":      :visitSubscript(elem[1..]);       break
 					case "sup":      :visitSuperscript(elem[1..]);     break
 					case "tt":       :visitMonospace(elem[1..]);       break
@@ -439,11 +442,17 @@ class DocVisitor
 	/// Visits a table. Must be overridden.
 	function visitTable(rows: array) throw NotImplementedError()
 
+	/// Visits an bold text span. Must be overridden.
+	function visitBold(contents: array) throw NotImplementedError()
+
 	/// Visits an emphasis text span. Must be overridden.
 	function visitEmphasis(contents: array) throw NotImplementedError()
 
 	/// Visits a link text span. Must be overridden.
 	function visitLink(link: string, contents: array) throw NotImplementedError()
+
+	/// Visits an strikethrough text span. Must be overridden.
+	function visitStrikethrough(contents: array) throw NotImplementedError()
 
 	/// Visits a subscript text span. Must be overridden.
 	function visitSubscript(contents: array) throw NotImplementedError()

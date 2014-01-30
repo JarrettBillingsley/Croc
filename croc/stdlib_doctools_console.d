@@ -489,6 +489,8 @@ class BasicConsoleOutputter : DocOutputter
 	function endLink() {}
 	function beginMonospace() {}
 	function endMonospace() {}
+	function beginStrikethrough() :outputText("~");
+	function endStrikethrough() :outputText("~");
 	function beginSubscript() :outputText("_")
 	function endSubscript() {}
 	function beginSuperscript() :outputText("^")

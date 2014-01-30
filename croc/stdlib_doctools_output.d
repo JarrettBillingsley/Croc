@@ -960,6 +960,8 @@ class DocOutputter
 	function endBold() throw NotImplementedError() /// ditto
 	function beginEmphasis() throw NotImplementedError() /// ditto
 	function endEmphasis() throw NotImplementedError() /// ditto
+	function beginStrikethrough() throw NotImplementedError() /// ditto
+	function endStrikethrough() throw NotImplementedError() /// ditto
 	function beginSubscript() throw NotImplementedError() /// ditto
 	function endSubscript() throw NotImplementedError() /// ditto
 	function beginSuperscript() throw NotImplementedError() /// ditto
@@ -1242,6 +1244,14 @@ class OutputDocVisitor : DocVisitor
 		:_output.beginLink(link)
 		:visitParagraphElements(contents)
 		:_output.endLink()
+	}
+
+	/// ditto
+	function visitStrikethrough(contents: array)
+	{
+		:_output.beginStrikethrough()
+		:visitParagraphElements(contents)
+		:_output.endStrikethrough()
 	}
 
 	/// ditto

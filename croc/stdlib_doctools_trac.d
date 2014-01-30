@@ -371,6 +371,8 @@ class TracWikiOutputter : DocOutputter
 	function endLink() :outputText("]")
 	function beginMonospace() :outputText("` "`" `")
 	function endMonospace() :outputText("` "`" `")
+	function beginStrikethrough() :outputText("~~")
+	function endStrikethrough() :outputText("~~")
 	function beginSubscript() :outputText(",,")
 	function endSubscript() :outputText(",,")
 	function beginSuperscript() :outputText("^")
