@@ -72,7 +72,7 @@ package:
 		return t;
 	}
 
-	// Create a new thread object with a function to be used as the coroutine body.
+	// Create a new thread object with a function to be used as the thread body.
 	CrocThread* create(CrocVM* vm, CrocFunction* coroFunc)
 	{
 		auto t = create(vm);

@@ -441,7 +441,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 				throwStdException(t, "RuntimeError", "Attempting to resume VM's main thread");
 
 			if(thread.state != CrocThread.State.Initial && thread.state != CrocThread.State.Suspended)
-				throwStdException(t, "StateError", "Attempting to resume a {} coroutine", CrocThread.StateStrings[thread.state]);
+				throwStdException(t, "StateError", "Attempting to resume a {} thread", CrocThread.StateStrings[thread.state]);
 
 			auto ar = pushAR(t);
 
@@ -2431,7 +2431,7 @@ word typeString(CrocThread* t, CrocValue* v)
 }
 
 // ============================================================================
-// Coroutines
+// Threads
 
 version(CrocExtendedThreads)
 {

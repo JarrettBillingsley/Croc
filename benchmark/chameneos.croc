@@ -48,7 +48,7 @@ local function meet(me)
 }
 
 local function creature(color) =
-	coroutine function()
+	thread.new$ function()
 	{
 		local me = color
 

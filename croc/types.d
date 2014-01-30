@@ -106,10 +106,10 @@ final class CrocException : CrocThrowable
 
 /**
 This is a semi-internal exception type. Normally you won't need to know about it or catch it. This is
-thrown when a coroutine (thread) needs to be halted. It should never propagate out of the coroutine.
-The only time you might encounter it is if, in the middle of a native Croc function, one of these
-is thrown, you might be able to catch it and clean up some resources, but you must rethrow it in that
-case, unless you want the interpreter to be in a horrible state.
+thrown when a thread needs to be halted. It should never propagate out of the thread. The only time
+you might encounter it is if, in the middle of a native Croc function, one of these is thrown, you might
+be able to catch it and clean up some resources, but you must rethrow it in that case, unless you want
+the interpreter to be in a horrible state.
 
 Like the other exception types, you can't instantiate this directly, but you can halt threads with the
 "haltThread" function in croc.interpreter.
@@ -139,7 +139,7 @@ final class CrocFatalException : Exception
 }
 
 /**
-A string constant indicating the level of coroutine support compiled in. Is either "Normal" or "Extended."
+A string constant indicating the level of thread support compiled in. Is either "Normal" or "Extended."
 */
 version(CrocExtendedThreads)
 	const char[] CrocCoroSupport = "Extended";

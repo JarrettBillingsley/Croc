@@ -69,7 +69,7 @@ static:
 		version(CrocExtendedThreads) {} else
 		{
 			if(func.isNative)
-				throwStdException(t, "ValueError", "Native functions may not be used as the body of a coroutine");
+				throwStdException(t, "ValueError", "Native functions may not be used as the body of a thread");
 		}
 
 		auto nt = thread.create(t.vm, func);

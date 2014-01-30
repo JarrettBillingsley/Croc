@@ -372,7 +372,7 @@ static:
     		throwStdException(t, "ValueError", "Attempting to serialize the currently-executing thread");
 
 		version(CrocExtendedThreads)
-			throwStdException(t, "ValueError", "Attempting to serialize an extended coroutine");
+			throwStdException(t, "ValueError", "Attempting to serialize an extended thread");
 
 		if(v.nativeCallDepth > 0)
 		{
@@ -1032,7 +1032,7 @@ static:
 			auto func = getFunction(t, -1);
 
 			if(func.isNative)
-				throwStdException(t, "ValueError", "Malformed data (invalid thread coroutine function)");
+				throwStdException(t, "ValueError", "Malformed data (invalid thread main function)");
 
 			ret.coroFunc = func;
 			pop(t);
@@ -1072,7 +1072,7 @@ static:
 	uword _deserializeThreadImpl(CrocThread* t)
 	{
 		version(CrocExtendedThreads)
-			throwStdException(t, "ValueError", "Attempting to deserialize a thread while extended coroutines were compiled in");
+			throwStdException(t, "ValueError", "Attempting to deserialize a thread while extended threads were compiled in");
 
 		auto ret = thread.createPartial(t.vm);
 		_addObject(t, cast(CrocBaseObject*)ret);

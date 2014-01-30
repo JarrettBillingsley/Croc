@@ -12,7 +12,7 @@ class Thread
 	mMessageHead
 	mMessageTail
 
-	// Construct a thread with a coroutine body.
+	// Construct a Thread with a thread body.
 	this(body: thread)
 		:mBody = body
 
@@ -87,7 +87,7 @@ class Thread
 function scheduler(threads)
 {
 	// Very clever function.  It handles "system calls", which are yielded values
-	// from coroutines.  It then can resume the threads and tailcall itself, making
+	// from threads.  It then can resume the threads and tailcall itself, making
 	// itself into a sort of loop that will only break when the thread dies or enters
 	// a waiting state.
 	function handleCall(thread, type, vararg)
@@ -154,7 +154,7 @@ function main()
 
 	local producer, consumer
 
-	producer = Thread$ coroutine \
+	producer = Thread$ thread.new$ \
 	{
 		local i = 0
 
@@ -171,7 +171,7 @@ function main()
 		}
 	}
 
-	consumer = Thread$ coroutine \
+	consumer = Thread$ thread.new$ \
 	{
 		local empty = { type = "Empty" }
 

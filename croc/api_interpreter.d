@@ -974,11 +974,11 @@ word newNamespaceNoParent(CrocThread* t, char[] name)
 }
 
 /**
-Creates a new thread object (coroutine) and pushes it onto the stack.
+Creates a new thread object and pushes it onto the stack.
 
 Params:
-	func = The slot which contains the function to be used as the coroutine's body.
-		If extended coroutine support is enabled, this can be a native or script function;
+	func = The slot which contains the function to be used as the thread's body.
+		If extended thread support is enabled, this can be a native or script function;
 		otherwise, it must be a script function.
 
 Returns:
@@ -2606,7 +2606,7 @@ word namespaceFullname(CrocThread* t, word ns)
 // Thread-specific stuff
 
 /**
-Gets the current coroutine _state of the thread as a member of the CrocThread.State enumeration.
+Gets the current _state of the thread as a member of the CrocThread.State enumeration.
 */
 CrocThread.State state(CrocThread* t)
 {
@@ -2614,7 +2614,7 @@ CrocThread.State state(CrocThread* t)
 }
 
 /**
-Gets a string representation of the current coroutine state of the thread.
+Gets a string representation of the current state of the thread.
 
 The string returned is not on the Croc heap, it's just a string literal, but it's in ROM.
 */
@@ -2652,7 +2652,7 @@ Resets a dead thread to the initial state, optionally providing a new function t
 Params:
 	slot = The stack index of the thread to be reset. It must be in the 'dead' state.
 	newFunction = If true, a function should be on top of the stack which should serve as the new body of the
-		coroutine. The default is false, in which case the coroutine will use the function with which it was
+		thread. The default is false, in which case the thread will use the function with which it was
 		created.
 */
 void resetThread(CrocThread* t, word slot, bool newFunction = false)
@@ -2668,10 +2668,10 @@ void resetThread(CrocThread* t, word slot, bool newFunction = false)
 	}
 
 	if(t.vm !is other.vm)
-		throwStdException(t, "ValueError", __FUNCTION__ ~ " - Attempting to reset a coroutine that belongs to a different VM");
+		throwStdException(t, "ValueError", __FUNCTION__ ~ " - Attempting to reset a thread that belongs to a different VM");
 
 	if(state(other) != CrocThread.State.Dead)
-		throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to reset a {} coroutine (must be dead)", stateString(other));
+		throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to reset a {} thread (must be dead)", stateString(other));
 
 	if(newFunction)
 	{
@@ -2682,7 +2682,7 @@ void resetThread(CrocThread* t, word slot, bool newFunction = false)
 		if(f is null)
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeError", __FUNCTION__ ~ " - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
+			throwStdException(t, "TypeError", __FUNCTION__ ~ " - Attempting to reset a thread with a '{}' instead of a 'function'", getString(t, -1));
 		}
 
 		version(CrocExtendedThreads) {} else

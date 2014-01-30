@@ -229,7 +229,7 @@ debug
 	values (if any) will started to be copied upon that function returning; and $(I numRets) being the number of returns that
 	the calling function expects it to return (-1 meaning "as many as possible").
 
-	This only prints out the current thread's call stack. It does not take coroutine resumes and yields into account (since
+	This only prints out the current thread's call stack. It does not take thread resumes and yields into account (since
 	that's pretty much impossible).
 	*/
 	void printCallStack(CrocThread* t)
