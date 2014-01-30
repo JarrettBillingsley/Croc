@@ -2781,7 +2781,7 @@ public:
 
 				case Token.LParen:
 					if(exp.endLocation.line != l.loc.line)
-						c.synException(l.loc, "ambiguous left-paren (function call or beginning of new statement?)");
+						return exp;
 
 					l.next();
 
