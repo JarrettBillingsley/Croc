@@ -64,22 +64,24 @@ void initExceptionsLib(CrocThread* t)
 		t.vm.location = getClass(t, -1);
 		newGlobal(t, "Location");
 
-		pushGlobal(t, "Throwable");
+		CreateClass(t, "Throwable", (CreateClass* c)
+		{
 			pushGlobal(t, "Location");
 			pushNull(t);
 			call(t, -2, 1);
-			addField(t, -2, "location");
+			c.field("location");
 
-			pushString(t, ""); addField(t, -2, "msg");
-			pushNull(t);       addField(t, -2, "cause");
-			newArray(t, 0);    addField(t, -2, "traceback");
+			pushString(t, ""); c.field("msg");
+			pushNull(t);       c.field("cause");
+			newArray(t, 0);    c.field("traceback");
 
-			newFunction(t, 2, &throwableConstructor,     "Throwable.constructor");     addMethod(t, -2, "constructor");
-			newFunction(t, 0, &throwableToString,        "Throwable.toString");        addMethod(t, -2, "toString");
-			newFunction(t, 1, &throwableSetLocation,     "Throwable.setLocation");     addMethod(t, -2, "setLocation");
-			newFunction(t, 1, &throwableSetCause,        "Throwable.setCause");        addMethod(t, -2, "setCause");
-			newFunction(t, 0, &throwableTracebackString, "Throwable.tracebackString"); addMethod(t, -2, "tracebackString");
-		pop(t);
+			c.method("constructor",     2, &throwableConstructor);
+			c.method("toString",        0, &throwableToString);
+			c.method("setLocation",     1, &throwableSetLocation);
+			c.method("setCause",        1, &throwableSetCause);
+			c.method("tracebackString", 0, &throwableTracebackString);
+		});
+		newGlobal(t, "Throwable");
 
 		foreach(desc; ExDescs)
 		{
@@ -123,7 +125,7 @@ version(CrocBuiltinDocs) void docExceptionsLib(CrocThread* t)
 	doc.pop(-1);
 	pop(t);
 
-	pushGlobal(t, "Throwable");
+	field(t, -1, "Throwable");
 	doc.push(Throwable_docs);
 	docFields(t, doc, Throwable_fields);
 	doc.pop(-1);
@@ -231,20 +233,11 @@ uword throwableConstructor(CrocThread* t)
 	auto msg = optStringParam(t, 1, "");
 
 	if(isValidIndex(t, 2))
-	{
-		pushThrowableClass(t);
-		if(!as(t, 2, -1))
-			paramTypeError(t, 2, "instance of Throwable");
-		pop(t);
-
 		dup(t, 2);
-		fielda(t, 0, "cause");
-	}
 	else
-	{
 		pushNull(t);
-		fielda(t, 0, "cause");
-	}
+
+	fielda(t, 0, "cause");
 
 	pushString(t, msg);
 	fielda(t, 0, "msg");
@@ -254,8 +247,8 @@ uword throwableConstructor(CrocThread* t)
 uword throwableToString(CrocThread* t)
 {
 	auto first = superOf(t, 0);
-	pushString(t, className(t, -1));
-	insertAndPop(t, -2);
+	pushString(t, className(t, first));
+	insertAndPop(t, first);
 	pushString(t, " at ");
 	field(t, 0, "location");
 	pushNull(t);
@@ -294,7 +287,7 @@ uword throwableSetLocation(CrocThread* t)
 	checkInstParam(t, 1);
 
 	pushLocationClass(t);
-	if(!as(t, 1, -1))
+	if(!instanceOf(t, 1, -1))
 		paramTypeError(t, 1, "instance of Location");
 	pop(t);
 
@@ -307,12 +300,6 @@ uword throwableSetLocation(CrocThread* t)
 uword throwableSetCause(CrocThread* t)
 {
 	checkInstParam(t, 1);
-
-	pushThrowableClass(t);
-	if(!as(t, 1, -1))
-		paramTypeError(t, 1, "instance of Throwable");
-	pop(t);
-
 	dup(t, 1);
 	fielda(t, 0, "cause");
 	dup(t, 0);

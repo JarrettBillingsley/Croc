@@ -90,7 +90,7 @@ class LinkResolver
 
 	\param[trans] is the link translator object whose methods will be called by \link{resolveLink}.
 	*/
-	this(trans: LinkTranslator)
+	this(trans)
 	{
 		:_trans = trans
 
@@ -996,7 +996,7 @@ class OutputDocVisitor : DocVisitor
 	\param[so] is the order in which the sections should be visited for each documentation item.
 	\param[o] is an instance of a class derived from \link{DocOutputter} which implements its interface.
 	*/
-	this(so: SectionOrder, o: DocOutputter)
+	this(so, o)
 	{
 		:_order = so.getOrder()
 		:_output = o
@@ -1127,7 +1127,7 @@ class OutputDocVisitor : DocVisitor
 	function visitParagraph(par: array)
 	{
 		:_output.beginParagraph()
-		super.visitParagraph(par)
+		(DocVisitor.visitParagraph)(with this, par)
 		:_output.endParagraph()
 	}
 

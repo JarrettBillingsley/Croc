@@ -44,7 +44,6 @@ package:
 	{
 		auto c = alloc.allocate!(CrocClass)();
 		c.name = name;
-		c.parent = parent;
 
 		if(parent)
 		{
@@ -102,15 +101,6 @@ package:
 	void freeze(CrocClass* c)
 	{
 		c.isFrozen = true;
-	}
-
-	bool derivesFrom(CrocClass* c, CrocClass* other)
-	{
-		for(auto o = c.parent; o !is null; o = o.parent)
-			if(o is other)
-				return true;
-
-		return false;
 	}
 
 	// =================================================================================================================

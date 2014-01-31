@@ -98,7 +98,7 @@ Register a text codec of the given name. The codec can then be retrieved with \l
 
 \throws[exceptions.LookupError] if there is already a codec registered named \tt{name}.
 */
-function registerCodec(name: string, codec: TextCodec)
+function registerCodec(name: string, codec)
 {
 	if(name in textCodecs)
 		throw LookupError("Already a codec for '{}' registered".format(name))

@@ -1110,7 +1110,7 @@ void checkInstParam(CrocThread* t, word index, char[] name)
 
 	lookup(t, name);
 
-	if(!as(t, index, -1))
+	if(!instanceOf(t, index, -1))
 	{
 		pushTypeString(t, index);
 
@@ -1138,7 +1138,7 @@ void checkInstParamRef(CrocThread* t, word index, ulong classRef)
 
 	pushRef(t, classRef);
 
-	if(!as(t, index, -1))
+	if(!instanceOf(t, index, -1))
 	{
 		auto name = className(t, -1);
 		pushTypeString(t, index);
@@ -1163,7 +1163,7 @@ void checkInstParamSlot(CrocThread* t, word index, word classIndex)
 {
 	checkInstParam(t, index);
 
-	if(!as(t, index, classIndex))
+	if(!instanceOf(t, index, classIndex))
 	{
 		auto name = className(t, classIndex);
 		pushTypeString(t, index);

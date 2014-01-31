@@ -253,7 +253,7 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 
 	function reset()
 	{
-		super.reset()
+		(BufferedIncrementalDecoder.reset)(with this)
 		:_first = true
 	}
 }

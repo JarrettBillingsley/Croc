@@ -74,7 +74,6 @@ private Op AstTagToOpcode(AstTag tag)
 		case AstTag.ShrExp: return Op.Shr;
 		case AstTag.UShrExp: return Op.UShr;
 
-		case AstTag.AsExp: return Op.As;
 		case AstTag.Cmp3Exp: return Op.Cmp3;
 
 		// Reflex
@@ -1401,7 +1400,7 @@ package:
 	}
 
 	// [src src args] => [Call]
-	void pushMethodCall(ref CompileLoc loc, bool isSuperCall, ref MethodCallDesc desc)
+	void pushMethodCall(ref CompileLoc loc, ref MethodCallDesc desc)
 	{
 		// desc.baseExp holds obj, baseExp + 1 holds method name. assert they're both sources
 		// everything after that is args. assert they're all in registers
@@ -1420,11 +1419,9 @@ package:
 		assert(mExpSP == desc.baseExp);
 		assert(mFreeReg == desc.baseReg);
 
-		auto inst = codeRD(loc, isSuperCall ? Op.SuperMethod : Op.Method, desc.baseReg);
+		auto inst = codeRD(loc, Op.Method, desc.baseReg);
 
-		if(!isSuperCall)
-			codeRC(obj);
-
+		codeRC(obj);
 		codeRC(name);
 		codeUImm(numArgs);
 		codeUImm(0);
@@ -1492,7 +1489,6 @@ package:
 		{
 			case Op.Call: setOpcode(e.index, Op.TailCall); break;
 			case Op.Method: setOpcode(e.index, Op.TailMethod); break;
-			case Op.SuperMethod: setOpcode(e.index, Op.TailSuperMethod); break;
 			default: assert(false);
 		}
 	}
@@ -1964,9 +1960,8 @@ private:
 		{
 			case Op.Vararg, Op.VargSlice: setUImm(index + 1, num); break;
 			case Op.Call, Op.Yield:       setUImm(index + 2, num); break;
-			case Op.SuperMethod:          setUImm(index + 3, num); break;
 			case Op.Method:               setUImm(index + 4, num); break;
-			case Op.TailCall, Op.TailSuperMethod, Op.TailMethod: break; // these don't care about the number of returns at all
+			case Op.TailCall, Op.TailMethod: break; // these don't care about the number of returns at all
 			default: assert(false);
 		}
 	}
@@ -2562,7 +2557,6 @@ package:
 			case Op.Index:       Stdout("idx"); goto _8;
 			case Op.IndexAssign: Stdout("idxa"); goto _8;
 			case Op.Class:       Stdout("class"); goto _8;
-			case Op.As:          Stdout("as"); goto _8;
 			case Op.Field:       Stdout("field"); goto _8;
 			case Op.FieldAssign: Stdout("fielda"); goto _8;
 			_8: rd(i); rc(); rc(); break;
@@ -2612,10 +2606,6 @@ package:
 
 			// (__, rs, rt, imm)
 			case Op.SwitchCmp: Stdout("swcmp"); rc(false); rc(); imm(); break;
-
-			// (rd, rt, uimm, uimm)
-			case Op.SuperMethod:     Stdout("smethod"); rd(i); rc(); uimm(); uimm(); break;
-			case Op.TailSuperMethod: Stdout("tsmethod"); rd(i); rc(); uimm(); nextIns(); break;
 
 			// (rd, rs, rt, uimm)
 			case Op.AddField: Stdout("addfield"); goto _12;

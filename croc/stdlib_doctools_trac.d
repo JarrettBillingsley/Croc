@@ -65,7 +65,7 @@ class TracWikiOutputter : DocOutputter
 	_isFirstInSection = false
 	_isSpecialSection = false
 
-	this(lr: LinkResolver)
+	this(lr)
 	{
 		:_linkResolver = lr
 		:_listType = []

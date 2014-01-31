@@ -1664,23 +1664,36 @@ public:
 
 		scope catches = new List!(CC)(c);
 
+		bool hadCatchall = false;
+
+
 		while(l.type == Token.Catch)
 		{
+			if(hadCatchall)
+				c.synException(l.loc, "Cannot have a catch clause after a catchall clause");
+
 			l.next();
 			l.expect(Token.LParen);
 
 			CC cc;
 			cc.catchVar = parseIdentifier();
-			l.expect(Token.Colon);
 
 			scope types = new List!(Expression)(c);
-			types ~= parseDottedName();
 
-			while(l.type == Token.Or)
+			if(l.type == Token.Colon)
 			{
 				l.next();
+
 				types ~= parseDottedName();
+
+				while(l.type == Token.Or)
+				{
+					l.next();
+					types ~= parseDottedName();
+				}
 			}
+			else
+				hadCatchall = true;
 
 			l.expect(Token.RParen);
 
@@ -2160,12 +2173,6 @@ public:
 				exp1 = new(c) GEExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
-			case Token.As:
-				l.next();
-				exp2 = parseShiftExp();
-				exp1 = new(c) AsExp(location, exp2.endLocation, exp1, exp2);
-				break;
-
 			case Token.In:
 				l.next();
 				exp2 = parseShiftExp();
@@ -2384,7 +2391,6 @@ public:
 			case Token.LBrace:                 exp = parseTableCtorExp(); break;
 			case Token.LBracket:               exp = parseArrayCtorExp(); break;
 			case Token.Yield:                  exp = parseYieldExp(); break;
-			case Token.Super:                  exp = parseSuperCallExp(); break;
 			case Token.Colon:                  exp = parseMemberExp(); break;
 
 			default:
@@ -2632,65 +2638,6 @@ public:
 	}
 
 	/**
-	*/
-	MethodCallExp parseSuperCallExp()
-	{
-		auto location = l.expect(Token.Super).loc;
-
-		Expression method;
-
-		if(l.type == Token.Dot)
-		{
-			l.next();
-
-			if(l.type == Token.Ident)
-			{
-				with(l.expect(Token.Ident))
-					method = new(c) StringExp(location, stringValue);
-			}
-			else
-			{
-				l.expect(Token.LParen);
-				method = parseExpression();
-				l.expect(Token.RParen);
-			}
-		}
-		else
-			method = new(c) StringExp(location, c.newString("constructor"));
-
-		Expression[] args;
-		CompileLoc endLocation;
-
-		if(l.type == Token.LParen)
-		{
-			l.next();
-
-			if(l.type != Token.RParen)
-				args = parseArguments();
-
-			endLocation = l.expect(Token.RParen).loc;
-		}
-		else
-		{
-			l.expect(Token.Dollar);
-
-			scope a = new List!(Expression)(c);
-			a ~= parseExpression();
-
-			while(l.type == Token.Comma)
-			{
-				l.next();
-				a ~= parseExpression();
-			}
-
-			args = a.toArray();
-			endLocation = args[$ - 1].endLocation;
-		}
-
-		return new(c) MethodCallExp(location, endLocation, null, method, args, true);
-	}
-
-	/**
 	Parse a member exp (:a). This is a shorthand expression for "this.a". This
 	also works with super (:super) and paren (:("a")) versions.
 	*/
@@ -2774,7 +2721,7 @@ public:
 					auto arr = args.toArray();
 
 					if(auto dot = exp.as!(DotExp))
-						exp = new(c) MethodCallExp(dot.location, arr[$ - 1].endLocation, dot.op, dot.name, arr, false);
+						exp = new(c) MethodCallExp(dot.location, arr[$ - 1].endLocation, dot.op, dot.name, arr);
 					else
 						exp = new(c) CallExp(arr[$ - 1].endLocation, exp, null, arr);
 					continue;
@@ -2809,7 +2756,7 @@ public:
 					auto endLocation = l.expect(Token.RParen).loc;
 
 					if(auto dot = exp.as!(DotExp))
-						exp = new(c) MethodCallExp(dot.location, endLocation, dot.op, dot.name, args, false);
+						exp = new(c) MethodCallExp(dot.location, endLocation, dot.op, dot.name, args);
 					else
 						exp = new(c) CallExp(endLocation, exp, context, args);
 					continue;
@@ -3102,7 +3049,7 @@ import tango.io.Stdout;
 			if(dec.context !is null)
 				c.semException(dec.location, "'with' is disallowed for method calls");
 
-			return new(c) MethodCallExp(dec.location, dec.endLocation, f.op, f.name, argsArray, false);
+			return new(c) MethodCallExp(dec.location, dec.endLocation, f.op, f.name, argsArray);
 		}
 		else
 			return new(c) CallExp(dec.endLocation, dec.func, dec.context, argsArray);

@@ -116,7 +116,6 @@ void visitRoots(CrocVM* vm, void delegate(GCObject*) callback)
 	foreach(ref val; vm.refTab)
 		callback(cast(GCObject*)val);
 
-	callback(cast(GCObject*)vm.throwable);
 	callback(cast(GCObject*)vm.location);
 
 	foreach(ref k, ref v; vm.stdExceptions)
@@ -219,7 +218,6 @@ void visitClass(CrocClass* o, void delegate(GCObject*) callback, bool isModifyPh
 		{
 			o.visitedOnce = true;
 			mixin(CondCallback!("o.name"));
-			mixin(CondCallback!("o.parent"));
 		}
 
 		foreach(ref key, ref val; &o.fields.modifiedSlots)
@@ -243,7 +241,6 @@ void visitClass(CrocClass* o, void delegate(GCObject*) callback, bool isModifyPh
 	else
 	{
 		mixin(CondCallback!("o.name"));
-		mixin(CondCallback!("o.parent"));
 
 		foreach(ref key, ref val; o.fields)
 		{
@@ -352,10 +349,7 @@ void visitThread(CrocThread* o, void delegate(GCObject*) callback, bool isRoots)
 	if(isRoots)
 	{
 		foreach(ref ar; o.actRecs[0 .. o.arIndex])
-		{
 			mixin(CondCallback!("ar.func"));
-			mixin(CondCallback!("ar.proto"));
-		}
 
 		foreach(i, ref val; o.stack[0 .. o.stackIndex])
 			mixin(ValueCallback!("val"));

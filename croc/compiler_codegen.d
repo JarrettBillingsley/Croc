@@ -277,7 +277,7 @@ public:
 		{
 			if(d.context !is null)
 				c.semException(d.location, "'with' is disallowed on method calls");
-			visitMethodCall(d.location, d.endLocation, false, dot.op, dot.name, &genArgs);
+			visitMethodCall(d.location, d.endLocation, dot.op, dot.name, &genArgs);
 		}
 		else
 			visitCall(d.endLocation, d.func, d.context, &genArgs);
@@ -1147,7 +1147,6 @@ public:
 	override BinaryExp visit(ShlExp e)   { return visitBinExp(e); }
 	override BinaryExp visit(ShrExp e)   { return visitBinExp(e); }
 	override BinaryExp visit(UShrExp e)  { return visitBinExp(e); }
-	override BinaryExp visit(AsExp e)    { return visitBinExp(e); }
 	override BinaryExp visit(Cmp3Exp e)  { return visitBinExp(e); }
 
 	override CatExp visit(CatExp e)
@@ -1237,7 +1236,7 @@ public:
 
 	override MethodCallExp visit(MethodCallExp e)
 	{
-		visitMethodCall(e.location, e.endLocation, e.isSuperCall, e.op, e.method, delegate uword()
+		visitMethodCall(e.location, e.endLocation, e.op, e.method, delegate uword()
 		{
 			codeGenList(e.args);
 			return e.args.length;
@@ -1246,14 +1245,11 @@ public:
 		return e;
 	}
 
-	void visitMethodCall(CompileLoc location, CompileLoc endLocation, bool isSuperCall, Expression op, Expression method, uword delegate() genArgs)
+	void visitMethodCall(CompileLoc location, CompileLoc endLocation, Expression op, Expression method, uword delegate() genArgs)
 	{
 		auto desc = fs.beginMethodCall();
 
-		if(isSuperCall)
-			fs.pushThis();
-		else
-			visit(op);
+		visit(op);
 
 		fs.toSource(location);
 		fs.updateMethodCall(desc, 1);
@@ -1263,7 +1259,7 @@ public:
 		fs.updateMethodCall(desc, 2);
 
 		genArgs();
-		fs.pushMethodCall(endLocation, isSuperCall, desc);
+		fs.pushMethodCall(endLocation, desc);
 	}
 
 	override CallExp visit(CallExp e)

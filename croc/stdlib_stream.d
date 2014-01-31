@@ -245,7 +245,7 @@ class EOFException : IOException
 {
 	///
 	this()
-		super("Unexpected end of file")
+		(IOException.constructor)(with this, "Unexpected end of file")
 }
 
 /**
@@ -256,7 +256,7 @@ class StreamProtocolException : IOException
 {
 	///
 	this(msg: string)
-		super("Stream protocol error: " ~ msg)
+		(IOException.constructor)(with this, "Stream protocol error: " ~ msg)
 }
 
 /**
@@ -303,8 +303,8 @@ class Stream
 	_scratch
 
 	/**
-	Constructor. Be sure to call this as \tt{super()} in classes derived from \link{Stream}. While it only checks
-	that one of \link{readable} and \link{writable} returns true right now, this may change in the future.
+	Constructor. Be sure to call this in classes derived from \link{Stream}. While it only checks that one of
+	\link{readable} and \link{writable} returns true right now, this may change in the future.
 
 	\throws[exceptions.IOException] if both \link{readable} and \link{writable} return \tt{false}.
 	*/
@@ -721,7 +721,7 @@ class MemblockStream : Stream
 	this(mb: memblock = memblock.new(0))
 	{
 		:_mb = mb
-		super()
+		(Stream.constructor)(with this)
 	}
 
 	/**
@@ -828,10 +828,10 @@ class StreamWrapper : Stream
 
 	\param[s] is the stream object to be wrapped.
 	*/
-	this(s: Stream)
+	this(s)
 	{
 		:_stream = s
-		super()
+		(Stream.constructor)(with this)
 	}
 
 	/**
@@ -872,10 +872,9 @@ class BinaryStream : StreamWrapper
 
 	\param[s] is the stream to be wrapped.
 	*/
-	this(s: Stream)
+	this(s)
 	{
-		super(s)
-		:_stream = s
+		(StreamWrapper.constructor)(with this, s)
 		:_rwBuf = memblock.new(8)
 		:_strBuf = memblock.new(0)
 	}
@@ -1017,7 +1016,7 @@ class BufferedInStream : StreamWrapper
 	*/
 	this(s: @InStream, bufSize: int = 4096)
 	{
-		super(s)
+		(StreamWrapper.constructor)(with this, s)
 		:_stream = s
 		:_buf = memblock.new(clamp(bufSize, 128, intMax))
 	}
@@ -1110,7 +1109,7 @@ class BufferedOutStream : StreamWrapper
 	*/
 	this(s: @OutStream, bufSize: int = 4096)
 	{
-		super(s)
+		(StreamWrapper.constructor)(with this, s)
 		:_stream = s
 		:_buf = memblock.new(clamp(bufSize, 128, intMax))
 	}
@@ -1486,7 +1485,7 @@ class NativeStream : Stream
 			throw StateError("Attempting to call constructor on an already-initialized stream")
 
 		streamCtor(this, stream, closable, readable, writable)
-		super()
+		(Stream.constructor)(with this)
 	}
 
 	/**

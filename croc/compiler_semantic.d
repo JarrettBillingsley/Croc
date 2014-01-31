@@ -218,7 +218,7 @@ public:
 		auto _load = new(c) StringExp(s.location, c.newString("load"));
 		scope args = new List!(Expression)(c);
 		args ~= s.expr;
-		auto call = new(c) MethodCallExp(s.location, s.endLocation, _modules, _load, args.toArray(), false);
+		auto call = new(c) MethodCallExp(s.location, s.endLocation, _modules, _load, args.toArray());
 
 		// Now we make a list of statements.
 		scope stmts = new List!(Statement)(c);
@@ -420,7 +420,7 @@ public:
 				=>
 				local __dummy = true
 				try { rest }
-				catch(__dummy2: Throwable) { __dummy = false; throw __dummy2 }
+				catch(__dummy2) { __dummy = false; throw __dummy2 }
 				finally { if(__dummy) ss.stmt }
 				*/
 
@@ -436,13 +436,10 @@ public:
 					declStmt = new(c) VarDecl(ss.location, ss.location, Protection.Local, nameList.toArray(), initializer.toArray());
 				}
 
-				// catch(__dummy2: Throwable) { __dummy = false; throw __dummy2 }
+				// catch(__dummy2) { __dummy = false; throw __dummy2 }
 				auto catchVar = genDummyVar(ss.location, InternalName!("scope{}"));
 				TryCatchStmt catchStmt;
 				{
-					scope types = new List!(Expression)(c);
-					types ~= new(c) IdentExp(new(c) Identifier(ss.location, c.newString("Throwable")));
-
 					scope dummy = new List!(Statement)(c);
 					// __dummy = false;
 					scope lhs = new List!(Expression)(c);
@@ -456,7 +453,7 @@ public:
 					auto catchBody = new(c) ScopeStmt(new(c) BlockStmt(code[0].location, code[$ - 1].endLocation, code));
 
 					scope catches = new List!(CC)(c);
-					catches ~= CC(catchVar, types.toArray(), catchBody);
+					catches ~= CC(catchVar, null, catchBody);
 
 					catchStmt = new(c) TryCatchStmt(ss.location, ss.endLocation, tryBody, catches.toArray());
 				}
@@ -485,11 +482,9 @@ public:
 				rest
 				=>
 				try { rest }
-				catch(__dummy: Throwable) { ss.stmt; throw __dummy }
+				catch(__dummy) { ss.stmt; throw __dummy }
 				*/
 				auto catchVar = genDummyVar(ss.location, InternalName!("scope{}"));
-				scope types = new List!(Expression)(c);
-				types ~= new(c) IdentExp(new(c) Identifier(ss.location, c.newString("Throwable")));
 
 				scope dummy = new List!(Statement)(c);
 				dummy ~= ss.stmt;
@@ -498,7 +493,7 @@ public:
 				auto catchBody = new(c) ScopeStmt(new(c) BlockStmt(catchCode[0].location, catchCode[$ - 1].endLocation, catchCode));
 
 				scope catches = new List!(CC)(c);
-				catches ~= CC(catchVar, types.toArray(), catchBody);
+				catches ~= CC(catchVar, null, catchBody);
 				replacement = visit(new(c) TryCatchStmt(ss.location, ss.endLocation, tryBody, catches.toArray()));
 				break;
 
@@ -855,32 +850,45 @@ public:
 			...
 		catch(__catch0)
 		{
-			if(__catch0 as E1) { local e = __catch0; catch1() }
-			else if(__catch0 as E2 || __catch0 as E3) { local f = __catch0; catch2() }
+			if(__catch0.super is E1) { local e = __catch0; catch1() }
+			else if(__catch0.super is E2 || __catch0.super is E3) { local f = __catch0; catch2() }
 			else throw __catch0
+		}
+
+		For catchall clauses,
+
+		try
+			...
+		catch(e: E1)
+			catch1()
+		catch(f)
+			catch2()
+
+		=>
+
+		try
+			...
+		catch(__catch0)
+		{
+			if(__catch0.super is E1) { local e = __catch0; catch1() }
+			else { local f = __catch0; catch2() }
 		}
 		*/
 
 		// catch(__catch0)
 		auto cvar = genDummyVar(s.catches[0].catchVar.location, InternalName!("catch{}"));
 		auto cvarExp = new(c) IdentExp(cvar);
+		auto cvarSuperExp = new(c) DotSuperExp(cvarExp.endLocation, cvarExp);
 		s.hiddenCatchVar = cvar;
 
-		// else throw __catch0
-		Statement stmt = new(c) ThrowStmt(s.endLocation, cvarExp, true);
+		Statement stmt;
+
+		if(s.catches[$ - 1].exTypes.length != 0)
+			stmt = new(c) ThrowStmt(s.endLocation, cvarExp, true); // else throw __catch0
 
 		// Doing it in reverse to make building it up easier.
 		foreach_reverse(ref ca; s.catches)
 		{
-			// if(__catch0 as E2 || __catch0 as E3)
-			Expression cond = new(c) AsExp(ca.catchVar.location, ca.catchVar.location, cvarExp, ca.exTypes[0]);
-
-			foreach(type; ca.exTypes[1 .. $])
-			{
-				auto tmp = new(c) AsExp(ca.catchVar.location, ca.catchVar.location, cvarExp, type);
-				cond = new(c) OrOrExp(ca.catchVar.location, ca.catchVar.location, cond, tmp);
-			}
-
 			scope code = new List!(Statement)(c);
 
 			// local f = __catch0;
@@ -895,7 +903,22 @@ public:
 
 			// wrap it up
 			auto ifCode = new(c) ScopeStmt(new(c) BlockStmt(ca.catchBody.location, ca.catchBody.endLocation, code.toArray()));
-			stmt = new(c) IfStmt(ca.catchVar.location, stmt.endLocation, null, cond, ifCode, stmt);
+
+			if(stmt is null) // only null if last catch clause is a catchall
+				stmt = ifCode;
+			else
+			{
+				// if(__catch0.super is E2 || __catch0.super is E3)
+				Expression cond = new(c) IsExp(ca.catchVar.location, ca.catchVar.location, cvarSuperExp, ca.exTypes[0]);
+
+				foreach(type; ca.exTypes[1 .. $])
+				{
+					auto tmp = new(c) IsExp(ca.catchVar.location, ca.catchVar.location, cvarSuperExp, type);
+					cond = new(c) OrOrExp(ca.catchVar.location, ca.catchVar.location, cond, tmp);
+				}
+
+				stmt = new(c) IfStmt(ca.catchVar.location, stmt.endLocation, null, cond, ifCode, stmt);
+			}
 		}
 
 		s.transformedCatch = stmt;
@@ -1200,14 +1223,6 @@ public:
 
 		if(e.op1.isConstant && e.op2.isConstant)
 			return new(c) IntExp(e.location, commonCompare(e.op1, e.op2));
-
-		return e;
-	}
-
-	override AsExp visit(AsExp e)
-	{
-		if(e.op1.isConstant() || e.op2.isConstant())
-			c.semException(e.location, "Neither argument of an 'as' expression may be a constant");
 
 		return e;
 	}

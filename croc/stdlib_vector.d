@@ -724,7 +724,7 @@ uword _insert(CrocThread* t)
 
 	pushGlobal(t, "Vector");
 
-	if(as(t, 2, -1))
+	if(instanceOf(t, 2, -1))
 	{
 		if(opis(t, 0, 2))
 		{
@@ -969,7 +969,7 @@ void fillImpl(CrocThread* t, ref Members m, word filler, uword lo, uword hi)
 {
 	pushGlobal(t, "Vector");
 
-	if(as(t, filler, -1))
+	if(instanceOf(t, filler, -1))
 	{
 		auto other = _getMembers(t, filler);
 
@@ -1374,7 +1374,7 @@ uword _opCat(CrocThread* t)
 
 	pushGlobal(t, "Vector");
 
-	if(as(t, 1, -1))
+	if(instanceOf(t, 1, -1))
 	{
 		auto other = _getMembers(t, 1);
 
@@ -1450,7 +1450,7 @@ uword _opCatAssign(CrocThread* t)
 
 	for(uword i = 1; i <= numParams; i++)
 	{
-		if(as(t, i, Vector))
+		if(instanceOf(t, i, Vector))
 		{
 			auto other = _getMembers(t, i);
 
@@ -1489,7 +1489,7 @@ uword _opCatAssign(CrocThread* t)
 
 	for(uword i = 1; i <= numParams; i++)
 	{
-		if(as(t, i, Vector))
+		if(instanceOf(t, i, Vector))
 		{
 			if(opis(t, 0, i))
 			{
@@ -1523,7 +1523,7 @@ char[] opAssign(char[] name, char[] op)
 
 		pushGlobal(t, "Vector");
 
-		if(as(t, 1, -1))
+		if(instanceOf(t, 1, -1))
 		{
 			auto other = _getMembers(t, 1);
 
@@ -1639,7 +1639,7 @@ char[] op_reveq(char[] name, char[] op)
 
 		pushGlobal(t, "Vector");
 
-		if(as(t, 1, -1))
+		if(instanceOf(t, 1, -1))
 		{
 			auto other = _getMembers(t, 1);
 

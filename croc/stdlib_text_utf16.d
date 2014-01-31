@@ -244,7 +244,7 @@ local class Utf16IncrementalDecoder : BufferedIncrementalDecoder
 
 	function reset()
 	{
-		super.reset()
+		(BufferedIncrementalDecoder.reset)(with this)
 		:_first = true
 		:_order = 'n'
 	}

@@ -101,7 +101,6 @@ const char[][] AstTagNames =
 	"GTExp",
 	"GEExp",
 	"Cmp3Exp",
-	"AsExp",
 	"InExp",
 	"NotInExp",
 	"ShlExp",
@@ -228,7 +227,6 @@ const char[][] NiceAstTagNames =
 	AstTag.GTExp:                "greater-than expression",
 	AstTag.GEExp:                "greater-or-equals expression",
 	AstTag.Cmp3Exp:              "three-way comparison expression",
-	AstTag.AsExp:                "'as' expression",
 	AstTag.InExp:                "'in' expression",
 	AstTag.NotInExp:             "'!in' expression",
 	AstTag.ShlExp:               "left-shift expression",
@@ -1281,11 +1279,6 @@ class Cmp3Exp : BinaryExp
 	mixin(BinExpMixin);
 }
 
-class AsExp : BinaryExp
-{
-	mixin(BinExpMixin);
-}
-
 class ShlExp : BinaryExp
 {
 	mixin(BinExpMixin);
@@ -1469,14 +1462,12 @@ class MethodCallExp : PostfixExp
 {
 	Expression method;
 	Expression[] args;
-	bool isSuperCall;
 
-	this(CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression[] args, bool isSuperCall)
+	this(CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression[] args)
 	{
 		super(location, endLocation, AstTag.MethodCallExp, operand);
 		this.method = method;
 		this.args = args;
-		this.isSuperCall = isSuperCall;
 	}
 
 	override bool hasSideEffects()

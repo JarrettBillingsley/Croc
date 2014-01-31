@@ -236,7 +236,7 @@ dchar[] _checkStringOrStringBuffer(CrocThread* t, word idx, ref dchar[] tmp, cha
 	{
 		pushGlobal(t, "StringBuffer");
 
-		if(as(t, idx, -1))
+		if(instanceOf(t, idx, -1))
 		{
 			pop(t);
 			return _stringBufferAsUtf32(t, idx);
@@ -367,7 +367,7 @@ uword _opEquals(CrocThread* t)
 			pushBool(t, true);
 		}
 	}
-	else if(as(t, 1, -1))
+	else if(instanceOf(t, 1, -1))
 	{
 		auto otherLen = _getLength(t, 1);
 
@@ -423,7 +423,7 @@ uword _opCmp(CrocThread* t)
 
 		pushInt(t, Compare3(len, cast(uword)otherLen));
 	}
-	else if(as(t, 1, -1))
+	else if(instanceOf(t, 1, -1))
 	{
 		auto otherLen = _getLength(t, 1);
 		auto l = min(len, otherLen);
@@ -566,7 +566,7 @@ uword _opCat(CrocThread* t)
 		auto dest = makeObj(.len(t, 1));
 		_toUtf32(getString(t, 1), dest);
 	}
-	else if(as(t, 1, -1))
+	else if(instanceOf(t, 1, -1))
 	{
 		auto otherLen = _getLength(t, 1);
 		makeObj(otherLen)[] = (cast(dchar[])_getData(t, 1).data)[0 .. otherLen];
@@ -656,7 +656,7 @@ uword _opCatAssign(CrocThread* t)
 			auto dest = resize(.len(t, i));
 			_toUtf32(getString(t, i), dest);
 		}
-		else if(as(t, i, -1))
+		else if(instanceOf(t, i, -1))
 		{
 			if(opis(t, 0, i))
 			{
@@ -735,7 +735,7 @@ void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 {
 	pushGlobal(t, "StringBuffer");
 
-	if(as(t, filler, -1))
+	if(instanceOf(t, filler, -1))
 	{
 		if(opis(t, 0, filler))
 			return;
@@ -902,7 +902,7 @@ uword _insert(CrocThread* t)
 			_toUtf32(str, tmp);
 		}
 	}
-	else if(as(t, 2, -1))
+	else if(instanceOf(t, 2, -1))
 	{
 		if(opis(t, 0, 2))
 		{

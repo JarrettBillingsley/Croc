@@ -102,8 +102,6 @@ enum Op
 
 	Method,
 	TailMethod,
-	SuperMethod,
-	TailSuperMethod,
 	Call,
 	TailCall,
 	SaveRets,
@@ -145,7 +143,6 @@ enum Op
 	Namespace,
 	NamespaceNP,
 
-	As,
 	SuperOf,
 	AddField,
 	AddMethod
@@ -210,8 +207,6 @@ const char[][] OpNames =
 	Op.Throw: "Throw",
 	Op.Method: "Method",
 	Op.TailMethod: "TailMethod",
-	Op.SuperMethod: "SuperMethod",
-	Op.TailSuperMethod: "TailSuperMethod",
 	Op.Call: "Call",
 	Op.TailCall: "TailCall",
 	Op.SaveRets: "SaveRets",
@@ -248,7 +243,6 @@ const char[][] OpNames =
 	Op.Class: "Class",
 	Op.Namespace: "Namespace",
 	Op.NamespaceNP: "NamespaceNP",
-	Op.As: "As",
 	Op.SuperOf: "SuperOf",
 	Op.AddField: "AddField",
 	Op.AddMethod: "AddMethod"
@@ -337,7 +331,6 @@ THREE SHORTS:
 	idxa:   rd[rs] = rt
 	in:     rd = rs in rt
 	class:  rd = class rs : rt {}
-	as:     rd = rs as rt
 	field:  rd = rs.(rt)
 	fielda: rd.(rs) = rt
 (__, rs, rt)
@@ -367,9 +360,6 @@ FOUR SHORTS:
 	is:     if((rs is rt) == rd) jump by imm
 (__, rs, rt, imm)
 	swcmp: if(switchcmp(rs, rt)) jump by imm
-(rd, rt, uimm1, uimm2)
-	smethod:  method supercall. works same as method, but lookup is based on the proto instead of a value.
-	tsmethod: same as above, but does a tailcall. uimm2 is unused, but this makes codegen easier
 (rd, rs, rt, uimm)
 	addfield: add field named rs to class in rd with value rt
 	addmethod: add method named rs to class in rd with value rt

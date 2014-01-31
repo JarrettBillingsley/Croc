@@ -154,11 +154,7 @@ package:
 
 	bool derivesFrom(CrocInstance* i, CrocClass* c)
 	{
-		for(auto o = i.parent; o !is null; o = o.parent)
-			if(o is c)
-				return true;
-
-		return false;
+		return i.parent is c;
 	}
 
 	uword InstanceSize(CrocClass* parent)

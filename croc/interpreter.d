@@ -122,7 +122,7 @@ void runFinalizers(CrocThread* t)
 		{
 			push(t, *i.parent.finalizer);
 			push(t, CrocValue(i));
-			commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, i.parent));
+			commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1));
 		}
 		catch(CrocException e)
 		{
@@ -194,8 +194,7 @@ uword commonCall(CrocThread* t, AbsStack slot, word numReturns, bool isScript)
 
 bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* lookup, CrocString* methodName, word numReturns, uword numParams)
 {
-	CrocClass* proto;
-	auto method = lookupMethod(t, lookup, methodName, proto);
+	auto method = lookupMethod(t, lookup, methodName);
 
 	// Idea is like this:
 
@@ -210,11 +209,11 @@ bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* 
 		t.stack[slot + 1] = *self;
 		t.stack[slot] = method;
 
-		return callPrologue(t, slot, numReturns, numParams, proto);
+		return callPrologue(t, slot, numReturns, numParams);
 	}
 	else
 	{
-		auto mm = getMM(t, lookup, MM.Method, proto);
+		auto mm = getMM(t, lookup, MM.Method);
 
 		if(mm is null)
 		{
@@ -225,25 +224,22 @@ bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* 
 		t.stack[slot] = *self;
 		t.stack[slot + 1] = methodName;
 
-		return callPrologue2(t, mm, slot, numReturns, slot, numParams + 1, proto);
+		return callPrologue2(t, mm, slot, numReturns, slot, numParams + 1);
 	}
 }
 
-CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocClass* proto)
+CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name)
 {
 	switch(v.type)
 	{
 		case CrocValue.Type.Class:
 			if(auto ret = classobj.getMethod(v.mClass, name))
-			{
-				proto = v.mClass;
 				return ret.value;
-			}
 			else
 				return CrocValue.nullValue;
 
 		case CrocValue.Type.Instance:
-			return getInstanceMethod(t, v.mInstance, name, proto);
+			return getInstanceMethod(t, v.mInstance, name);
 
 		case CrocValue.Type.Namespace:
 			if(auto ret = namespace.get(v.mNamespace, name))
@@ -260,13 +256,10 @@ CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocCl
 	}
 }
 
-CrocValue getInstanceMethod(CrocThread* t, CrocInstance* inst, CrocString* name, out CrocClass* proto)
+CrocValue getInstanceMethod(CrocThread* t, CrocInstance* inst, CrocString* name)
 {
 	if(auto ret = instance.getMethod(inst, name))
-	{
-		proto = inst.parent;
 		return ret.value;
-	}
 	else
 		return CrocValue.nullValue;
 }
@@ -284,17 +277,11 @@ CrocValue getGlobalMetamethod(CrocThread* t, CrocValue.Type type, CrocString* na
 
 CrocFunction* getMM(CrocThread* t, CrocValue* obj, MM method)
 {
-	CrocClass* dummy = void;
-	return getMM(t, obj, method, dummy);
-}
-
-CrocFunction* getMM(CrocThread* t, CrocValue* obj, MM method, out CrocClass* proto)
-{
 	auto name = t.vm.metaStrings[method];
 	CrocValue ret = void;
 
 	if(obj.type == CrocValue.Type.Instance)
-		ret = getInstanceMethod(t, obj.mInstance, name, proto);
+		ret = getInstanceMethod(t, obj.mInstance, name);
 	else
 		ret = getGlobalMetamethod(t, obj.type, name);
 
@@ -333,8 +320,7 @@ template tryMMImpl(int numParams, bool hasDest)
 	const char[] tryMMImpl =
 	"bool tryMM(CrocThread* t, MM mm, " ~ (hasDest? "CrocValue* dest, " : "") ~ tryMMParams!(numParams) ~ ")\n"
 	"{\n"
-	"	CrocClass* proto = null;"
-	"	auto method = getMM(t, src1, mm, proto);\n"
+	"	auto method = getMM(t, src1, mm);\n"
 	"\n"
 	"	if(method is null)\n"
 	"		return false;\n"
@@ -351,7 +337,7 @@ template tryMMImpl(int numParams, bool hasDest)
 	"\n"
 	"	auto funcSlot = push(t, CrocValue(method));\n"
 	~ tryMMPushes!(numParams) ~
-	"	commonCall(t, funcSlot + t.stackBase, " ~ (hasDest ? "1" : "0") ~ ", callPrologue(t, funcSlot + t.stackBase, " ~ (hasDest ? "1" : "0") ~ ", " ~ numParams.stringof ~ ", proto));\n"
+	"	commonCall(t, funcSlot + t.stackBase, " ~ (hasDest ? "1" : "0") ~ ", callPrologue(t, funcSlot + t.stackBase, " ~ (hasDest ? "1" : "0") ~ ", " ~ numParams.stringof ~ "));\n"
 	~
 	(hasDest?
 		"	if(shouldLoad)\n"
@@ -371,7 +357,7 @@ template tryMM(int numParams, bool hasDest)
 	mixin(tryMMImpl!(numParams, hasDest));
 }
 
-bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams, CrocClass* proto)
+bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams)
 {
 	assert(numParams > 0);
 	auto func = &t.stack[slot];
@@ -379,7 +365,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 	switch(func.type)
 	{
 		case CrocValue.Type.Function:
-			return callPrologue2(t, func.mFunction, slot, numReturns, slot + 1, numParams, proto);
+			return callPrologue2(t, func.mFunction, slot, numReturns, slot + 1, numParams);
 
 		case CrocValue.Type.Class:
 			auto cls = func.mClass;
@@ -401,7 +387,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 				t.stack[slot + 1] = inst;
 
 				// do this instead of call so the proto is set correctly
-				if(callPrologue(t, slot, 0, numParams, cls))
+				if(callPrologue(t, slot, 0, numParams))
 					execute(t);
 			}
 
@@ -452,7 +438,6 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 			ar.func = null;
 			ar.pc = null;
 			ar.numReturns = numReturns;
-			ar.proto = null;
 			ar.numTailcalls = 0;
 			ar.firstResult = 0;
 			ar.numResults = 0;
@@ -504,7 +489,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 			return false;
 
 		default:
-			auto method = getMM(t, func, MM.Call, proto);
+			auto method = getMM(t, func, MM.Call);
 
 			if(method is null)
 			{
@@ -514,11 +499,11 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 
 			t.stack[slot + 1] = *func;
 			*func = method;
-			return callPrologue2(t, method, slot, numReturns, slot + 1, numParams, proto);
+			return callPrologue2(t, method, slot, numReturns, slot + 1, numParams);
 	}
 }
 
-bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, CrocClass* proto)
+bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams)
 {
 	const char[] wrapEH =
 		"catch(CrocException e)
@@ -580,7 +565,6 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		ar.numReturns = numReturns;
 		ar.firstResult = 0;
 		ar.numResults = 0;
-		ar.proto = proto;
 		ar.numTailcalls = 0;
 		ar.savedTop = ar.base + funcDef.stackSize;
 		ar.unwindCounter = 0;
@@ -617,7 +601,6 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		ar.firstResult = 0;
 		ar.numResults = 0;
 		ar.savedTop = t.stackIndex;
-		ar.proto = proto;
 		ar.numTailcalls = 0;
 		ar.unwindCounter = 0;
 		ar.unwindReturn = null;
@@ -783,12 +766,11 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 
 	if(!raw)
 	{
-		CrocClass* proto;
-		if(auto method = getMM(t, &v, MM.ToString, proto))
+		if(auto method = getMM(t, &v, MM.ToString))
 		{
 			auto funcSlot = push(t, CrocValue(method));
 			push(t, v);
-			commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 1, proto));
+			commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 1));
 
 			if(t.stack[t.stackIndex - 1].type != CrocValue.Type.String)
 			{
@@ -867,8 +849,7 @@ bool inImpl(CrocThread* t, CrocValue* item, CrocValue* container)
 			return namespace.contains(container.mNamespace, item.mString);
 
 		default:
-			CrocClass* proto;
-			auto method = getMM(t, container, MM.In, proto);
+			auto method = getMM(t, container, MM.In);
 
 			if(method is null)
 			{
@@ -882,7 +863,7 @@ bool inImpl(CrocThread* t, CrocValue* item, CrocValue* container)
 			auto funcSlot = push(t, CrocValue(method));
 			push(t, containersave);
 			push(t, itemsave);
-			commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2, proto));
+			commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2));
 
 			auto ret = !t.stack[t.stackIndex - 1].isFalse();
 			pop(t);
@@ -1193,20 +1174,19 @@ crocint compareImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 		}
 	}
 
-	CrocClass* proto;
 	if(a.type == b.type || b.type != CrocValue.Type.Instance)
 	{
-		if(auto method = getMM(t, a, MM.Cmp, proto))
-			return commonCompare(t, method, a, b, proto);
-		else if(auto method = getMM(t, b, MM.Cmp, proto))
-			return -commonCompare(t, method, b, a, proto);
+		if(auto method = getMM(t, a, MM.Cmp))
+			return commonCompare(t, method, a, b);
+		else if(auto method = getMM(t, b, MM.Cmp))
+			return -commonCompare(t, method, b, a);
 	}
 	else
 	{
-		if(auto method = getMM(t, b, MM.Cmp, proto))
-			return -commonCompare(t, method, b, a, proto);
-		else if(auto method = getMM(t, a, MM.Cmp, proto))
-			return commonCompare(t, method, a, b, proto);
+		if(auto method = getMM(t, b, MM.Cmp))
+			return -commonCompare(t, method, b, a);
+		else if(auto method = getMM(t, a, MM.Cmp))
+			return commonCompare(t, method, a, b);
 	}
 
 	auto bsave = *b;
@@ -1216,7 +1196,7 @@ crocint compareImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 	assert(false);
 }
 
-crocint commonCompare(CrocThread* t, CrocFunction* method, CrocValue* a, CrocValue* b, CrocClass* proto)
+crocint commonCompare(CrocThread* t, CrocFunction* method, CrocValue* a, CrocValue* b)
 {
 	auto asave = *a;
 	auto bsave = *b;
@@ -1224,7 +1204,7 @@ crocint commonCompare(CrocThread* t, CrocFunction* method, CrocValue* a, CrocVal
 	auto funcReg = push(t, CrocValue(method));
 	push(t, asave);
 	push(t, bsave);
-	commonCall(t, funcReg + t.stackBase, 1, callPrologue(t, funcReg + t.stackBase, 1, 2, proto));
+	commonCall(t, funcReg + t.stackBase, 1, callPrologue(t, funcReg + t.stackBase, 1, 2));
 
 	auto ret = *getValue(t, -1);
 	pop(t);
@@ -1246,14 +1226,12 @@ bool switchCmpImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 	if(a.opEquals(*b))
 		return true;
 
-	CrocClass* proto;
-
 	if(a.type == CrocValue.Type.Instance)
 	{
-		if(auto method = getMM(t, a, MM.Cmp, proto))
-			return commonCompare(t, method, a, b, proto) == 0;
-		else if(auto method = getMM(t, b, MM.Cmp, proto))
-			return commonCompare(t, method, b, a, proto) == 0;
+		if(auto method = getMM(t, a, MM.Cmp))
+			return commonCompare(t, method, a, b) == 0;
+		else if(auto method = getMM(t, b, MM.Cmp))
+			return commonCompare(t, method, b, a) == 0;
 	}
 
 	return false;
@@ -1287,20 +1265,19 @@ bool equalsImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 		}
 	}
 
-	CrocClass* proto;
 	if(a.type == b.type || b.type != CrocValue.Type.Instance)
 	{
-		if(auto method = getMM(t, a, MM.Equals, proto))
-			return commonEquals(t, method, a, b, proto);
-		else if(auto method = getMM(t, b, MM.Equals, proto))
-			return commonEquals(t, method, b, a, proto);
+		if(auto method = getMM(t, a, MM.Equals))
+			return commonEquals(t, method, a, b);
+		else if(auto method = getMM(t, b, MM.Equals))
+			return commonEquals(t, method, b, a);
 	}
 	else
 	{
-		if(auto method = getMM(t, b, MM.Equals, proto))
-			return commonEquals(t, method, b, a, proto);
-		else if(auto method = getMM(t, a, MM.Equals, proto))
-			return commonEquals(t, method, a, b, proto);
+		if(auto method = getMM(t, b, MM.Equals))
+			return commonEquals(t, method, b, a);
+		else if(auto method = getMM(t, a, MM.Equals))
+			return commonEquals(t, method, a, b);
 	}
 
 	auto bsave = *b;
@@ -1310,7 +1287,7 @@ bool equalsImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 	assert(false);
 }
 
-bool commonEquals(CrocThread* t, CrocFunction* method, CrocValue* a, CrocValue* b, CrocClass* proto)
+bool commonEquals(CrocThread* t, CrocFunction* method, CrocValue* a, CrocValue* b)
 {
 	auto asave = *a;
 	auto bsave = *b;
@@ -1318,7 +1295,7 @@ bool commonEquals(CrocThread* t, CrocFunction* method, CrocValue* a, CrocValue* 
 	auto funcReg = push(t, CrocValue(method));
 	push(t, asave);
 	push(t, bsave);
-	commonCall(t, funcReg + t.stackBase, 1, callPrologue(t, funcReg + t.stackBase, 1, 2, proto));
+	commonCall(t, funcReg + t.stackBase, 1, callPrologue(t, funcReg + t.stackBase, 1, 2));
 
 	auto ret = *getValue(t, -1);
 	pop(t);
@@ -1768,7 +1745,6 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 	while(slot < endSlotm1)
 	{
 		CrocFunction* method = null;
-		CrocClass* proto = null;
 		bool swap = false;
 
 		switch(stack[slot].type)
@@ -1822,7 +1798,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 						len += stack[idx].mArray.length;
 					else if(stack[idx].type == CrocValue.Type.Instance)
 					{
-						method = getMM(t, &stack[idx], MM.Cat_r, proto);
+						method = getMM(t, &stack[idx], MM.Cat_r);
 
 						if(method is null)
 							len++;
@@ -1848,7 +1824,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 			case CrocValue.Type.Instance:
 				if(stack[slot + 1].type == CrocValue.Type.Array)
 				{
-					method = getMM(t, &stack[slot], MM.Cat, proto);
+					method = getMM(t, &stack[slot], MM.Cat);
 
 					if(method is null)
 						goto array;
@@ -1856,7 +1832,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 
 				if(method is null)
 				{
-					method = getMM(t, &stack[slot], MM.Cat, proto);
+					method = getMM(t, &stack[slot], MM.Cat);
 
 					if(method is null)
 						goto cat_r;
@@ -1870,7 +1846,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 					goto array;
 				else
 				{
-					method = getMM(t, &stack[slot], MM.Cat, proto);
+					method = getMM(t, &stack[slot], MM.Cat);
 
 					if(method is null)
 						goto cat_r;
@@ -1881,7 +1857,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 			cat_r:
 				if(method is null)
 				{
-					method = getMM(t, &stack[slot + 1], MM.Cat_r, proto);
+					method = getMM(t, &stack[slot + 1], MM.Cat_r);
 
 					if(method is null)
 						goto error;
@@ -1909,7 +1885,7 @@ void catImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 					push(t, src2save);
 				}
 
-				commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2, proto));
+				commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2));
 
 				// stack might have changed.
 				stack = t.stack;
@@ -2017,8 +1993,7 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 			return arrayAppend(t, t.stack[dest].mArray, stack[slot .. endSlot]);
 
 		default:
-			CrocClass* proto;
-			auto method = getMM(t, &t.stack[dest], MM.CatEq, proto);
+			auto method = getMM(t, &t.stack[dest], MM.CatEq);
 
 			if(method is null)
 			{
@@ -2036,7 +2011,7 @@ void catEqImpl(CrocThread* t, AbsStack dest, AbsStack firstSlot, uword num)
 			t.nativeCallDepth++;
 			scope(exit) t.nativeCallDepth--;
 
-			if(callPrologue2(t, method, firstSlot, 0, firstSlot, num + 1, proto))
+			if(callPrologue2(t, method, firstSlot, 0, firstSlot, num + 1))
 				execute(t);
 			return;
 	}
@@ -2110,12 +2085,6 @@ void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 {
 	if(!rethrowing)
 	{
-		if(!asImpl(t, &ex, &CrocValue(t.vm.throwable)))
-		{
-			typeString(t, &ex);
-			throwStdException(t, "TypeError", "Attempting to throw a '{}'; must be an instance of a class derived from Throwable", getString(t, -1));
-		}
-
 		push(t, CrocValue(ex));
 		field(t, -1, "location");
 		field(t, -1, "col");
@@ -2166,29 +2135,9 @@ void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 // ============================================================================
 // Class stuff
 
-bool asImpl(CrocThread* t, CrocValue* o, CrocValue* p)
-{
-	if(p.type != CrocValue.Type.Class)
-	{
-		typeString(t, p);
-		throwStdException(t, "TypeError", "Attempting to use 'as' with a '{}' instead of a 'class' as the type", getString(t, -1));
-	}
-
-	return
-		o.type == CrocValue.Type.Instance && instance.derivesFrom(o.mInstance, p.mClass) ||
-		o.type == CrocValue.Type.Class && classobj.derivesFrom(o.mClass, p.mClass);
-}
-
 CrocValue superOfImpl(CrocThread* t, CrocValue* v)
 {
-	if(v.type == CrocValue.Type.Class)
-	{
-		if(auto p = v.mClass.parent)
-			return CrocValue(p);
-		else
-			return CrocValue.nullValue;
-	}
-	else if(v.type == CrocValue.Type.Instance)
+	if(v.type == CrocValue.Type.Instance)
 		return CrocValue(v.mInstance.parent);
 	else if(v.type == CrocValue.Type.Namespace)
 	{
@@ -2454,7 +2403,7 @@ version(CrocExtendedThreads)
 			push(t, CrocValue(t.coroFunc));
 			insert(t, 1);
 
-			if(callPrologue(t, cast(AbsStack)1, -1, numParams, null))
+			if(callPrologue(t, cast(AbsStack)1, -1, numParams))
 				execute(t);
 		}
 	}
@@ -2518,7 +2467,7 @@ uword resume(CrocThread* t, uword numParams)
 			{
 				push(t, CrocValue(t.coroFunc));
 				insert(t, 1);
-				auto result = callPrologue(t, cast(AbsStack)1, -1, numParams, null);
+				auto result = callPrologue(t, cast(AbsStack)1, -1, numParams);
 				assert(result == true, "resume callPrologue must return true");
 				execute(t);
 			}
@@ -2558,7 +2507,6 @@ void popAR(CrocThread* t)
 {
 	t.arIndex--;
 	t.currentAR.func = null;
-	t.currentAR.proto = null;
 
 	if(t.arIndex > 0)
 	{
@@ -2645,7 +2593,7 @@ void callHook(CrocThread* t, CrocThread.Hook hook)
 	}
 
 	try
-		commonCall(t, t.stackBase + slot, 0, callPrologue(t, t.stackBase + slot, 0, 1, null));
+		commonCall(t, t.stackBase + slot, 0, callPrologue(t, t.stackBase + slot, 0, 1));
 	finally
 	{
 		t.hooksEnabled = true;
@@ -2989,8 +2937,7 @@ void execute(CrocThread* t, uword depth = 1)
 
 					if(src.type != CrocValue.Type.Function && src.type != CrocValue.Type.Thread)
 					{
-						CrocClass* proto;
-						auto method = getMM(t, src, MM.Apply, proto);
+						auto method = getMM(t, src, MM.Apply);
 
 						if(method is null)
 						{
@@ -3003,7 +2950,7 @@ void execute(CrocThread* t, uword depth = 1)
 						t.stack[stackBase + rd] = method;
 
 						t.stackIndex = stackBase + rd + 3;
-						commonCall(t, stackBase + rd, 3, callPrologue(t, stackBase + rd, 3, 2, proto));
+						commonCall(t, stackBase + rd, 3, callPrologue(t, stackBase + rd, 3, 2));
 						t.stackIndex = t.currentAR.savedTop;
 
 						src = &t.stack[stackBase + rd];
@@ -3032,7 +2979,7 @@ void execute(CrocThread* t, uword depth = 1)
 					t.stack[stackBase + funcReg] = t.stack[stackBase + rd];
 
 					t.stackIndex = stackBase + funcReg + 3;
-					commonCall(t, stackBase + funcReg, numIndices, callPrologue(t, stackBase + funcReg, numIndices, 2, null));
+					commonCall(t, stackBase + funcReg, numIndices, callPrologue(t, stackBase + funcReg, numIndices, 2));
 					t.stackIndex = t.currentAR.savedTop;
 
 					auto src = &t.stack[stackBase + rd];
@@ -3096,15 +3043,12 @@ void execute(CrocThread* t, uword depth = 1)
 				}";
 
 				case Op.Method, Op.TailMethod:
-					// These two opcodes have one more value
 					mixin(GetRS);
-
-				case Op.SuperMethod, Op.TailSuperMethod:
 					mixin(GetRT);
 					numParams = mixin(GetUImm);
 					numResults = mixin(GetUImm) - 1;
 
-					if(opcode == Op.TailMethod || opcode == Op.TailSuperMethod)
+					if(opcode == Op.TailMethod)
 						numResults = -1; // the second uimm is a dummy for these opcodes
 
 					if(RT.type != CrocValue.Type.String)
@@ -3113,33 +3057,10 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "TypeError", "Attempting to get a method with a non-string name (type '{}' instead)", getString(t, -1));
 					}
 
-					CrocValue* self = void;
-					CrocValue lookup = void;
-
-					if(opcode == Op.Method || opcode == Op.TailMethod)
-					{
-						self = RS;
-						lookup = *RS;
-					}
-					else
-					{
-						if(t.currentAR.proto is null || t.currentAR.proto.parent is null)
-							throwStdException(t, "CallError", "Attempting to perform a supercall in a function where there is no super class");
-
-						self = &t.stack[stackBase];
-						lookup = CrocValue(t.currentAR.proto.parent);
-
-						if(self.type != CrocValue.Type.Instance && self.type != CrocValue.Type.Class)
-						{
-							typeString(t, self);
-							throwStdException(t, "TypeError", "Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
-						}
-					}
-
 					mixin(AdjustParams);
-					isScript = commonMethodCall(t, stackBase + rd, self, &lookup, RT.mString, numResults, numParams);
+					isScript = commonMethodCall(t, stackBase + rd, RS, RS, RT.mString, numResults, numParams);
 
-					if(opcode == Op.Method || opcode == Op.SuperMethod)
+					if(opcode == Op.Method)
 						goto _commonCall;
 					else
 						goto _commonTailcall;
@@ -3153,17 +3074,7 @@ void execute(CrocThread* t, uword depth = 1)
 
 					mixin(AdjustParams);
 
-					auto self = &t.stack[stackBase + rd + 1];
-					CrocClass* proto = void;
-
-					if(self.type == CrocValue.Type.Instance)
-						proto = self.mInstance.parent;
-					else if(self.type == CrocValue.Type.Class)
-						proto = self.mClass;
-					else
-						proto = null;
-
-					isScript = callPrologue(t, stackBase + rd, numResults, numParams, proto);
+					isScript = callPrologue(t, stackBase + rd, numResults, numParams);
 
 					if(opcode == Op.TailCall)
 						goto _commonTailcall;
@@ -3636,17 +3547,6 @@ void execute(CrocThread* t, uword depth = 1)
 					auto name = constTable[mixin(GetUImm)].mString;
 					t.stack[stackBase + rd] = namespace.create(t.vm.alloc, name, env);
 					maybeGC(t);
-					break;
-
-				// Class stuff
-				case Op.As:
-					mixin(GetRS);
-					mixin(GetRT);
-
-					if(asImpl(t, RS, RT))
-						t.stack[stackBase + rd] = *RS;
-					else
-						t.stack[stackBase + rd] = CrocValue.nullValue;
 					break;
 
 				case Op.SuperOf:

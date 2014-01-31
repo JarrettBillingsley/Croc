@@ -284,17 +284,6 @@ void removeRef(CrocThread* t, ulong r)
 }
 
 /**
-Pushes the 'Throwable' class which forms the root of the Croc exception hierarchy.
-
-Returns:
-	The stack index of the pushed class.
-*/
-word pushThrowableClass(CrocThread* t)
-{
-	return push(t, CrocValue(t.vm.throwable));
-}
-
-/**
 Pushes the 'exceptions.Location' class, which is used often in exceptions and tracebacks.
 
 Returns:
@@ -1522,8 +1511,7 @@ public:
 		{
 			auto srcObj = &t.stack[t.stackIndex - 3];
 
-			CrocClass* proto;
-			auto method = getMM(t, srcObj, MM.Apply, proto);
+			auto method = getMM(t, srcObj, MM.Apply);
 
 			if(method is null)
 			{
@@ -1535,7 +1523,7 @@ public:
 			insert(t, -4);
 			pop(t);
 			auto reg = absIndex(t, -3);
-			commonCall(t, reg + t.stackBase, 3, callPrologue(t, reg + t.stackBase, 3, 2, proto));
+			commonCall(t, reg + t.stackBase, 3, callPrologue(t, reg + t.stackBase, 3, 2));
 
 			if(!isFunction(t, src) && !isThread(t, src))
 			{
@@ -1648,7 +1636,7 @@ word getStdException(CrocThread* t, char[] exName)
 		auto check = t.vm.stdExceptions.lookup(createString(t, "ApiError"));
 
 		if(check is null)
-			throw new CrocException("Fatal -- exception thrown before exception library was loaded");
+			throw new CrocFatalException("Fatal -- exception thrown before exception library was loaded");
 
 		throwStdException(t, "ApiError", "Unknown standard exception type '{}'", exName);
 	}
@@ -3444,19 +3432,27 @@ void cateq(CrocThread* t, word dest, uword num)
 }
 
 /**
-Returns whether or not obj is an 'instance' and derives from base. Throws an error if base is not a class.
-Works just like the as operator in Croc.
+Returns true if obj is an 'instance' and it is an instance of the class 'base'.
 
 Params:
-	obj = The stack index of the value to test.
+	obj = The stack index of the value to test. Can be any type, though types other than 'instance' will always give
+		false.
 	base = The stack index of the _base class. Must be a 'class'.
-
-Returns:
-	true if obj is an 'instance' and it derives from base. False otherwise.
 */
-bool as(CrocThread* t, word obj, word base)
+bool instanceOf(CrocThread* t, word obj, word base)
 {
-	return asImpl(t, getValue(t, obj), getValue(t, base));
+	mixin(FuncNameMix);
+
+	auto inst = getValue(t, obj);
+	auto cls = getValue(t, base);
+
+	if(cls.type != CrocValue.Type.Class)
+	{
+		pushTypeString(t, base);
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Expected 'class' for 'base', not '{}'", getString(t, -1));
+	}
+
+	return inst.type == CrocValue.Type.Instance && inst.mInstance.parent is cls.mClass;
 }
 
 /**
@@ -3532,7 +3528,7 @@ uword call(CrocThread* t, word slot, word numReturns)
 	if(numReturns < -1)
 		throwStdException(t, "ApiError", __FUNCTION__ ~ " - invalid number of returns (must be >= -1)");
 
-	return commonCall(t, absSlot, numReturns, callPrologue(t, absSlot, numReturns, numParams, null));
+	return commonCall(t, absSlot, numReturns, callPrologue(t, absSlot, numReturns, numParams));
 }
 
 /**
@@ -3625,125 +3621,6 @@ uword methodCall(CrocThread* t, word slot, word numReturns)
 	return commonCall(t, absSlot, numReturns, tmp);
 }
 
-/**
-Performs a super call. This function will only work if the currently-executing function was called as
-a method of a value of type 'instance'.
-
-This function works similarly to other kinds of calls, but it's somewhat odd. Other calls have you push the
-thing to call followed by 'this' or a spot for it. This call requires you to just give it two empty slots.
-It will fill them in (and what it puts in them is really kind of scary). Regardless, when the super method is
-called (if there is one), its 'this' parameter will be the currently-executing function's 'this' parameter.
-
-The process of performing a supercall is not really that much different from other kinds of calls.
-
------
-// Let's translate `super.f(3)` into API calls.
-
-// 1. Push a null.
-auto slot = pushNull(t);
-
-// 2. Push another null. You can'_t call a super method with a custom 'this'.
-pushNull(t);
-
-// 3. Push any params.
-pushInt(t, 3);
-
-// 4. Call it with the method name.
-superCall(t, slot, "f", 0);
-
-// We didn'_t ask for any return values, so the stack is how it was before we began.
------
-
-Params:
-	slot = The first empty _slot. There should be another one on top of it. Then come any parameters.
-	name = The _name of the method to call.
-	numReturns = How many return values you want. Can be -1, which means you'll get all returns.
-
-Returns:
-	The number of return values given by the function. If numReturns was -1, this is exactly how
-	many returns the function gave. If numReturns was >= 0, this is the same as numReturns (and
-	not exactly useful since you already know it).
-*/
-uword superCall(CrocThread* t, word slot, char[] name, word numReturns)
-{
-	mixin(FuncNameMix);
-
-	// Invalid call?
-	if(t.arIndex == 0 || t.currentAR.proto is null || t.currentAR.proto.parent is null)
-		throwStdException(t, "RuntimeError", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where there is no super class");
-
-	// Get num params
-	auto absSlot = fakeToAbs(t, slot);
-	auto numParams = t.stackIndex - (absSlot + 1);
-
-	if(numParams < 1)
-		throwStdException(t, "ApiError", __FUNCTION__ ~ " - too few parameters (must have at least 1 for the context)");
-
-	if(numReturns < -1)
-		throwStdException(t, "ApiError", __FUNCTION__ ~ " - invalid number of returns (must be >= -1)");
-
-	// Get this
-	auto _this = &t.stack[t.stackBase];
-
-	if(_this.type != CrocValue.Type.Instance && _this.type != CrocValue.Type.Class)
-	{
-		pushTypeString(t, 0);
-		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
-	}
-
-	// Do the call
-	auto methodName = createString(t, name);
-	auto ret = commonMethodCall(t, absSlot, _this, &CrocValue(t.currentAR.proto.parent), methodName, numReturns, numParams);
-	return commonCall(t, absSlot, numReturns, ret);
-}
-
-/**
-Same as above, but expects the method name to be at the top of the stack (after the parameters).
-
-The parameters and return value are the same as above.
-*/
-uword superCall(CrocThread* t, word slot, word numReturns)
-{
-	// Get the method name
-	mixin(apiCheckNumParams!("1"));
-	auto absSlot = fakeToAbs(t, slot);
-
-	if(!isString(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
-	}
-
-	auto methodName = t.stack[t.stackIndex - 1].mString;
-	pop(t);
-
-	// Invalid call?
-	if(t.arIndex == 0 || t.currentAR.proto is null || t.currentAR.proto.parent is null)
-		throwStdException(t, "RuntimeError", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where there is no super class");
-
-	// Get num params
-	auto numParams = t.stackIndex - (absSlot + 1);
-
-	if(numParams < 1)
-		throwStdException(t, "ApiError", __FUNCTION__ ~ " - too few parameters (must have at least 1 for the context)");
-
-	if(numReturns < -1)
-		throwStdException(t, "ApiError", __FUNCTION__ ~ " - invalid number of returns (must be >= -1)");
-
-	// Get this
-	auto _this = &t.stack[t.stackBase];
-
-	if(_this.type != CrocValue.Type.Instance && _this.type != CrocValue.Type.Class)
-	{
-		pushTypeString(t, 0);
-		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
-	}
-
-	// Do the call
-	auto ret = commonMethodCall(t, absSlot, _this, &CrocValue(t.currentAR.proto.parent), methodName, numReturns, numParams);
-	return commonCall(t, absSlot, numReturns, ret);
-}
-
 // ================================================================================================================================================
 // Reflective functions
 
@@ -3816,8 +3693,7 @@ Returns:
 */
 bool hasMethod(CrocThread* t, word obj, char[] methodName)
 {
-	CrocClass* dummy = void;
-	return lookupMethod(t, getValue(t, obj), createString(t, methodName), dummy).type != CrocValue.Type.Null;
+	return lookupMethod(t, getValue(t, obj), createString(t, methodName)).type != CrocValue.Type.Null;
 }
 
 // ================================================================================================================================================

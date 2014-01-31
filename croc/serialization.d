@@ -287,15 +287,6 @@ static:
 			}
 
 			_integer(t, rec.numReturns);
-
-			if(rec.proto)
-			{
-				_writeUInt8(t, 1);
-				_serialize(t, rec.proto);
-			}
-			else
-				_writeUInt8(t, 0);
-
 			_integer(t, rec.numTailcalls);
 			_integer(t, rec.firstResult);
 			_integer(t, rec.numResults);
@@ -745,13 +736,6 @@ static:
 
 		v.name = _deserializeString(t);
 
-		if(_readUInt8(t) != 0)
-		{
-			_deserializeObj(t, "_deserializeClass");
-			auto base = getClass(t, -1); assert(base !is null);
-			v.parent = base;
-		}
-
 		auto numMethods = _length(t);
 
 		for(uword i = 0; i < numMethods; i++)
@@ -907,15 +891,6 @@ static:
 
 		if(rec.numReturns < -1 || rec.numReturns > 100_000)
 			throwStdException(t, "ValueError", "Malformed data (invalid call record number of returns)");
-
-		if(_readUInt8(t))
-		{
-			_deserializeObj(t, "_deserializeClass");
-			rec.proto = getClass(t, -1);
-			pop(t);
-		}
-		else
-			rec.proto = null;
 
 		rec.numTailcalls = _length(t);
 		rec.firstResult = _length(t);

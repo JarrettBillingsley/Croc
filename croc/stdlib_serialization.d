@@ -255,7 +255,7 @@ class Serializer
 
 	function setOutput(output: @OutStream)
 	{
-		if(output as BinaryStream)
+		if(output.super is BinaryStream)
 			:_output = output
 		else
 			:_output = BinaryStream(output)
@@ -480,14 +480,6 @@ class Serializer
 		if(object.isFrozen(v) && object.finalizable(v))
 			throw ValueError("Attempting to serialize class '{}' which has a finalizer".format(nameOf(v)))
 
-		if(v.super)
-		{
-			:_output.writeUInt8(1)
-			:_serialize(v.super)
-		}
-		else
-			:_output.writeUInt8(0)
-
 		:_nativeSerializeClass(v)
 		:_output.writeUInt8(toInt(object.isFrozen(v)))
 	}
@@ -586,7 +578,7 @@ class Deserializer
 	{
 		if(input is :_input)
 			return
-		else if(input as BinaryStream)
+		else if(input.super is BinaryStream)
 			:_input = input
 		else
 			:_input = BinaryStream(input)

@@ -527,7 +527,6 @@ struct CrocClass
 	mixin CrocObjectMixin!(CrocValue.Type.Class);
 package:
 	CrocString* name;
-	CrocClass* parent;
 	bool isFrozen;
 	bool visitedOnce;
 	Hash!(CrocString*, CrocValue, true) methods;
@@ -562,7 +561,6 @@ package:
 	CrocFunction* func;
 	Instruction* pc;
 	word numReturns;
-	CrocClass* proto;
 	uword numTailcalls;
 	uword firstResult;
 	uword numResults;
@@ -694,7 +692,6 @@ package:
 	Hash!(ulong, CrocBaseObject*) refTab;
 
 	// These point to "special" runtime classes
-	CrocClass* throwable;
 	CrocClass* location;
 	Hash!(CrocString*, CrocClass*) stdExceptions;
 	// ----------------------------------
