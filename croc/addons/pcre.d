@@ -67,7 +67,7 @@ struct PcreLib
 	{
 		makeModule(t, "pcre", function uword(CrocThread* t)
 		{
-			CreateClass(t, "PcreException", "exceptions.Exception", (CreateClass*) {});
+			CreateClass(t, "PcreException", "exceptions.Throwable", (CreateClass*) {});
 			newGlobal(t, "PcreException");
 
 			loadPCRE(t);
@@ -79,13 +79,13 @@ struct PcreLib
 				auto minor = Int_parse(vers[vers.locate('.') + 1 .. vers.locate(' ')]);
 
 				if(minor < 4 || major < 7)
-					throwStdException(t, "Exception", "Your PCRE library is only version {}. You need 7.4 or higher.", vers[0 .. vers.locate(' ')]);
+					throwNamedException(t, "PcreException", "Your PCRE library is only version {}. You need 7.4 or higher.", vers[0 .. vers.locate(' ')]);
 
 				word ret;
 				pcre_config(PCRE_CONFIG_UTF8, &ret);
 
 				if(!ret)
-					throwStdException(t, "Exception", "Your PCRE library was not built with UTF-8 support.");
+					throwNamedException(t, "PcreException", "Your PCRE library was not built with UTF-8 support.");
 			}
 
 			importModuleNoNS(t, "hash");
@@ -920,7 +920,7 @@ void loadPCRE(CrocThread* t)
 		bind(pcre_free, "pcre_free", libpcre);
 	}
 	else
-		throwStdException(t, "Exception", "Cannot find the libpcre shared library");
+		throwNamedException(t, "PcreException", "Cannot find the libpcre shared library");
 }
 
 }

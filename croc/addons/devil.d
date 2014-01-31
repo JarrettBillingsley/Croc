@@ -89,7 +89,7 @@ static:
 	{
 		makeModule(t, "devil", function uword(CrocThread* t)
 		{
-			CreateClass(t, "DevILException", "exceptions.Exception", (CreateClass* c) {});
+			CreateClass(t, "DevILException", "exceptions.Throwable", (CreateClass* c) {});
 			newGlobal(t, "DevILException");
 
 			safeCode(t, "DevILException",

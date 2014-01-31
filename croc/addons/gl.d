@@ -89,7 +89,7 @@ static:
 	{
 		makeModule(t, "gl", function uword(CrocThread* t)
 		{
-			CreateClass(t, "GLException", "exceptions.Exception", (CreateClass* c) {});
+			CreateClass(t, "GLException", "exceptions.Throwable", (CreateClass* c) {});
 			newGlobal(t, "GLException");
 
 			register(t, &load, "load");
@@ -149,7 +149,7 @@ static:
 				case GLVersion.Version12: loadGL12(t);
 				case GLVersion.Version11: loadGLBase(t); break;
 				default:
-					throwStdException(t, "Exception", "I have no idea what version of OpenGL you have");
+					throwNamedException(t, "GLException", "I have no idea what version of OpenGL you have");
 			}
 
 			DerelictGL.loadExtensions();

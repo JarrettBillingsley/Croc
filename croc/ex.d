@@ -627,13 +627,13 @@ you call a lot of native functions.
 Instead, you can wrap the call to this unsafe function with a call to safeCode().
 
 -----
-File f = safeCode(t, OpenFile("filename"));
+File f = safeCode(t, "IOException", OpenFile("filename"));
 -----
 
 What safeCode() does is it tries to execute the code it is passed. If it succeeds, it simply returns any value that
 the code returns. If it throws an exception derived from CrocException, it rethrows the exception. And if it throws
-an exception that derives from Exception, it throws a new CrocException with the original exception's message as the
-message.
+an exception that derives from Exception, it throws a Croc exception of the given type with the original exception's
+message as the new exception's message. In the example above, a Croc IOException will be thrown.
 
 If you want to wrap statements, you can use a delegate literal:
 
@@ -654,24 +654,10 @@ safeCode() is templated to allow any return value.
 Params:
 	code = The code to be executed. This is a lazy parameter, so it's not actually executed until inside the call to
 		safeCode.
+	exName = The fully-qualified name of the Croc exception type to translate D exceptions into.
 
 Returns:
 	Whatever the code parameter returns.
-*/
-T safeCode(T)(CrocThread* t, lazy T code)
-{
-	try
-		return code;
-	catch(CrocException e)
-		throw e;
-	catch(Exception e)
-		throwStdException(t, "Exception", "{}", e);
-
-	assert(false);
-}
-
-/**
-ditto
 */
 T safeCode(T)(CrocThread* t, char[] exName, lazy T code)
 {

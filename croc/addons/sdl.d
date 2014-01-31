@@ -60,7 +60,7 @@ void initSdlLib(CrocThread* t)
 {
 	makeModule(t, "sdl", function uword(CrocThread* t)
 	{
-		CreateClass(t, "SdlException", "exceptions.Exception", (CreateClass*){});
+		CreateClass(t, "SdlException", "exceptions.Throwable", (CreateClass*){});
 		newGlobal(t, "SdlException");
 
 		safeCode(t, "SdlException", DerelictSDL.load());
