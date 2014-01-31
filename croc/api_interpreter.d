@@ -2239,7 +2239,7 @@ void addField(CrocThread* t, word cls, char[] name)
 	auto c = absIndex(t, cls);
 	pushString(t, name);
 	swap(t);
-	_addFieldOrMethod(t, c, false);
+	_addFieldOrMethod(t, c, false, false);
 }
 
 /**
@@ -2248,7 +2248,7 @@ Pops both.
 */
 void addField(CrocThread* t, word cls)
 {
-	_addFieldOrMethod(t, cls, false);
+	_addFieldOrMethod(t, cls, false, false);
 }
 
 /**
@@ -2260,7 +2260,7 @@ void addMethod(CrocThread* t, word cls, char[] name)
 	auto c = absIndex(t, cls);
 	pushString(t, name);
 	swap(t);
-	_addFieldOrMethod(t, c, true);
+	_addFieldOrMethod(t, c, true, false);
 }
 
 /**
@@ -2269,7 +2269,53 @@ Pops both.
 */
 void addMethod(CrocThread* t, word cls)
 {
-	_addFieldOrMethod(t, cls, true);
+	_addFieldOrMethod(t, cls, true, false);
+}
+
+/**
+Works the same as addField, except overrides existing fields (like using the override keyword in Croc).
+
+Params:
+	cls = The class to which the field will be added.
+	name = The name of the field to add.
+*/
+void addFieldOverride(CrocThread* t, word cls, char[] name)
+{
+	mixin(apiCheckNumParams!("1"));
+	auto c = absIndex(t, cls);
+	pushString(t, name);
+	swap(t);
+	_addFieldOrMethod(t, c, false, true);
+}
+
+/**
+Same as above, but expects two values on the stack: the field's value on the top, and the name of the field below it.
+Pops both.
+*/
+void addFieldOverride(CrocThread* t, word cls)
+{
+	_addFieldOrMethod(t, cls, false, true);
+}
+
+/**
+Same as addFieldOverride, but for methods.
+*/
+void addMethodOverride(CrocThread* t, word cls, char[] name)
+{
+	mixin(apiCheckNumParams!("1"));
+	auto c = absIndex(t, cls);
+	pushString(t, name);
+	swap(t);
+	_addFieldOrMethod(t, c, true, true);
+}
+
+/**
+Same as above, but expects two values on the stack: the method's value on the top, and the name of the method below it.
+Pops both.
+*/
+void addMethodOverride(CrocThread* t, word cls)
+{
+	_addFieldOrMethod(t, cls, true, true);
 }
 
 /**
@@ -2317,13 +2363,13 @@ void addHiddenField(CrocThread* t, word cls)
 
 	auto name = getStringObj(t, -2);
 
-	if(!classobj.addHiddenField(t.vm.alloc, c, name, getValue(t, -1)))
+	if(!classobj.addHiddenField(t.vm.alloc, c, name, getValue(t, -1), false))
 		throwStdException(t, "FieldError", __FUNCTION__ ~ " - Attempting to add a hidden field '{}' which already exists to class '{}'", name.toString(), c.name.toString());
 
 	pop(t, 2);
 }
 
-private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
+private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod, bool isOverride)
 {
 	mixin(apiCheckNumParams!("2"));
 
@@ -2355,15 +2401,24 @@ private void _addFieldOrMethod(CrocThread* t, word cls, bool isMethod)
 
 	auto name = getStringObj(t, -2);
 
-	if(isMethod)
+	auto okay = isMethod ?
+		classobj.addMethod(t.vm.alloc, c, name, getValue(t, -1), isOverride) :
+		classobj.addField(t.vm.alloc, c, name, getValue(t, -1), isOverride);
+
+
+	if(!okay)
 	{
-		if(!classobj.addMethod(t.vm.alloc, c, name, getValue(t, -1)))
-			throwStdException(t, "FieldError", __FUNCTION__ ~ " - Attempting to add a method '{}' which already exists to class '{}'", name.toString(), c.name.toString());
-	}
-	else
-	{
-		if(!classobj.addField(t.vm.alloc, c, name, getValue(t, -1)))
-			throwStdException(t, "FieldError", __FUNCTION__ ~ " - Attempting to add a field '{}' which already exists to class '{}'", name.toString(), c.name.toString());
+		if(isOverride)
+		{
+			throwStdException(t, "FieldError",
+				__FUNCTION__ ~ " - Attempting to override {} '{}' in class '{}', but no such member already exists",
+				isMethod ? "method" : "field", name.toString(), c.name.toString());
+		}
+		else
+		{
+			throwStdException(t, "FieldError", __FUNCTION__ ~ " - Attempting to add a {} '{}' which already exists to class '{}'",
+				isMethod ? "method" : "field", name.toString(), c.name.toString());
+		}
 	}
 
 	pop(t, 2);

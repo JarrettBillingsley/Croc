@@ -468,6 +468,7 @@ class ClassDecl : Statement
 		char[] name;
 		Expression initializer;
 		bool isMethod;
+		bool isOverride;
 		char[] docs;
 		CompileLoc docsLoc;
 	}

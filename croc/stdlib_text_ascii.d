@@ -173,41 +173,41 @@ local class AsciiIncrementalEncoder : IncrementalEncoder
 {
 	_errors
 
-	this(errors: string = "strict")
+	override this(errors: string = "strict")
 		:_errors = errors
 
-	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
+	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
 		_encodeInto(str, dest, start, :_errors)
 
-	function reset() {}
+	override function reset() {}
 }
 
 local class AsciiIncrementalDecoder : IncrementalDecoder
 {
 	_errors
 
-	this(errors: string = "strict")
+	override this(errors: string = "strict")
 		:_errors = errors
 
-	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false) =
+	override function decodeRange(src: memblock, lo: int, hi: int, final: bool = false) =
 		_decodeRange(src, lo, hi, :_errors)
 
-	function reset() {}
+	override function reset() {}
 }
 
 class AsciiCodec : TextCodec
 {
-	name = "ascii"
+	override name = "ascii"
 
-	function incrementalEncoder(errors: string = "strict") =
+	override function incrementalEncoder(errors: string = "strict") =
 		AsciiIncrementalEncoder(errors)
 
-	function incrementalDecoder(errors: string = "strict") =
+	override function incrementalDecoder(errors: string = "strict") =
 		AsciiIncrementalDecoder(errors)
 }
 
-object.addMethod(AsciiCodec, "encodeInto", _encodeInto)
-object.addMethod(AsciiCodec, "decodeRange", _decodeRange)
+object.addMethodOverride(AsciiCodec, "encodeInto", _encodeInto)
+object.addMethodOverride(AsciiCodec, "decodeRange", _decodeRange)
 
 registerCodec("ascii", AsciiCodec())
 `;

@@ -74,50 +74,50 @@ class TracWikiOutputter : DocOutputter
 	// =================================================================================================================
 	// Item-level stuff
 
-	function beginModule(doctable: table)
+	override function beginModule(doctable: table)
 	{
 		:outputText("[[PageOutline]]\n")
 		:beginItem(doctable)
 		:_linkResolver.enterModule(doctable.name)
 	}
 
-	function endModule()
+	override function endModule()
 	{
 		:_linkResolver.leave()
 		:endItem()
 	}
 
-	function beginFunction(doctable: table) :beginItem(doctable)
-	function endFunction() :endItem()
+	override function beginFunction(doctable: table) :beginItem(doctable)
+	override function endFunction() :endItem()
 
-	function beginClass(doctable: table)
+	override function beginClass(doctable: table)
 	{
 		:beginItem(doctable)
 		:_linkResolver.enterItem(doctable.name)
 	}
 
-	function endClass()
+	override function endClass()
 	{
 		:_linkResolver.leave()
 		:endItem()
 	}
 
-	function beginNamespace(doctable: table)
+	override function beginNamespace(doctable: table)
 	{
 		:beginItem(doctable)
 		:_linkResolver.enterItem(doctable.name)
 	}
 
-	function endNamespace()
+	override function endNamespace()
 	{
 		:_linkResolver.leave()
 		:endItem()
 	}
 
-	function beginField(doctable: table) :beginItem(doctable)
-	function endField() :endItem()
-	function beginVariable(doctable: table) :beginItem(doctable)
-	function endVariable() :endItem()
+	override function beginField(doctable: table) :beginItem(doctable)
+	override function endField() :endItem()
+	override function beginVariable(doctable: table) :beginItem(doctable)
+	override function endVariable() :endItem()
 
 	function beginItem(doctable: table)
 	{
@@ -181,7 +181,7 @@ class TracWikiOutputter : DocOutputter
 	// =================================================================================================================
 	// Section-level stuff
 
-	function beginSection(name: string)
+	override function beginSection(name: string)
 	{
 		if(name !is "docs")
 		{
@@ -204,7 +204,7 @@ class TracWikiOutputter : DocOutputter
 			:beginDefList()
 	}
 
-	function endSection()
+	override function endSection()
 	{
 		if(:_isSpecialSection)
 		{
@@ -213,7 +213,7 @@ class TracWikiOutputter : DocOutputter
 		}
 	}
 
-	function beginParameter(doctable: table)
+	override function beginParameter(doctable: table)
 	{
 		:beginDefTerm()
 		:outputText(doctable.name)
@@ -221,9 +221,9 @@ class TracWikiOutputter : DocOutputter
 		:beginDefDef()
 	}
 
-	function endParameter() :endDefDef()
+	override function endParameter() :endDefDef()
 
-	function beginException(name: string)
+	override function beginException(name: string)
 	{
 		:beginDefTerm()
 		:beginLink(:_linkResolver.resolveLink(name))
@@ -233,12 +233,12 @@ class TracWikiOutputter : DocOutputter
 		:beginDefDef()
 	}
 
-	function endException() :endDefDef()
+	override function endException() :endDefDef()
 
 	// =================================================================================================================
 	// Paragraph-level stuff
 
-	function beginParagraph()
+	override function beginParagraph()
 	{
 		if(:_isFirstInSection)
 			:_isFirstInSection = false
@@ -249,7 +249,7 @@ class TracWikiOutputter : DocOutputter
 		}
 	}
 
-	function endParagraph()
+	override function endParagraph()
 	{
 		if(:_inTable)
 			:outputText(" ")
@@ -257,87 +257,87 @@ class TracWikiOutputter : DocOutputter
 			:outputText("\n")
 	}
 
-	function beginCode(language: string)
+	override function beginCode(language: string)
 	{
 		:checkNotInTable()
 		:outputText("\n{{{\n#!", language, "\n")
 	}
 
-	function endCode()
+	override function endCode()
 		:outputText("\n}}}\n")
 
-	function beginVerbatim(type: string)
+	override function beginVerbatim(type: string)
 	{
 		:checkNotInTable()
 		:outputText("\n{{{\n")
 	}
 
-	function endVerbatim()
+	override function endVerbatim()
 		:outputText("\n}}}\n")
 
-	function beginBulletList()
+	override function beginBulletList()
 	{
 		:checkNotInTable()
 		:_listType.append("*")
 		:outputText("\n")
 	}
 
-	function endBulletList()
+	override function endBulletList()
 	{
 		:_listType.pop()
 		:outputText("\n")
 	}
 
-	function beginNumList(type: string)
+	override function beginNumList(type: string)
 	{
 		:checkNotInTable()
 		:_listType.append(type ~ ".")
 		:outputText("\n")
 	}
 
-	function endNumList()
+	override function endNumList()
 	{
 		:_listType.pop()
 		:outputText("\n")
 	}
 
-	function beginListItem()
+	override function beginListItem()
 	{
 		assert(#:_listType > 0)
 		:outputIndent()
 		:outputText(:_listType[-1], " ")
 	}
 
-	function endListItem() {}
+	override function endListItem() {}
 
-	function beginDefList()
+	override function beginDefList()
 	{
 		:checkNotInTable()
 		:_listType.append(null)
 		:outputText("\n")
 	}
 
-	function endDefList()
+	override function endDefList()
 	{
 		:_listType.pop()
 		:outputText("\n")
 	}
 
-	function beginDefTerm()
+	override function beginDefTerm()
 	{
 		assert(#:_listType > 0)
 		:outputIndent()
 	}
 
-	function endDefTerm()
+	override function endDefTerm()
 		:outputText("::\n")
 
-	function beginDefDef()
+	override function beginDefDef()
 		:outputIndent()
 
-	function endDefDef() {}
+	override function endDefDef() {}
 
-	function beginTable()
+	override function beginTable()
 	{
 		if(#:_listType > 0)
 			throw ValueError("Sorry, tables inside lists are unsupported in Trac wiki markup")
@@ -346,45 +346,45 @@ class TracWikiOutputter : DocOutputter
 		:outputText("\n")
 	}
 
-	function endTable()
+	override function endTable()
 	{
 		:_inTable = false
 		:outputText("\n")
 	}
 
-	function beginRow()
+	override function beginRow()
 		:outputText("||")
 
-	function endRow()
+	override function endRow()
 		:outputText("\n")
 
-	function beginCell() {}
+	override function beginCell() {}
 
-	function endCell()
+	override function endCell()
 		:outputText("||")
 
-	function beginBold() :outputText("'''")
-	function endBold() :outputText("'''")
-	function beginEmphasis() :outputText("''")
-	function endEmphasis() :outputText("''")
-	function beginLink(link: string) :outputText("[",  :_linkResolver.resolveLink(link), " ")
-	function endLink() :outputText("]")
-	function beginMonospace() :outputText("` "`" `")
-	function endMonospace() :outputText("` "`" `")
-	function beginStrikethrough() :outputText("~~")
-	function endStrikethrough() :outputText("~~")
-	function beginSubscript() :outputText(",,")
-	function endSubscript() :outputText(",,")
-	function beginSuperscript() :outputText("^")
-	function endSuperscript() :outputText("^")
-	function beginUnderline() :outputText("__")
-	function endUnderline() :outputText("__")
+	override function beginBold() :outputText("'''")
+	override function endBold() :outputText("'''")
+	override function beginEmphasis() :outputText("''")
+	override function endEmphasis() :outputText("''")
+	override function beginLink(link: string) :outputText("[",  :_linkResolver.resolveLink(link), " ")
+	override function endLink() :outputText("]")
+	override function beginMonospace() :outputText("` "`" `")
+	override function endMonospace() :outputText("` "`" `")
+	override function beginStrikethrough() :outputText("~~")
+	override function endStrikethrough() :outputText("~~")
+	override function beginSubscript() :outputText(",,")
+	override function endSubscript() :outputText(",,")
+	override function beginSuperscript() :outputText("^")
+	override function endSuperscript() :outputText("^")
+	override function beginUnderline() :outputText("__")
+	override function endUnderline() :outputText("__")
 
 	/**
 	By default, this method just outputs each of its params to stdout. If you want to make the output go somewhere else,
 	you can derive from this class and override this method.
 	*/
-	function outputText(vararg)
+	override function outputText(vararg)
 	{
 		for(i: 0 .. #vararg)
 			write(vararg[i])

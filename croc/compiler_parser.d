@@ -883,9 +883,12 @@ public:
 		alias ClassDecl.Field Field;
 		scope fields = new List!(Field)(c);
 
-		void addField(Identifier name, Expression v, bool isMethod, char[] preDocs, CompileLoc preDocsLoc)
+		void addField(Decorator deco, Identifier name, Expression v, bool isMethod, bool isOverride, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			fields ~= Field(name.name, v, isMethod);
+			if(deco !is null)
+				v = decoToExp(deco, v);
+
+			fields ~= Field(name.name, v, isMethod, isOverride);
 
 			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
 			auto tmp = fields[fields.length - 1];
@@ -893,9 +896,9 @@ public:
 			fields[fields.length - 1] = tmp;
 		}
 
-		void addMethod(FuncDef m, char[] preDocs, CompileLoc preDocsLoc)
+		void addMethod(Decorator deco, FuncDef m, bool isOverride, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			addField(m.name, new(c) FuncLiteralExp(m.location, m), true, preDocs, preDocsLoc);
+			addField(deco, m.name, new(c) FuncLiteralExp(m.location, m), true, isOverride, preDocs, preDocsLoc);
 			m.docs = fields[fields.length - 1].docs;
 			m.docsLoc = fields[fields.length - 1].docsLoc;
 		}
@@ -904,59 +907,51 @@ public:
 		{
 			auto docs = l.tok.preComment;
 			auto docsLoc = l.tok.preCommentLoc;
+			bool isOverride = false;
+			Decorator memberDeco = null;
 
 			switch(l.type)
 			{
+				case Token.At:
+					memberDeco = parseDecorators();
+
+					switch(l.type)
+					{
+						case Token.Override: goto _override;
+						case Token.Function: goto _function;
+						case Token.This:     goto _this;
+						case Token.Ident:    goto _ident;
+						case Token.EOF:      goto _eof;
+						default:             goto _default;
+					}
+
+				case Token.Override:
+				_override:
+					isOverride = true;
+					l.next();
+
+					switch(l.type)
+					{
+						case Token.Function: goto _function;
+						case Token.This:     goto _this;
+						case Token.Ident:    goto _ident;
+						case Token.EOF:      goto _eof;
+						default:             goto _default;
+					}
+
 				case Token.Function:
-					addMethod(parseSimpleFuncDef(), docs, docsLoc);
+				_function:
+					addMethod(memberDeco, parseSimpleFuncDef(), isOverride, docs, docsLoc);
 					break;
 
 				case Token.This:
+				_this:
 					auto loc = l.expect(Token.This).loc;
-					addMethod(parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor"))), docs, docsLoc);
-					break;
-
-				case Token.At:
-					auto dec = parseDecorators();
-					Identifier fieldName = void;
-					Expression init = void;
-					bool isMethod = false;
-
-					if(l.type == Token.Function || l.type == Token.This)
-					{
-						isMethod = true;
-						FuncDef fd = void;
-
-						if(l.type == Token.Function)
-							fd = parseSimpleFuncDef();
-						else
-						{
-							auto loc = l.expect(Token.This).loc;
-							fd = parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor")));
-						}
-
-						fieldName = fd.name;
-						init = new(c) FuncLiteralExp(fd.location, fd);
-					}
-					else
-					{
-						fieldName = parseIdentifier();
-
-						if(l.type == Token.Assign)
-						{
-							l.next();
-							init.sourceStr = capture({init = parseExpression();});
-						}
-						else
-							init = new(c) NullExp(fieldName.location);
-
-						l.statementTerm();
-					}
-
-					addField(fieldName, decoToExp(dec, init), isMethod, docs, docsLoc);
+					addMethod(memberDeco, parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor"))), isOverride, docs, docsLoc);
 					break;
 
 				case Token.Ident:
+				_ident:
 					auto id = parseIdentifier();
 
 					Expression v;
@@ -970,13 +965,15 @@ public:
 						v = new(c) NullExp(id.location);
 
 					l.statementTerm();
-					addField(id, v, false, docs, docsLoc);
+					addField(memberDeco, id, v, false, isOverride, docs, docsLoc);
 					break;
 
 				case Token.EOF:
+				_eof:
 					c.eofException(location, "Class is missing its closing brace");
 
 				default:
+				_default:
 					l.expected("Class method or field");
 			}
 		}

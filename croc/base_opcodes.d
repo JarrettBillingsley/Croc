@@ -144,8 +144,7 @@ enum Op
 	NamespaceNP,
 
 	SuperOf,
-	AddField,
-	AddMethod
+	AddMember
 }
 
 // Make sure we don't add too many instructions!
@@ -244,8 +243,7 @@ const char[][] OpNames =
 	Op.Namespace: "Namespace",
 	Op.NamespaceNP: "NamespaceNP",
 	Op.SuperOf: "SuperOf",
-	Op.AddField: "AddField",
-	Op.AddMethod: "AddMethod"
+	Op.AddMember: "AddMember",
 ];
 
 /*
@@ -361,8 +359,7 @@ FOUR SHORTS:
 (__, rs, rt, imm)
 	swcmp: if(switchcmp(rs, rt)) jump by imm
 (rd, rs, rt, uimm)
-	addfield: add field named rs to class in rd with value rt
-	addmethod: add method named rs to class in rd with value rt
+	addember: add field/method named rs to class in rd with value rt. uimm bit 0 is field(0)/method(1) and bit 1 is override or not.
 
 FIVE SHORTS:
 

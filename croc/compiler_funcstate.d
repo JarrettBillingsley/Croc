@@ -1020,7 +1020,7 @@ package:
 	}
 
 	// [Local Const src] => []
-	void addClassField(ref CompileLoc loc)
+	void addClassField(ref CompileLoc loc, bool isOverride)
 	{
 		auto cls = getExp(-3);
 		auto name = getExp(-2);
@@ -1030,15 +1030,16 @@ package:
 		debug(EXPSTACKCHECK) assert(name.type == ExpType.Const);
 		debug(EXPSTACKCHECK) assert(src.isSource());
 
-		codeRD(loc, Op.AddField, cls);
+		codeRD(loc, Op.AddMember, cls);
 		codeRC(name);
 		codeRC(src);
+		codeUImm(0 | (isOverride ? 2 : 0));
 
 		pop(3);
 	}
 
 	// [Local Const src] => []
-	void addClassMethod(ref CompileLoc loc)
+	void addClassMethod(ref CompileLoc loc, bool isOverride)
 	{
 		auto cls = getExp(-3);
 		auto name = getExp(-2);
@@ -1048,9 +1049,10 @@ package:
 		debug(EXPSTACKCHECK) assert(name.type == ExpType.Const);
 		debug(EXPSTACKCHECK) assert(src.isSource());
 
-		codeRD(loc, Op.AddMethod, cls);
+		codeRD(loc, Op.AddMember, cls);
 		codeRC(name);
 		codeRC(src);
+		codeUImm(1 | (isOverride ? 2 : 0));
 
 		pop(3);
 	}
@@ -2608,8 +2610,7 @@ package:
 			case Op.SwitchCmp: Stdout("swcmp"); rc(false); rc(); imm(); break;
 
 			// (rd, rs, rt, uimm)
-			case Op.AddField: Stdout("addfield"); goto _12;
-			case Op.AddMethod: Stdout("addmethod"); goto _12;
+			case Op.AddMember: Stdout("addmember"); goto _12;
 			_12: rd(i); rc(); rc(); uimm(); break;
 
 			// (rd, rs, rt, uimm, uimm)

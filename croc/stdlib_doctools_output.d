@@ -348,12 +348,12 @@ It never throws any errors or does anything. It's useful for when you don't want
 */
 class NullLinkResolver : LinkResolver
 {
-	this(_) {}
-	function currentScope() = "global" /// Always returns "global".
-	function enterModule(name: string) {}
-	function enterItem(name: string) {}
-	function leave() {}
-	function resolveLink(link: string) = link /// Always returns \tt{link} unmodified.
+	override this(_) {}
+	override function currentScope() = "global" /// Always returns "global".
+	override function enterModule(name: string) {}
+	override function enterItem(name: string) {}
+	override function leave() {}
+	override function resolveLink(link: string) = link /// Always returns \tt{link} unmodified.
 }
 
 /**
@@ -1011,7 +1011,7 @@ class OutputDocVisitor : DocVisitor
 
 	\param[doctable] is the item's doc table.
 	*/
-	function visitModule(doctable: table)
+	override function visitModule(doctable: table)
 	{
 		:_output.beginModule(doctable)
 		:_doDocSections(doctable)
@@ -1020,7 +1020,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitFunction(doctable: table)
+	override function visitFunction(doctable: table)
 	{
 		:_output.beginFunction(doctable)
 		:_doDocSections(doctable)
@@ -1028,7 +1028,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitClass(doctable: table)
+	override function visitClass(doctable: table)
 	{
 		:_output.beginClass(doctable)
 		:_doDocSections(doctable)
@@ -1037,7 +1037,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitNamespace(doctable: table)
+	override function visitNamespace(doctable: table)
 	{
 		:_output.beginNamespace(doctable)
 		:_doDocSections(doctable)
@@ -1046,7 +1046,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitField(doctable: table)
+	override function visitField(doctable: table)
 	{
 		:_output.beginField(doctable)
 		:_doDocSections(doctable)
@@ -1054,7 +1054,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitVariable(doctable: table)
+	override function visitVariable(doctable: table)
 	{
 		:_output.beginVariable(doctable)
 		:_doDocSections(doctable)
@@ -1124,7 +1124,7 @@ class OutputDocVisitor : DocVisitor
 	Override of \link{DocVisitor.visitParagraph} which simply calls the \tt{begin/endParagraph} methods around the
 	paragraph's contents.
 	*/
-	function visitParagraph(par: array)
+	override function visitParagraph(par: array)
 	{
 		:_output.beginParagraph()
 		(DocVisitor.visitParagraph)(with this, par)
@@ -1132,11 +1132,11 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// Simply calls the outputter's \tt{outputText} with its input as the parameter.
-	function visitText(elem: string)
+	override function visitText(elem: string)
 		:_output.outputText(elem)
 
 	/// Implmentations of the methods which output text structures and spans.
-	function visitCode(language: string, contents: string)
+	override function visitCode(language: string, contents: string)
 	{
 		:_output.beginCode(language)
 		:_output.outputText(contents)
@@ -1144,7 +1144,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitVerbatim(type: string, contents: string)
+	override function visitVerbatim(type: string, contents: string)
 	{
 		:_output.beginVerbatim(type)
 		:_output.outputText(contents)
@@ -1152,7 +1152,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitBlist(items: array)
+	override function visitBlist(items: array)
 	{
 		:_output.beginBulletList()
 
@@ -1167,7 +1167,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitNlist(type: string, items: array)
+	override function visitNlist(type: string, items: array)
 	{
 		:_output.beginNumList(type)
 
@@ -1182,7 +1182,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitDlist(items: array)
+	override function visitDlist(items: array)
 	{
 		:_output.beginDefList()
 
@@ -1201,7 +1201,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitTable(rows: array)
+	override function visitTable(rows: array)
 	{
 		:_output.beginTable()
 
@@ -1223,7 +1223,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitBold(contents: array)
+	override function visitBold(contents: array)
 	{
 		:_output.beginBold()
 		:visitParagraphElements(contents)
@@ -1231,7 +1231,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitEmphasis(contents: array)
+	override function visitEmphasis(contents: array)
 	{
 		:_output.beginEmphasis()
 		:visitParagraphElements(contents)
@@ -1239,7 +1239,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitLink(link: string, contents: array)
+	override function visitLink(link: string, contents: array)
 	{
 		:_output.beginLink(link)
 		:visitParagraphElements(contents)
@@ -1247,7 +1247,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitStrikethrough(contents: array)
+	override function visitStrikethrough(contents: array)
 	{
 		:_output.beginStrikethrough()
 		:visitParagraphElements(contents)
@@ -1255,7 +1255,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitSubscript(contents: array)
+	override function visitSubscript(contents: array)
 	{
 		:_output.beginSubscript()
 		:visitParagraphElements(contents)
@@ -1263,7 +1263,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitSuperscript(contents: array)
+	override function visitSuperscript(contents: array)
 	{
 		:_output.beginSuperscript()
 		:visitParagraphElements(contents)
@@ -1271,7 +1271,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitMonospace(contents: array)
+	override function visitMonospace(contents: array)
 	{
 		:_output.beginMonospace()
 		:visitParagraphElements(contents)
@@ -1279,7 +1279,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitUnderline(contents: array)
+	override function visitUnderline(contents: array)
 	{
 		:_output.beginUnderline()
 		:visitParagraphElements(contents)
@@ -1287,7 +1287,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/// ditto
-	function visitCustomSpan(type: string, contents: array)
+	override function visitCustomSpan(type: string, contents: array)
 	{
 		:visitParagraphElements(contents)
 	}

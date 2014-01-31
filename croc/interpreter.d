@@ -3554,35 +3554,31 @@ void execute(CrocThread* t, uword depth = 1)
 					t.stack[stackBase + rd] = superOfImpl(t, RS);
 					break;
 
-				case Op.AddField:
+				case Op.AddMember:
 					auto cls = &t.stack[stackBase + rd];
 					mixin(GetRS);
 					mixin(GetRT);
+					auto flags = mixin(GetUImm);
 
 					// should be guaranteed this by codegen
 					assert(cls.type == CrocValue.Type.Class && RS.type == CrocValue.Type.String);
 
-					if(!classobj.addField(t.vm.alloc, cls.mClass, RS.mString, RT))
+					auto isMethod = (flags & 1) != 0;
+					auto isOverride = (flags & 2) != 0;
+
+					auto okay = isMethod?
+						classobj.addMethod(t.vm.alloc, cls.mClass, RS.mString, RT, isOverride) :
+						classobj.addField(t.vm.alloc, cls.mClass, RS.mString, RT, isOverride);
+
+					if(!okay)
 					{
 						auto name = RS.mString.toString();
 						auto clsName = cls.mClass.name.toString();
-						throwStdException(t, "FieldError", "Attempting to add a field '{}' which already exists to class '{}'", name, clsName);
-					}
-					break;
 
-				case Op.AddMethod:
-					auto cls = &t.stack[stackBase + rd];
-					mixin(GetRS);
-					mixin(GetRT);
-
-					// should be guaranteed this by codegen
-					assert(cls.type == CrocValue.Type.Class && RS.type == CrocValue.Type.String);
-
-					if(!classobj.addMethod(t.vm.alloc, cls.mClass, RS.mString, RT))
-					{
-						auto name = RS.mString.toString();
-						auto clsName = cls.mClass.name.toString();
-						throwStdException(t, "FieldError", "Attempting to add a method '{}' which already exists to class '{}'", name, clsName);
+						if(isOverride)
+							throwStdException(t, "FieldError", "Attempting to override {} '{}' in class '{}', but no such member already exists", isMethod ? "method" : "field", name, clsName);
+						else
+							throwStdException(t, "FieldError", "Attempting to add a {} '{}' which already exists to class '{}'", isMethod ? "method" : "field", name, clsName);
 					}
 					break;
 

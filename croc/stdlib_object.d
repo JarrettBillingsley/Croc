@@ -79,18 +79,20 @@ private:
 
 const RegisterFunc[] _globalFuncs =
 [
-	{"newClass",      &_newClass,       maxParams: 2},
-	{"fieldsOf",      &_fieldsOf,       maxParams: 1},
-	{"methodsOf",     &_methodsOf,      maxParams: 1},
-	{"rawSetField",   &_rawSetField,    maxParams: 3},
-	{"rawGetField",   &_rawGetField,    maxParams: 2},
-	{"addMethod",     &_addMethod,      maxParams: 3},
-	{"addField",      &_addField,       maxParams: 3},
-	{"removeMember",  &_removeMember,   maxParams: 2},
-	{"freeze",        &_freeze,         maxParams: 1},
-	{"isFrozen",      &_isFrozen,       maxParams: 1},
-	{"isFinalizable", &_isFinalizable,  maxParams: 1},
-	{"instanceOf",    &_instanceOf,     maxParams: 2},
+	{"newClass",          &_newClass,          maxParams: 2},
+	{"fieldsOf",          &_fieldsOf,          maxParams: 1},
+	{"methodsOf",         &_methodsOf,         maxParams: 1},
+	{"rawSetField",       &_rawSetField,       maxParams: 3},
+	{"rawGetField",       &_rawGetField,       maxParams: 2},
+	{"addMethod",         &_addMethod,         maxParams: 3},
+	{"addField",          &_addField,          maxParams: 3},
+	{"addMethodOverride", &_addMethodOverride, maxParams: 3},
+	{"addFieldOverride",  &_addFieldOverride,  maxParams: 3},
+	{"removeMember",      &_removeMember,      maxParams: 2},
+	{"freeze",            &_freeze,            maxParams: 1},
+	{"isFrozen",          &_isFrozen,          maxParams: 1},
+	{"isFinalizable",     &_isFinalizable,     maxParams: 1},
+	{"instanceOf",        &_instanceOf,        maxParams: 2},
 ];
 
 uword _newClass(CrocThread* t)
@@ -263,6 +265,32 @@ uword _addField(CrocThread* t)
 	return 0;
 }
 
+uword _addMethodOverride(CrocThread* t)
+{
+	checkParam(t, 1, CrocValue.Type.Class);
+	checkStringParam(t, 2);
+	checkParam(t, 3, CrocValue.Type.Function);
+
+	dup(t, 2);
+	dup(t, 3);
+	addMethodOverride(t, 1);
+	return 0;
+}
+
+uword _addFieldOverride(CrocThread* t)
+{
+	checkParam(t, 1, CrocValue.Type.Class);
+	checkStringParam(t, 2);
+
+	if(!isValidIndex(t, 3))
+		pushNull(t);
+
+	dup(t, 2);
+	dup(t, 3);
+	addFieldOverride(t, 1);
+	return 0;
+}
+
 uword _removeMember(CrocThread* t)
 {
 	checkParam(t, 1, CrocValue.Type.Class);
@@ -400,6 +428,22 @@ z = 30
 
 	The class must not be frozen, and no method or field of the same name may exist. The \tt{value} parameter is
 	optional.`},
+
+	{kind: "function", name: "addMethodOverride",
+	params: [Param("cls", "class"), Param("name", "string"), Param("func", "function")],
+	docs:
+	`Adds a new method to a class, overriding any existing method of the same name. Works just like the \tt{override}
+	keyword in an actual class declaration.
+
+	The class must not be frozen, and a method of the same name must exist.`},
+
+	{kind: "function", name: "addFieldOverride",
+	params: [Param("cls", "class"), Param("name", "string"), Param("value", "any", "null")],
+	docs:
+	`Adds a new field to a class, overriding any existing field of the same name. Works just like the \tt{override}
+	keyword in an actual class declaration.
+
+	The class must not be frozen, and a field of the same name must exist. The \tt{value} parameter is optional.`},
 
 	{kind: "function", name: "removeMember",
 	params: [Param("cls", "class"), Param("name", "string")],

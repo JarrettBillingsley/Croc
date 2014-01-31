@@ -128,37 +128,43 @@ package:
 		}
 	}
 
-	bool addMember(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value)
+	bool addMember(char[] member)(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value, bool isOverride)
 	{
 		assert(!c.isFrozen);
 
-		static if(member == "fields")
+		static if(member == "hiddenFields")
 		{
-			if(c.methods.lookup(name))
+			if(c.hiddenFields.lookupNode(name))
 				return false;
-			else if(auto slot = c.fields.lookupNode(name))
-			{
-				setMember(alloc, c, slot, value);
-				return true;
-			}
 		}
-		else static if(member == "methods")
+		else
 		{
-			if(c.fields.lookup(name))
+			static if(member == "fields")
+			{
+				const wantedSlot = "fieldSlot";
+				const otherSlot = "methodSlot";
+			}
+			else static if(member == "methods")
+			{
+				const wantedSlot = "methodSlot";
+				const otherSlot = "fieldSlot";
+			}
+
+			auto fieldSlot = c.fields.lookupNode(name);
+			auto methodSlot = c.methods.lookupNode(name);
+
+			if(isOverride)
+			{
+				if(mixin(otherSlot) !is null || mixin(wantedSlot) is null)
+					return false;
+				else
+				{
+					setMember(alloc, c, mixin(wantedSlot), value);
+					return true;
+				}
+			}
+			else if(methodSlot !is null || fieldSlot !is null)
 				return false;
-			else if(auto slot = c.methods.lookupNode(name))
-			{
-				setMember(alloc, c, slot, value);
-				return true;
-			}
-		}
-		else static if(member == "hiddenFields")
-		{
-			if(auto slot = c.hiddenFields.lookupNode(name))
-			{
-				setMember(alloc, c, slot, value);
-				return true;
-			}
 		}
 
 		mixin(containerWriteBarrier!("alloc", "c"));

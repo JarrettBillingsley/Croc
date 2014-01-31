@@ -621,7 +621,7 @@ class WeakKeyTable : WeakTableBase
 	/**
 	Constructor.
 	*/
-	this()
+	override this()
 	{
 		:_data = {}
 		(WeakTableBase.constructor)(with this)
@@ -696,7 +696,7 @@ class WeakValTable : WeakTableBase
 	/**
 	Constructor.
 	*/
-	this()
+	override this()
 	{
 		:_data = {}
 		(WeakTableBase.constructor)(with this)
@@ -769,7 +769,7 @@ class WeakKeyValTable : WeakTableBase
 	/**
 	Constructor.
 	*/
-	this()
+	override this()
 	{
 		:_data = {}
 		(WeakTableBase.constructor)(with this)

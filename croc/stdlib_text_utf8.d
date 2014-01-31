@@ -147,26 +147,26 @@ local class Utf8IncrementalEncoder : IncrementalEncoder
 {
 	_errors
 
-	this(errors: string = "strict")
+	override this(errors: string = "strict")
 		:_errors = errors
 
-	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
+	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
 		_encodeInto(str, dest, start, :_errors)
 
-	function reset() {}
+	override function reset() {}
 }
 
 local class Utf8IncrementalDecoder : BufferedIncrementalDecoder
 {
-	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 		return _decodeRange(src, lo, hi, errors)
 }
 
 class Utf8Codec : TextCodec
 {
-	name = "utf-8"
+	override name = "utf-8"
 
-	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
+	override function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 	{
 		local ret, eaten = _decodeRange(src, lo, hi, errors)
 
@@ -176,14 +176,14 @@ class Utf8Codec : TextCodec
 		return ret
 	}
 
-	function incrementalEncoder(errors: string = "strict") =
+	override function incrementalEncoder(errors: string = "strict") =
 		Utf8IncrementalEncoder(errors)
 
-	function incrementalDecoder(errors: string = "strict") =
+	override function incrementalDecoder(errors: string = "strict") =
 		Utf8IncrementalDecoder(errors)
 }
 
-object.addMethod(Utf8Codec, "encodeInto", _encodeInto)
+object.addMethodOverride(Utf8Codec, "encodeInto", _encodeInto)
 
 registerCodec("utf-8", Utf8Codec())
 aliasCodec("utf-8", "utf8")
@@ -196,10 +196,10 @@ local class Utf8SigIncrementalEncoder : IncrementalEncoder
 	_errors
 	_first = true
 
-	this(errors: string = "strict")
+	override this(errors: string = "strict")
 		:_errors = errors
 
-	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
+	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
 	{
 		if(!:_first)
 			_encodeInto(str, dest, start, :_errors)
@@ -210,7 +210,7 @@ local class Utf8SigIncrementalEncoder : IncrementalEncoder
 		}
 	}
 
-	function reset()
+	override function reset()
 	{
 		:_first = true
 	}
@@ -220,7 +220,7 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 {
 	_first = true
 
-	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 	{
 		local prefix = 0
 
@@ -251,7 +251,7 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 		return ret, prefix + eaten
 	}
 
-	function reset()
+	override function reset()
 	{
 		(BufferedIncrementalDecoder.reset)(with this)
 		:_first = true
@@ -260,12 +260,12 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 
 class Utf8SigCodec : TextCodec
 {
-	name = "utf-8-sig"
+	override name = "utf-8-sig"
 
-	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict") =
+	override function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict") =
 		_encodeInto(BOM_UTF8_STR ~ str, dest, start, errors)
 
-	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
+	override function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 	{
 		if((hi - lo) >= 3 && BOM_UTF8.compare(0, src, lo, 3) == 0)
 			lo += 3
@@ -278,10 +278,10 @@ class Utf8SigCodec : TextCodec
 		return ret
 	}
 
-	function incrementalEncoder(errors: string = "strict") =
+	override function incrementalEncoder(errors: string = "strict") =
 		Utf8SigIncrementalEncoder(errors)
 
-	function incrementalDecoder(errors: string = "strict") =
+	override function incrementalDecoder(errors: string = "strict") =
 		Utf8SigIncrementalDecoder(errors)
 }
 

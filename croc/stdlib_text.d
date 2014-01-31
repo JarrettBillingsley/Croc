@@ -464,7 +464,7 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 	_errors
 	_scratch
 
-	this(errors: string = "strict")
+	override this(errors: string = "strict")
 	{
 		:_errors = errors
 		:_scratch = memblock.new(0)
@@ -496,7 +496,7 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 		throw NotImplementedError()
 
-	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
+	override function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
 	{
 		if(#:_scratch > 0)
 		{
@@ -526,7 +526,7 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 		return ret
 	}
 
-	function reset()
+	override function reset()
 	{
 		#:_scratch = 0
 	}

@@ -244,7 +244,7 @@ An exception type derived from \tt{IOException} thrown in some APIs when end-of-
 class EOFException : IOException
 {
 	///
-	this()
+	override this()
 		(IOException.constructor)(with this, "Unexpected end of file")
 }
 
@@ -255,7 +255,7 @@ return values etc.) are not respected.
 class StreamProtocolException : IOException
 {
 	///
-	this(msg: string)
+	override this(msg: string)
 		(IOException.constructor)(with this, "Stream protocol error: " ~ msg)
 }
 
@@ -718,7 +718,7 @@ class MemblockStream : Stream
 	\param[mb] is the memblock to use as the backing store. If none is given, a new zero-size memblock will be used
 	instead.
 	*/
-	this(mb: memblock = memblock.new(0))
+	override this(mb: memblock = memblock.new(0))
 	{
 		:_mb = mb
 		(Stream.constructor)(with this)
@@ -727,7 +727,7 @@ class MemblockStream : Stream
 	/**
 	Implmentation of \link{Stream.read}.
 	*/
-	function read(m: memblock, offset: int = 0, size: int = #m - offset)
+	override function read(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
 		if(:_pos >= #:_mb)
 			return 0
@@ -749,7 +749,7 @@ class MemblockStream : Stream
 	If there is not enough space in the memblock to hold the new data, the memblock's size will be expanded to
 	accommodate.
 	*/
-	function write(m: memblock, offset: int = 0, size: int = #m - offset)
+	override function write(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
 		checkRWParams(m, offset, size)
 
@@ -775,7 +775,7 @@ class MemblockStream : Stream
 	\throws[exceptions.ValueError] if \tt{where} is invalid.
 	\throws[exceptions.IOException] if the resulting offset is negative.
 	*/
-	function seek(offset: int, where: string)
+	override function seek(offset: int, where: string)
 	{
 		switch(where)
 		{
@@ -798,9 +798,9 @@ class MemblockStream : Stream
 	/**
 	Implementations of \link{Stream.readable}, \link{Stream.writable}, and \link{Stream.seekable}. All return true.
 	*/
-	function readable() = true
-	function writable() = true /// ditto
-	function seekable() = true /// ditto
+	override function readable() = true
+	override function writable() = true /// ditto
+	override function seekable() = true /// ditto
 
 	/**
 	Gets the backing memblock.
@@ -828,7 +828,7 @@ class StreamWrapper : Stream
 
 	\param[s] is the stream object to be wrapped.
 	*/
-	this(s)
+	override this(s)
 	{
 		:_stream = s
 		(Stream.constructor)(with this)
@@ -837,15 +837,15 @@ class StreamWrapper : Stream
 	/**
 	These all simply pass through functionality to the wrapped stream object.
 	*/
-	function read(m, off, size) = :_stream.read(m, off, size)
-	function write(m, off, size) = :_stream.write(m, off, size) /// ditto
-	function seek(off, where) = :_stream.seek(off, where)       /// ditto
-	function flush() = :_stream.flush()                         /// ditto
-	function close() = :_stream.close()                         /// ditto
-	function isOpen() = :_stream.isOpen()                       /// ditto
-	function readable() = :_stream.readable()                   /// ditto
-	function writable() = :_stream.writable()                   /// ditto
-	function seekable() = :_stream.seekable()                   /// ditto
+	override function read(m, off, size) = :_stream.read(m, off, size)
+	override function write(m, off, size) = :_stream.write(m, off, size) /// ditto
+	override function seek(off, where) = :_stream.seek(off, where)       /// ditto
+	override function flush() = :_stream.flush()                         /// ditto
+	override function close() = :_stream.close()                         /// ditto
+	override function isOpen() = :_stream.isOpen()                       /// ditto
+	override function readable() = :_stream.readable()                   /// ditto
+	override function writable() = :_stream.writable()                   /// ditto
+	override function seekable() = :_stream.seekable()                   /// ditto
 
 	/**
 	Gets the stream that this instance wraps.
@@ -863,7 +863,6 @@ through to the wrapped stream.
 */
 class BinaryStream : StreamWrapper
 {
-	_stream
 	_rwBuf
 	_strBuf
 
@@ -872,7 +871,7 @@ class BinaryStream : StreamWrapper
 
 	\param[s] is the stream to be wrapped.
 	*/
-	this(s)
+	override this(s)
 	{
 		(StreamWrapper.constructor)(with this, s)
 		:_rwBuf = memblock.new(8)
@@ -1002,7 +1001,6 @@ if data is buffered.
 */
 class BufferedInStream : StreamWrapper
 {
-	_stream
 	_buf
 	_bufPos = 0
 	_bound = 0
@@ -1014,10 +1012,9 @@ class BufferedInStream : StreamWrapper
 	\param[bufSize] is the size of the memory buffer. Defaults to 4KB. Its size is clamped to a minimum of 128 bytes,
 	and there is no upper limit.
 	*/
-	this(s: @InStream, bufSize: int = 4096)
+	override this(s: @InStream, bufSize: int = 4096)
 	{
 		(StreamWrapper.constructor)(with this, s)
-		:_stream = s
 		:_buf = memblock.new(clamp(bufSize, 128, intMax))
 	}
 
@@ -1027,7 +1024,7 @@ class BufferedInStream : StreamWrapper
 
 	\returns false.
 	*/
-	function writable() =
+	override function writable() =
 		false
 
 	/**
@@ -1036,7 +1033,7 @@ class BufferedInStream : StreamWrapper
 
 	The call signature and return values are the same as \link{Stream.read}.
 	*/
-	function read(m: memblock, offset: int = 0, size: int = #m - offset)
+	override function read(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
 		checkRWParams(m, offset, size)
 		local remaining = size
@@ -1069,7 +1066,7 @@ class BufferedInStream : StreamWrapper
 
 	Seeking will clear the data buffer. The call signature and return values are the same as \link{Stream.seek}.
 	*/
-	function seek(this: @SeekStream, offset: int, where: string)
+	override function seek(this: @SeekStream, offset: int, where: string)
 	{
 		if(where == "c")
 			offset -= :_bound - :_bufPos
@@ -1096,7 +1093,6 @@ if data is buffered.
 */
 class BufferedOutStream : StreamWrapper
 {
-	_stream
 	_buf
 	_bufPos = 0
 
@@ -1107,10 +1103,9 @@ class BufferedOutStream : StreamWrapper
 	\param[bufSize] is the size of the memory buffer. Defaults to 4KB. Its size is clamped to a minimum of 128 bytes,
 	and there is no upper limit.
 	*/
-	this(s: @OutStream, bufSize: int = 4096)
+	override this(s: @OutStream, bufSize: int = 4096)
 	{
 		(StreamWrapper.constructor)(with this, s)
-		:_stream = s
 		:_buf = memblock.new(clamp(bufSize, 128, intMax))
 	}
 
@@ -1120,7 +1115,7 @@ class BufferedOutStream : StreamWrapper
 
 	\returns false.
 	*/
-	function readable() =
+	override function readable() =
 		false
 
 	/**
@@ -1129,7 +1124,7 @@ class BufferedOutStream : StreamWrapper
 
 	The call signature and return values are the same as \link{Stream.write}.
 	*/
-	function write(m: memblock, offset: int = 0, size: int = #m - offset)
+	override function write(m: memblock, offset: int = 0, size: int = #m - offset)
 	{
 		checkRWParams(m, offset, size)
 		local remaining = size
@@ -1160,7 +1155,7 @@ class BufferedOutStream : StreamWrapper
 
 	Seeking will flush the data buffer. The call signature and return values are the same as \link{Stream.seek}.
 	*/
-	function seek(offset: int, where: string)
+	override function seek(offset: int, where: string)
 	{
 		if(where == "c")
 			offset -= :_bufPos
@@ -1177,7 +1172,7 @@ class BufferedOutStream : StreamWrapper
 
 	\throws[EOFException] if end-of-file is reached.
 	*/
-	function flush()
+	override function flush()
 	{
 		if(:_bufPos > 0)
 		{
@@ -1191,7 +1186,7 @@ class BufferedOutStream : StreamWrapper
 	Implementation of the \tt{close} method. Simply flushes the buffer and then calls \tt{close} on the underlying
 	stream.
 	*/
-	function close()
+	override function close()
 	{
 		:flush()
 		:_stream.close()
@@ -1479,7 +1474,7 @@ class NativeStream : Stream
 	\param[readable] see the \tt{stream} parameter.
 	\param[writable] see the \tt{stream} parameter.
 	*/
-	this(stream: nativeobj, closable: bool = true, readable: null|bool, writable: null|bool)
+	override this(stream: nativeobj, closable: bool = true, readable: null|bool, writable: null|bool)
 	{
 		if(hidden(with this, "stream") !is null)
 			throw StateError("Attempting to call constructor on an already-initialized stream")
@@ -1500,7 +1495,7 @@ class NativeStream : Stream
 	/**
 	Implementations of the main stream interface functions. These all expect the stream to be open.
 	*/
-	function read(this: @OpenStream, m: memblock, offset: int = 0, size: int = #m - offset)
+	override function read(this: @OpenStream, m: memblock, offset: int = 0, size: int = #m - offset)
 	{
 		:_checkReadable()
 		if(hidden(with this, "writable")) :_checkDirty()
@@ -1509,7 +1504,7 @@ class NativeStream : Stream
 	}
 
 	/// ditto
-	function write(this: @OpenStream, m: memblock, offset: int = 0, size: int = #m - offset)
+	override function write(this: @OpenStream, m: memblock, offset: int = 0, size: int = #m - offset)
 	{
 		:_checkWritable()
 		checkRWParams(m, offset, size)
@@ -1517,7 +1512,7 @@ class NativeStream : Stream
 	}
 
 	/// ditto
-	function seek(this: @OpenStream, offset: int, where: string)
+	override function seek(this: @OpenStream, offset: int, where: string)
 	{
 		:_checkSeekable()
 		if(hidden(with this, "writable")) :_checkDirty()
@@ -1531,15 +1526,15 @@ class NativeStream : Stream
 	/**
 	Tells whether or not the stream is readable, writable, seekable, and closable.
 	*/
-	function readable() = hidden(with this, "readable")
-	function writable() = hidden(with this, "writable") /// ditto
-	function seekable() = hidden(with this, "seekable") /// ditto
+	override function readable() = hidden(with this, "readable")
+	override function writable() = hidden(with this, "writable") /// ditto
+	override function seekable() = hidden(with this, "seekable") /// ditto
 	function closable() = hidden(with this, "closable") /// ditto
 
 	/**
 	Calls the underlying flush method of the stream.
 	*/
-	function flush(this: @OpenStream)
+	override function flush(this: @OpenStream)
 		streamFlush(hidden(with this, "stream"))
 
 	/**
@@ -1547,7 +1542,7 @@ class NativeStream : Stream
 
 	\throws[exceptions.StateError] if you try to close a stream that was not set to be closable in the constructor.
 	*/
-	function close()
+	override function close()
 	{
 		if(!hidden(with this, "closable"))
 			throw StateError("Trying to close an unclosable stream")
@@ -1559,7 +1554,7 @@ class NativeStream : Stream
 	/**
 	Tells whether or not the stream is open.
 	*/
-	function isOpen() =
+	override function isOpen() =
 		!hidden(with this, "closed")
 
 	function _checkReadable() { if(!hidden(with this, "readable")) throw TypeError("Attempting to read from an unreadable stream") }

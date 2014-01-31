@@ -195,39 +195,39 @@ class BasicConsoleOutputter : DocOutputter
 	// =================================================================================================================
 	// Item-level stuff
 
-	function beginModule(doctable: table) :beginItem(doctable)
-	function endModule() :endItem()
-	function beginFunction(doctable: table) :beginItem(doctable)
-	function endFunction() :endItem()
+	override function beginModule(doctable: table) :beginItem(doctable)
+	override function endModule() :endItem()
+	override function beginFunction(doctable: table) :beginItem(doctable)
+	override function endFunction() :endItem()
 
-	function beginClass(doctable: table)
+	override function beginClass(doctable: table)
 	{
 		:beginItem(doctable)
 		:_listType.append(null)
 	}
 
-	function endClass()
+	override function endClass()
 	{
 		:_listType.pop()
 		:endItem()
 	}
 
-	function beginNamespace(doctable: table)
+	override function beginNamespace(doctable: table)
 	{
 		:beginItem(doctable)
 		:_listType.append(null)
 	}
 
-	function endNamespace()
+	override function endNamespace()
 	{
 		:_listType.pop()
 		:endItem()
 	}
 
-	function beginField(doctable: table) :beginItem(doctable)
-	function endField() :endItem()
-	function beginVariable(doctable: table) :beginItem(doctable)
-	function endVariable() :endItem()
+	override function beginField(doctable: table) :beginItem(doctable)
+	override function endField() :endItem()
+	override function beginVariable(doctable: table) :beginItem(doctable)
+	override function endVariable() :endItem()
 
 	function beginItem(doctable: table) :outputHeader(doctable)
 	function endItem() :newline()
@@ -273,7 +273,7 @@ class BasicConsoleOutputter : DocOutputter
 	// =================================================================================================================
 	// Section-level stuff
 
-	function beginSection(name: string)
+	override function beginSection(name: string)
 	{
 		:beginParagraph()
 
@@ -296,7 +296,7 @@ class BasicConsoleOutputter : DocOutputter
 			:beginDefList()
 	}
 
-	function endSection()
+	override function endSection()
 	{
 		if(:_isSpecialSection)
 		{
@@ -305,7 +305,7 @@ class BasicConsoleOutputter : DocOutputter
 		}
 	}
 
-	function beginParameter(doctable: table)
+	override function beginParameter(doctable: table)
 	{
 		:beginDefTerm()
 		:outputText(doctable.name)
@@ -313,9 +313,9 @@ class BasicConsoleOutputter : DocOutputter
 		:beginDefDef()
 	}
 
-	function endParameter() :endDefDef()
+	override function endParameter() :endDefDef()
 
-	function beginException(name: string)
+	override function beginException(name: string)
 	{
 		:beginDefTerm()
 		:outputText(name)
@@ -323,36 +323,20 @@ class BasicConsoleOutputter : DocOutputter
 		:beginDefDef()
 	}
 
-	function endException() :endDefDef()
+	override function endException() :endDefDef()
 
 	// =================================================================================================================
 	// Paragraph-level stuff
 
-	function beginParagraph() {}
+	override function beginParagraph() {}
 
-	function endParagraph()
+	override function endParagraph()
 	{
 		:newline()
 		:newline()
 	}
 
-	function beginCode(language: string)
-	{
-		:newline()
-		:newline()
-		:outputText("-----")
-		:newline()
-	}
-
-	function endCode()
-	{
-		:newline()
-		:outputText("-----")
-		:newline()
-		:newline()
-	}
-
-	function beginVerbatim(type: string)
+	override function beginCode(language: string)
 	{
 		:newline()
 		:newline()
@@ -360,7 +344,7 @@ class BasicConsoleOutputter : DocOutputter
 		:newline()
 	}
 
-	function endVerbatim()
+	override function endCode()
 	{
 		:newline()
 		:outputText("-----")
@@ -368,33 +352,49 @@ class BasicConsoleOutputter : DocOutputter
 		:newline()
 	}
 
-	function beginBulletList()
+	override function beginVerbatim(type: string)
+	{
+		:newline()
+		:newline()
+		:outputText("-----")
+		:newline()
+	}
+
+	override function endVerbatim()
+	{
+		:newline()
+		:outputText("-----")
+		:newline()
+		:newline()
+	}
+
+	override function beginBulletList()
 	{
 		:_listType.append("*")
 		:newline()
 	}
 
-	function endBulletList()
+	override function endBulletList()
 	{
 		:_listType.pop()
 		:newline()
 	}
 
-	function beginNumList(type: string)
+	override function beginNumList(type: string)
 	{
 		:_listType.append(type)
 		:_listCounters.append(1)
 		:newline()
 	}
 
-	function endNumList()
+	override function endNumList()
 	{
 		:_listType.pop()
 		:_listCounters.pop()
 		:newline()
 	}
 
-	function beginListItem()
+	override function beginListItem()
 	{
 		assert(#:_listType > 0)
 		:newline()
@@ -423,85 +423,85 @@ class BasicConsoleOutputter : DocOutputter
 		}
 	}
 
-	function endListItem() :newline()
+	override function endListItem() :newline()
 
-	function beginDefList() :_listType.append(null)
+	override function beginDefList() :_listType.append(null)
 
-	function endDefList()
+	override function endDefList()
 	{
 		:_listType.pop()
 		:newline()
 	}
 
-	function beginDefTerm() :newline()
+	override function beginDefTerm() :newline()
 
-	function endDefTerm()
+	override function endDefTerm()
 	{
 		:outputText(": ")
 		:_listType.append(null)
 		:newline()
 	}
 
-	function beginDefDef() {}
+	override function beginDefDef() {}
 
-	function endDefDef()
+	override function endDefDef()
 	{
 		:_listType.pop()
 		:newline()
 	}
 
-	function beginTable()
+	override function beginTable()
 	{
 		:newline()
 		:outputText("<table>")
 		:_listType.append(null)
 	}
 
-	function endTable()
+	override function endTable()
 	{
 		:_listType.pop()
 		:newline()
 	}
 
-	function beginRow()
+	override function beginRow()
 	{
 		:newline()
 		:outputText("<row>")
 		:_listType.append(null)
 	}
 
-	function endRow()
+	override function endRow()
 		:_listType.pop()
 
-	function beginCell()
+	override function beginCell()
 	{
 		:newline()
 		:outputText("<cell> ")
 	}
 
-	function endCell() {}
+	override function endCell() {}
 
-	function beginBold() :outputText("*")
-	function endBold() :outputText("*")
-	function beginEmphasis() :outputText("_")
-	function endEmphasis() :outputText("_")
-	function beginLink(link: string) {}
-	function endLink() {}
-	function beginMonospace() {}
-	function endMonospace() {}
-	function beginStrikethrough() :outputText("~");
-	function endStrikethrough() :outputText("~");
-	function beginSubscript() :outputText("_")
-	function endSubscript() {}
-	function beginSuperscript() :outputText("^")
-	function endSuperscript() {}
-	function beginUnderline() :outputText("__")
-	function endUnderline() :outputText("__")
+	override function beginBold() :outputText("*")
+	override function endBold() :outputText("*")
+	override function beginEmphasis() :outputText("_")
+	override function endEmphasis() :outputText("_")
+	override function beginLink(link: string) {}
+	override function endLink() {}
+	override function beginMonospace() {}
+	override function endMonospace() {}
+	override function beginStrikethrough() :outputText("~");
+	override function endStrikethrough() :outputText("~");
+	override function beginSubscript() :outputText("_")
+	override function endSubscript() {}
+	override function beginSuperscript() :outputText("^")
+	override function endSuperscript() {}
+	override function beginUnderline() :outputText("__")
+	override function endUnderline() :outputText("__")
 
 	// =================================================================================================================
 	// Raw output
 
-	function outputText(vararg)
+	override function outputText(vararg)
 	{
 		for(i: 0 .. #vararg)
 		{

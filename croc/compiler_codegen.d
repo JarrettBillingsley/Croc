@@ -356,9 +356,9 @@ public:
 				fs.toSource(field.initializer.location);
 
 				if(field.isMethod)
-					fs.addClassMethod(field.initializer.location);
+					fs.addClassMethod(field.initializer.location, field.isOverride);
 				else
-					fs.addClassField(field.initializer.location);
+					fs.addClassField(field.initializer.location, field.isOverride);
 			}
 		}
 

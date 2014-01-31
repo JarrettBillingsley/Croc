@@ -743,7 +743,7 @@ static:
 			auto name = _deserializeString(t);
 			_deserialize(t);
 
-			if(!classobj.addMethod(t.vm.alloc, v, name, getValue(t, -1)))
+			if(!classobj.addMethod(t.vm.alloc, v, name, getValue(t, -1), false))
 			{
 				throwStdException(t, "ValueError", "Malformed data (class {} already has a method '{}')",
 					v.name.toString(), name.toString());
@@ -759,7 +759,7 @@ static:
 			auto name = _deserializeString(t);
 			_deserialize(t);
 
-			if(!classobj.addField(t.vm.alloc, v, name, getValue(t, -1)))
+			if(!classobj.addField(t.vm.alloc, v, name, getValue(t, -1), false))
 			{
 				throwStdException(t, "ValueError", "Malformed data (class {} already has a field '{}')",
 					v.name.toString(), name.toString());
