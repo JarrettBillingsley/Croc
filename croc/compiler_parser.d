@@ -883,12 +883,12 @@ public:
 		alias ClassDecl.Field Field;
 		scope fields = new List!(Field)(c);
 
-		void addField(Decorator deco, Identifier name, Expression v, bool isMethod, bool isOverride, char[] preDocs, CompileLoc preDocsLoc)
+		void addField(Decorator deco, Identifier name, Expression v, FuncLiteralExp func, bool isOverride, char[] preDocs, CompileLoc preDocsLoc)
 		{
 			if(deco !is null)
 				v = decoToExp(deco, v);
 
-			fields ~= Field(name.name, v, isMethod, isOverride);
+			fields ~= Field(name.name, v, func, isOverride);
 
 			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
 			auto tmp = fields[fields.length - 1];
@@ -898,7 +898,8 @@ public:
 
 		void addMethod(Decorator deco, FuncDef m, bool isOverride, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			addField(deco, m.name, new(c) FuncLiteralExp(m.location, m), true, isOverride, preDocs, preDocsLoc);
+			auto func = new(c) FuncLiteralExp(m.location, m);
+			addField(deco, m.name, func, func, isOverride, preDocs, preDocsLoc);
 			m.docs = fields[fields.length - 1].docs;
 			m.docsLoc = fields[fields.length - 1].docsLoc;
 		}
@@ -965,7 +966,7 @@ public:
 						v = new(c) NullExp(id.location);
 
 					l.statementTerm();
-					addField(memberDeco, id, v, false, isOverride, docs, docsLoc);
+					addField(memberDeco, id, v, null, isOverride, docs, docsLoc);
 					break;
 
 				case Token.EOF:
@@ -1022,19 +1023,23 @@ public:
 		alias NamespaceDecl.Field Field;
 		scope fields = new List!(Field)(c);
 
-		void addField(char[] name, Expression v, char[] preDocs, CompileLoc preDocsLoc)
+		void addField(Decorator deco, Identifier name, Expression v, FuncLiteralExp func, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			pushString(c.thread, name);
+			pushString(c.thread, name.name);
 
 			if(opin(c.thread, -1, fieldMap))
 			{
 				pop(c.thread);
-				c.semException(v.location, "Redeclaration of member '{}'", name);
+				c.semException(v.location, "Redeclaration of member '{}'", name.name);
 			}
 
 			pushBool(c.thread, true);
 			idxa(c.thread, fieldMap);
-			fields ~= Field(name, v);
+
+			if(deco !is null)
+				v = decoToExp(deco, v);
+
+			fields ~= Field(name.name, v, func);
 
 			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
 			auto tmp = fields[fields.length - 1];
@@ -1042,52 +1047,41 @@ public:
 			fields[fields.length - 1] = tmp;
 		}
 
+		void addMethod(Decorator deco, FuncDef m, char[] preDocs, CompileLoc preDocsLoc)
+		{
+			auto func = new(c) FuncLiteralExp(m.location, m);
+			addField(deco, m.name, func, func, preDocs, preDocsLoc);
+			m.docs = fields[fields.length - 1].docs;
+			m.docsLoc = fields[fields.length - 1].docsLoc;
+		}
+
 		while(l.type != Token.RBrace)
 		{
 			auto docs = l.tok.preComment;
 			auto docsLoc = l.tok.preCommentLoc;
+			Decorator memberDeco = null;
 
 			switch(l.type)
 			{
-				case Token.Function:
-					auto fd = parseSimpleFuncDef();
-					addField(fd.name.name, new(c) FuncLiteralExp(fd.location, fd), docs, docsLoc);
-					break;
-
 				case Token.At:
-					auto dec = parseDecorators();
+					memberDeco = parseDecorators();
 
-					Identifier fieldName = void;
-					Expression init = void;
-
-					if(l.type == Token.Function)
+					switch(l.type)
 					{
-						auto fd = parseSimpleFuncDef();
-						fieldName = fd.name;
-						init = new(c) FuncLiteralExp(fd.location, fd);
-					}
-					else
-					{
-						fieldName = parseIdentifier();
-
-						if(l.type == Token.Assign)
-						{
-							l.next();
-							init.sourceStr = capture({init = parseExpression();});
-						}
-						else
-							init = new(c) NullExp(fieldName.location);
-
-						l.statementTerm();
+						case Token.Function: goto _function;
+						case Token.Ident:    goto _ident;
+						case Token.EOF:      goto _eof;
+						default:             goto _default;
 					}
 
-					addField(fieldName.name, decoToExp(dec, init), docs, docsLoc);
+				case Token.Function:
+				_function:
+					addMethod(memberDeco, parseSimpleFuncDef(), docs, docsLoc);
 					break;
-
 
 				case Token.Ident:
-					auto loc = l.loc;
-					auto fieldName = parseName();
+				_ident:
+					auto id = parseIdentifier();
 
 					Expression v;
 
@@ -1097,16 +1091,18 @@ public:
 						v.sourceStr = capture({v = parseExpression();});
 					}
 					else
-						v = new(c) NullExp(loc);
+						v = new(c) NullExp(id.location);
 
 					l.statementTerm();
-					addField(fieldName, v, docs, docsLoc);
+					addField(memberDeco, id, v, null, docs, docsLoc);
 					break;
 
 				case Token.EOF:
+				_eof:
 					c.eofException(location, "Namespace is missing its closing brace");
 
 				default:
+				_default:
 					l.expected("Namespace member");
 			}
 		}

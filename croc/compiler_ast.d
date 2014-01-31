@@ -467,7 +467,7 @@ class ClassDecl : Statement
 	{
 		char[] name;
 		Expression initializer;
-		bool isMethod;
+		FuncLiteralExp func;
 		bool isOverride;
 		char[] docs;
 		CompileLoc docsLoc;
@@ -499,6 +499,7 @@ class NamespaceDecl : Statement
 	{
 		char[] name;
 		Expression initializer;
+		FuncLiteralExp func;
 		char[] docs;
 		CompileLoc docsLoc;
 	}

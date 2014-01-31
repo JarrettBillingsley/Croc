@@ -504,9 +504,9 @@ private:
 			if(f.docs.length == 0)
 				continue;
 
-			if(auto method = f.initializer.as!(FuncLiteralExp))
+			if(auto method = f.func)
 			{
-				f.initializer = visit(method);
+				visit(method);
 
 				if(c.docDecorators)
 					f.initializer = makeDocCall(f.initializer);

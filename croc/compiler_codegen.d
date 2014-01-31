@@ -355,7 +355,7 @@ public:
 				visit(field.initializer);
 				fs.toSource(field.initializer.location);
 
-				if(field.isMethod)
+				if(field.func)
 					fs.addClassMethod(field.initializer.location, field.isOverride);
 				else
 					fs.addClassField(field.initializer.location, field.isOverride);
