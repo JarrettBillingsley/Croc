@@ -911,48 +911,27 @@ public:
 			bool isOverride = false;
 			Decorator memberDeco = null;
 
+			if(l.type == Token.At)
+				memberDeco = parseDecorators();
+
+			if(l.type == Token.Override)
+			{
+				l.next();
+				isOverride = true;
+			}
+
 			switch(l.type)
 			{
-				case Token.At:
-					memberDeco = parseDecorators();
-
-					switch(l.type)
-					{
-						case Token.Override: goto _override;
-						case Token.Function: goto _function;
-						case Token.This:     goto _this;
-						case Token.Ident:    goto _ident;
-						case Token.EOF:      goto _eof;
-						default:             goto _default;
-					}
-
-				case Token.Override:
-				_override:
-					isOverride = true;
-					l.next();
-
-					switch(l.type)
-					{
-						case Token.Function: goto _function;
-						case Token.This:     goto _this;
-						case Token.Ident:    goto _ident;
-						case Token.EOF:      goto _eof;
-						default:             goto _default;
-					}
-
 				case Token.Function:
-				_function:
 					addMethod(memberDeco, parseSimpleFuncDef(), isOverride, docs, docsLoc);
 					break;
 
 				case Token.This:
-				_this:
 					auto loc = l.expect(Token.This).loc;
 					addMethod(memberDeco, parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor"))), isOverride, docs, docsLoc);
 					break;
 
 				case Token.Ident:
-				_ident:
 					auto id = parseIdentifier();
 
 					Expression v;
@@ -970,11 +949,9 @@ public:
 					break;
 
 				case Token.EOF:
-				_eof:
 					c.eofException(location, "Class is missing its closing brace");
 
 				default:
-				_default:
 					l.expected("Class method or field");
 			}
 		}
@@ -1061,26 +1038,16 @@ public:
 			auto docsLoc = l.tok.preCommentLoc;
 			Decorator memberDeco = null;
 
+			if(l.type == Token.At)
+				memberDeco = parseDecorators();
+
 			switch(l.type)
 			{
-				case Token.At:
-					memberDeco = parseDecorators();
-
-					switch(l.type)
-					{
-						case Token.Function: goto _function;
-						case Token.Ident:    goto _ident;
-						case Token.EOF:      goto _eof;
-						default:             goto _default;
-					}
-
 				case Token.Function:
-				_function:
 					addMethod(memberDeco, parseSimpleFuncDef(), docs, docsLoc);
 					break;
 
 				case Token.Ident:
-				_ident:
 					auto id = parseIdentifier();
 
 					Expression v;
@@ -1098,11 +1065,9 @@ public:
 					break;
 
 				case Token.EOF:
-				_eof:
 					c.eofException(location, "Namespace is missing its closing brace");
 
 				default:
-				_default:
 					l.expected("Namespace member");
 			}
 		}
