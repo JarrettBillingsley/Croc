@@ -79,17 +79,18 @@ private:
 
 const RegisterFunc[] _globalFuncs =
 [
-	{"newClass",     &_newClass,     maxParams: 2},
-	{"fieldsOf",     &_fieldsOf,     maxParams: 1},
-	{"methodsOf",    &_methodsOf,    maxParams: 1},
-	{"rawSetField",  &_rawSetField,  maxParams: 3},
-	{"rawGetField",  &_rawGetField,  maxParams: 2},
-	{"addMethod",    &_addMethod,    maxParams: 3},
-	{"addField",     &_addField,     maxParams: 3},
-	{"removeMember", &_removeMember, maxParams: 2},
-	{"freeze",       &_freeze,       maxParams: 1},
-	{"isFrozen",     &_isFrozen,     maxParams: 1},
-	{"finalizable",  &_finalizable,  maxParams: 1},
+	{"newClass",      &_newClass,       maxParams: 2},
+	{"fieldsOf",      &_fieldsOf,       maxParams: 1},
+	{"methodsOf",     &_methodsOf,      maxParams: 1},
+	{"rawSetField",   &_rawSetField,    maxParams: 3},
+	{"rawGetField",   &_rawGetField,    maxParams: 2},
+	{"addMethod",     &_addMethod,      maxParams: 3},
+	{"addField",      &_addField,       maxParams: 3},
+	{"removeMember",  &_removeMember,   maxParams: 2},
+	{"freeze",        &_freeze,         maxParams: 1},
+	{"isFrozen",      &_isFrozen,       maxParams: 1},
+	{"isFinalizable", &_isFinalizable,  maxParams: 1},
+	{"instanceOf",    &_instanceOf,     maxParams: 2},
 ];
 
 uword _newClass(CrocThread* t)
@@ -287,7 +288,7 @@ uword _isFrozen(CrocThread* t)
 	return 1;
 }
 
-uword _finalizable(CrocThread* t)
+uword _isFinalizable(CrocThread* t)
 {
 	checkAnyParam(t, 1);
 
@@ -308,6 +309,21 @@ uword _finalizable(CrocThread* t)
 	return 1;
 }
 
+uword _instanceOf(CrocThread* t)
+{
+	checkParam(t, 2, CrocValue.Type.Class);
+
+	if(isInstance(t, 1))
+	{
+		superOf(t, 1);
+		pushBool(t, opis(t, -1, 2));
+	}
+	else
+		pushBool(t, false);
+
+	return 1;
+}
+
 const Docs[] _globalFuncDocs =
 [
 	{kind: "function", name: "newClass",
@@ -319,11 +335,9 @@ const Docs[] _globalFuncDocs =
 	{kind: "function", name: "fieldsOf",
 	params: [Param("value", "class|instance")],
 	docs:
-	`Given a class or instance, returns an iterator function which iterates over all the public fields accessible from
-	that object.
+	`Given a class or instance, returns an iterator function which iterates over all the fields in that object.
 
-	The iterator gives three indices: the name of the field, its value, and the class in which it was defined. For
-	example:
+	The iterator gives two indices: the name of the field, then its value. For example:
 
 \code
 class Base
@@ -338,24 +352,20 @@ class Derived : Base
 	z = 30
 }
 
-foreach(name, val, cls; object.fieldsOf(Derived))
-	writefln("{} = {} ({})", name, val, nameOf(cls))
+foreach(name, val; object.fieldsOf(Derived))
+	writefln("{} = {}", name, val)
 \endcode
 
 	This will print out (though not necessarily in this order):
 
 \verbatim
-x = 20 (Derived)
-y = 10 (Base)
-z = 30 (Derived)
+x = 20
+y = 10
+z = 30
 \endverbatim
 
-	Notice that \tt{x}'s owner is \tt{Derived}, even though there is an \tt{x} in \tt{Base} as well, because
-	\tt{Derived} redefined it.
-
 	\param[value] is the class or instance whose fields you want to iterate over.
-	\returns an iterator function.
-	`},
+	\returns an iterator function. `},
 
 	{kind: "function", name: "methodsOf",
 	params: [Param("value", "class|instance")],
@@ -364,7 +374,7 @@ z = 30 (Derived)
 
 	\param[value] is the class or instance whose methods you want to iterate over. If you pass an \tt{instance}, it will
 	just iterate over its class's methods instead (since instances don't store methods).
-	\returns an iterator function`},
+	\returns an iterator function.`},
 
 	{kind: "function", name: "rawSetField",
 	params: [Param("o", "instance"), Param("name", "string"), Param("value")],
@@ -382,4 +392,52 @@ z = 30 (Derived)
 	`Adds a new method to a class.
 
 	The class must not be frozen, and no method or field of the same name may exist.`},
+
+	{kind: "function", name: "addField",
+	params: [Param("cls", "class"), Param("name", "string"), Param("value", "any", "null")],
+	docs:
+	`Adds a new field to a class.
+
+	The class must not be frozen, and no method or field of the same name may exist. The \tt{value} parameter is
+	optional.`},
+
+	{kind: "function", name: "removeMember",
+	params: [Param("cls", "class"), Param("name", "string")],
+	docs:
+	`Removes a member (method or field) from a class.
+
+	The class must not be frozen, and there must be a member of the given name to remove.`},
+
+	{kind: "function", name: "freeze",
+	params: [Param("cls", "class")],
+	docs:
+	`Forces a class to be frozen.
+
+	Normally classes are frozen when they are instantiated or derived from, but you can force them to be frozen with
+	this function to prevent any tampering.`},
+
+	{kind: "function", name: "isFrozen",
+	params: [Param("cls", "class")],
+	docs:
+	`\returns a bool indicating whether or not the given class is frozen.`},
+
+	{kind: "function", name: "addMethod",
+	params: [Param("cls", "class"), Param("name", "string"), Param("func", "function")],
+	docs:
+	`Adds a new method to a class.
+
+	The class must not be frozen, and no method or field of the same name may exist.`},
+
+	{kind: "function", name: "isFinalizable",
+	params: [Param("value", "class|instance")],
+	docs:
+	`\returns a bool indicating whether or not the given class or instance is finalizable.
+
+	\b{If \tt{value} is an unfrozen class, it will be frozen!} There is no way to be sure a class is finalizable without
+	freezing it first.`},
+
+	{kind: "function", name: "instanceOf",
+	params: [Param("value"), Param("cls", "class")],
+	docs:
+	`\returns \tt{true} if \tt{value} is an instance and it is an instance of \tt{cls}, and \tt{false} otherwise.`},
 ];

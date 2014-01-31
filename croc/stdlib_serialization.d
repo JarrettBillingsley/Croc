@@ -477,7 +477,7 @@ class Serializer
 		:_serialize(nameOf(v))
 
 		// TODO: relax the finalizer restriction, since finalizers aren't "native-only" any more
-		if(object.isFrozen(v) && object.finalizable(v))
+		if(object.isFrozen(v) && object.isFinalizable(v))
 			throw ValueError("Attempting to serialize class '{}' which has a finalizer".format(nameOf(v)))
 
 		:_nativeSerializeClass(v)
@@ -517,7 +517,7 @@ class Serializer
 		}
 
 		// TODO: relax the finalizer restriction, since finalizers aren't "native-only" any more
-		if(object.finalizable(v))
+		if(object.isFinalizable(v))
 			throw ValueError("Attempting to serialize '{}' which has a finalizer".format(rawToString(v)))
 
 		:_output.writeUInt8(0)
