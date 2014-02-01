@@ -41,6 +41,7 @@ private:
 	Lexer* l;
 	bool mDanglingDoc = false;
 	uword mDummyNameCounter = 0;
+	char[] mCurrentClassName = null;
 
 // ================================================================================================================================================
 // Public
@@ -890,6 +891,10 @@ public:
 
 		l.expect(Token.LBrace);
 
+		auto oldClassName = mCurrentClassName;
+		mCurrentClassName = className.name;
+		scope(exit) mCurrentClassName = oldClassName;
+
 		alias ClassDecl.Field Field;
 		scope fields = new List!(Field)(c);
 
@@ -898,7 +903,7 @@ public:
 			if(deco !is null)
 				v = decoToExp(deco, v);
 
-			fields ~= Field(name.name, v, func, isOverride);
+			fields ~= Field(checkPrivateFieldName(name.name), v, func, isOverride);
 
 			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
 			auto tmp = fields[fields.length - 1];
@@ -2630,7 +2635,7 @@ public:
 		else
 		{
 			endLoc = l.loc;
-			auto name = parseName();
+			auto name = checkPrivateFieldName(parseName());
 			return new(c) DotExp(new(c) ThisExp(loc), new(c) StringExp(endLoc, name));
 		}
 	}
@@ -2656,7 +2661,7 @@ public:
 					if(l.type == Token.Ident)
 					{
 						auto loc = l.loc;
-						auto name = parseName();
+						auto name = checkPrivateFieldName(parseName());
 						exp = new(c) DotExp(exp, new(c) StringExp(loc, name));
 					}
 					else if(l.type == Token.Super)
@@ -2976,6 +2981,26 @@ import tango.io.Stdout;
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
 		return new(c) Identifier(loc, str);
+	}
+
+	bool isPrivateFieldName(char[] name)
+	{
+		return name.startsWith("__");
+	}
+
+	char[] checkPrivateFieldName(char[] fieldName)
+	{
+		if(mCurrentClassName !is null && isPrivateFieldName(fieldName))
+		{
+			pushString(c.thread, mCurrentClassName);
+			pushString(c.thread, fieldName);
+			cat(c.thread, 2);
+			auto ret = c.newString(getString(c.thread, -1));
+			pop(c.thread);
+			return ret;
+		}
+		else
+			return fieldName;
 	}
 
 	void attachDocs(T)(T t, char[] preDocs, CompileLoc preDocsLoc)
