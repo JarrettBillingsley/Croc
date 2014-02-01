@@ -153,26 +153,26 @@ namespace croc
 		COND_CALLBACK(o->locFile);
 		COND_CALLBACK(o->name);
 
-		ARRAY_FOREACHP(Funcdef*, f, o->innerFuncs)
-			COND_CALLBACK(*f);
+		for(auto &f: o->innerFuncs)
+			COND_CALLBACK(f);
 
-		ARRAY_FOREACH(Value, val, o->constants)
-			VALUE_CALLBACK(*val);
+		for(auto &val: o->constants)
+			VALUE_CALLBACK(val);
 
-		ARRAY_FOREACH(Funcdef::SwitchTable, st, o->switchTables)
+		for(auto &st: o->switchTables)
 		{
-			auto offsets = st->offsets;
+			auto offsets = st.offsets;
 
 			HASH_FOREACH_NODE(Funcdef::SwitchTable::OffsetsType::NodeType, n, offsets)
 				VALUE_CALLBACK(n->key);
 			HASH_END_FOREACH
 		}
 
-		ARRAY_FOREACHP(String*, name, o->upvalNames)
-			COND_CALLBACK(*name);
+		for(auto &name: o->upvalNames)
+			COND_CALLBACK(name);
 
-		ARRAY_FOREACH(Funcdef::LocVarDesc, desc, o->locVarDescs)
-			COND_CALLBACK(desc->name);
+		for(auto &desc: o->locVarDescs)
+			COND_CALLBACK(desc.name);
 
 		COND_CALLBACK(o->environment);
 		COND_CALLBACK(o->cachedFunc);
