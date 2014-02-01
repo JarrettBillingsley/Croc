@@ -169,10 +169,134 @@ namespace croc
 		COND_CALLBACK(o->cachedFunc);
 	}
 
-	void visitClass(Class*, WBCallback, bool);
-	void visitInstance(Instance*, WBCallback, bool);
-	void visitThread(Thread*, WBCallback, bool);
-	void visitUpval(Upval*, WBCallback);
+	void visitClass(Class* o, WBCallback callback, bool isModifyPhase)
+	{
+		if(isModifyPhase)
+		{
+			if(!o->visitedOnce)
+			{
+				o->visitedOnce = true;
+				COND_CALLBACK(o->name);
+			}
+
+			for(auto n: o->fields.modifiedNodes())
+			{
+				COND_CALLBACK(n->key);
+				VALUE_CALLBACK(n->value);
+			}
+
+			for(auto n: o->methods.modifiedNodes())
+			{
+				COND_CALLBACK(n->key);
+				VALUE_CALLBACK(n->value);
+			}
+
+			for(auto n: o->hiddenFields.modifiedNodes())
+			{
+				COND_CALLBACK(n->key);
+				VALUE_CALLBACK(n->value);
+			}
+		}
+		else
+		{
+			COND_CALLBACK(o->name);
+
+			for(auto n: o->fields)
+			{
+				COND_CALLBACK(n->key);
+				VALUE_CALLBACK(n->value);
+			}
+
+			for(auto n: o->methods)
+			{
+				COND_CALLBACK(n->key);
+				VALUE_CALLBACK(n->value);
+			}
+
+			for(auto n: o->hiddenFields)
+			{
+				COND_CALLBACK(n->key);
+				VALUE_CALLBACK(n->value);
+			}
+		}
+	}
+
+	void visitInstance(Instance* o, WBCallback callback, bool isModifyPhase)
+	{
+		if(isModifyPhase)
+		{
+			if(!o->visitedOnce)
+			{
+				o->visitedOnce = true;
+				COND_CALLBACK(o->parent);
+			}
+
+			for(auto n: o->fields.modifiedNodes())
+			{
+				COND_CALLBACK(n->key);
+				VALUE_CALLBACK(n->value);
+			}
+
+			if(o->hiddenFields)
+			{
+				for(auto n: o->hiddenFields->modifiedNodes())
+				{
+					COND_CALLBACK(n->key);
+					VALUE_CALLBACK(n->value);
+				}
+			}
+		}
+		else
+		{
+			COND_CALLBACK(o->parent);
+
+			for(auto n: o->fields)
+			{
+				COND_CALLBACK(n->key);
+				VALUE_CALLBACK(n->value);
+			}
+
+			if(o->hiddenFields)
+			{
+				for(auto n: *o->hiddenFields)
+				{
+					COND_CALLBACK(n->key);
+					VALUE_CALLBACK(n->value);
+				}
+			}
+		}
+	}
+
+	void visitThread(Thread* o, WBCallback callback, bool isRoots)
+	{
+		if(isRoots)
+		{
+			for(auto &ar: o->actRecs.slice(0, o->arIndex))
+				COND_CALLBACK(ar.func);
+
+			for(auto &val: o->stack.slice(0, o->stackIndex))
+				VALUE_CALLBACK(val);
+
+			// I guess this can't _hurt_..
+			o->stack.slice(o->stackIndex, o->stack.length).fill(Value::nullValue);
+
+			for(auto &val: o->results.slice(0, o->resultIndex))
+				VALUE_CALLBACK(val);
+
+			for(auto puv = &o->upvalHead; *puv != nullptr; puv = &(*puv)->nextuv)
+				callback(cast(GCObject*)*puv);
+		}
+		else
+		{
+			COND_CALLBACK(o->coroFunc);
+			COND_CALLBACK(o->hookFunc);
+		}
+	}
+
+	void visitUpval(Upval* o, WBCallback callback)
+	{
+		VALUE_CALLBACK(*o->value);
+	}
 
 	} // anon namespace
 
