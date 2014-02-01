@@ -7,7 +7,7 @@
 #include "croc/base/sanity.hpp"
 #include "croc/ext/jhash.hpp"
 
-#define ARRAY_BYTE_SIZE(len) ((len) * sizeof(T))
+#define ARRAY_BYTE_SIZE(len) (cast(size_t)((len) * sizeof(T)))
 
 #ifdef CROC_LEAK_DETECTOR
 #  define MEMBERTYPEID , typeid(DArray<T>)
@@ -31,7 +31,7 @@ namespace croc
 
 		static DArray<T> alloc(Memory& mem, size_t length)
 		{
-			T* ptr = cast(T*)mem.allocRaw(ARRAY_BYTE_SIZE(length) MEMBERTYPEID);
+			auto ptr = cast(T*)mem.allocRaw(ARRAY_BYTE_SIZE(length) MEMBERTYPEID);
 			DArray<T> ret = {ptr, length};
 			ret.zeroFill();
 			return ret;
@@ -42,7 +42,7 @@ namespace croc
 			if(length == 0)
 				return;
 
-			size_t byteLength = ARRAY_BYTE_SIZE(length);
+			auto byteLength = ARRAY_BYTE_SIZE(length);
 			void* tmp = ptr;
 			mem.freeRaw(tmp, byteLength MEMBERTYPEID);
 			ptr = nullptr;
@@ -51,8 +51,8 @@ namespace croc
 
 		void resize(Memory& mem, size_t newLength)
 		{
-			size_t byteLength = ARRAY_BYTE_SIZE(length);
-			size_t newByteLength = ARRAY_BYTE_SIZE(newLength);
+			auto byteLength = ARRAY_BYTE_SIZE(length);
+			auto newByteLength = ARRAY_BYTE_SIZE(newLength);
 			void* tmp = ptr;
 			mem.resizeRaw(tmp, byteLength, newByteLength MEMBERTYPEID);
 			ptr = cast(T*)tmp;
@@ -66,7 +66,7 @@ namespace croc
 
 		DArray<T> dup(Memory& mem)
 		{
-			T* retPtr = cast(T*)mem.allocRaw(ARRAY_BYTE_SIZE(length) MEMBERTYPEID);
+			auto retPtr = cast(T*)mem.allocRaw(ARRAY_BYTE_SIZE(length) MEMBERTYPEID);
 			DArray<T> ret = {retPtr, this->length};
 			ret.slicea(*this);
 			return ret;
@@ -123,8 +123,8 @@ namespace croc
 
 		inline void fill(T val)
 		{
-			for(T* i = ptr, *end = ptr + length; ptr < end; ptr++)
-				*i = val;
+			for(auto &v: *this)
+				v = val;
 		}
 
 		inline void zeroFill()

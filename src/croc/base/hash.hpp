@@ -6,11 +6,6 @@
 #include "croc/base/sanity.hpp"
 #include "croc/utils.hpp"
 
-#define HASH_FOREACH(K, Kname, V, Vname, h) { K* Kname; V* Vname; size_t idx = 0; while((h).next(idx, Kname, Vname))
-#define HASH_FOREACH_NODE(N, Nname, h) { N* Nname; size_t idx = 0; while((h).nextNode(idx, Nname))
-#define HASH_FOREACH_MODIFIED(N, Nname, h) { N* Nname; size_t idx = 0; while((h).nextModified(idx, Nname))
-#define HASH_END_FOREACH }
-
 enum NodeFlags
 {
 	NodeFlags_Used =        (1 << 0),
@@ -29,6 +24,8 @@ enum NodeFlags
 #define IS_VAL_MODIFIED(n) TEST_FLAG((n)->flags, NodeFlags_ValModified)
 #define SET_VAL_MODIFIED(n) SET_FLAG((n)->flags, NodeFlags_ValModified)
 #define CLEAR_VAL_MODIFIED(n) CLEAR_FLAG((n)->flags, NodeFlags_ValModified)
+
+#define IS_EITHER_MODIFIED(n) TEST_FLAG((n)->flags, (NodeFlags_KeyModified | NodeFlags_ValModified))
 
 #define CLEAR_BOTH_MODIFIED(n) CLEAR_FLAG((n)->flags, (NodeFlags_KeyModified | NodeFlags_ValModified))
 
@@ -110,7 +107,7 @@ namespace croc
 				return;
 			else
 			{
-				size_t newSize = largerPow2(size);
+				auto newSize = largerPow2(size);
 				resizeArray(mem, newSize < 4 ? 4 : newSize);
 			}
 		}
@@ -122,17 +119,17 @@ namespace croc
 
 		Node* insertNode(Memory& mem, K key)
 		{
-			hash_t hash = Hasher::toHash(&key);
+			auto hash = Hasher::toHash(&key);
 
 			{
-				Node* node = lookupNode(key, hash);
+				auto node = lookupNode(key, hash);
 
 				if(node != nullptr)
 					return node;
 			}
 
-			DArray<Node> nodes = mNodes;
-			Node* colBucket = getColBucket();
+			auto nodes = mNodes;
+			auto colBucket = getColBucket();
 
 			if(colBucket == nullptr)
 			{
@@ -142,12 +139,12 @@ namespace croc
 				assert(colBucket != nullptr);
 			}
 
-			size_t mainPosNodeIdx = hash & mHashMask;
-			Node* mainPosNode = &nodes[mainPosNodeIdx];
+			auto mainPosNodeIdx = hash & mHashMask;
+			auto mainPosNode = &nodes[mainPosNodeIdx];
 
 			if(IS_USED(mainPosNode))
 			{
-				Node* otherNode = &mNodes[Hasher::toHash(&mainPosNode->key) & mHashMask];
+				auto otherNode = &mNodes[Hasher::toHash(&mainPosNode->key) & mHashMask];
 
 				if(otherNode == mainPosNode)
 				{
@@ -179,9 +176,9 @@ namespace croc
 
 		bool remove(K key)
 		{
-			hash_t hash = Hasher::toHash(&key);
-			DArray<Node> nodes = mNodes;
-			Node* n = &mNodes[hash & mHashMask];
+			auto hash = Hasher::toHash(&key);
+			auto nodes = mNodes;
+			auto n = &mNodes[hash & mHashMask];
 
 			if(!IS_USED(n))
 				return false;
@@ -195,7 +192,7 @@ namespace croc
 				else
 				{
 					// Other items.  Have to move the next item into where the head used to be.
-					Node* next = &nodes[n->next];
+					auto next = &nodes[n->next];
 					*n = *next;
 					markUnused(next);
 				}
@@ -206,7 +203,7 @@ namespace croc
 			{
 				while(n->next != nodes.length && IS_USED(n->next))
 				{
-					Node* next = &nodes[n->next];
+					auto next = &nodes[n->next];
 
 					if(next->equals(key, hash))
 					{
@@ -226,7 +223,7 @@ namespace croc
 
 		V* lookup(K key)
 		{
-			Node* ret = lookupNode(key, Hasher::toHash(&key));
+			auto ret = lookupNode(key, Hasher::toHash(&key));
 
 			if(ret)
 				return &ret->value;
@@ -236,7 +233,7 @@ namespace croc
 
 		V* lookup(K key, hash_t hash)
 		{
-			Node* ret = lookupNode(key, hash);
+			auto ret = lookupNode(key, hash);
 
 			if(ret)
 				return &ret->value;
@@ -254,9 +251,9 @@ namespace croc
 			if(mNodes.length == 0)
 				return nullptr;
 
-			DArray<Node> nodes = mNodes;
+			auto nodes = mNodes;
 
-			for(Node* n = &nodes[hash & mHashMask]; IS_USED(n); n = &nodes[n->next])
+			for(auto n = &nodes[hash & mHashMask]; IS_USED(n); n = &nodes[n->next])
 			{
 				if(n->equals(key, hash))
 					return n;
@@ -268,9 +265,103 @@ namespace croc
 			return nullptr;
 		}
 
+		struct RegularHashIterator
+		{
+		private:
+			DArray<Node> mNodes;
+			size_t mIdx;
+
+			void next()
+			{
+				for(this->mIdx++; this->mIdx < mNodes.length; this->mIdx++)
+				{
+					if(IS_USED(&mNodes[this->mIdx]))
+						return;
+				}
+			}
+
+		public:
+			RegularHashIterator(DArray<Node> nodes) : mNodes(nodes), mIdx(cast(size_t)-1) {}
+			RegularHashIterator(const RegularHashIterator& other) : mNodes(other.mNodes), mIdx(other.mIdx) {}
+			RegularHashIterator& operator++() { next(); return *this; }
+			RegularHashIterator operator++(int) { RegularHashIterator tmp(*this); operator++(); return tmp; }
+			bool operator==(const RegularHashIterator& rhs) { return mNodes.ptr == rhs.mNodes.ptr && mIdx == rhs.mIdx; }
+			bool operator!=(const RegularHashIterator& rhs) { return !(*this == rhs); }
+			Node* operator*() { return &mNodes[mIdx]; }
+			void moveToEnd() { mIdx = mNodes.length; }
+		};
+
+		struct ModifiedHashIterator
+		{
+		private:
+			DArray<Node> mNodes;
+			size_t mIdx;
+
+			void next()
+			{
+				for(this->mIdx++; this->mIdx < mNodes.length; this->mIdx++)
+				{
+					if(IS_EITHER_MODIFIED(&mNodes[this->mIdx]))
+						return;
+				}
+			}
+
+		public:
+			ModifiedHashIterator(DArray<Node> nodes) : mNodes(nodes), mIdx(cast(size_t)-1) {}
+			ModifiedHashIterator(const ModifiedHashIterator& other) : mNodes(other.mNodes), mIdx(other.mIdx) {}
+			ModifiedHashIterator& operator++() { next(); return *this; }
+			ModifiedHashIterator operator++(int) { ModifiedHashIterator tmp(*this); operator++(); return tmp; }
+			bool operator==(const ModifiedHashIterator& rhs) { return mNodes.ptr == rhs.mNodes.ptr && mIdx == rhs.mIdx; }
+			bool operator!=(const ModifiedHashIterator& rhs) { return !(*this == rhs); }
+			Node* operator*() { return &mNodes[mIdx]; }
+			void moveToEnd() { mIdx = mNodes.length; }
+		};
+
+		RegularHashIterator begin()
+		{
+			RegularHashIterator ret(mNodes);
+			ret++;
+			return ret;
+		}
+
+		RegularHashIterator end()
+		{
+			RegularHashIterator ret(mNodes);
+			ret.moveToEnd();
+			return ret;
+		}
+
+		struct ModifiedIteration
+		{
+		private:
+			DArray<Node> mNodes;
+
+		public:
+			ModifiedIteration(DArray<Node> nodes) : mNodes(nodes) {}
+
+			ModifiedHashIterator begin()
+			{
+				ModifiedHashIterator ret(mNodes);
+				ret++;
+				return ret;
+			}
+
+			ModifiedHashIterator end()
+			{
+				ModifiedHashIterator ret(mNodes);
+				ret.moveToEnd();
+				return ret;
+			}
+		};
+
+		ModifiedIteration modifiedNodes()
+		{
+			return ModifiedIteration(mNodes);
+		}
+
 		bool next(size_t& idx, K*& key, V*& val)
 		{
-			DArray<Node> nodes = mNodes;
+			auto nodes = mNodes;
 
 			for(; idx < nodes.length; idx++)
 			{
@@ -288,7 +379,7 @@ namespace croc
 
 		bool nextNode(size_t& idx, Node*& n)
 		{
-			DArray<Node> nodes = mNodes;
+			auto nodes = mNodes;
 
 			for(; idx < nodes.length; idx++)
 			{
@@ -304,7 +395,7 @@ namespace croc
 
 		bool nextModified(size_t& idx, Node*& n)
 		{
-			DArray<Node> nodes = mNodes;
+			auto nodes = mNodes;
 
 			for(; idx < nodes.length; idx++)
 			{
@@ -339,7 +430,7 @@ namespace croc
 				clear(mem);
 			else
 			{
-				size_t newSize = largerPow2(mSize);
+				auto newSize = largerPow2(mSize);
 				resizeArray(mem, newSize < 4 ? 4 : newSize);
 			}
 		}
@@ -375,7 +466,7 @@ namespace croc
 
 		void resizeArray(Memory& mem, size_t newSize)
 		{
-			DArray<Node> oldNodes = mNodes;
+			auto oldNodes = mNodes;
 
 			mNodes = DArray<Node>::alloc(mem, newSize);
 			mHashMask = mNodes.length - 1;
@@ -384,11 +475,11 @@ namespace croc
 
 			for(size_t i = 0; i < oldNodes.length; i++)
 			{
-				Node* node = &oldNodes[i];
+				auto node = &oldNodes[i];
 
 				if(IS_USED(node))
 				{
-					Node* newNode = insertNode(mem, node->key);
+					auto newNode = insertNode(mem, node->key);
 					newNode->copyFrom(node);
 					newNode->flags = node->flags; // the used bit won't matter
 				}
@@ -399,7 +490,7 @@ namespace croc
 
 		Node* getColBucket()
 		{
-			for(Node* end = mNodes.ptr + mNodes.length; mColBucket < end; mColBucket++)
+			for(auto end = mNodes.ptr + mNodes.length; mColBucket < end; mColBucket++)
 				if(!IS_USED(mColBucket))
 					return mColBucket;
 

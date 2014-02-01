@@ -39,7 +39,7 @@ namespace croc
 	{
 		if(isModifyPhase)
 		{
-			HASH_FOREACH_MODIFIED(Table::HashType::NodeType, n, o->data)
+			for(auto n: o->data.modifiedNodes())
 			{
 				if(IS_KEY_MODIFIED(n))
 					VALUE_CALLBACK(n->key);
@@ -49,16 +49,14 @@ namespace croc
 
 				CLEAR_BOTH_MODIFIED(n);
 			}
-			HASH_END_FOREACH
 		}
 		else
 		{
-			HASH_FOREACH(Value, key, Value, val, o->data)
+			for(auto n: o->data)
 			{
-				VALUE_CALLBACK(*key);
-				VALUE_CALLBACK(*val);
+				VALUE_CALLBACK(n->key);
+				VALUE_CALLBACK(n->value);
 			}
-			HASH_END_FOREACH
 		}
 	}
 
@@ -76,7 +74,7 @@ namespace croc
 				COND_CALLBACK(o->name);
 			}
 
-			HASH_FOREACH_MODIFIED(Namespace::HashType::NodeType, n, o->data)
+			for(auto n: o->data.modifiedNodes())
 			{
 				if(IS_KEY_MODIFIED(n))
 					COND_CALLBACK(n->key);
@@ -86,7 +84,6 @@ namespace croc
 
 				CLEAR_BOTH_MODIFIED(n);
 			}
-			HASH_END_FOREACH
 		}
 		else
 		{
@@ -94,12 +91,11 @@ namespace croc
 			COND_CALLBACK(o->root);
 			COND_CALLBACK(o->name);
 
-			HASH_FOREACH(String*, key, Value, val, o->data)
+			for(auto n: o->data)
 			{
-				callback(*key);
-				VALUE_CALLBACK(*val);
+				callback(n->key);
+				VALUE_CALLBACK(n->value);
 			}
-			HASH_END_FOREACH
 		}
 	}
 
@@ -160,13 +156,8 @@ namespace croc
 			VALUE_CALLBACK(val);
 
 		for(auto &st: o->switchTables)
-		{
-			auto offsets = st.offsets;
-
-			HASH_FOREACH_NODE(Funcdef::SwitchTable::OffsetsType::NodeType, n, offsets)
+			for(auto n: st.offsets)
 				VALUE_CALLBACK(n->key);
-			HASH_END_FOREACH
-		}
 
 		for(auto &name: o->upvalNames)
 			COND_CALLBACK(name);
@@ -196,38 +187,27 @@ namespace croc
 		for(Thread* t = vm->allThreads; t != nullptr; t = t->next)
 			visitThread(t, callback, true);
 
-		DArray<Namespace*>& mt = vm->metaTabs;
-		size_t i;
+		for(auto mt: vm->metaTabs)
+			COND_CALLBACK(mt);
 
-		for(i = 0; i < mt.length; i++)
-			COND_CALLBACK(mt[i]);
-
-		DArray<String*>& ms = vm->metaStrings;
-
-		for(i = 0; i < ms.length; i++)
-			callback(ms[i]);
+		for(auto ms: vm->metaStrings)
+			callback(ms);
 
 		if(vm->isThrowing)
 			callback(vm->exception);
 
 		callback(vm->registry);
 
-		VM::RefTab& rt = vm->refTab;
-
-		HASH_FOREACH(uint64_t, _, GCObject*, val, rt)
-			callback(*val);
-		HASH_END_FOREACH
+		for(auto n: vm->refTab)
+			callback(n->value);
 
 		callback(vm->location);
 
-		VM::ExTab& et = vm->stdExceptions;
-
-		HASH_FOREACH(String*, k, Class*, v, et)
+		for(auto n: vm->stdExceptions)
 		{
-			callback(*k);
-			callback(*v);
+			callback(n->key);
+			callback(n->value);
 		}
-		HASH_END_FOREACH
 	}
 
 	// Dynamically dispatch the appropriate visiting method at runtime from a GCObject*.

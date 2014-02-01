@@ -39,18 +39,15 @@ int main()
 
 	for(int i = 1; i <= 10; i++)
 	{
-		H::NodeType* n = h.insertNode(mem, i);
+		auto n = h.insertNode(mem, i);
 		n->value = i * 5;
 
 		if(i & 1)
 			SET_KEY_MODIFIED(n);
 	}
 
-	HASH_FOREACH_MODIFIED(H::NodeType, n, h)
-	{
+	for(auto n: h.modifiedNodes())
 		printf("h[%d (%d)] = %d (%d) \n", n->key, IS_KEY_MODIFIED(n) != 0, n->value, IS_VAL_MODIFIED(n) != 0);
-	}
-	HASH_END_FOREACH
 
 	return 0;
 }
