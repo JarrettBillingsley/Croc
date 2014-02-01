@@ -119,14 +119,14 @@ static:
 		{
 			// ignore call to whatever this function is
 			if(depth < 0 || depth >= maxDepth - 1)
-				throwStdException(t, "RangeException", "invalid call depth {}", depth);
+				throwStdException(t, "RangeError", "invalid call depth {}", depth);
 
 			return getActRec(thread, cast(uword)depth + 1);
 		}
 		else
 		{
 			if(depth < 0 || depth >= maxDepth)
-				throwStdException(t, "RangeException", "invalid call depth {}", depth);
+				throwStdException(t, "RangeError", "invalid call depth {}", depth);
 
 			return getActRec(thread, cast(uword)depth);
 		}
@@ -158,7 +158,7 @@ static:
 		auto delay = optIntParam(t, arg + 3, 0);
 
 		if(delay < 0 || delay > uword.max)
-			throwStdException(t, "RangeException", "invalid delay value ({})", delay);
+			throwStdException(t, "RangeError", "invalid delay value ({})", delay);
 
 		auto mask = strToMask(maskStr);
 
@@ -271,7 +271,7 @@ static:
 		auto idx = checkIntParam(t, arg + 2);
 
 		if(idx < 0 || ar.func is null || ar.func.isNative)
-			throwStdException(t, "BoundsException", "invalid local index '{}'", idx);
+			throwStdException(t, "BoundsError", "invalid local index '{}'", idx);
 
 		auto originalIdx = idx;
 		auto pc = ar.pc - ar.func.scriptFunc.code.ptr;
@@ -293,7 +293,7 @@ static:
 		}
 
 		if(!found)
-			throwStdException(t, "BoundsException", "invalid local index '{}'", originalIdx);
+			throwStdException(t, "BoundsError", "invalid local index '{}'", originalIdx);
 
 		return 1;
 	}
@@ -315,7 +315,7 @@ static:
 			paramTypeError(t, arg + 2, "int|string");
 
 		if(idx < 0 || ar.func is null || ar.func.isNative)
-			throwStdException(t, "BoundsException", "invalid local index '{}'", idx);
+			throwStdException(t, "BoundsError", "invalid local index '{}'", idx);
 
 		auto originalIdx = idx;
 		auto pc = ar.pc - ar.func.scriptFunc.code.ptr;
@@ -351,9 +351,9 @@ static:
 		if(!found)
 		{
 			if(name is null)
-				throwStdException(t, "BoundsException", "invalid local index '{}'", originalIdx);
+				throwStdException(t, "BoundsError", "invalid local index '{}'", originalIdx);
 			else
-				throwStdException(t, "NameException", "invalid local name '{}'", name.toString());
+				throwStdException(t, "NameError", "invalid local name '{}'", name.toString());
 		}
 
 		return 1;
@@ -378,7 +378,7 @@ static:
 		checkAnyParam(t, arg + 3);
 
 		if(idx < 0 || ar.func is null || ar.func.isNative)
-			throwStdException(t, "BoundsException", "invalid local index '{}'", idx);
+			throwStdException(t, "BoundsError", "invalid local index '{}'", idx);
 
 		auto originalIdx = idx;
 		auto pc = ar.pc - ar.func.scriptFunc.code.ptr;
@@ -393,7 +393,7 @@ static:
 					if(idx == 0)
 					{
 						if(var.reg == 0)
-							throwStdException(t, "ValueException", "Cannot set the value of 'this'");
+							throwStdException(t, "ValueError", "Cannot set the value of 'this'");
 
 						thread.stack[ar.base + var.reg] = *getValue(t, arg + 3);
 						found = true;
@@ -405,7 +405,7 @@ static:
 				else if(var.name is name)
 				{
 					if(var.reg == 0)
-						throwStdException(t, "ValueException", "Cannot set the value of 'this'");
+						throwStdException(t, "ValueError", "Cannot set the value of 'this'");
 
 					thread.stack[ar.base + var.reg] = *getValue(t, arg + 3);
 					found = true;
@@ -417,9 +417,9 @@ static:
 		if(!found)
 		{
 			if(name is null)
-				throwStdException(t, "BoundsException", "invalid local index '{}'", originalIdx);
+				throwStdException(t, "BoundsError", "invalid local index '{}'", originalIdx);
 			else
-				throwStdException(t, "NameException", "invalid local name '{}'", name.toString());
+				throwStdException(t, "NameError", "invalid local name '{}'", name.toString());
 		}
 
 		return 0;
@@ -447,7 +447,7 @@ static:
 		auto idx = checkIntParam(t, arg + 2);
 
 		if(func is null || idx < 0 || idx >= func.numUpvals)
-			throwStdException(t, "BoundsException", "invalid upvalue index '{}'", idx);
+			throwStdException(t, "BoundsError", "invalid upvalue index '{}'", idx);
 
 		if(func.isNative)
 			pushString(t, "");
@@ -464,14 +464,14 @@ static:
 		auto func = getFuncParam(t, thread, arg + 1);
 
 		if(func is null)
-			throwStdException(t, "ValueException", "invalid function");
+			throwStdException(t, "ValueError", "invalid function");
 
 		if(isInt(t, arg + 2))
 		{
 			auto idx = getInt(t, arg + 2);
 
 			if(idx < 0 || idx >= func.numUpvals)
-				throwStdException(t, "BoundsException", "invalid upvalue index '{}'", idx);
+				throwStdException(t, "BoundsError", "invalid upvalue index '{}'", idx);
 
 			if(func.isNative)
 				push(t, func.nativeUpvals()[cast(uword)idx]);
@@ -485,7 +485,7 @@ static:
 		else if(isString(t, arg + 2))
 		{
 			if(func.isNative)
-				throwStdException(t, "ValueException", "cannot get upvalues by name for native functions");
+				throwStdException(t, "ValueError", "cannot get upvalues by name for native functions");
 
 			auto name = getStringObj(t, arg + 2);
 
@@ -503,7 +503,7 @@ static:
 			}
 
 			if(!found)
-				throwStdException(t, "NameException", "invalid upvalue name '{}'", name.toString());
+				throwStdException(t, "NameError", "invalid upvalue name '{}'", name.toString());
 		}
 		else
 			paramTypeError(t, arg + 2, "int|string");
@@ -519,14 +519,14 @@ static:
 		checkAnyParam(t, arg + 3);
 
 		if(func is null)
-			throwStdException(t, "ValueException", "invalid function");
+			throwStdException(t, "ValueError", "invalid function");
 
 		if(isInt(t, arg + 2))
 		{
 			auto idx = getInt(t, arg + 2);
 
 			if(idx < 0 || idx >= func.numUpvals)
-				throwStdException(t, "BoundsException", "invalid upvalue index '{}'", idx);
+				throwStdException(t, "BoundsError", "invalid upvalue index '{}'", idx);
 
 			if(func.isNative)
 				.func.setNativeUpval(t.vm.alloc, func, cast(uword)idx, getValue(t, arg + 3));
@@ -539,7 +539,7 @@ static:
 		else if(isString(t, arg + 2))
 		{
 			if(func.isNative)
-				throwStdException(t, "ValueException", "cannot get upvalues by name for native functions");
+				throwStdException(t, "ValueError", "cannot get upvalues by name for native functions");
 
 			auto name = getStringObj(t, arg + 2);
 
@@ -564,7 +564,7 @@ static:
 			}
 
 			if(!found)
-				throwStdException(t, "NameException", "invalid upvalue name '{}'", name.toString());
+				throwStdException(t, "NameError", "invalid upvalue name '{}'", name.toString());
 		}
 		else
 			paramTypeError(t, arg + 2, "int|string");
@@ -579,7 +579,7 @@ static:
 		auto func = getFuncParam(t, thread, arg + 1);
 
 		if(func is null)
-			throwStdException(t, "ValueException", "invalid function");
+			throwStdException(t, "ValueError", "invalid function");
 
 		push(t, CrocValue(func.environment));
 		return 1;
@@ -592,10 +592,10 @@ static:
 		auto func = getFuncParam(t, thread, arg + 1);
 
 		if(func is null)
-			throwStdException(t, "ValueException", "invalid function");
+			throwStdException(t, "ValueError", "invalid function");
 
 		if(!func.isNative)
-			throwStdException(t, "ValueException", "can only set the environment of native functions");
+			throwStdException(t, "ValueError", "can only set the environment of native functions");
 
 		checkParam(t, arg + 2, CrocValue.Type.Namespace);
 		push(t, CrocValue(func.environment));
@@ -616,14 +616,14 @@ static:
 		if(t is thread)
 		{
 			if(depth < 0 || depth >= maxDepth - 1)
-				throwStdException(t, "RangeException", "invalid call depth {}", depth);
+				throwStdException(t, "RangeError", "invalid call depth {}", depth);
 
 			pushInt(t, getDebugLine(t, cast(uword)depth + 1));
 		}
 		else
 		{
 			if(depth < 0 || depth >= maxDepth)
-				throwStdException(t, "RangeException", "invalid call depth {}", depth);
+				throwStdException(t, "RangeError", "invalid call depth {}", depth);
 
 			pushInt(t, getDebugLine(t, cast(uword)depth));
 		}
@@ -683,7 +683,7 @@ static:
 			case "funcdef":   getTypeMT(t, CrocValue.Type.FuncDef);   break;
 
 			default:
-				throwStdException(t, "ValueException", "invalid type name '{}'", name);
+				throwStdException(t, "ValueError", "invalid type name '{}'", name);
 		}
 
 		return 1;
@@ -720,7 +720,7 @@ static:
 			case "funcdef":   setTypeMT(t, CrocValue.Type.FuncDef);   break;
 
 			default:
-				throwStdException(t, "ValueException", "invalid type name '{}'", name);
+				throwStdException(t, "ValueError", "invalid type name '{}'", name);
 		}
 
 		return 0;

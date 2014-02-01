@@ -36,9 +36,7 @@ const char[][] AstTagNames =
 [
 	"Identifier",
 
-	"ClassDef",
 	"FuncDef",
-	"NamespaceDef",
 
 	"Module",
 	"Decorator",
@@ -103,7 +101,6 @@ const char[][] AstTagNames =
 	"GTExp",
 	"GEExp",
 	"Cmp3Exp",
-	"AsExp",
 	"InExp",
 	"NotInExp",
 	"ShlExp",
@@ -137,11 +134,9 @@ const char[][] AstTagNames =
 	"FloatExp",
 	"StringExp",
 	"FuncLiteralExp",
-	"ClassLiteralExp",
 	"ParenExp",
 	"TableCtorExp",
 	"ArrayCtorExp",
-	"NamespaceCtorExp",
 	"YieldExp",
 
 	"ForeachComprehension",
@@ -167,9 +162,7 @@ const char[][] NiceAstTagNames =
 [
 	AstTag.Identifier:           "identifier",
 
-	AstTag.ClassDef:             "class definition",
 	AstTag.FuncDef:              "function definition",
-	AstTag.NamespaceDef:         "namespace definition",
 
 	AstTag.Module:               "module",
 	AstTag.Decorator:            "decorator",
@@ -234,7 +227,6 @@ const char[][] NiceAstTagNames =
 	AstTag.GTExp:                "greater-than expression",
 	AstTag.GEExp:                "greater-or-equals expression",
 	AstTag.Cmp3Exp:              "three-way comparison expression",
-	AstTag.AsExp:                "'as' expression",
 	AstTag.InExp:                "'in' expression",
 	AstTag.NotInExp:             "'!in' expression",
 	AstTag.ShlExp:               "left-shift expression",
@@ -268,11 +260,9 @@ const char[][] NiceAstTagNames =
 	AstTag.FloatExp:             "float constant expression",
 	AstTag.StringExp:            "string constant expression",
 	AstTag.FuncLiteralExp:       "function literal expression",
-	AstTag.ClassLiteralExp:      "class literal expression",
 	AstTag.ParenExp:             "parenthesized expression",
 	AstTag.TableCtorExp:         "table constructor expression",
 	AstTag.ArrayCtorExp:         "array constructor expression",
-	AstTag.NamespaceCtorExp:     "namespace constructor expression",
 	AstTag.YieldExp:             "yield expression",
 
 	AstTag.ForeachComprehension: "'foreach' comprehension",
@@ -327,33 +317,6 @@ class Identifier : AstNode
 	{
 		super(location, location, AstTag.Identifier);
 		this.name = name;
-	}
-}
-
-class ClassDef : AstNode
-{
-	struct Field
-	{
-		char[] name;
-		Expression initializer;
-		ubyte privacy;
-		bool isMethod;
-		char[] docs;
-		CompileLoc docsLoc;
-	}
-
-	Identifier name;
-	Expression baseClass;
-	Field[] fields;
-	char[] docs;
-	CompileLoc docsLoc;
-
-	this(CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseClass, Field[] fields)
-	{
-		super(location, endLocation, AstTag.ClassDef);
-		this.name = name;
-		this.baseClass = baseClass;
-		this.fields = fields;
 	}
 }
 
@@ -414,31 +377,6 @@ class FuncDef : AstNode
 		this.isVararg = isVararg;
 		this.code = code;
 		this.name = name;
-	}
-}
-
-class NamespaceDef : AstNode
-{
-	struct Field
-	{
-		char[] name;
-		Expression initializer;
-		char[] docs;
-		CompileLoc docsLoc;
-	}
-
-	Identifier name;
-	Expression parent;
-	Field[] fields;
-	char[] docs;
-	CompileLoc docsLoc;
-
-	this(CompileLoc location, CompileLoc endLocation, Identifier name, Expression parent, Field[] fields)
-	{
-		super(location, endLocation, AstTag.NamespaceDef);
-		this.name = name;
-		this.parent = parent;
-		this.fields = fields;
 	}
 }
 
@@ -525,31 +463,64 @@ class FuncDecl : Statement
 
 class ClassDecl : Statement
 {
-	Protection protection;
-	ClassDef def;
-	Decorator decorator;
-
-	this(CompileLoc location, Protection protection, ClassDef def, Decorator decorator)
+	struct Field
 	{
-		super(location, def.endLocation, AstTag.ClassDecl);
+		char[] name;
+		Expression initializer;
+		FuncLiteralExp func;
+		bool isOverride;
+		char[] docs;
+		CompileLoc docsLoc;
+	}
+
+	Protection protection;
+	Decorator decorator;
+	Identifier name;
+	Expression[] baseClasses;
+	Field[] fields;
+	char[] docs;
+	CompileLoc docsLoc;
+
+	this(CompileLoc location, CompileLoc endLocation, Protection protection, Decorator decorator,
+		Identifier name, Expression[] baseClasses, Field[] fields)
+	{
+		super(location, endLocation, AstTag.ClassDecl);
 		this.protection = protection;
-		this.def = def;
 		this.decorator = decorator;
+		this.name = name;
+		this.baseClasses = baseClasses;
+		this.fields = fields;
 	}
 }
 
 class NamespaceDecl : Statement
 {
-	Protection protection;
-	NamespaceDef def;
-	Decorator decorator;
-
-	this(CompileLoc location, Protection protection, NamespaceDef def, Decorator decorator)
+	struct Field
 	{
-		super(location, def.endLocation, AstTag.NamespaceDecl);
+		char[] name;
+		Expression initializer;
+		FuncLiteralExp func;
+		char[] docs;
+		CompileLoc docsLoc;
+	}
+
+	Protection protection;
+	Decorator decorator;
+	Identifier name;
+	Expression parent;
+	Field[] fields;
+	char[] docs;
+	CompileLoc docsLoc;
+
+	this(CompileLoc location, CompileLoc endLocation, Protection protection, Decorator decorator,
+		Identifier name, Expression parent, Field[] fields)
+	{
+		super(location, endLocation, AstTag.NamespaceDecl);
 		this.protection = protection;
-		this.def = def;
 		this.decorator = decorator;
+		this.name = name;
+		this.parent = parent;
+		this.fields = fields;
 	}
 }
 
@@ -1310,11 +1281,6 @@ class Cmp3Exp : BinaryExp
 	mixin(BinExpMixin);
 }
 
-class AsExp : BinaryExp
-{
-	mixin(BinExpMixin);
-}
-
 class ShlExp : BinaryExp
 {
 	mixin(BinExpMixin);
@@ -1498,14 +1464,12 @@ class MethodCallExp : PostfixExp
 {
 	Expression method;
 	Expression[] args;
-	bool isSuperCall;
 
-	this(CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression[] args, bool isSuperCall)
+	this(CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression[] args)
 	{
 		super(location, endLocation, AstTag.MethodCallExp, operand);
 		this.method = method;
 		this.args = args;
-		this.isSuperCall = isSuperCall;
 	}
 
 	override bool hasSideEffects()
@@ -1774,17 +1738,6 @@ class FuncLiteralExp : PrimaryExp
 	}
 }
 
-class ClassLiteralExp : PrimaryExp
-{
-	ClassDef def;
-
-	this(CompileLoc location, ClassDef def)
-	{
-		super(location, def.endLocation, AstTag.ClassLiteralExp);
-		this.def = def;
-	}
-}
-
 class ParenExp : PrimaryExp
 {
 	Expression exp;
@@ -1823,17 +1776,6 @@ class ArrayCtorExp : PrimaryExp
 	{
 		super(location, endLocation, AstTag.ArrayCtorExp);
 		this.values = values;
-	}
-}
-
-class NamespaceCtorExp : PrimaryExp
-{
-	NamespaceDef def;
-
-	this(CompileLoc location, NamespaceDef def)
-	{
-		super(location, def.endLocation, AstTag.NamespaceCtorExp);
-		this.def = def;
 	}
 }
 

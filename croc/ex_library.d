@@ -27,6 +27,7 @@ subject to the following restrictions:
 
 module croc.ex_library;
 
+import tango.core.Traits;
 import tango.text.Util;
 
 import croc.ex;
@@ -34,6 +35,14 @@ import croc.ex_doccomments;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.types;
+
+template CrocLinePragma(int n, char[] file = "")
+{
+	static if(file.length == 0)
+		const char[] CrocLinePragma = `//#line ` ~ ctfe_i2a(n + 1);
+	else
+		const char[] CrocLinePragma = `//#line ` ~ ctfe_i2a(n + 1) ~ ` "` ~ file ~ `"`;
+}
 
 struct RegisterFunc
 {
@@ -68,7 +77,7 @@ void registerGlobals(CrocThread* t, RegisterFunc[] funcs...)
 	foreach(ref func; funcs)
 	{
 		if(func.numUpvals > 0)
-			throwStdException(t, "Exception", "registerGlobals - can't register function '{}' as it has upvalues. Use registerGlobal instead", func.name);
+			throwStdException(t, "ValueError", "registerGlobals - can't register function '{}' as it has upvalues. Use registerGlobal instead", func.name);
 
 		registerGlobal(t, func);
 	}
@@ -79,7 +88,7 @@ void registerFields(CrocThread* t, RegisterFunc[] funcs...)
 	foreach(ref func; funcs)
 	{
 		if(func.numUpvals > 0)
-			throwStdException(t, "Exception", "registerFields - can't register function '{}' as it has upvalues. Use registerField instead", func.name);
+			throwStdException(t, "ValueError", "registerFields - can't register function '{}' as it has upvalues. Use registerField instead", func.name);
 
 		registerField(t, func);
 	}
@@ -126,7 +135,7 @@ void makeModule(CrocThread* t, char[] name, NativeFunc loader)
 	field(t, -1, "customLoaders");
 
 	if(hasField(t, -1, name))
-		throwStdException(t, "LookupException", "makeModule - Module '{}' already has a loader set for it in modules.customLoaders", name);
+		throwStdException(t, "LookupError", "makeModule - Module '{}' already has a loader set for it in modules.customLoaders", name);
 
 	newFunction(t, 1, loader, name);
 	fielda(t, -2, name);
@@ -175,31 +184,20 @@ public:
 	/** */
 	static void opCall(CrocThread* t, char[] name, void delegate(CreateClass*) dg)
 	{
-		CreateClass co;
-		co.t = t;
-		co.name = name;
-		co.idx = newClass(t, name);
-
-		dg(&co);
-
-		if(co.idx >= stackSize(t))
-			throwStdException(t, "ApiError", "You popped the class {} before it could be finished!", name);
-
-		if(stackSize(t) > co.idx + 1)
-			setStackSize(t, co.idx + 1);
+		opCall(t, name, null, dg);
 	}
 
 	/** */
-	static void opCall(CrocThread* t, char[] name, char[] base, void delegate(CreateClass*) dg)
+	static void opCall(CrocThread* t, char[] name, char[][] bases, void delegate(CreateClass*) dg)
 	{
 		CreateClass co;
 		co.t = t;
 		co.name = name;
 
-		co.idx = lookup(t, base);
-		newClass(t, -1, name);
-		swap(t);
-		pop(t);
+		foreach(base; bases)
+			lookup(t, base);
+
+		co.idx = newClass(t, name, bases.length);
 
 		dg(&co);
 
@@ -246,6 +244,17 @@ public:
 	void field(char[] name)
 	{
 		addField(t, idx, name);
+	}
+
+	/**
+	Adds a hidden field to the class. Expects the hidden field's value to be on top of the stack.
+
+	Params:
+		name = The name of the hidden field.
+	*/
+	void hfield(char[] name)
+	{
+		addHiddenField(t, idx, name);
 	}
 }
 
@@ -424,7 +433,7 @@ public:
 					pushNull(t);
 					dup(t, idx);
 					dup(t, dittoed);
-					rawCall(t, -4, 0);
+					call(t, -4, 0);
 					.pop(t, 2);
 					return;
 
@@ -448,7 +457,7 @@ public:
 				pushNull(t);
 				dup(t, idx);
 				dup(t, docTab);
-				rawCall(t, -4, 1);
+				call(t, -4, 1);
 				swap(t, -1, idx);
 				.pop(t);
 				break;
@@ -477,6 +486,44 @@ public:
 			cateq(t, -2, 1);
 			.pop(t, 2);
 		}
+
+		.pop(t, 2);
+	}
+
+	void mergeModuleDocs()
+	{
+		auto subModule = absIndex(t, -1);
+
+		if(!isValidIndex(t, subModule) || !isTable(t, subModule))
+			throwStdException(t, "ApiError", "No sub-module doc table on top of the stack");
+
+		field(t, subModule, "kind");
+
+		if(!isString(t, -1) || getString(t, -1) != "module" || !hasField(t, subModule, "children"))
+			throwStdException(t, "ApiError", "Sub-module doc table is malformed or not a module doc table");
+
+		.pop(t);
+
+		auto dt = getDocTables();
+
+		if(len(t, dt) == 0)
+			throwStdException(t, "ApiError", "No parent module to merge docs with");
+
+		auto parent = idxi(t, dt, -1);
+
+		pushString(t, "children");
+
+		if(!opin(t, -1, parent))
+		{
+			newArray(t, 0);
+			fielda(t, parent, "children");
+		}
+
+		field(t, parent);
+		insertAndPop(t, parent);
+
+		field(t, subModule, "children");
+		cateq(t, parent, 1);
 
 		.pop(t, 2);
 	}

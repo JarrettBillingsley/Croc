@@ -64,36 +64,44 @@ void initExceptionsLib(CrocThread* t)
 		t.vm.location = getClass(t, -1);
 		newGlobal(t, "Location");
 
-		pushGlobal(t, "Throwable");
+		CreateClass(t, "Throwable", (CreateClass* c)
+		{
 			pushGlobal(t, "Location");
 			pushNull(t);
-			rawCall(t, -2, 1);
-			addField(t, -2, "location");
+			call(t, -2, 1);
+			c.field("location");
 
-			pushString(t, ""); addField(t, -2, "msg");
-			pushNull(t);       addField(t, -2, "cause");
-			newArray(t, 0);    addField(t, -2, "traceback");
+			pushString(t, ""); c.field("msg");
+			pushNull(t);       c.field("cause");
+			newArray(t, 0);    c.field("traceback");
 
-			newFunction(t, 2, &throwableConstructor,     "Throwable.constructor");     addMethod(t, -2, "constructor");
-			newFunction(t, 0, &throwableToString,        "Throwable.toString");        addMethod(t, -2, "toString");
-			newFunction(t, 1, &throwableSetLocation,     "Throwable.setLocation");     addMethod(t, -2, "setLocation");
-			newFunction(t, 1, &throwableSetCause,        "Throwable.setCause");        addMethod(t, -2, "setCause");
-			newFunction(t, 0, &throwableTracebackString, "Throwable.tracebackString"); addMethod(t, -2, "tracebackString");
-		pop(t);
+			c.method("constructor",     2, &throwableConstructor);
+			c.method("toString",        0, &throwableToString);
+			c.method("setLocation",     1, &throwableSetLocation);
+			c.method("setCause",        1, &throwableSetCause);
+			c.method("tracebackString", 0, &throwableTracebackString);
+		});
+
+		*t.vm.stdExceptions.insert(t.vm.alloc, createString(t, "Throwable")) = getClass(t, -1);
+		newGlobal(t, "Throwable");
 
 		foreach(desc; ExDescs)
 		{
-			pushGlobal(t, desc.derives);
-			newClass(t, -1, desc.name);
+			pushGlobal(t, "Throwable");
+			newClass(t, desc.name, 1);
 			*t.vm.stdExceptions.insert(t.vm.alloc, createString(t, desc.name)) = getClass(t, -1);
-
 			newGlobal(t, desc.name);
-			pop(t);
 		}
 
 		pushGlobal(t, "_G");
-			pushGlobal(t, "Exception"); fielda(t, -2, "Exception");
-			pushGlobal(t, "Error");     fielda(t, -2, "Error");
+			foreach(desc; ExDescs)
+			{
+				pushGlobal(t, desc.name);
+				fielda(t, -2, desc.name);
+			}
+
+			pushGlobal(t, "Throwable");
+			fielda(t, -2, "Throwable");
 		pop(t);
 
 		newFunction(t, 1, &stdException, "stdException"); newGlobal(t, "stdException");
@@ -110,9 +118,11 @@ version(CrocBuiltinDocs) void docExceptionsLib(CrocThread* t)
 
 	scope doc = new CrocDoc(t, __FILE__);
 	doc.push(Docs("module", "Exceptions Library",
-	"This library defines the hierarchy of standard exception types. These types are used by the standard
-	libraries and by the VM itself. You are encouraged to use these types as well, or derive them, for
-	your own code."));
+	"This library defines the standard exception types. These types are used by the standard libraries and by the VM
+	itself. You are encouraged to use these types as well in your own code.
+
+	Exception types ending in \"Exception\" are for generally \"non-fatal\" exceptions, and those ending in \"Error\"
+	are for generally fatal errors which mean consistency has failed and the program needs to be fixed."));
 
 	field(t, -1, "Location");
 	doc.push(Location_docs);
@@ -120,7 +130,7 @@ version(CrocBuiltinDocs) void docExceptionsLib(CrocThread* t)
 	doc.pop(-1);
 	pop(t);
 
-	pushGlobal(t, "Throwable");
+	field(t, -1, "Throwable");
 	doc.push(Throwable_docs);
 	docFields(t, doc, Throwable_fields);
 	doc.pop(-1);
@@ -228,20 +238,11 @@ uword throwableConstructor(CrocThread* t)
 	auto msg = optStringParam(t, 1, "");
 
 	if(isValidIndex(t, 2))
-	{
-		pushThrowableClass(t);
-		if(!as(t, 2, -1))
-			paramTypeError(t, 2, "instance of Throwable");
-		pop(t);
-
 		dup(t, 2);
-		fielda(t, 0, "cause");
-	}
 	else
-	{
 		pushNull(t);
-		fielda(t, 0, "cause");
-	}
+
+	fielda(t, 0, "cause");
 
 	pushString(t, msg);
 	fielda(t, 0, "msg");
@@ -251,8 +252,8 @@ uword throwableConstructor(CrocThread* t)
 uword throwableToString(CrocThread* t)
 {
 	auto first = superOf(t, 0);
-	pushString(t, className(t, -1));
-	insertAndPop(t, -2);
+	pushString(t, className(t, first));
+	insertAndPop(t, first);
 	pushString(t, " at ");
 	field(t, 0, "location");
 	pushNull(t);
@@ -291,7 +292,7 @@ uword throwableSetLocation(CrocThread* t)
 	checkInstParam(t, 1);
 
 	pushLocationClass(t);
-	if(!as(t, 1, -1))
+	if(!instanceOf(t, 1, -1))
 		paramTypeError(t, 1, "instance of Location");
 	pop(t);
 
@@ -304,12 +305,6 @@ uword throwableSetLocation(CrocThread* t)
 uword throwableSetCause(CrocThread* t)
 {
 	checkInstParam(t, 1);
-
-	pushThrowableClass(t);
-	if(!as(t, 1, -1))
-		paramTypeError(t, 1, "instance of Throwable");
-	pop(t);
-
 	dup(t, 1);
 	fielda(t, 0, "cause");
 	dup(t, 0);
@@ -356,80 +351,73 @@ uword stdException(CrocThread* t)
 
 struct ExDesc
 {
-	char[] name, derives;
+	char[] name;
 
 	version(CrocBuiltinDocs)
 		Docs docs;
 }
 
-template Desc(char[] name, char[] derives, char[] docs)
+template Desc(char[] name, char[] docs)
 {
 	version(CrocBuiltinDocs)
-		const Desc = ExDesc(name, derives, Docs("class", name, docs, 0, null, [Extra("protection", "global"), Extra("base", derives)]));
+		const Desc = ExDesc(name, Docs("class", name, docs, 0, null, [Extra("protection", "global"), Extra("base", "Throwable")]));
 	else
-		const Desc = ExDesc(name, derives);
+		const Desc = ExDesc(name);
 }
 
 private const ExDesc[] ExDescs =
 [
-	Desc!("Exception", "Throwable", `Base class for all "generally non-fatal" exceptions. This is exported in the
-		global namespace as well, to make it more convenient to access.`),
+	Desc!("LexicalException", `Thrown for lexical errors in source code. The \tt{location} field is the source location
+		that caused the exception to be thrown.`),
+	Desc!("SyntaxException", `Thrown for syntactic errors in source code. The \tt{location} field is the source location
+		that caused the exception to be thrown.`),
+	Desc!("SemanticException", `Thrown for semantic errors in source code. The \tt{location} field is the source
+		location that caused the exception to be thrown.`),
+	Desc!("ImportException", `Thrown when an import fails; may also have a 'cause' exception in case the import failed
+		because of an exception being thrown from the module's top-level function.`),
+	Desc!("OSException", `OS error APIs are often a poor match for the way Croc does error handling, but unhandled OS
+		errors can lead to bad things happening. Therefore Croc libraries are encouraged to translate OS errors into
+		OSExceptions so that code won't blindly march on past errors, but they can still be caught and handled
+		appropriately.`),
+	Desc!("IOException", `Thrown when an IO operation fails or is given invalid inputs. The rationale for this exception
+		type is the same as that of \link{OSException}.`),
 
-		Desc!("CompileException", "Exception", `Base class for exceptions that the Croc compiler throws. The
-			\tt{location} field is the source location that caused the exception to be thrown.`),
-			Desc!("LexicalException", "CompileException", `Thrown for lexical errors in source code.`),
-			Desc!("SyntaxException", "CompileException", `Thrown for syntactic errors in source code.`),
-			Desc!("SemanticException", "CompileException", `Thrown for semantic errors in source code.`),
-		Desc!("TypeException", "Exception", `Thrown when an incorrect type is given to an operation (i.e. trying
-			to add strings, or when invalid types are given to function parameters).`),
-		Desc!("ValueException", "Exception", `Generally speaking, indicates that an operation was given a value
-			of the proper type, but the value is invalid somehow - not an acceptible value, or incorrectly formed, or
-			in an invalid state. If possible, try to use one of the more specific classes that derive from this, or
-			derive your own.`),
-			Desc!("RangeException", "ValueException", `A more specific kind of ValueException indicating that a
-				value is out of a valid range of acceptible values. Typically used for mathematical functions, i.e.
-				square root only works on non-negative values. Note that if the error is because a value is out of the
-				range of valid indices for a container, you should use a \link{exceptions.BoundsException} instead.`),
-			Desc!("StateException", "ValueException", `A more specific kind of ValueException indicating that an object
-				is in an invalid state.`),
-			Desc!("UnicodeException", "ValueException", `Thrown when Croc is given malformed/invalid Unicode data
-				for a string, or when invalid Unicode data is encountered during transcoding.`),
-		Desc!("IOException", "Exception", `Thrown when an IO operation fails or is given invalid inputs.`),
-		Desc!("OSException", "Exception", `Thrown when the OS is angry.`),
-		Desc!("ImportException", "Exception", `Thrown when an import fails; may also have a 'cause' exception in
-			case the import failed because of an exception being thrown.`),
-		Desc!("LookupException", "Exception", `Base class for "lookup" errors, which covers several kinds of
-			lookups. Sometimes this base class can be thrown too.`),
-			Desc!("NameException", "LookupException", `Thrown on invalid global access (either the name doesn't
-				exist or trying to redefine an existing global). Also for invalid local names when using the debug
-				library.`),
-			Desc!("BoundsException", "LookupException", `Thrown when trying to access an array-like object out of
-				bounds. You could also use this for other kinds of containers.`),
-			Desc!("FieldException", "LookupException", `Thrown when trying to access an invalid field from a
-				namespace, class, instance etc. Unless it's global access, in which case a \link{exceptions.NameException}
-				is thrown.`),
-			Desc!("MethodException", "LookupException", `Thrown when trying to call an invalid method on an object.`),
-		Desc!("RuntimeException", "Exception", `Kind of a catchall type for other random runtime errors. Other
-			exceptions will probably grow out of this one.`),
-			Desc!("NotImplementedException", "RuntimeException", `An exception type that you can throw in methods
-				that are unimplemented (such as in abstract base class methods). This way when an un-overridden method
-				is called, you get an error instead of it silently working.`),
-		Desc!("CallException", "Exception", `Thrown for some kinds of invalid function calls, such as invalid supercalls.`),
-			Desc!("ParamException", "CallException", `Thrown for function calls which are invalid because they
-				were given an improper number of parameters. However if a function is given parameters of incorrect
-				type, a \link{exceptions.TypeException} is thrown instead.`),
-
-	Desc!("Error", "Throwable", `Base class for all "generally unrecoverable" errors. When an \tt{Error} is thrown,
-		it usually means the program can't continue functioning properly unless the bug is fixed. This is also exported
-		in the global namespace, like \link{exceptions.Exception}, for convenience.`),
-		Desc!("AssertError", "Error", `Thrown when an assertion fails.`),
-		Desc!("ApiError", "Error", `Thrown when the native API is given certain kinds of invalid input,
-			generally inputs which mean the host is malfunctioning or incorrectly programmed. Not thrown for i.e.
-			incorrect types passed to the native API.`),
-		Desc!("FinalizerError", "Error", `Thrown when an exception is thrown by a class finalizer. This is typically
-			a big problem as finalizers should never fail. The exception that the finalizer threw is set as the 'cause'.`),
-		Desc!("SwitchError", "Error", `Thrown when a switch without a 'default' is given a value not listed in its cases.`),
-		Desc!("VMError", "Error", `Thrown for some kinds of internal VM errors.`),
+	Desc!("AssertError", `Thrown when an assertion fails.`),
+	Desc!("ApiError", `Thrown when the native API is given certain kinds of invalid input, generally inputs which mean
+		the host is malfunctioning or incorrectly programmed.`),
+	Desc!("ParamError", `Thrown for function calls which are invalid because they were given an improper number of
+		parameters. However if a function is given parameters of incorrect type, a \link{TypeError} is thrown
+		instead.`),
+	Desc!("FinalizerError", `Thrown when an exception is thrown by a class finalizer. This is a big problem as
+		finalizers should never fail. The exception that the finalizer threw is set as the 'cause'.`),
+	Desc!("NameError", `Thrown on invalid global access (either the name doesn't exist or trying to redefine an existing
+		global). Also thrown on invalid local names when using the debug library.`),
+	Desc!("BoundsError", `Thrown when trying to access an array-like object out of bounds. You could also use this for
+		other kinds of containers.`),
+	Desc!("FieldError", `Thrown when trying to access an invalid field from a namespace, class, instance etc., unless
+		it's global access, in which case a \link{NameError} is thrown.`),
+	Desc!("MethodError", `Thrown when trying to call an invalid method on an object.`),
+	Desc!("LookupError", `Thrown when any general kind of lookup has failed. Use one of the more specific types (like
+		\link{BoundsError} or \link{NameError} if you can.`),
+	Desc!("RuntimeError", `Kind of a catchall type for other random runtime errors. Other exceptions will probably grow
+		out of this one.`),
+	Desc!("NotImplementedError", `An exception type that you can throw in methods that are unimplemented (such as in
+		abstract base class methods). This way when an un-overridden method is called, you get an error instead of it
+		silently working.`),
+	Desc!("SwitchError", `Thrown when a switch without a 'default' is given a value not listed in its cases.`),
+	Desc!("TypeError", `Thrown when an incorrect type is given to an operation (i.e. trying to add strings, or when
+		invalid types are given to function parameters).`),
+	Desc!("ValueError", `Generally speaking, indicates that an operation was given a value of the proper type, but the
+		value is invalid somehow - not an acceptable value, or incorrectly formed, or in an invalid state. If possible,
+		try to use one of the more specific classes like \link{RangeError}, or derive your own.`),
+	Desc!("RangeError", `Thrown to indicate that a value is out of a valid range of acceptable values. Typically used
+		for mathematical functions, i.e. square root only works on non-negative values. Note that if the error is
+		because a value is out of the range of valid indices for a container, you should use a \link{BoundsError}
+		instead.`),
+	Desc!("StateError", `Thrown to indicate that an object is in an invalid state.`),
+	Desc!("UnicodeError", `Thrown when Croc is given malformed/invalid Unicode data for a string, or when invalid
+		Unicode data is encountered during transcoding.`),
+	Desc!("VMError", `Thrown for some kinds of internal VM errors.`),
 ];
 
 version(CrocBuiltinDocs)

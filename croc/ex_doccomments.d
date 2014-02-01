@@ -26,6 +26,7 @@ subject to the following restrictions:
 
 module croc.ex_doccomments;
 
+import tango.core.Array;
 import tango.core.Vararg;
 import tango.text.Util;
 
@@ -269,6 +270,7 @@ CodeSnippet:
 
 Verbatim:
 	'\verbatim' Newline Anything '\endverbatim' EOL
+	'\verbatim[' Word ']' Newline Anything '\endverbatim' EOL
 
 List:
 	('\blist' | '\nlist' | '\nlist[' Word ']') Newline ListItem+ '\endlist' EOL
@@ -598,7 +600,7 @@ private:
 					}
 					else if(mCharacter == '[')
 					{
-						// has to be one of param, throws, link, code, or nlist
+						// has to be one of param, throws, link, code, verbatim, or nlist
 						nextChar();
 
 						eatWhitespace();
@@ -632,6 +634,11 @@ private:
 								readRawBlock("Code", "endcode");
 								break;
 
+							case "verbatim":
+								mTok.type = Token.Verbatim;
+								readRawBlock("Verbatim", "endverbatim");
+								break;
+
 							case "nlist": mTok.type = Token.NList; break;
 							default:      error("Invalid command name '{}'", mTok.string);
 						}
@@ -653,7 +660,10 @@ private:
 							readRawBlock("Code", "endcode");
 						}
 						else if(mTok.type == Token.Verbatim)
+						{
+							mTok.arg = "";
 							readRawBlock("Verbatim", "endverbatim");
+						}
 					}
 					else
 						error("Invalid command '{}'", mTok.string);
@@ -992,6 +1002,13 @@ private:
 
 		auto tok = l.tok;
 		auto span = beginTextSpan(tok.string);
+
+		if(tok.string == "link" && tok.arg)
+		{
+			pushString(t, tok.arg);
+			append(span);
+		}
+
 		l.next();
 
 		readParaElems(span, true);
@@ -1034,11 +1051,13 @@ private:
 		if(!l.isFirstOnLine())
 			error("Verbatim command must come at the beginning of a line");
 
-		newArray(t, 2);
+		newArray(t, 3);
 		pushString(t, "verbatim");
 		idxai(t, -2, 0);
-		pushString(t, l.tok.contents);
+		pushString(t, l.tok.arg);
 		idxai(t, -2, 1);
+		pushString(t, l.tok.contents);
+		idxai(t, -2, 2);
 
 		l.next();
 
@@ -1410,6 +1429,9 @@ private:
 		assert(stackSize(t) - 1 == docTable);
 		assert(mIsFunction);
 
+		if(exName.length == 0)
+			error("Empty \\throws command");
+
 		if(!hasField(t, docTable, "throws"))
 		{
 			newArray(t, 0);
@@ -1434,6 +1456,9 @@ private:
 	{
 		assert(stackSize(t) - 1 == docTable);
 		assert(mIsFunction);
+
+		if(paramName.length == 0)
+			error("Empty \\param command");
 
 		auto params = field(t, docTable, "params");
 		auto numParams = len(t, params);
@@ -1650,7 +1675,7 @@ private:
 		auto ex = getStdException(t, "SyntaxException");
 		pushNull(t);
 		pushVFormat(t, msg, arguments, argptr);
-		rawCall(t, ex, 1);
+		call(t, ex, 1);
 		dup(t);
 		pushNull(t);
 		pushLocationObject(t, "<doc comment>", line, col);

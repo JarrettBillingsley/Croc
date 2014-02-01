@@ -90,7 +90,7 @@ static:
 		auto dur = checkNumParam(t, 1);
 
 		if(dur < 0)
-			throwStdException(t, "RangeException", "Invalid sleep duration: {}", dur);
+			throwStdException(t, "RangeError", "Invalid sleep duration: {}", dur);
 
 		Thread.sleep(dur);
 		return 0;
@@ -99,19 +99,19 @@ static:
 	struct ProcessObj
 	{
 	static:
-		const processField = "Process__process";
-		const stdinField = "Process__stdin";
-		const stdoutField = "Process__stdout";
-		const stderrField = "Process__stderr";
+		const processField = "process";
+		const stdinField = "stdin";
+		const stdoutField = "stdout";
+		const stderrField = "stderr";
 
 		static void init(CrocThread* t)
 		{
 			CreateClass(t, "Process", (CreateClass* c)
 			{
-				pushNull(t); c.field("__process");
-				pushNull(t); c.field("__stdin");
-				pushNull(t); c.field("__stdout");
-				pushNull(t); c.field("__stderr");
+				pushNull(t); c.hfield(processField);
+				pushNull(t); c.hfield(stdinField);
+				pushNull(t); c.hfield(stdoutField);
+				pushNull(t); c.hfield(stderrField);
 
 				c.method("constructor", &constructor);
 				c.method("isRunning",   &isRunning);
@@ -129,7 +129,7 @@ static:
 
 		Process getProcess(CrocThread* t)
 		{
-			field(t, 0, processField);
+			hfield(t, 0, processField);
 			auto ret = cast(Process)getNativeObj(t, -1);
 			assert(ret !is null);
 			pop(t);
@@ -140,15 +140,15 @@ static:
 		{
 			auto numParams = stackSize(t) - 1;
 
-			field(t, 0, processField);
+			hfield(t, 0, processField);
 
 			if(!isNull(t, -1))
-				throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Process");
+				throwStdException(t, "StateError", "Attempting to call constructor on an already-initialized Process");
 
 			pop(t);
 
 			pushNativeObj(t, new Process());
-			fielda(t, 0, processField);
+			hfielda(t, 0, processField);
 
 			if(numParams > 0)
 			{
@@ -198,7 +198,7 @@ static:
 				foreach(word k, word v; foreachLoop(t, 1))
 				{
 					if(!isString(t, k) || !isString(t, v))
-						throwStdException(t, "ValueException", "env parameter must be a table mapping from strings to strings");
+						throwStdException(t, "ValueError", "env parameter must be a table mapping from strings to strings");
 
 					env[getString(t, k)] = getString(t, v);
 				}
@@ -222,7 +222,7 @@ static:
 					idxi(t, 1, i);
 
 					if(!isString(t, -1))
-						throwStdException(t, "ValueException", "cmd parameter must be an array of strings");
+						throwStdException(t, "ValueError", "cmd parameter must be an array of strings");
 
 					cmd[i] = getString(t, -1);
 					pop(t);
@@ -242,9 +242,9 @@ static:
 			auto p = getProcess(t);
 
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
-				throwStdException(t, "StateException", "Attempting to get stdin of process that isn't running");
+				throwStdException(t, "StateError", "Attempting to get stdin of process that isn't running");
 
-			field(t, 0, stdinField);
+			hfield(t, 0, stdinField);
 
 			if(isNull(t, -1))
 			{
@@ -255,9 +255,9 @@ static:
 				pushBool(t, true);
 				pushBool(t, false);
 				pushBool(t, true);
-				rawCall(t, slot, 1);
+				call(t, slot, 1);
 				dup(t);
-				fielda(t, 0, stdinField);
+				hfielda(t, 0, stdinField);
 			}
 
 			return 1;
@@ -268,9 +268,9 @@ static:
 			auto p = getProcess(t);
 
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
-				throwStdException(t, "StateException", "Attempting to get stdout of process that isn't running");
+				throwStdException(t, "StateError", "Attempting to get stdout of process that isn't running");
 
-			field(t, 0, stdoutField);
+			hfield(t, 0, stdoutField);
 
 			if(isNull(t, -1))
 			{
@@ -281,9 +281,9 @@ static:
 				pushBool(t, true);
 				pushBool(t, true);
 				pushBool(t, false);
-				rawCall(t, slot, 1);
+				call(t, slot, 1);
 				dup(t);
-				fielda(t, 0, stdoutField);
+				hfielda(t, 0, stdoutField);
 			}
 
 			return 1;
@@ -294,9 +294,9 @@ static:
 			auto p = getProcess(t);
 
 			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
-				throwStdException(t, "StateException", "Attempting to get stderr of process that isn't running");
+				throwStdException(t, "StateError", "Attempting to get stderr of process that isn't running");
 
-			field(t, 0, stderrField);
+			hfield(t, 0, stderrField);
 
 			if(isNull(t, -1))
 			{
@@ -307,9 +307,9 @@ static:
 				pushBool(t, true);
 				pushBool(t, true);
 				pushBool(t, false);
-				rawCall(t, slot, 1);
+				call(t, slot, 1);
 				dup(t);
-				fielda(t, 0, stderrField);
+				hfielda(t, 0, stderrField);
 			}
 
 			return 1;
@@ -319,7 +319,7 @@ static:
 		{
 			auto p = getProcess(t);
 
-			field(t, 0, stdinField);
+			hfield(t, 0, stdinField);
 
 			if(!isNull(t, -1))
 			{
@@ -369,9 +369,9 @@ static:
 			pushNull(t);
 			dup(t);
 			dup(t);
-			fielda(t, 0, stdinField);
-			fielda(t, 0, stdoutField);
-			fielda(t, 0, stderrField);
+			hfielda(t, 0, stdinField);
+			hfielda(t, 0, stdoutField);
+			hfielda(t, 0, stderrField);
 		}
 	}
 }

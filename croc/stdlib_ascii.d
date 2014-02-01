@@ -149,7 +149,7 @@ uword _ifind(CrocThread* t)
 		start += src.length;
 
 	if(start < 0 || start >= src.length)
-		throwStdException(t, "BoundsException", "Invalid start index {}", start);
+		throwStdException(t, "BoundsError", "Invalid start index {}", start);
 
 	// Search
 	auto maxIdx = src.length - pat.length;
@@ -191,7 +191,7 @@ uword _irfind(CrocThread* t)
 		start += src.length;
 
 	if(start < 0 || start >= src.length)
-		throwStdException(t, "BoundsException", "Invalid start index: {}", start);
+		throwStdException(t, "BoundsError", "Invalid start index: {}", start);
 
 	// Search
 	auto maxIdx = src.length - pat.length;
@@ -279,13 +279,13 @@ uword _isImpl(alias func)(CrocThread* t)
 	auto idx = optIntParam(t, 2, 0);
 
 	if(str.length == 0)
-		throwStdException(t, "ValueException", "String must be at least one character long");
+		throwStdException(t, "ValueError", "String must be at least one character long");
 
 	if(idx < 0)
 		idx += str.length;
 
 	if(idx < 0 || idx >= str.length)
-		throwStdException(t, "BoundsException", "Invalid index {} for string of length {}", idx, str.length);
+		throwStdException(t, "BoundsError", "Invalid index {} for string of length {}", idx, str.length);
 
 	pushBool(t, cast(bool)func(str[cast(uword)idx]));
 	return 1;
@@ -300,7 +300,7 @@ char[] _checkAsciiString(CrocThread* t, word idx)
 	auto obj = getStringObj(t, idx);
 
 	if(obj.length != obj.cpLength)
-		throwStdException(t, "ValueException", "Parameter {} is not an ASCII string", idx);
+		throwStdException(t, "ValueError", "Parameter {} is not an ASCII string", idx);
 
 	return ret;
 }
@@ -339,7 +339,7 @@ version(CrocBuiltinDocs)
 		This function treats lower- and uppercase ASCII letters as comparing equal. For instance, "foo", "Foo", and "FOO" will
 		all compare equal.
 
-		\throws[exceptions.ValueException] if either string is not ASCII.
+		\throws[exceptions.ValueError] if either string is not ASCII.
 		\returns a negative \tt{int} if \tt{str1} compares before \tt{str2}, a positive \tt{int} if \tt{str1} compares after \tt{str2},
 		and 0 if they compare equal.`},
 
@@ -358,8 +358,8 @@ version(CrocBuiltinDocs)
 		substring inside a string. By passing the position of the previous match plus one as the \tt{start} parameter, you can find the next
 		instance of the substring (if any).
 
-		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
-		\throws[exceptions.BoundsException] if the \tt{start} parameter is invalid.`},
+		\throws[exceptions.ValueError] if either \tt{str} or \tt{sub} are not ASCII.
+		\throws[exceptions.BoundsError] if the \tt{start} parameter is invalid.`},
 
 		{kind: "function", name: "irfind",
 		params: [Param("str", "string"), Param("sub", "string"), Param("start", "int", "#s - 1")],
@@ -370,8 +370,8 @@ version(CrocBuiltinDocs)
 		parameter can be used to find multiple instances of a substring inside a string. By passing the position of the previous match minus one
 		as the \tt{start} parameter, you can find the previous instance of the substring (if any).
 
-		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
-		\throws[exceptions.BoundsException] if the \tt{start} parameter is invalid.`},
+		\throws[exceptions.ValueError] if either \tt{str} or \tt{sub} are not ASCII.
+		\throws[exceptions.BoundsError] if the \tt{start} parameter is invalid.`},
 
 		{kind: "function", name: "toLower",
 		params: [Param("val", "string")],
@@ -381,7 +381,7 @@ version(CrocBuiltinDocs)
 		\returns a new string with any uppercase letters converted to lowercase. Non-uppercase letters and non-letters
 		are not affected.
 
-		\throws[exceptions.ValueException] if \tt{val} is not ASCII.`},
+		\throws[exceptions.ValueError] if \tt{val} is not ASCII.`},
 
 		{kind: "function", name: "toUpper",
 		params: [Param("val", "string")],
@@ -391,14 +391,14 @@ version(CrocBuiltinDocs)
 		\returns a new string with any lowercase letters converted to uppercase. Non-lowercase letters and non-letters
 		are not affected.
 
-		\throws[exceptions.ValueException] if \tt{val} is not ASCII.`},
+		\throws[exceptions.ValueError] if \tt{val} is not ASCII.`},
 
 		{kind: "function", name: "istartsWith",
 		params: [Param("str", "string"), Param("sub", "string")],
 		docs:
 		`Checks if \tt{str} begins with the substring \tt{other} in a case-insensitive manner.
 
-		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
+		\throws[exceptions.ValueError] if either \tt{str} or \tt{sub} are not ASCII.
 		\returns a bool.`},
 
 		{kind: "function", name: "iendsWith",
@@ -406,7 +406,7 @@ version(CrocBuiltinDocs)
 		docs:
 		`Checks if \tt{str} ends with the substring \tt{other} in a case-insensitive manner.
 
-		\throws[exceptions.ValueException] if either \tt{str} or \tt{sub} are not ASCII.
+		\throws[exceptions.ValueError] if either \tt{str} or \tt{sub} are not ASCII.
 		\returns a bool.`},
 
 		{kind: "function", name: "c.isAlpha",

@@ -114,11 +114,6 @@ void openVMImpl(CrocVM* vm, MemFunc memFunc, void* ctx = null)
 	// _G = _G._G = _G._G._G = _G._G._G._G = ...
 	push(t, CrocValue(vm.globals));
 	newGlobal(t, "_G");
-
-	// Throwable
-	vm.throwable = classobj.create(t.vm.alloc, createString(t, "Throwable"), null);
-	push(t, CrocValue(vm.throwable));
-	newGlobal(t, "Throwable");
 }
 
 void closeVMImpl(CrocVM* vm)

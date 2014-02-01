@@ -122,96 +122,6 @@ public:
 		return m;
 	}
 
-	override ClassDef visit(ClassDef d)
-	{
-		classDefBegin(d); // leaves local containing class on the stack
-		classDefEnd(d); // still leaves it
-
-		return d;
-	}
-
-	void classDefBegin(ClassDef d)
-	{
-		fs.pushString(d.name.name);
-
-		if(d.baseClass)
-		{
-			visit(d.baseClass);
-			fs.toSource(d.baseClass.location);
-		}
-		else
-		{
-			fs.pushNull();
-			fs.toSource(d.location);
-		}
-
-		fs.newClass(d.location);
-	}
-
-	void classDefEnd(ClassDef d)
-	{
-		if(d.fields.length == 0)
-			return;
-
-		fs.toSource(d.location);
-
-		foreach(ref field; d.fields)
-		{
-			fs.dup();
-			fs.pushString(field.name);
-			visit(field.initializer);
-			fs.toSource(field.initializer.location);
-
-			if(field.isMethod)
-				fs.addClassMethod(field.initializer.location, field.privacy);
-			else
-				fs.addClassField(field.initializer.location, field.privacy);
-		}
-	}
-
-	override NamespaceDef visit(NamespaceDef d)
-	{
-		auto desc = namespaceDefBegin(d);
-		namespaceDefEnd(d, desc);
-		return d;
-	}
-
-	NamespaceDesc namespaceDefBegin(NamespaceDef d)
-	{
-		fs.pushString(d.name.name);
-
-		if(d.parent)
-		{
-			visit(d.parent);
-			fs.toSource(d.parent.location);
-			fs.newNamespace(d.location);
-		}
-		else
-			fs.newNamespaceNP(d.location);
-
-		return fs.beginNamespace(d.location);
-	}
-
-	void namespaceDefEnd(NamespaceDef d, ref NamespaceDesc desc)
-	{
-		if(d.fields.length)
-		{
-			fs.toSource(d.location);
-
-			foreach(ref field; d.fields)
-			{
-				fs.dup();
-				fs.pushString(field.name);
-				fs.toSource(field.initializer.location);
-				fs.field();
-				visit(field.initializer);
-				fs.assign(field.initializer.location, 1, 1);
-			}
-		}
-
-		fs.endNamespace(desc);
-	}
-
 	override FuncDef visit(FuncDef d)
 	{
 		scope inner = new FuncState(c, d.location, d.name.name, fs);
@@ -367,7 +277,7 @@ public:
 		{
 			if(d.context !is null)
 				c.semException(d.location, "'with' is disallowed on method calls");
-			visitMethodCall(d.location, d.endLocation, false, dot.op, dot.name, &genArgs);
+			visitMethodCall(d.location, d.endLocation, dot.op, dot.name, &genArgs);
 		}
 		else
 			visitCall(d.endLocation, d.func, d.context, &genArgs);
@@ -404,30 +314,59 @@ public:
 	{
 		if(d.protection == Protection.Local)
 		{
-			fs.insertLocal(d.def.name);
+			fs.insertLocal(d.name);
 			fs.activateLocals(1);
-			fs.pushVar(d.def.name);
+			fs.pushVar(d.name);
 		}
 		else
 		{
 			assert(d.protection == Protection.Global);
-			fs.pushNewGlobal(d.def.name);
+			fs.pushNewGlobal(d.name);
 		}
 
 		// put empty class in d.name
-		classDefBegin(d.def);
+		fs.pushString(d.name.name);
+
+		if(d.baseClasses.length > 0)
+		{
+			foreach(base; d.baseClasses)
+			{
+				visit(base);
+				fs.toTemporary(base.location);
+			}
+		}
+
+		fs.newClass(d.location, d.baseClasses.length);
 		fs.assign(d.location, 1, 1);
 
 		// evaluate rest of decl
-		fs.pushVar(d.def.name);
-		classDefEnd(d.def);
+		fs.pushVar(d.name);
+
+		if(d.fields.length != 0)
+		{
+			fs.toSource(d.location);
+
+			foreach(ref field; d.fields)
+			{
+				fs.dup();
+				fs.pushString(field.name);
+				visit(field.initializer);
+				fs.toSource(field.initializer.location);
+
+				if(field.func)
+					fs.addClassMethod(field.initializer.location, field.isOverride);
+				else
+					fs.addClassField(field.initializer.location, field.isOverride);
+			}
+		}
+
 		fs.pop();
 
 		if(d.decorator)
 		{
 			// reassign decorated class into name
-			fs.pushVar(d.def.name);
-			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.pushVar(d.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.name); });
 			fs.assign(d.endLocation, 1, 1);
 		}
 
@@ -438,30 +377,58 @@ public:
 	{
 		if(d.protection == Protection.Local)
 		{
-			fs.insertLocal(d.def.name);
+			fs.insertLocal(d.name);
 			fs.activateLocals(1);
-			fs.pushVar(d.def.name);
+			fs.pushVar(d.name);
 		}
 		else
 		{
 			assert(d.protection == Protection.Global);
-			fs.pushNewGlobal(d.def.name);
+			fs.pushNewGlobal(d.name);
 		}
 
 		// put empty namespace in d.name
-		auto desc = namespaceDefBegin(d.def);
+		fs.pushString(d.name.name);
+
+		if(d.parent)
+		{
+			visit(d.parent);
+			fs.toSource(d.parent.location);
+			fs.newNamespace(d.location);
+		}
+		else
+			fs.newNamespaceNP(d.location);
+
+		auto desc = fs.beginNamespace(d.location);
+
 		fs.assign(d.location, 1, 1);
 
 		// evaluate rest of decl
-		fs.pushVar(d.def.name);
-		namespaceDefEnd(d.def, desc);
+		fs.pushVar(d.name);
+
+		if(d.fields.length)
+		{
+			fs.toSource(d.location);
+
+			foreach(ref field; d.fields)
+			{
+				fs.dup();
+				fs.pushString(field.name);
+				fs.toSource(field.initializer.location);
+				fs.field();
+				visit(field.initializer);
+				fs.assign(field.initializer.location, 1, 1);
+			}
+		}
+
+		fs.endNamespace(desc);
 		fs.pop();
 
 		if(d.decorator)
 		{
 			// reassign decorated namespace into name
-			fs.pushVar(d.def.name);
-			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.pushVar(d.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.name); });
 			fs.assign(d.endLocation, 1, 1);
 		}
 
@@ -522,6 +489,7 @@ public:
 		InstRef i = codeCondition(s.cond);
 		fs.patchFalseToHere(i);
 		visit(s.msg);
+		fs.toSource(s.msg.endLocation);
 		fs.assertFail(s.location);
 		fs.patchTrueToHere(i);
 
@@ -1013,17 +981,17 @@ public:
 		return s;
 	}
 
-	override AddAssignStmt  visit(AddAssignStmt s)  { return visitOpAssign(s); }
-	override SubAssignStmt  visit(SubAssignStmt s)  { return visitOpAssign(s); }
-	override MulAssignStmt  visit(MulAssignStmt s)  { return visitOpAssign(s); }
-	override DivAssignStmt  visit(DivAssignStmt s)  { return visitOpAssign(s); }
-	override ModAssignStmt  visit(ModAssignStmt s)  { return visitOpAssign(s); }
-	override AndAssignStmt  visit(AndAssignStmt s)  { return visitOpAssign(s); }
-	override OrAssignStmt   visit(OrAssignStmt s)   { return visitOpAssign(s); }
-	override XorAssignStmt  visit(XorAssignStmt s)  { return visitOpAssign(s); }
-	override ShlAssignStmt  visit(ShlAssignStmt s)  { return visitOpAssign(s); }
-	override ShrAssignStmt  visit(ShrAssignStmt s)  { return visitOpAssign(s); }
-	override UShrAssignStmt visit(UShrAssignStmt s) { return visitOpAssign(s); }
+	override AddAssignStmt  visit(AddAssignStmt s)  { return cast(AddAssignStmt)visitOpAssign(s);  }
+	override SubAssignStmt  visit(SubAssignStmt s)  { return cast(SubAssignStmt)visitOpAssign(s);  }
+	override MulAssignStmt  visit(MulAssignStmt s)  { return cast(MulAssignStmt)visitOpAssign(s);  }
+	override DivAssignStmt  visit(DivAssignStmt s)  { return cast(DivAssignStmt)visitOpAssign(s);  }
+	override ModAssignStmt  visit(ModAssignStmt s)  { return cast(ModAssignStmt)visitOpAssign(s);  }
+	override AndAssignStmt  visit(AndAssignStmt s)  { return cast(AndAssignStmt)visitOpAssign(s);  }
+	override OrAssignStmt   visit(OrAssignStmt s)   { return cast(OrAssignStmt)visitOpAssign(s);   }
+	override XorAssignStmt  visit(XorAssignStmt s)  { return cast(XorAssignStmt)visitOpAssign(s);  }
+	override ShlAssignStmt  visit(ShlAssignStmt s)  { return cast(ShlAssignStmt)visitOpAssign(s);  }
+	override ShrAssignStmt  visit(ShrAssignStmt s)  { return cast(ShrAssignStmt)visitOpAssign(s);  }
+	override UShrAssignStmt visit(UShrAssignStmt s) { return cast(UShrAssignStmt)visitOpAssign(s); }
 
 	override CondAssignStmt visit(CondAssignStmt s)
 	{
@@ -1177,7 +1145,6 @@ public:
 	override BinaryExp visit(ShlExp e)   { return visitBinExp(e); }
 	override BinaryExp visit(ShrExp e)   { return visitBinExp(e); }
 	override BinaryExp visit(UShrExp e)  { return visitBinExp(e); }
-	override BinaryExp visit(AsExp e)    { return visitBinExp(e); }
 	override BinaryExp visit(Cmp3Exp e)  { return visitBinExp(e); }
 
 	override CatExp visit(CatExp e)
@@ -1267,7 +1234,7 @@ public:
 
 	override MethodCallExp visit(MethodCallExp e)
 	{
-		visitMethodCall(e.location, e.endLocation, e.isSuperCall, e.op, e.method, delegate uword()
+		visitMethodCall(e.location, e.endLocation, e.op, e.method, delegate uword()
 		{
 			codeGenList(e.args);
 			return e.args.length;
@@ -1276,14 +1243,11 @@ public:
 		return e;
 	}
 
-	void visitMethodCall(CompileLoc location, CompileLoc endLocation, bool isSuperCall, Expression op, Expression method, uword delegate() genArgs)
+	void visitMethodCall(CompileLoc location, CompileLoc endLocation, Expression op, Expression method, uword delegate() genArgs)
 	{
 		auto desc = fs.beginMethodCall();
 
-		if(isSuperCall)
-			fs.pushThis();
-		else
-			visit(op);
+		visit(op);
 
 		fs.toSource(location);
 		fs.updateMethodCall(desc, 1);
@@ -1293,7 +1257,7 @@ public:
 		fs.updateMethodCall(desc, 2);
 
 		genArgs();
-		fs.pushMethodCall(endLocation, isSuperCall, desc);
+		fs.pushMethodCall(endLocation, desc);
 	}
 
 	override CallExp visit(CallExp e)
@@ -1425,18 +1389,6 @@ public:
 	}
 
 	override FuncLiteralExp visit(FuncLiteralExp e)
-	{
-		visit(e.def);
-		return e;
-	}
-
-	override ClassLiteralExp visit(ClassLiteralExp e)
-	{
-		visit(e.def);
-		return e;
-	}
-
-	override NamespaceCtorExp visit(NamespaceCtorExp e)
 	{
 		visit(e.def);
 		return e;

@@ -50,9 +50,8 @@ void initVector(CrocThread* t)
 {
 	CreateClass(t, "Vector", (CreateClass* c)
 	{
-		pushNull(t);   c.field("__data");
-		pushInt(t, 0); c.field("__kind");
-		pushInt(t, 0); c.field("__itemLength");
+		pushNull(t);   c.field(Data);
+		pushInt(t, 0); c.hfield(Kind);
 
 		c.method("constructor",    3, &_constructor);
 		c.method("fromArray",      2, &_fromArray);
@@ -174,9 +173,8 @@ const TypeStruct[] _typeStructs =
 	TypeCode.f64: { TypeCode.f64, 8, 3, "f64" }
 ];
 
-const Data = "Vector__data";
-const Kind = "Vector__kind";
-const ItemLength = "Vector__itemLength";
+const Data = "_data";
+const Kind = "_kind";
 
 struct Members
 {
@@ -236,95 +234,18 @@ Members _getMembers(CrocThread* t, uword slot = 0)
 	ret.data = getMemblock(t, -1);
 	pop(t);
 
-	field(t, slot, Kind);
+	hfield(t, slot, Kind);
 	ret.kind = cast(TypeStruct*)getInt(t, -1);
 	pop(t);
 
 	uword len = ret.data.data.length >> ret.kind.sizeShift;
 
 	if(len << ret.kind.sizeShift != ret.data.data.length)
-		throwStdException(t, "ValueException", "Vector's underlying memblock length is not an even multiple of its item size");
+		throwStdException(t, "ValueError", "Vector's underlying memblock length is not an even multiple of its item size");
 
-	pushInt(t, len);
-	fielda(t, slot, ItemLength);
 	ret.itemLength = len;
-
 	return ret;
 }
-
-/*
-TODO: these
-
-word memblockFromDArray(_T)(CrocThread* t, _T[] arr)
-{
-	alias realType!(_T) T;
-
-	static      if(is(T == byte))   const code = "i8";
-	else static if(is(T == ubyte))  const code = "u8";
-	else static if(is(T == short))  const code = "i16";
-	else static if(is(T == ushort)) const code = "u16";
-	else static if(is(T == int))    const code = "i32";
-	else static if(is(T == uint))   const code = "u32";
-	else static if(is(T == long))   const code = "i64";
-	else static if(is(T == ulong))  const code = "u64";
-	else static if(is(T == float))  const code = "f32";
-	else static if(is(T == double)) const code = "f64";
-	else static assert(false, "memblockFromDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
-
-	auto ret = newMemblock(t, code, arr.length);
-	auto data = getMemblock(t, ret).data;
-	(cast(_T*)data)[0 .. arr.length] = arr[];
-	return ret;
-}
-
-word memblockViewDArray(_T)(CrocThread* t, _T[] arr)
-{
-	alias realType!(_T) T;
-	CrocMemblock.TypeStruct* ts = void;
-
-	static      if(is(T == byte))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i8];
-	else static if(is(T == ubyte))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u8];
-	else static if(is(T == short))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i16];
-	else static if(is(T == ushort)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u16];
-	else static if(is(T == int))    ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i32];
-	else static if(is(T == uint))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u32];
-	else static if(is(T == long))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i64];
-	else static if(is(T == ulong))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u64];
-	else static if(is(T == float))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f32];
-	else static if(is(T == double)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f64];
-	else static assert(false, "memblockViewDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
-
-	return push(t, CrocValue(memblock.createView(t.vm.alloc, ts, cast(void[])arr)));
-}
-
-void memblockReviewDArray(_T)(CrocThread* t, word slot, _T[] arr)
-{
-	mixin(apiCheckNumParams!("1"));
-	auto m = getMemblock(t, slot);
-
-	if(m is null)
-	{
-		pushTypeString(t, slot);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - slot must be a memblock, not a '{}'", getString(t, -1));
-	}
-
-	alias realType!(_T) T;
-	CrocMemblock.TypeStruct* ts = void;
-
-	static      if(is(T == byte))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i8];
-	else static if(is(T == ubyte))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u8];
-	else static if(is(T == short))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i16];
-	else static if(is(T == ushort)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u16];
-	else static if(is(T == int))    ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i32];
-	else static if(is(T == uint))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u32];
-	else static if(is(T == long))   ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.i64];
-	else static if(is(T == ulong))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.u64];
-	else static if(is(T == float))  ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f32];
-	else static if(is(T == double)) ts = &CrocMemblock.typeStructs[CrocMemblock.TypeCode.f64];
-	else static assert(false, "memblockViewDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
-
-	memblock.view(t.vm.alloc, m, ts, cast(void[])arr);
-} */
 
 TypeStruct* _typeCodeToKind(char[] typeCode)
 {
@@ -349,27 +270,25 @@ uword _constructor(CrocThread* t)
 	field(t, 0, Data);
 
 	if(!isNull(t, -1))
-		throwStdException(t, "StateException", "Attempting to call the constructor on an already-initialized Vector");
+		throwStdException(t, "StateError", "Attempting to call the constructor on an already-initialized Vector");
 
 	pop(t);
 
 	auto kind = _typeCodeToKind(checkStringParam(t, 1));
 
 	if(kind is null)
-		throwStdException(t, "ValueException", "Invalid type code '{}'", getString(t, 1));
+		throwStdException(t, "ValueError", "Invalid type code '{}'", getString(t, 1));
 
 	pushInt(t, cast(crocint)kind);
-	fielda(t, 0, Kind);
+	hfielda(t, 0, Kind);
 
 	auto size = checkIntParam(t, 2);
 
 	if(size < 0 || size > uword.max)
-		throwStdException(t, "RangeException", "Invalid size ({})", size);
+		throwStdException(t, "RangeError", "Invalid size ({})", size);
 
 	newMemblock(t, cast(uword)size * kind.itemSize);
 	fielda(t, 0, Data);
-	pushInt(t, size);
-	fielda(t, 0, ItemLength);
 
 	if(isValidIndex(t, 3))
 	{
@@ -392,7 +311,7 @@ uword _fromArray(CrocThread* t)
 	dup(t, 1);
 	pushInt(t, len(t, 2));
 	dup(t, 2);
-	rawCall(t, -5, 1);
+	call(t, -5, 1);
 
 	return 1;
 }
@@ -417,7 +336,7 @@ void _rangeImpl(alias check, T)(CrocThread* t, char[] type)
 		step = abs(check(t, 4));
 
 		if(step == 0)
-			throwStdException(t, "RangeException", "Step may not be 0");
+			throwStdException(t, "RangeError", "Step may not be 0");
 	}
 
 	auto range = abs(v2 - v1);
@@ -427,13 +346,13 @@ void _rangeImpl(alias check, T)(CrocThread* t, char[] type)
 		size++;
 
 	if(size > uword.max)
-		throwStdException(t, "RangeException", "Vector is too big ({} items)", size);
+		throwStdException(t, "RangeError", "Vector is too big ({} items)", size);
 
 	pushGlobal(t, "Vector");
 	pushNull(t);
 	pushString(t, type);
 	pushInt(t, size);
-	rawCall(t, -4, 1);
+	call(t, -4, 1);
 
 	auto m = _getMembers(t, -1);
 	auto val = v1;
@@ -459,7 +378,7 @@ uword _range(CrocThread* t)
 		case "i8", "i16", "i32", "i64":
 		case "u8", "u16", "u32", "u64": _rangeImpl!(checkIntParam, crocint)(t, type); break;
 		case "f32", "f64":              _rangeImpl!(checkNumParam, crocfloat)(t, type); break;
-		default:                        throwStdException(t, "ValueException", "Invalid type code '{}'", type);
+		default:                        throwStdException(t, "ValueError", "Invalid type code '{}'", type);
 	}
 
 	return 1;
@@ -481,7 +400,7 @@ uword _type(CrocThread* t)
 		auto ts = _typeCodeToKind(checkStringParam(t, 1));
 
 		if(ts is null)
-			throwStdException(t, "ValueException", "Invalid type code '{}'", getString(t, 1));
+			throwStdException(t, "ValueError", "Invalid type code '{}'", getString(t, 1));
 
 		if(m.kind is ts)
 			return 0;
@@ -489,10 +408,10 @@ uword _type(CrocThread* t)
 		auto byteSize = m.itemLength * m.kind.itemSize;
 
 		if(byteSize % ts.itemSize != 0)
-			throwStdException(t, "ValueException", "Vector's byte size is not an even multiple of new type's item size");
+			throwStdException(t, "ValueError", "Vector's byte size is not an even multiple of new type's item size");
 
 		pushInt(t, cast(crocint)ts);
-		fielda(t, 0, Kind);
+		hfielda(t, 0, Kind);
 		return 0;
 	}
 }
@@ -517,7 +436,7 @@ uword _toArray(CrocThread* t)
 		hi += m.itemLength;
 
 	if(lo < 0 || lo > hi || hi > m.itemLength)
-		throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (length: {})", lo, hi, m.itemLength);
+		throwStdException(t, "BoundsError", "Invalid slice indices: {} .. {} (length: {})", lo, hi, m.itemLength);
 
 	auto ret = newArray(t, cast(uword)(hi - lo));
 
@@ -584,7 +503,7 @@ uword _dup(CrocThread* t)
 	pushNull(t);
 	pushString(t, m.kind.name);
 	pushInt(t, m.itemLength);
-	rawCall(t, -4, 1);
+	call(t, -4, 1);
 
 	auto n = _getMembers(t, -1);
 	auto byteSize = m.itemLength * m.kind.itemSize;
@@ -605,7 +524,7 @@ uword _reverse(CrocThread* t)
 		case 8: (cast(ulong*)m.data.data) [0 .. m.itemLength].reverse; break;
 
 		default:
-			throwStdException(t, "ValueException", "A Vector type must've been added that doesn't have 1-, 2-, 4-, or 8-byte elements, so I don't know how to reverse it.");
+			throwStdException(t, "ValueError", "A Vector type must've been added that doesn't have 1-, 2-, 4-, or 8-byte elements, so I don't know how to reverse it.");
 	}
 
 	dup(t, 0);
@@ -647,12 +566,12 @@ uword _apply(CrocThread* t)
 			dup(t, 1);
 			pushNull(t);
 			push(t, _rawIndex(m, i));
-			rawCall(t, -3, 1);
+			call(t, -3, 1);
 
 			if(!test(t, -1))
 			{
 				pushTypeString(t, -1);
-				throwStdException(t, "TypeException", "application function expected to return {}, not '{}'", typeMsg, getString(t, -1));
+				throwStdException(t, "TypeError", "application function expected to return {}, not '{}'", typeMsg, getString(t, -1));
 			}
 
 			_rawIndexAssign(m, i, *getValue(t, -1));
@@ -715,7 +634,7 @@ uword _max(CrocThread* t)
 	auto m = _getMembers(t);
 
 	if(m.itemLength == 0)
-		throwStdException(t, "ValueException", "Vector is empty");
+		throwStdException(t, "ValueError", "Vector is empty");
 
 	switch(m.kind.code)
 	{
@@ -740,7 +659,7 @@ uword _min(CrocThread* t)
 	auto m = _getMembers(t);
 
 	if(m.itemLength == 0)
-		throwStdException(t, "ValueException", "Vector is empty");
+		throwStdException(t, "ValueError", "Vector is empty");
 
 	switch(m.kind.code)
 	{
@@ -768,21 +687,21 @@ uword _insert(CrocThread* t)
 	checkAnyParam(t, 2);
 
 	if(!m.data.ownData)
-		throwStdException(t, "ValueException", "Attempting to insert into a Vector which does not own its data");
+		throwStdException(t, "ValueError", "Attempting to insert into a Vector which does not own its data");
 
 	if(idx < 0)
 		idx += len;
 
 	// Yes, > and not >=, because you can insert at "one past" the end of the Vector.
 	if(idx < 0 || idx > len)
-		throwStdException(t, "BoundsException", "Invalid index: {} (length: {})", idx, len);
+		throwStdException(t, "BoundsError", "Invalid index: {} (length: {})", idx, len);
 
 	void[] doResize(ulong otherLen)
 	{
 		ulong totalLen = len + otherLen;
 
 		if(totalLen > uword.max)
-			throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
+			throwStdException(t, "RangeError", "Invalid size ({})", totalLen);
 
 		auto oldLen = len;
 		auto isize = m.kind.itemSize;
@@ -792,8 +711,6 @@ uword _insert(CrocThread* t)
 		pop(t);
 
 		m.itemLength = cast(uword)totalLen;
-		pushInt(t, m.itemLength);
-		fielda(t, 0, ItemLength);
 
 		if(idx < oldLen)
 		{
@@ -807,7 +724,7 @@ uword _insert(CrocThread* t)
 
 	pushGlobal(t, "Vector");
 
-	if(as(t, 2, -1))
+	if(instanceOf(t, 2, -1))
 	{
 		if(opis(t, 0, 2))
 		{
@@ -827,7 +744,7 @@ uword _insert(CrocThread* t)
 			auto other = _getMembers(t, 2);
 
 			if(m.kind !is other.kind)
-				throwStdException(t, "ValueException", "Attempting to insert a Vector of type '{}' into a Vector of type '{}'", other.kind.name, m.kind.name);
+				throwStdException(t, "ValueError", "Attempting to insert a Vector of type '{}' into a Vector of type '{}'", other.kind.name, m.kind.name);
 
 			if(other.itemLength != 0)
 			{
@@ -856,10 +773,10 @@ uword _remove(CrocThread* t)
 	auto m = _getMembers(t);
 
 	if(!m.data.ownData)
-		throwStdException(t, "ValueException", "Attempting to remove from a Vector which does not own its data");
+		throwStdException(t, "ValueError", "Attempting to remove from a Vector which does not own its data");
 
 	if(m.itemLength == 0)
-		throwStdException(t, "ValueException", "Vector is empty");
+		throwStdException(t, "ValueError", "Vector is empty");
 
 	auto lo = checkIntParam(t, 1);
 	auto hi = optIntParam(t, 2, lo + 1);
@@ -871,7 +788,7 @@ uword _remove(CrocThread* t)
 		hi += m.itemLength;
 
 	if(lo < 0 || lo > hi || hi > m.itemLength)
-		throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (length: {})", lo, hi, m.itemLength);
+		throwStdException(t, "BoundsError", "Invalid indices: {} .. {} (length: {})", lo, hi, m.itemLength);
 
 	if(lo != hi)
 	{
@@ -884,7 +801,6 @@ uword _remove(CrocThread* t)
 		push(t, CrocValue(m.data));
 		lenai(t, -1, cast(uword)((m.itemLength - diff) * isize));
 		pop(t);
-		// don't have to update ItemLength here cause _getMembers does that on every method call
 	}
 
 	dup(t, 0);
@@ -896,10 +812,10 @@ uword _pop(CrocThread* t)
 	auto m = _getMembers(t);
 
 	if(!m.data.ownData)
-		throwStdException(t, "ValueException", "Attempting to pop from a Vector which does not own its data");
+		throwStdException(t, "ValueError", "Attempting to pop from a Vector which does not own its data");
 
 	if(m.itemLength == 0)
-		throwStdException(t, "ValueException", "Vector is empty");
+		throwStdException(t, "ValueError", "Vector is empty");
 
 	auto index = optIntParam(t, 1, -1);
 
@@ -907,7 +823,7 @@ uword _pop(CrocThread* t)
 		index += m.itemLength;
 
 	if(index < 0 || index >= m.itemLength)
-		throwStdException(t, "BoundsException", "Invalid index: {}", index);
+		throwStdException(t, "BoundsError", "Invalid index: {}", index);
 
 	push(t, _rawIndex(m, cast(uword)index));
 
@@ -1016,12 +932,12 @@ uword _copyRange(CrocThread* t)
 		hi += m.itemLength;
 
 	if(lo < 0 || lo > hi || hi > m.itemLength)
-		throwStdException(t, "BoundsException", "Invalid destination slice indices: {} .. {} (length: {})", lo, hi, m.itemLength);
+		throwStdException(t, "BoundsError", "Invalid destination slice indices: {} .. {} (length: {})", lo, hi, m.itemLength);
 
 	auto other = _getMembers(t, 3);
 
 	if(m.kind !is other.kind)
-		throwStdException(t, "ValueException", "Attempting to copy a Vector of type '{}' into a Vector of type '{}'", other.kind.name, m.kind.name);
+		throwStdException(t, "ValueError", "Attempting to copy a Vector of type '{}' into a Vector of type '{}'", other.kind.name, m.kind.name);
 
 	auto lo2 = optIntParam(t, 4, 0);
 	auto hi2 = optIntParam(t, 5, lo2 + (hi - lo));
@@ -1033,10 +949,10 @@ uword _copyRange(CrocThread* t)
 		hi2 += other.itemLength;
 
 	if(lo2 < 0 || lo2 > hi2 || hi2 > other.itemLength)
-		throwStdException(t, "BoundsException", "Invalid source slice indices: {} .. {} (length: {})", lo2, hi2, other.itemLength);
+		throwStdException(t, "BoundsError", "Invalid source slice indices: {} .. {} (length: {})", lo2, hi2, other.itemLength);
 
 	if((hi - lo) != (hi2 - lo2))
-		throwStdException(t, "ValueException", "Destination length ({}) and source length({}) do not match", hi - lo, hi2 - lo2);
+		throwStdException(t, "ValueError", "Destination length ({}) and source length({}) do not match", hi - lo, hi2 - lo2);
 
 	auto isize = m.kind.itemSize;
 
@@ -1053,15 +969,15 @@ void fillImpl(CrocThread* t, ref Members m, word filler, uword lo, uword hi)
 {
 	pushGlobal(t, "Vector");
 
-	if(as(t, filler, -1))
+	if(instanceOf(t, filler, -1))
 	{
 		auto other = _getMembers(t, filler);
 
 		if(m.kind !is other.kind)
-			throwStdException(t, "ValueException", "Attempting to fill a Vector of type '{}' using a Vector of type '{}'", m.kind.name, other.kind.name);
+			throwStdException(t, "ValueError", "Attempting to fill a Vector of type '{}' using a Vector of type '{}'", m.kind.name, other.kind.name);
 
 		if(other.itemLength != (hi - lo))
-			throwStdException(t, "ValueException", "Length of destination ({}) and length of source ({}) do not match", hi - lo, other.itemLength);
+			throwStdException(t, "ValueError", "Length of destination ({}) and length of source ({}) do not match", hi - lo, other.itemLength);
 
 		if(m.data is other.data)
 			return; // only way this can be is if we're assigning a Vector's entire contents into itself, which is a no-op.
@@ -1076,7 +992,7 @@ void fillImpl(CrocThread* t, ref Members m, word filler, uword lo, uword hi)
 			dup(t, filler);
 			pushNull(t);
 			pushInt(t, i);
-			rawCall(t, -3, 1);
+			call(t, -3, 1);
 		}
 
 		if(m.kind.code <= TypeCode.u64)
@@ -1088,7 +1004,7 @@ void fillImpl(CrocThread* t, ref Members m, word filler, uword lo, uword hi)
 				if(!isInt(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwStdException(t, "TypeException", "filler function expected to return an 'int', not '{}'", getString(t, -1));
+					throwStdException(t, "TypeError", "filler function expected to return an 'int', not '{}'", getString(t, -1));
 				}
 
 				_rawIndexAssign(m, i, *getValue(t, -1));
@@ -1104,7 +1020,7 @@ void fillImpl(CrocThread* t, ref Members m, word filler, uword lo, uword hi)
 				if(!isNum(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwStdException(t, "TypeException", "filler function expected to return an 'int' or 'float', not '{}'", getString(t, -1));
+					throwStdException(t, "TypeError", "filler function expected to return an 'int' or 'float', not '{}'", getString(t, -1));
 				}
 
 				_rawIndexAssign(m, i, *getValue(t, -1));
@@ -1132,7 +1048,7 @@ void fillImpl(CrocThread* t, ref Members m, word filler, uword lo, uword hi)
 	else if(isArray(t, filler))
 	{
 		if(len(t, filler) != (hi - lo))
-			throwStdException(t, "ValueException", "Length of destination ({}) and length of array ({}) do not match", hi - lo, len(t, filler));
+			throwStdException(t, "ValueError", "Length of destination ({}) and length of array ({}) do not match", hi - lo, len(t, filler));
 
 		if(m.kind.code <= TypeCode.u64)
 		{
@@ -1143,7 +1059,7 @@ void fillImpl(CrocThread* t, ref Members m, word filler, uword lo, uword hi)
 				if(!isInt(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwStdException(t, "ValueException", "array element {} expected to be 'int', not '{}'", ai, getString(t, -1));
+					throwStdException(t, "ValueError", "array element {} expected to be 'int', not '{}'", ai, getString(t, -1));
 				}
 
 				_rawIndexAssign(m, i, *getValue(t, -1));
@@ -1159,7 +1075,7 @@ void fillImpl(CrocThread* t, ref Members m, word filler, uword lo, uword hi)
 				if(!isNum(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwStdException(t, "ValueException", "array element {} expected to be 'int' or 'float', not '{}'", ai, getString(t, -1));
+					throwStdException(t, "ValueError", "array element {} expected to be 'int' or 'float', not '{}'", ai, getString(t, -1));
 				}
 
 				_rawIndexAssign(m, i, *getValue(t, -1));
@@ -1196,7 +1112,7 @@ uword _fillRange(CrocThread* t)
 		hi += m.itemLength;
 
 	if(lo < 0 || lo > hi || hi > m.itemLength)
-		throwStdException(t, "BoundsException", "Invalid range indices ({} .. {})", lo, hi);
+		throwStdException(t, "BoundsError", "Invalid range indices ({} .. {})", lo, hi);
 
 	fillImpl(t, m, 3, cast(uword)lo, cast(uword)hi);
 	dup(t, 0);
@@ -1213,7 +1129,7 @@ uword _opEquals(CrocThread* t)
 	else
 	{
 		if(m.kind !is other.kind)
-			throwStdException(t, "ValueException", "Attempting to compare Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
+			throwStdException(t, "ValueError", "Attempting to compare Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
 
 		if(m.itemLength != other.itemLength)
 			pushBool(t, false);
@@ -1239,7 +1155,7 @@ uword _opCmp(CrocThread* t)
 	else
 	{
 		if(m.kind !is other.kind)
-			throwStdException(t, "ValueException", "Attempting to compare Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
+			throwStdException(t, "ValueError", "Attempting to compare Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
 
 		auto otherLen = other.itemLength;
 		auto l = min(len, otherLen);
@@ -1282,10 +1198,10 @@ uword _opLengthAssign(CrocThread* t)
 	auto len = checkIntParam(t, 1);
 
 	if(!m.data.ownData)
-		throwStdException(t, "ValueException", "Attempting to change the length of a Vector which does not own its data");
+		throwStdException(t, "ValueError", "Attempting to change the length of a Vector which does not own its data");
 
 	if(len < 0 || len > uword.max)
-		throwStdException(t, "RangeException", "Invalid new length: {}", len);
+		throwStdException(t, "RangeError", "Invalid new length: {}", len);
 
 	push(t, CrocValue(m.data));
 	lenai(t, -1, cast(uword)len * m.kind.itemSize);
@@ -1301,7 +1217,7 @@ uword _opIndex(CrocThread* t)
 		idx += m.itemLength;
 
 	if(idx < 0 || idx >= m.itemLength)
-		throwStdException(t, "BoundsException", "Invalid index {} for Vector of length {}", idx, m.itemLength);
+		throwStdException(t, "BoundsError", "Invalid index {} for Vector of length {}", idx, m.itemLength);
 
 	push(t, _rawIndex(m, cast(uword)idx));
 	return 1;
@@ -1316,7 +1232,7 @@ uword _opIndexAssign(CrocThread* t)
 		idx += m.itemLength;
 
 	if(idx < 0 || idx >= m.itemLength)
-		throwStdException(t, "BoundsException", "Invalid index {} for Vector of length {}", idx, m.itemLength);
+		throwStdException(t, "BoundsError", "Invalid index {} for Vector of length {}", idx, m.itemLength);
 
 	if(m.kind.code <= TypeCode.u64)
 		checkIntParam(t, 2);
@@ -1340,13 +1256,13 @@ uword _opSlice(CrocThread* t)
 		hi += m.itemLength;
 
 	if(lo < 0 || lo > hi || hi > m.itemLength)
-		throwStdException(t, "BoundsException", "Invalid slice indices {} .. {} for Vector of length {}", lo, hi, m.itemLength);
+		throwStdException(t, "BoundsError", "Invalid slice indices {} .. {} for Vector of length {}", lo, hi, m.itemLength);
 
 	pushGlobal(t, "Vector");
 	pushNull(t);
 	pushString(t, m.kind.name);
 	pushInt(t, hi - lo);
-	rawCall(t, -4, 1);
+	call(t, -4, 1);
 	auto n = _getMembers(t, -1);
 	auto isize = m.kind.itemSize;
 
@@ -1402,7 +1318,7 @@ uword _opApply(CrocThread* t)
 		pushInt(t, m.itemLength);
 	}
 	else
-		throwStdException(t, "ValueException", "Invalid iteration mode");
+		throwStdException(t, "ValueError", "Invalid iteration mode");
 
 	return 3;
 }
@@ -1412,17 +1328,17 @@ uword _opSerialize(CrocThread* t)
 	auto m = _getMembers(t);
 
 	if(!m.data.ownData)
-		throwStdException(t, "ValueException", "Attempting to serialize a Vector which does not own its data");
+		throwStdException(t, "ValueError", "Attempting to serialize a Vector which does not own its data");
 
 	dup(t, 2);
 	pushNull(t);
 	pushString(t, m.kind.name);
-	rawCall(t, -3, 0);
+	call(t, -3, 0);
 
 	dup(t, 2);
 	pushNull(t);
 	push(t, CrocValue(m.data));
-	rawCall(t, -3, 0);
+	call(t, -3, 0);
 
 	return 0;
 }
@@ -1431,27 +1347,22 @@ uword _opDeserialize(CrocThread* t)
 {
 	dup(t, 2);
 	pushNull(t);
-	rawCall(t, -2, 1);
-
-	if(!isString(t, -1))
-		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'string' but found '{}' instead", type(t, -1));
+	pushString(t, "string");
+	call(t, -3, 1);
 
 	auto kind = _typeCodeToKind(getString(t, -1));
 	pop(t);
 
 	if(kind is null)
-		throwStdException(t, "ValueException", "Invalid data encountered when deserializing - Invalid type code '{}'", getString(t, -1));
+		throwStdException(t, "ValueError", "Malformed data (invalid Vector type code '{}')", getString(t, -1));
 
 	pushInt(t, cast(crocint)kind);
-	fielda(t, 0, Kind);
+	hfielda(t, 0, Kind);
 
 	dup(t, 2);
 	pushNull(t);
-	rawCall(t, -2, 1);
-
-	if(!isMemblock(t, -1))
-		throwStdException(t, "TypeException", "Invalid data encountered when deserializing - expected 'memblock' but found '{}' instead", type(t, -1));
-
+	pushString(t, "memblock");
+	call(t, -3, 1);
 	fielda(t, 0, Data);
 	return 0;
 }
@@ -1463,18 +1374,18 @@ uword _opCat(CrocThread* t)
 
 	pushGlobal(t, "Vector");
 
-	if(as(t, 1, -1))
+	if(instanceOf(t, 1, -1))
 	{
 		auto other = _getMembers(t, 1);
 
 		if(other.kind !is m.kind)
-			throwStdException(t, "ValueException", "Attempting to concatenate Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
+			throwStdException(t, "ValueError", "Attempting to concatenate Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
 
 		pushGlobal(t, "Vector");
 		pushNull(t);
 		pushString(t, m.kind.name);
 		pushInt(t, m.itemLength + other.itemLength);
-		rawCall(t, -4, 1);
+		call(t, -4, 1);
 
 		auto n = _getMembers(t, -1);
 		n.data.data[0 .. m.data.data.length] = m.data.data[];
@@ -1491,7 +1402,7 @@ uword _opCat(CrocThread* t)
 		pushNull(t);
 		pushString(t, m.kind.name);
 		pushInt(t, m.itemLength + 1);
-		rawCall(t, -4, 1);
+		call(t, -4, 1);
 
 		auto n = _getMembers(t, -1);
 		n.data.data[0 .. m.data.data.length] = m.data.data[];
@@ -1515,7 +1426,7 @@ uword _opCat_r(CrocThread* t)
 	pushNull(t);
 	pushString(t, m.kind.name);
 	pushInt(t, m.itemLength + 1);
-	rawCall(t, -4, 1);
+	call(t, -4, 1);
 
 	auto n = _getMembers(t, -1);
 	_rawIndexAssign(n, 0, *getValue(t, 1));
@@ -1531,7 +1442,7 @@ uword _opCatAssign(CrocThread* t)
 	checkAnyParam(t, 1);
 
 	if(!m.data.ownData)
-		throwStdException(t, "ValueException", "Attempting to append to a Vector which does not own its data");
+		throwStdException(t, "ValueError", "Attempting to append to a Vector which does not own its data");
 
 	ulong totalLen = m.itemLength;
 
@@ -1539,12 +1450,12 @@ uword _opCatAssign(CrocThread* t)
 
 	for(uword i = 1; i <= numParams; i++)
 	{
-		if(as(t, i, Vector))
+		if(instanceOf(t, i, Vector))
 		{
 			auto other = _getMembers(t, i);
 
 			if(other.kind !is m.kind)
-				throwStdException(t, "ValueException", "Attempting to concatenate Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
+				throwStdException(t, "ValueError", "Attempting to concatenate Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
 
 			totalLen += other.itemLength;
 		}
@@ -1562,7 +1473,7 @@ uword _opCatAssign(CrocThread* t)
 	pop(t);
 
 	if(totalLen > uword.max)
-		throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
+		throwStdException(t, "RangeError", "Invalid size ({})", totalLen);
 
 	auto isize = m.kind.itemSize;
 	auto oldLen = m.itemLength;
@@ -1578,7 +1489,7 @@ uword _opCatAssign(CrocThread* t)
 
 	for(uword i = 1; i <= numParams; i++)
 	{
-		if(as(t, i, Vector))
+		if(instanceOf(t, i, Vector))
 		{
 			if(opis(t, 0, i))
 			{
@@ -1612,15 +1523,15 @@ char[] opAssign(char[] name, char[] op)
 
 		pushGlobal(t, "Vector");
 
-		if(as(t, 1, -1))
+		if(instanceOf(t, 1, -1))
 		{
 			auto other = _getMembers(t, 1);
 
 			if(other.itemLength != m.itemLength)
-				throwStdException(t, "ValueException", "Cannot perform operation on Vectors of different lengths");
+				throwStdException(t, "ValueError", "Cannot perform operation on Vectors of different lengths");
 
 			if(other.kind !is m.kind)
-				throwStdException(t, "ValueException", "Cannot perform operation on Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
+				throwStdException(t, "ValueError", "Cannot perform operation on Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
 
 			switch(m.kind.code)
 			{
@@ -1728,15 +1639,15 @@ char[] op_reveq(char[] name, char[] op)
 
 		pushGlobal(t, "Vector");
 
-		if(as(t, 1, -1))
+		if(instanceOf(t, 1, -1))
 		{
 			auto other = _getMembers(t, 1);
 
 			if(other.itemLength != m.itemLength)
-				throwStdException(t, "ValueException", "Cannot perform operation on Vectors of different lengths");
+				throwStdException(t, "ValueError", "Cannot perform operation on Vectors of different lengths");
 
 			if(other.kind !is m.kind)
-				throwStdException(t, "ValueException", "Cannot perform operation on Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
+				throwStdException(t, "ValueError", "Cannot perform operation on Vectors of types '{}' and '{}'", m.kind.name, other.kind.name);
 
 			switch(m.kind.code)
 			{
@@ -1928,8 +1839,8 @@ version(CrocBuiltinDocs)
 		the \link{fill} method called on it with \tt{filler} as the argument. As such, if the \tt{filler} is invalid, any exceptions
 		that \link{fill} can throw, the constructor can throw as well.
 
-		\throws[exceptions.ValueException] if \tt{type} is not a valid type code.
-		\throws[exceptions.RangeException] if \tt{size} is invalid (negative or too large).`},
+		\throws[exceptions.ValueError] if \tt{type} is not a valid type code.
+		\throws[exceptions.RangeError] if \tt{size} is invalid (negative or too large).`},
 
 		{kind: "function", name: "fromArray",
 		params: [Param("type", "string"), Param("arr", "array")],
@@ -1969,8 +1880,8 @@ version(CrocBuiltinDocs)
 		\param[step] is the optional step size.
 
 		\returns the new Vector.
-		\throws[exceptions.RangeException] if \tt{step} is 0.
-		\throws[exceptions.RangeException] if the resulting Vector would have too many elements to be represented.`},
+		\throws[exceptions.RangeError] if \tt{step} is 0.
+		\throws[exceptions.RangeError] if the resulting Vector would have too many elements to be represented.`},
 
 		{kind: "function", name: "type",
 		params: [Param("type", "string", "null")],
@@ -1989,8 +1900,8 @@ version(CrocBuiltinDocs)
 
 		\param[type] is the new type if changing this Vector's type, or \tt{null} if not.
 		\returns the current type of the Vector if \tt{type} is \tt{null}, or nothing otherwise.
-		\throws[exceptions.ValueException] if \tt{type} is not a valid type code.
-		\throws[exceptions.ValueException] if the byte size is not an even multiple of the new type's item size.`},
+		\throws[exceptions.ValueError] if \tt{type} is not a valid type code.
+		\throws[exceptions.ValueError] if the byte size is not an even multiple of the new type's item size.`},
 
 		{kind: "function", name: "itemSize",
 		params: [],
@@ -2059,7 +1970,7 @@ version(CrocBuiltinDocs)
 		ones), and should return one value of the same type that was passed in (though it's okay to return ints for floating-point
 		Vectors.
 
-		\throws[exceptions.TypeException] if \tt{func} returns a value of an invalid type.`},
+		\throws[exceptions.TypeError] if \tt{func} returns a value of an invalid type.`},
 
 		{kind: "function", name: "map",
 		params: [Param("func", "function")],
@@ -2070,7 +1981,7 @@ version(CrocBuiltinDocs)
 
 		\param[func] is the same as the \tt{func} parameter for \link{apply}.
 		\returns the new Vector.
-		\throws[exceptions.TypeException] if \tt{func} returns a value of an invalid type.`},
+		\throws[exceptions.TypeError] if \tt{func} returns a value of an invalid type.`},
 
 		{kind: "function", name: "max",
 		params: [],
@@ -2078,7 +1989,7 @@ version(CrocBuiltinDocs)
 		`Finds the largest value in this Vector.
 
 		\returns the largest value.
-		\throws[exceptions.ValueException] if \tt{#this == 0}.`},
+		\throws[exceptions.ValueError] if \tt{#this == 0}.`},
 
 		{kind: "function", name: "max",
 		params: [],
@@ -2086,7 +1997,7 @@ version(CrocBuiltinDocs)
 		`Finds the smallest value in this Vector.
 
 		\returns the smallest value.
-		\throws[exceptions.ValueException] if \tt{#this == 0}.`},
+		\throws[exceptions.ValueError] if \tt{#this == 0}.`},
 
 		{kind: "function", name: "insert",
 		params: [Param("idx", "int"), Param("val", "int|float|Vector")],
@@ -2098,10 +2009,10 @@ version(CrocBuiltinDocs)
 		to the end of \tt{this}. \tt{idx} can be negative to mean an index from the end of this Vector.
 		\param[val] is the value to insert. If \tt{val} is a Vector, it must be the same type as \tt{this}. It is legal
 		for \tt{val} to be \tt{this}. If \tt{val} isn't a Vector, it must be a valid type for this Vector.
-		\throws[exceptions.ValueException] if this Vector's memblock does not own its data.
-		\throws[exceptions.BoundsException] if \tt{idx} is invalid.
-		\throws[exceptions.ValueException] if \tt{val} is a Vector but its type differs from \tt{this}'s type.
-		\throws[exceptions.RangeException] if inserting would cause this Vector to grow too large.`},
+		\throws[exceptions.ValueError] if this Vector's memblock does not own its data.
+		\throws[exceptions.BoundsError] if \tt{idx} is invalid.
+		\throws[exceptions.ValueError] if \tt{val} is a Vector but its type differs from \tt{this}'s type.
+		\throws[exceptions.RangeError] if inserting would cause this Vector to grow too large.`},
 
 		{kind: "function", name: "remove",
 		params: [Param("lo", "int"), Param("hi", "int", "lo + 1")],
@@ -2113,9 +2024,9 @@ version(CrocBuiltinDocs)
 		\param[lo] is the lower slice index of the items to be removed.
 		\param[hi] is the upper slice index of the items to be removed. It defaults to one after \tt{lo}, so that called with
 		just one parameter, this method will remove one item.
-		\throws[exceptions.ValueException] if this Vector's memblock does not own its data.
-		\throws[exceptions.ValueException] if this Vector is empty.
-		\throws[exceptions.BoundsException] if \tt{lo} and \tt{hi} are invalid.`},
+		\throws[exceptions.ValueError] if this Vector's memblock does not own its data.
+		\throws[exceptions.ValueError] if this Vector is empty.
+		\throws[exceptions.BoundsError] if \tt{lo} and \tt{hi} are invalid.`},
 
 		{kind: "function", name: "pop",
 		params: [Param("idx", "int", "-1")],
@@ -2125,9 +2036,9 @@ version(CrocBuiltinDocs)
 
 		\param[idx] is the index of the item to be removed, which defaults to the last item in this Vector.
 		\returns the value of the item that was removed.
-		\throws[exceptions.ValueException] if this Vector's memblock does not own its data.
-		\throws[exceptions.ValueException] if this Vector is empty.
-		\throws[exceptions.BoundsException] if \tt{idx} is invalid.`},
+		\throws[exceptions.ValueError] if this Vector's memblock does not own its data.
+		\throws[exceptions.ValueError] if this Vector is empty.
+		\throws[exceptions.BoundsError] if \tt{idx} is invalid.`},
 
 		{kind: "function", name: "sum",
 		params: [],
@@ -2161,9 +2072,9 @@ version(CrocBuiltinDocs)
 		\param[hi2] is the upper index of the slice into \tt{other}. Note that its default value means \tt{lo2 + the size of the
 		slice into this}.
 
-		\throws[exceptions.BoundsException] if either pair of slice indices is invalid for its respective Vector.
-		\throws[exceptions.ValueException] if \tt{other}'s type is not the same as this Vector's.
-		\throws[exceptions.ValueException] if the sizes of the slices differ.`},
+		\throws[exceptions.BoundsError] if either pair of slice indices is invalid for its respective Vector.
+		\throws[exceptions.ValueError] if \tt{other}'s type is not the same as this Vector's.
+		\throws[exceptions.ValueError] if the sizes of the slices differ.`},
 
 		{kind: "function", name: "fill",
 		params: [Param("val", "int|float|function|array|Vector")],
@@ -2209,7 +2120,7 @@ version(CrocBuiltinDocs)
 
 		\param[other] is the Vector to compare \tt{this} to.
 		\returns \tt{true} if \tt{this} and \tt{other} are the same length and contain the same data, or \tt{false} otherwise.
-		\throws[exceptions.ValueException] if \tt{other}'s type differs from \tt{this}'s.`},
+		\throws[exceptions.ValueError] if \tt{other}'s type differs from \tt{this}'s.`},
 
 		{kind: "function", name: "opCmp",
 		params: [Param("other", "Vector")],
@@ -2219,7 +2130,7 @@ version(CrocBuiltinDocs)
 		\param[other] is the Vector to compare \tt{this} to.
 		\returns a negative integer if \tt{this} compares less than \tt{other}, positive if \tt{this} compares greater than \tt{other},
 		and 0 if \tt{this} and \tt{other} have the same length and contents.
-		\throws[exceptions.ValueException] if \tt{other}'s type differs from \tt{this}'s.`},
+		\throws[exceptions.ValueError] if \tt{other}'s type differs from \tt{this}'s.`},
 
 		{kind: "function", name: "opLength",
 		params: [],
@@ -2234,8 +2145,8 @@ version(CrocBuiltinDocs)
 		`Sets the number of items in this Vector.
 
 		\param[len] is the new length.
-		\throws[exceptions.ValueException] if this Vector's memblock does not own its data.
-		\throws[exceptions.RangeException] if \tt{len} is invalid.`},
+		\throws[exceptions.ValueError] if this Vector's memblock does not own its data.
+		\throws[exceptions.RangeError] if \tt{len} is invalid.`},
 
 		{kind: "function", name: "opIndex",
 		params: [Param("idx", "int")],
@@ -2243,7 +2154,7 @@ version(CrocBuiltinDocs)
 		`Gets a single item from this Vector at the given index.
 
 		\param[idx] is the index of the item to retrieve. Can be negative.
-		\throws[exception.BoundsException] if \tt{idx} is invalid.`},
+		\throws[exception.BoundsError] if \tt{idx} is invalid.`},
 
 		{kind: "function", name: "opIndex",
 		params: [Param("idx", "int"), Param("val", "int|float")],
@@ -2252,7 +2163,7 @@ version(CrocBuiltinDocs)
 
 		\param[idx] is the index of the item to set. Can be negative.
 		\param[val] is the value to be set.
-		\throws[exception.BoundsException] if \tt{idx} is invalid.`},
+		\throws[exception.BoundsError] if \tt{idx} is invalid.`},
 
 		{kind: "function", name: "opSlice",
 		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")],
@@ -2266,7 +2177,7 @@ version(CrocBuiltinDocs)
 		\param[lo] is lower slice index into this Vector.
 		\param[hi] is upper slice index into this Vector.
 		\returns a new Vector with the same type as \tt{this}, whose data is a copy of the given slice.
-		\throws[exception.BoundsException] if \tt{lo} and \tt{hi} are invalid.`},
+		\throws[exception.BoundsError] if \tt{lo} and \tt{hi} are invalid.`},
 
 		{kind: "function", name: "opApply",
 		params: [Param("mode", "string", "\"\"")],
@@ -2285,7 +2196,7 @@ foreach(i, val; v, "reverse") write(val) // prints 54321
 
 		\param[mode] is the iteration mode. The only valid modes are \tt{"reverse"}, which runs iteration backwards,
 		and the empty string \{""}, which is normal forward iteration.
-		\throws[exceptions.ValueException] if \tt{mode} is invalid.`},
+		\throws[exceptions.ValueError] if \tt{mode} is invalid.`},
 
 		{kind: "field", name: "opSerialize",
 		docs:
@@ -2305,7 +2216,7 @@ foreach(i, val; v, "reverse") write(val) // prints 54321
 		\param[other] is either a number of the appropriate type, or another Vector. If \tt{other} is a Vector, it
 		must be the same type as \tt{this}.
 		\returns the new Vector object.
-		\throws[exceptions.ValueException] if \tt{other} is a Vector and its type differs from \tt{this}'s.`},
+		\throws[exceptions.ValueError] if \tt{other} is a Vector and its type differs from \tt{this}'s.`},
 
 		{kind: "function", name: "opCat_r", docs: `ditto`, params: [Param("other", "int|float")]},
 
@@ -2316,10 +2227,10 @@ foreach(i, val; v, "reverse") write(val) // prints 54321
 
 		\param[vararg] is one or more values, each of which must be either a number of the appropriate type, or a Vector
 		whose type is the same as \tt{this}'s. All the arguments will be appended to the end of this Vector in order.
-		\throws[exceptions.ParamException] if no varargs were passed.
-		\throws[exceptions.ValueException] if this Vector's memblock does not own its data.
-		\throws[exceptions.ValueException] if one of the varargs is a Vector whose type differs from \tt{this}'s.
-		\throws[exceptions.RangeException] if this memblock grows too large.`},
+		\throws[exceptions.ParamError] if no varargs were passed.
+		\throws[exceptions.ValueError] if this Vector's memblock does not own its data.
+		\throws[exceptions.ValueError] if one of the varargs is a Vector whose type differs from \tt{this}'s.
+		\throws[exceptions.RangeError] if this memblock grows too large.`},
 
 		{kind: "function", name: "add",
 		params: [Param("other", "int|float|Vector")],
@@ -2332,7 +2243,7 @@ foreach(i, val; v, "reverse") write(val) // prints 54321
 
 		\param[other] is the second operand in the operation.
 		\returns the new Vector whos values are the result of the operation.
-		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
+		\throws[exceptions.ValueError] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
 
 		{kind: "function", name: "sub",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
 		{kind: "function", name: "mul",   docs: `ditto`, params: [Param("other", "int|float|Vector")]},
@@ -2351,7 +2262,7 @@ foreach(i, val; v, "reverse") write(val) // prints 54321
 		The behavior is otherwise identical to the regular mathematical operations.
 
 		\param[other] is the left-hand side of the operation.
-		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
+		\throws[exceptions.ValueError] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
 
 		{kind: "function", name: "revdiv", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
 		{kind: "function", name: "revmod", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
@@ -2364,7 +2275,7 @@ foreach(i, val; v, "reverse") write(val) // prints 54321
 		The behavior is otherwise identical to the binary mathematical operations.
 
 		\param[other] is the right-hand side of the operation.
-		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
+		\throws[exceptions.ValueError] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
 
 		{kind: "function", name: "subeq", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
 		{kind: "function", name: "muleq", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
@@ -2380,7 +2291,7 @@ foreach(i, val; v, "reverse") write(val) // prints 54321
 		The behavior is otherwise identical to the reflexive mathematical operations.
 
 		\param[other] is the left-hand side of the operation.
-		\throws[exceptions.ValueException] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
+		\throws[exceptions.ValueError] if \tt{other} is a Vector and it is not the same length and type as \tt{this}.`},
 
 		{kind: "function", name: "revdiveq", docs: `ditto`, params: [Param("other", "int|float|Vector")]},
 		{kind: "function", name: "revmodeq", docs: `ditto`, params: [Param("other", "int|float|Vector")]}

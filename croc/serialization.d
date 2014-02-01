@@ -1,6 +1,6 @@
 /******************************************************************************
-This module contains functions for serializing and deserializing compiled Croc
-functions and modules.
+This module contains the "icky" parts of the Croc 'serialization' library that
+mess with Croc's internals.
 
 License:
 Copyright (c) 2008 Jarrett Billingsley
@@ -26,1377 +26,925 @@ subject to the following restrictions:
 
 module croc.serialization;
 
-import tango.core.BitManip;
-import tango.core.Exception;
-import tango.io.model.IConduit;
-
-// This import violates layering. STUPID SERIALIZATION LIB.
-import croc.ex;
+import tango.core.Traits;
 
 import croc.api_interpreter;
 import croc.api_stack;
-import croc.base_hash;
 import croc.types;
+import croc.types_class;
+import croc.types_funcdef;
 import croc.types_function;
 import croc.types_instance;
-import croc.utils;
+import croc.types_namespace;
+import croc.types_thread;
 import croc.vm;
 
 // =====================================================================================================================
-// Public
+// Protected
 // =====================================================================================================================
 
-public:
+protected:
 
-void serializeGraph(CrocThread* t, word idx, word trans, OutputStream output)
+struct Ser
 {
-	auto s = Serializer(t, output);
-	s.writeGraph(idx, trans);
-}
+static:
+	const _Output = "_output";
+	const _RawBuf = "_rawBuf";
 
-word deserializeGraph(CrocThread* t, word trans, InputStream input)
-{
-	auto d = Deserializer(t, input);
-	return d.readGraph(trans);
-}
-
-void serializeModule(CrocThread* t, word idx, char[] name, OutputStream output)
-{
-	append(t, output, (&FileHeader.init)[0 .. 1]);
-	put!(uword)(t, output, name.length);
-	append(t, output, name);
-	auto s = Serializer(t, output);
-	idx = absIndex(t, idx);
-	newTable(t);
-	s.writeGraph(idx, -1);
-	pop(t);
-}
-
-void deserializeModule(CrocThread* t, out char[] name, InputStream input)
-{
-	FileHeader fh = void;
-	readExact(t, input, (&fh)[0 .. 1]);
-
-	if(fh != FileHeader.init)
-		throwStdException(t, "ValueException", "Serialized module header mismatch");
-
-	uword len = void;
-	get!(uword)(t, input, len);
-	name = new char[](len);
-	readExact(t, input, name);
-	newTable(t);
-	auto d = Deserializer(t, input);
-	auto ret = d.readGraph(-1);
-	pop(t);
-}
-
-// =====================================================================================================================
-// Private
-// =====================================================================================================================
-
-private:
-
-align(1) struct FileHeader
-{
-	uint magic = FOURCC!("Croc");
-	uint _version = CrocVersion;
-	ubyte platformBits = uword.sizeof * 8;
-
-	version(BigEndian)
-		ubyte endianness = 1;
-	else
-		ubyte endianness = 0;
-
-	ubyte intSize = crocint.sizeof;
-	ubyte floatSize = crocfloat.sizeof;
-
-	ubyte[4] _padding;
-}
-
-static assert(FileHeader.sizeof == 16);
-
-struct Serializer
-{
-private:
-	CrocThread* t;
-	OutputStream mOutput;
-	Hash!(CrocBaseObject*, uword) mObjTable;
-	uword mObjIndex;
-	CrocTable* mTrans;
-	CrocInstance* mStream;
-	CrocFunction* mSerializeFunc;
-
-	enum
+	void _integer(T)(CrocThread* t, T v)
 	{
-		Backref = -1,
-		Transient = -2
+		dup(t, 0);
+		pushNull(t);
+		pushInt(t, v);
+		methodCall(t, -3, "_integer", 0);
 	}
 
-	static Serializer opCall(CrocThread* t, OutputStream output)
+	void _serialize(T)(CrocThread* t, T v)
 	{
-		Serializer ret;
-		ret.t = t;
-		ret.mOutput = output;
-		return ret;
+		dup(t, 0);
+		pushNull(t);
+
+		static if(is(T == CrocValue))
+			push(t, v);
+		else
+			push(t, CrocValue(v));
+
+		methodCall(t, -3, "_serialize", 0);
 	}
 
-	static class Goober
+	void _writeUInt8(CrocThread* t, ubyte b)
 	{
-		Serializer* s;
-		this(Serializer* s) { this.s = s; }
+		field(t, 0, _Output);
+		pushNull(t);
+		pushInt(t, b);
+		methodCall(t, -3, "writeUInt8", 0);
 	}
 
-	static uword serializeFunc(CrocThread* t)
+	void _serializeArray(T)(CrocThread* t, T[] arr)
 	{
-		if(!isValidIndex(t, 1))
-			throwStdException(t, "ParamException", "Expected at least one parameter");
+		_integer(t, arr.length);
 
-		getUpval(t, 0);
-		auto g = cast(Goober)getNativeObj(t, -1);
-		g.s.serialize(*getValue(t, 1));
+		foreach(ref val; arr)
+		{
+			static if(isIntegerType!(T))
+				_integer(t, val);
+			else
+				_serialize(t, val);
+		}
+	}
+
+	void _append(CrocThread* t, void[] arr)
+	{
+		field(t, 0, _Output);
+		pushNull(t);
+		field(t, 0, _RawBuf);
+		memblockReviewNativeArray(t, -1, arr);
+		methodCall(t, -3, "writeExact", 0);
+	}
+
+	uword _nativeSerializeFunction(CrocThread* t)
+	{
+		auto v = getFunction(t, 1);
+
+		// we do this first so we can allocate it at the beginning of deserialization
+		_integer(t, v.numUpvals);
+		_serialize(t, v.scriptFunc);
+
+		if(v.environment is t.vm.globals)
+			_writeUInt8(t, 0);
+		else
+		{
+			_writeUInt8(t, 1);
+			_serialize(t, v.environment);
+		}
+
+		foreach(upval; v.scriptUpvals)
+			_serialize(t, cast(CrocBaseObject*)upval);
+
 		return 0;
 	}
 
-	void writeGraph(word value, word trans)
+	uword _nativeSerializeFuncdef(CrocThread* t)
 	{
-		if(opis(t, value, trans))
-			throwStdException(t, "ValueException", "Object to serialize is the same as the transients table");
+		auto v = getFuncDef(t, 1);
 
-		if(!isTable(t, trans))
-		{
-			pushTypeString(t, trans);
-			throwStdException(t, "TypeException", "Transients table must be a table, not '{}'", getString(t, -1));
-		}
+		_serialize(t, v.locFile);
+		_integer(t, v.locLine);
+		_integer(t, v.locCol);
+		_writeUInt8(t, cast(ubyte)v.isVararg);
+		_serialize(t, v.name);
+		_integer(t, v.numParams);
+		_serializeArray(t, v.paramMasks);
 
-		mTrans = getTable(t, trans);
-		auto v = *getValue(t, value);
-
-		auto size = stackSize(t);
-
-		mObjTable.clear(t.vm.alloc);
-		mObjIndex = 0;
-
-		scope(exit)
-		{
-			setStackSize(t, size);
-			mObjTable.clear(t.vm.alloc);
-		}
-
-		// we leave these on the stack so they won't be collected, but we get 'real' references
-		// to them so we can push them in opSerialize callbacks.
-		importModuleNoNS(t, "stream");
-		lookup(t, "stream.OutStream");
-		pushNull(t);
-		pushNativeObj(t, cast(Object)mOutput);
-		pushBool(t, false);
-		rawCall(t, -4, 1);
-		mStream = getInstance(t, -1);
-
-			pushNativeObj(t, new Goober(this));
-		newFunction(t, 1, &serializeFunc, "serialize", 1);
-		mSerializeFunc = getFunction(t, -1);
-
-		serialize(v);
-
-		mOutput.flush();
-	}
-
-	void tag(byte v)
-	{
-		put(t, mOutput, v);
-	}
-
-	void integer(long v)
-	{
-		if(v == 0)
-		{
-			put!(byte)(t, mOutput, 0);
-			return;
-		}
-		else if(v == long.min)
-		{
-			// this is special-cased since -long.min == long.min!
-			put(t, mOutput, cast(byte)0xFF);
-			return;
-		}
-
-		int numBytes = void;
-		bool neg = v < 0;
-
-		if(neg)
-			v = -v;
-
-		if(v & 0xFFFF_FFFF_0000_0000)
-			numBytes = (bsr(cast(uint)(v >>> 32)) / 8) + 5;
-		else
-			numBytes = (bsr(cast(uint)v) / 8) + 1;
-
-		put(t, mOutput, cast(ubyte)(neg ? numBytes | 0x80 : numBytes));
-
-		while(v)
-		{
-			put(t, mOutput, cast(ubyte)(v & 0xFF));
-			v >>>= 8;
-		}
-	}
-
-	void serialize(CrocValue v)
-	{
-		// check to see if it's an transient value
-		push(t, CrocValue(mTrans));
-		push(t, v);
-		idx(t, -2);
-
-		if(!isNull(t, -1))
-		{
-			tag(Transient);
-			serialize(*getValue(t, -1));
-			pop(t, 2);
-			return;
-		}
-
-		pop(t, 2);
-
-		// serialize it
-		switch(v.type)
-		{
-			case CrocValue.Type.Null:      serializeNull();                  break;
-			case CrocValue.Type.Bool:      serializeBool(v.mBool);           break;
-			case CrocValue.Type.Int:       serializeInt(v.mInt);             break;
-			case CrocValue.Type.Float:     serializeFloat(v.mFloat);         break;
-			case CrocValue.Type.String:    serializeString(v.mString);       break;
-			case CrocValue.Type.Table:     serializeTable(v.mTable);         break;
-			case CrocValue.Type.Array:     serializeArray(v.mArray);         break;
-			case CrocValue.Type.Memblock:  serializeMemblock(v.mMemblock);   break;
-			case CrocValue.Type.Function:  serializeFunction(v.mFunction);   break;
-			case CrocValue.Type.Class:     serializeClass(v.mClass);         break;
-			case CrocValue.Type.Instance:  serializeInstance(v.mInstance);   break;
-			case CrocValue.Type.Namespace: serializeNamespace(v.mNamespace); break;
-			case CrocValue.Type.Thread:    serializeThread(v.mThread);       break;
-			case CrocValue.Type.WeakRef:   serializeWeakRef(v.mWeakRef);     break;
-			case CrocValue.Type.NativeObj: serializeNativeObj(v.mNativeObj); break;
-			case CrocValue.Type.FuncDef:   serializeFuncDef(v.mFuncDef);     break;
-
-			case CrocValue.Type.Upvalue:   serializeUpval(cast(CrocUpval*)v.mBaseObj);         break;
-
-			default: assert(false);
-		}
-	}
-
-	void serializeNull()
-	{
-		tag(CrocValue.Type.Null);
-	}
-
-	void serializeBool(bool v)
-	{
-		tag(CrocValue.Type.Bool);
-		put(t, mOutput, v);
-	}
-
-	void serializeInt(crocint v)
-	{
-		tag(CrocValue.Type.Int);
-		integer(v);
-	}
-
-	void serializeFloat(crocfloat v)
-	{
-		tag(CrocValue.Type.Float);
-		put(t, mOutput, v);
-	}
-
-	void serializeString(CrocString* v)
-	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
-
-		tag(CrocValue.Type.String);
-		auto data = v.toString();
-		integer(data.length);
-		append(t, mOutput, data);
-	}
-
-	void serializeTable(CrocTable* v)
-	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
-
-		tag(CrocValue.Type.Table);
-		integer(v.data.length);
-
-		foreach(ref key, ref val; v.data)
-		{
-			serialize(key);
-			serialize(val);
-		}
-	}
-
-	void serializeArray(CrocArray* v)
-	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
-
-		tag(CrocValue.Type.Array);
-		integer(v.length);
-
-		foreach(ref slot; v.toArray())
-			serialize(slot.value);
-	}
-
-	void serializeMemblock(CrocMemblock* v)
-	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
-
-		if(!v.ownData)
-			throwStdException(t, "ValueException", "Attempting to serialize a memblock which does not own its data");
-
-		tag(CrocValue.Type.Memblock);
-		integer(v.data.length);
-		append(t, mOutput, v.data);
-	}
-
-	void serializeFunction(CrocFunction* v)
-	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
-
-		tag(CrocValue.Type.Function);
-
-		if(v.isNative)
-		{
-			push(t, CrocValue(v));
-			throwStdException(t, "ValueException", "Attempting to serialize a native function '{}'", funcName(t, -1));
-		}
-
-		// we do this first so we can allocate it at the beginning of deserialization
-		integer(v.numUpvals);
-		integer(v.maxParams);
-
-		serialize(CrocValue(v.name));
-		serialize(CrocValue(cast(CrocBaseObject*)v.scriptFunc));
-
-		if(v.environment is t.vm.globals)
-			put(t, mOutput, false);
-		else
-		{
-			put(t, mOutput, true);
-			serialize(CrocValue(v.environment));
-		}
-
-		foreach(val; v.scriptUpvals)
-			serialize(CrocValue(cast(CrocBaseObject*)val));
-	}
-
-	void serializeUpval(CrocUpval* v)
-	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
-
-		tag(CrocValue.Type.Upvalue);
-		serialize(*v.value);
-	}
-
-	void serializeFuncDef(CrocFuncDef* v)
-	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
-
-		tag(CrocValue.Type.FuncDef);
-		serialize(CrocValue(v.locFile));
-		integer(v.locLine);
-		integer(v.locCol);
-		put(t, mOutput, v.isVararg);
-		serialize(CrocValue(v.name));
-		integer(v.numParams);
-		integer(v.paramMasks.length);
-
-		foreach(mask; v.paramMasks)
-			integer(mask);
-
-		integer(v.numUpvals);
-
-		integer(v.upvals.length);
+		_integer(t, v.upvals.length);
 
 		foreach(ref uv; v.upvals)
 		{
-			put(t, mOutput, uv.isUpvalue);
-			integer(uv.index);
+			_writeUInt8(t, cast(ubyte)uv.isUpvalue);
+			_integer(t, uv.index);
 		}
 
-		integer(v.stackSize);
-		integer(v.innerFuncs.length);
-
-		foreach(func; v.innerFuncs)
-			serialize(CrocValue(cast(CrocBaseObject*)func));
-
-		integer(v.constants.length);
-
-		foreach(ref val; v.constants)
-			serialize(val);
-
-		integer(v.code.length);
-		append(t, mOutput, v.code);
+		_integer(t, v.stackSize);
+		_serializeArray(t, v.innerFuncs);
+		_serializeArray(t, v.constants);
+		_integer(t, v.code.length);
+		_append(t, v.code);
 
 		if(auto e = v.environment)
 		{
-			put(t, mOutput, true);
-			serialize(CrocValue(e));
+			_writeUInt8(t, 1);
+			_serialize(t, e);
 		}
 		else
-			put(t, mOutput, false);
+			_writeUInt8(t, 0);
 
 		if(auto f = v.cachedFunc)
 		{
-			put(t, mOutput, true);
-			serialize(CrocValue(f));
+			_writeUInt8(t, 1);
+			_serialize(t, f);
 		}
 		else
-			put(t, mOutput, false);
+			_writeUInt8(t, 0);
 
-		integer(v.switchTables.length);
+		_integer(t, v.switchTables.length);
 
 		foreach(ref st; v.switchTables)
 		{
-			integer(st.offsets.length);
+			_integer(t, st.offsets.length);
 
 			foreach(ref k, v; st.offsets)
 			{
-				serialize(k);
-				integer(v);
+				_serialize(t, k);
+				_integer(t, v);
 			}
 
-			integer(st.defaultOffset);
+			_integer(t, st.defaultOffset);
 		}
 
-		integer(v.lineInfo.length);
-		append(t, mOutput, v.lineInfo);
-		integer(v.upvalNames.length);
+		_integer(t, v.lineInfo.length);
+		_append(t, v.lineInfo);
+		_serializeArray(t, v.upvalNames);
 
-		foreach(name; v.upvalNames)
-			serialize(CrocValue(name));
-
-		integer(v.locVarDescs.length);
+		_integer(t, v.locVarDescs.length);
 
 		foreach(ref desc; v.locVarDescs)
 		{
-			serialize(CrocValue(desc.name));
-			integer(desc.pcStart);
-			integer(desc.pcEnd);
-			integer(desc.reg);
+			_serialize(t, desc.name);
+			_integer(t, desc.pcStart);
+			_integer(t, desc.pcEnd);
+			_integer(t, desc.reg);
 		}
+
+		return 0;
 	}
 
-	void serializeClass(CrocClass* v)
+	uword _nativeSerializeClass(CrocThread* t)
 	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
+		auto v = getClass(t, 1);
 
-		if(v.finalizer)
+		uword index = 0;
+		CrocString** key = void;
+		CrocValue* value = void;
+
+		_integer(t, v.methods.length);
+
+		while(classobj.nextMethod(v, index, key, value))
 		{
-			push(t, CrocValue(v));
-			pushToString(t, -1);
-			throwStdException(t, "ValueException", "Attempting to serialize '{}', which has a finalizer", getString(t, -1));
+			_serialize(t, *key);
+			_serialize(t, *value);
 		}
 
-		tag(CrocValue.Type.Class);
-		serialize(CrocValue(v.name));
+		_integer(t, v.fields.length);
+		index = 0;
 
-		if(v.parent)
+		while(classobj.nextField(v, index, key, value))
 		{
-			put(t, mOutput, true);
-			serialize(CrocValue(v.parent));
+			_serialize(t, *key);
+			_serialize(t, *value);
 		}
-		else
-			put(t, mOutput, false);
 
-		// TODO: this
-		assert(false);
+		return 0;
 	}
 
-	void serializeInstance(CrocInstance* v)
+	uword _nativeSerializeInstance(CrocThread* t)
 	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
+		auto v = getInstance(t, 1);
 
-		tag(CrocValue.Type.Instance);
-		serialize(CrocValue(v.parent));
+		uword index = 0;
+		CrocString** key = void;
+		CrocValue* value = void;
 
-		push(t, CrocValue(v));
+		_integer(t, v.fields.length);
 
-		if(hasField(t, -1, "opSerialize") || hasMethod(t, -1, "opSerialize"))
+		while(instance.nextField(v, index, key, value))
 		{
-			field(t, -1, "opSerialize");
-
-			if(isFunction(t, -1))
-			{
-				put(t, mOutput, true);
-				pop(t);
-				pushNull(t);
-				push(t, CrocValue(mStream));
-				push(t, CrocValue(mSerializeFunc));
-				methodCall(t, -4, "opSerialize", 0);
-				return;
-			}
-			else if(isBool(t, -1))
-			{
-				if(!getBool(t, -1))
-				{
-					pushToString(t, -2, true);
-					throwStdException(t, "ValueException",
-						"Attempting to serialize '{}', whose opSerialize field is 'false'", getString(t, -1));
-				}
-
-				pop(t);
-				// fall out, serialize literally.
-			}
-			else
-			{
-				pushToString(t, -2, true);
-				pushTypeString(t, -2);
-				throwStdException(t, "TypeException",
-					"Attempting to serialize '{}', whose opSerialize is a '{}', not a bool or function",
-					getString(t, -2), getString(t, -1));
-			}
+			_serialize(t, *key);
+			_serialize(t, *value);
 		}
 
-		pop(t);
-		put(t, mOutput, false);
-
-		if(v.parent.finalizer)
-		{
-			push(t, CrocValue(v));
-			pushToString(t, -1, true);
-			throwStdException(t, "ValueException", "Attempting to serialize '{}', whose class has a finalizer", getString(t, -1));
-		}
-
-		// TODO: this
-		assert(false);
+		return 0;
 	}
 
-	void serializeNamespace(CrocNamespace* v)
+	void _serializeStack(CrocThread* t, CrocThread* v)
 	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
-
-		tag(CrocValue.Type.Namespace);
-		serialize(CrocValue(v.name));
-
-		if(v.parent is null)
-			put(t, mOutput, false);
-		else
-		{
-			put(t, mOutput, true);
-			serialize(CrocValue(v.parent));
-		}
-
-		integer(v.data.length);
-
-		foreach(key, ref val; v.data)
-		{
-			serialize(CrocValue(key));
-			serialize(val);
-		}
-	}
-
-	void serializeThread(CrocThread* v)
-	{
-    	if(alreadyWritten(cast(CrocBaseObject*)v))
-    		return;
-
-    	if(t is v)
-    		throwStdException(t, "ValueException", "Attempting to serialize the currently-executing thread");
-
-		if(v.nativeCallDepth > 0)
-		{
-			throwStdException(t, "ValueException",
-				"Attempting to serialize a thread with at least one native or metamethod call on its call stack");
-		}
-
-		tag(CrocValue.Type.Thread);
-
-		integer(v.savedCallDepth);
-		integer(v.arIndex);
-
-		foreach(ref rec; v.actRecs[0 .. v.arIndex])
-		{
-			integer(rec.base);
-			integer(rec.savedTop);
-			integer(rec.vargBase);
-			integer(rec.returnSlot);
-
-			if(rec.func is null)
-				put(t, mOutput, false);
-			else
-			{
-				put(t, mOutput, true);
-				serialize(CrocValue(rec.func));
-				uword diff = rec.pc - rec.func.scriptFunc.code.ptr;
-				integer(diff);
-			}
-
-			integer(rec.numReturns);
-
-			if(rec.proto)
-			{
-				put(t, mOutput, true);
-				serialize(CrocValue(rec.proto));
-			}
-			else
-				put(t, mOutput, false);
-
-			integer(rec.numTailcalls);
-			integer(rec.firstResult);
-			integer(rec.numResults);
-			integer(rec.unwindCounter);
-
-			if(rec.unwindReturn)
-			{
-				put(t, mOutput, true);
-				uword diff = rec.unwindReturn - rec.func.scriptFunc.code.ptr;
-				integer(diff);
-			}
-			else
-				put(t, mOutput, false);
-		}
-
-		integer(v.trIndex);
-
-		foreach(ref rec; v.tryRecs[0 .. v.trIndex])
-		{
-			put(t, mOutput, rec.isCatch);
-			integer(rec.slot);
-			integer(rec.actRecord);
-
-			uword diff = rec.pc - v.actRecs[rec.actRecord].func.scriptFunc.code.ptr;
-			integer(diff);
-		}
-
-		integer(v.stackIndex);
-		uword stackTop;
+		_integer(t, v.stackIndex);
+		_integer(t, v.stackBase);
+		uword stackTop = void;
 
 		if(v.arIndex > 0)
 			stackTop = v.currentAR.savedTop;
 		else
 			stackTop = v.stackIndex;
 
-		integer(stackTop);
+		_integer(t, stackTop);
 
 		foreach(ref val; v.stack[0 .. stackTop])
-			serialize(val);
+			_serialize(t, val);
+	}
 
-		integer(v.stackBase);
-		integer(v.resultIndex);
+	void _serializeCallStack(CrocThread* t, CrocThread* v)
+	{
+		version(CrocExtendedThreads) {} else
+			_integer(t, v.savedCallDepth);
+
+		_integer(t, v.arIndex);
+
+		foreach(ref rec; v.actRecs[0 .. v.arIndex])
+		{
+			_integer(t, rec.base);
+			_integer(t, rec.savedTop);
+			_integer(t, rec.vargBase);
+			_integer(t, rec.returnSlot);
+
+			if(rec.func is null)
+				_writeUInt8(t, 0);
+			else
+			{
+				_writeUInt8(t, 1);
+				_serialize(t, rec.func);
+				uword diff = rec.pc - rec.func.scriptFunc.code.ptr;
+				_integer(t, diff);
+			}
+
+			_integer(t, rec.numReturns);
+			_integer(t, rec.numTailcalls);
+			_integer(t, rec.firstResult);
+			_integer(t, rec.numResults);
+			_integer(t, rec.unwindCounter);
+
+			if(rec.unwindReturn)
+			{
+				_writeUInt8(t, 1);
+				uword diff = rec.unwindReturn - rec.func.scriptFunc.code.ptr;
+				_integer(t, diff);
+			}
+			else
+				_writeUInt8(t, 0);
+		}
+	}
+
+	void _serializeEHStack(CrocThread* t, CrocThread* v)
+	{
+		_integer(t, v.trIndex);
+
+		foreach(ref rec; v.tryRecs[0 .. v.trIndex])
+		{
+			_writeUInt8(t, cast(ubyte)rec.isCatch);
+			_integer(t, rec.slot);
+			_integer(t, rec.actRecord);
+
+			uword diff = rec.pc - v.actRecs[rec.actRecord].func.scriptFunc.code.ptr;
+			_integer(t, diff);
+		}
+	}
+
+	void _serializeResultStack(CrocThread* t, CrocThread* v)
+	{
+		_integer(t, v.resultIndex);
 
 		foreach(ref val; v.results[0 .. v.resultIndex])
-			serialize(val);
+			_serialize(t, val);
+	}
 
-		put(t, mOutput, v.shouldHalt);
-
+	void _serializeCoroFunc(CrocThread* t, CrocThread* v)
+	{
 		if(v.coroFunc)
 		{
-			put(t, mOutput, true);
-			serialize(CrocValue(v.coroFunc));
+			_writeUInt8(t, 1);
+			_serialize(t, v.coroFunc);
 		}
 		else
-			put(t, mOutput, false);
+			_writeUInt8(t, 0);
+	}
 
-		integer(v.state);
-		integer(v.numYields);
+	void _serializeUpvals(CrocThread* t, CrocThread* v)
+	{
+		uword numUpvals = 0;
 
-		// TODO: hooks?!
+		for(auto uv = t.upvalHead; uv !is null; uv = uv.nextuv)
+			numUpvals++;
+
+		_integer(t, numUpvals);
 
 		for(auto uv = t.upvalHead; uv !is null; uv = uv.nextuv)
 		{
 			assert(uv.value !is &uv.closedValue);
-			serialize(CrocValue(cast(CrocBaseObject*)uv));
+			_serialize(t, CrocValue(cast(CrocBaseObject*)uv));
 			uword diff = uv.value - v.stack.ptr;
-			integer(diff);
+			_integer(t, diff);
 		}
-
-		tag(CrocValue.Type.Null);
 	}
 
-	void serializeWeakRef(CrocWeakRef* v)
+	uword _nativeSerializeThread(CrocThread* t)
 	{
-		if(alreadyWritten(cast(CrocBaseObject*)v))
-			return;
+		auto v = getThread(t, 1);
 
-		tag(CrocValue.Type.WeakRef);
+    	if(t is v)
+    		throwStdException(t, "ValueError", "Attempting to serialize the currently-executing thread");
 
-		if(v.obj is null)
-			put(t, mOutput, true);
-		else
+		version(CrocExtendedThreads)
+			throwStdException(t, "ValueError", "Attempting to serialize an extended thread");
+
+		if(v.nativeCallDepth > 0)
 		{
-			put(t, mOutput, false);
-			serialize(CrocValue(v.obj));
+			throwStdException(t, "ValueError",
+				"Attempting to serialize a thread with at least one native or metamethod call on its call stack");
 		}
+
+		if(v.hookFunc !is null)
+			throwStdException(t, "ValueError", "Attempting to serialize a thread with a debug hook function");
+
+		_writeUInt8(t, cast(ubyte)v.shouldHalt);
+		_integer(t, v.state);
+
+		_serializeStack(t, v);
+
+		_integer(t, v.numYields);
+
+		_serializeResultStack(t, v);
+		_serializeCallStack(t, v);
+		_serializeEHStack(t, v);
+		_serializeCoroFunc(t, v);
+		_serializeUpvals(t, v);
+
+		return 0;
 	}
 
-	void serializeNativeObj(CrocNativeObj* v)
+	uword _serializeUpvalue(CrocThread* t)
 	{
-		throwStdException(t, "TypeException", "Attempting to serialize a nativeobj. Please use the transients table.");
-	}
-
-	void writeRef(uword idx)
-	{
-		tag(Backref);
-		integer(idx);
-	}
-
-	void addObject(CrocBaseObject* v)
-	{
-		*mObjTable.insert(t.vm.alloc, v) = mObjIndex++;
-	}
-
-	bool alreadyWritten(CrocValue v)
-	{
-		return alreadyWritten(v.mBaseObj);
-	}
-
-	bool alreadyWritten(CrocBaseObject* v)
-	{
-		if(auto idx = mObjTable.lookup(v))
+		if(!isValidIndex(t, 1))
 		{
-			writeRef(*idx);
-			return true;
+			throwStdException(t, "ParamError",
+				"Too few parameters (expected at least {}, got {})", 1, stackSize(t) - 1);
 		}
 
-		addObject(v);
-		return false;
+		auto uv = *getValue(t, 1);
+
+		if(uv.type != CrocValue.Type.Upvalue)
+			throwStdException(t, "TypeError", "Expected upvalue for parameter");
+
+		dup(t, 0);
+		pushNull(t);
+		dup(t, 1);
+		methodCall(t, -3, "_alreadyWritten", 1);
+
+		if(getBool(t, -1))
+			return 0;
+
+		pop(t);
+
+		dup(t, 0);
+		pushNull(t);
+		pushInt(t, CrocValue.Type.Upvalue);
+		methodCall(t, -3, "_tag", 0);
+
+		dup(t, 0);
+		pushNull(t);
+		push(t, *(cast(CrocUpval*)getValue(t, 1).mBaseObj).value);
+		methodCall(t, -3, "_serialize", 0);
+
+		return 0;
+	}
+
+	uword _instSize(CrocThread* t)
+	{
+		pushInt(t, getInstance(t, 1).memSize);
+		return 1;
 	}
 }
 
-struct Deserializer
+struct Deser
 {
-private:
-	CrocThread* t;
-	InputStream mInput;
-	CrocBaseObject*[] mObjTable;
-	CrocTable* mTrans;
-	CrocInstance* mStream;
-	CrocFunction* mDeserializeFunc;
+static:
+	const _Input = "_input";
+	const _RawBuf = "_rawBuf";
+	const _Trans = "_trans";
+	const _ObjTable = "_objTable";
+	const _DummyObj = "_dummyObj";
+	const _DeserializeFunc = "_deserializeFunc";
+	const _SignatureRead = "_signatureRead";
 
-	static Deserializer opCall(CrocThread* t, InputStream input)
+	uword _readGraph(CrocThread* t)
 	{
-		Deserializer ret;
-		ret.t = t;
-		ret.mInput = input;
-		return ret;
-	}
+		if(!isValidIndex(t, 1))
+		{
+			throwStdException(t, "ParamError",
+				"Too few parameters (expected at least {}, got {})", 1, stackSize(t) - 1);
+		}
 
-	static class Goober
-	{
-		Deserializer* d;
-		this(Deserializer* d) { this.d = d; }
-	}
+		if(!isTable(t, 1) && !isInstance(t, 1))
+		{
+			pushTypeString(t, 1);
+			throwStdException(t, "TypeError",
+				"Expected type 'table|instance' for parameter 1, not '{}'", getString(t, -1));
+		}
 
-	static uword deserializeFunc(CrocThread* t)
-	{
-		getUpval(t, 0);
-		auto g = cast(Goober)getNativeObj(t, -1);
-		g.d.deserializeValue();
+		dup(t, 1);      fielda(t, 0, _Trans);
+		newArray(t, 0); fielda(t, 0, _ObjTable);
+		newTable(t);    fielda(t, 0, _DummyObj);
+
+		{
+			disableGC(t.vm);
+
+			scope(exit)
+			{
+				enableGC(t.vm);
+				field(t, 0, _ObjTable);
+				lenai(t, -1, 0);
+				pop(t);
+				pushNull(t);
+				fielda(t, 0, _DummyObj);
+			}
+
+			field(t, 0, _SignatureRead);
+
+			if(!getBool(t, -1))
+			{
+				dup(t, 0);
+				pushNull(t);
+				methodCall(t, -2, "_readSignature", 0);
+
+				pushBool(t, true);
+				fielda(t, 0, _SignatureRead);
+			}
+
+			pop(t);
+
+			dup(t, 0);
+			pushNull(t);
+			methodCall(t, -2, "_deserialize", 1);
+		}
+
+		gc(t, true);
 		return 1;
 	}
 
-	word readGraph(word trans)
+	crocint _integer(CrocThread* t)
 	{
-		if(!isTable(t, trans))
-		{
-			pushTypeString(t, trans);
-			throwStdException(t, "TypeException", "Transients table must be a table, not '{}'", getString(t, -1));
-		}
-
-		mTrans = getTable(t, trans);
-
-		auto size = stackSize(t);
-		t.vm.alloc.resizeArray(mObjTable, 0);
-
-		disableGC(t.vm);
-
-		scope(failure)
-			setStackSize(t, size);
-
-		scope(exit)
-		{
-			t.vm.alloc.resizeArray(mObjTable, 0);
-			enableGC(t.vm);
-		}
-
-		// we leave these on the stack so they won't be collected, but we get 'real' references
-		// to them so we can push them in opSerialize callbacks.
-		importModuleNoNS(t, "stream");
-		lookup(t, "stream.InStream");
+		dup(t, 0);
 		pushNull(t);
-		pushNativeObj(t, cast(Object)mInput);
-		pushBool(t, false);
-		rawCall(t, -4, 1);
-		mStream = getInstance(t, -1);
-
-			pushNativeObj(t, new Goober(this));
-		newFunction(t, 0, &deserializeFunc, "deserialize", 1);
-		mDeserializeFunc = getFunction(t, -1);
-
-		deserializeValue();
-		insertAndPop(t, -3);
-		maybeGC(t);
-
-		return stackSize(t) - 1;
-	}
-
-	byte tag()
-	{
-		byte ret = void;
-		get(t, mInput, ret);
+		methodCall(t, -2, "_integer", 1);
+		auto ret = getInt(t, -1);
+		pop(t);
 		return ret;
 	}
 
-	long integer()()
+	uword _length(CrocThread* t)
 	{
-		byte v = void;
-		get(t, mInput, v);
-
-		if(v == 0)
-			return 0;
-		else if(v == 0xFF)
-			return long.min;
-		else
-		{
-			bool neg = (v & 0x80) != 0;
-
-			if(neg)
-				v &= ~0x80;
-
-			auto numBytes = v;
-			long ret = 0;
-
-			for(int shift = 0; numBytes; numBytes--, shift += 8)
-			{
-				get(t, mInput, v);
-				ret |= v << shift;
-			}
-
-			return neg ? -ret : ret;
-		}
-	}
-
-	void integer(T)(ref T x)
-	{
-		x = cast(T)integer();
-	}
-
-	void deserializeValue()
-	{
-		switch(tag())
-		{
-			case CrocValue.Type.Null:      deserializeNullImpl();      break;
-			case CrocValue.Type.Bool:      deserializeBoolImpl();      break;
-			case CrocValue.Type.Int:       deserializeIntImpl();       break;
-			case CrocValue.Type.Float:     deserializeFloatImpl();     break;
-			case CrocValue.Type.String:    deserializeStringImpl();    break;
-			case CrocValue.Type.Table:     deserializeTableImpl();     break;
-			case CrocValue.Type.Array:     deserializeArrayImpl();     break;
-			case CrocValue.Type.Memblock:  deserializeMemblockImpl();  break;
-			case CrocValue.Type.Function:  deserializeFunctionImpl();  break;
-			case CrocValue.Type.Class:     deserializeClassImpl();     break;
-			case CrocValue.Type.Instance:  deserializeInstanceImpl();  break;
-			case CrocValue.Type.Namespace: deserializeNamespaceImpl(); break;
-			case CrocValue.Type.Thread:    deserializeThreadImpl();    break;
-			case CrocValue.Type.WeakRef:   deserializeWeakrefImpl();   break;
-			case CrocValue.Type.FuncDef:   deserializeFuncDefImpl();   break;
-			case CrocValue.Type.Upvalue:   deserializeUpvalImpl();     break;
-
-			case Serializer.Backref:     push(t, CrocValue(mObjTable[cast(uword)integer()])); break;
-
-			case Serializer.Transient:
-				push(t, CrocValue(mTrans));
-				deserializeValue();
-				idx(t, -2);
-				insertAndPop(t, -2);
-				break;
-
-			default: throwStdException(t, "ValueException", "Malformed data");
-		}
-	}
-
-	void checkTag(byte type)
-	{
-		if(tag() != type)
-			throwStdException(t, "ValueException", "Malformed data");
-	}
-
-	void deserializeNull()
-	{
-		checkTag(CrocValue.Type.Null);
-		deserializeNullImpl();
-	}
-
-	void deserializeNullImpl()
-	{
+		dup(t, 0);
 		pushNull(t);
+		methodCall(t, -2, "_length", 1);
+		auto ret = cast(uword)getInt(t, -1);
+		pop(t);
+		return ret;
 	}
 
-	void deserializeBool()
+	word _deserialize(CrocThread* t)
 	{
-		checkTag(CrocValue.Type.Bool);
-		deserializeBoolImpl();
+		auto ret = dup(t, 0);
+		pushNull(t);
+		methodCall(t, -2, "_deserialize", 1);
+		return ret;
 	}
 
-	void deserializeBoolImpl()
+	ubyte _readUInt8(CrocThread* t)
 	{
-		bool v = void;
-		get(t, mInput, v);
-		pushBool(t, v);
+		field(t, 0, _Input);
+		pushNull(t);
+		methodCall(t, -2, "readUInt8", 1);
+		auto ret = cast(ubyte)getInt(t, -1);
+		pop(t);
+		return ret;
 	}
 
-	void deserializeInt()
+	void _readBlock(CrocThread* t, void[] arr)
 	{
-		checkTag(CrocValue.Type.Int);
-		deserializeIntImpl();
+		field(t, 0, _Input);
+		pushNull(t);
+		field(t, 0, _RawBuf);
+		memblockReviewNativeArray(t, -1, arr);
+		methodCall(t, -3, "readExact", 0);
 	}
 
-	void deserializeIntImpl()
+	void _addObject(CrocThread* t, CrocBaseObject* obj)
 	{
-		pushInt(t, integer());
+		dup(t, 0);
+		pushNull(t);
+		push(t, CrocValue(obj));
+		methodCall(t, -3, "_addObject", 0);
 	}
 
-	void deserializeFloat()
+	void _deserializeObj(CrocThread* t, char[] methodName)
 	{
-		checkTag(CrocValue.Type.Float);
-		deserializeFloatImpl();
+		dup(t, 0);
+		pushNull(t);
+		methodCall(t, -2, methodName, 1);
 	}
 
-	void deserializeFloatImpl()
+	CrocString* _deserializeString(CrocThread* t)
 	{
-		crocfloat v = void;
-		get(t, mInput, v);
-		pushFloat(t, v);
+		_deserializeObj(t, "_deserializeString");
+		auto ret = getStringObj(t, -1);
+		pop(t);
+		return ret;
 	}
 
-	bool checkObjTag(byte type)
+	uword _deserializeNamespaceImpl(CrocThread* t)
 	{
-		auto tmp = tag();
+		auto ret = namespace.createPartial(t.vm.alloc);
+		_addObject(t, cast(CrocBaseObject*)ret);
 
-		if(tmp == type)
-			return true;
-		else if(tmp == Serializer.Backref)
+		auto name = _deserializeString(t);
+		CrocNamespace* parent = null;
+
+		if(_readUInt8(t) != 0)
 		{
-			auto ret = mObjTable[cast(uword)integer()];
-			assert(ret.mType == type);
-			push(t, CrocValue(ret));
-			return false;
+			_deserializeObj(t, "_deserializeNamespace");
+			parent = getNamespace(t, -1); assert(parent !is null);
+			pop(t);
 		}
-		else if(tmp == Serializer.Transient)
-		{
-			push(t, CrocValue(mTrans));
-			deserializeValue();
-			idx(t, -2);
-			insertAndPop(t, -2);
 
-			if(.type(t, -1) != type)
-				throwStdException(t, "ValueException", "Invalid transient table");
+		namespace.finishCreate(ret, name, parent);
+		push(t, CrocValue(ret));
 
-			return false;
-		}
-		else
-			throwStdException(t, "ValueException", "Malformed data");
-
-		assert(false);
-	}
-
-	void deserializeString()
-	{
-		if(checkObjTag(CrocValue.Type.String))
-			deserializeStringImpl();
-	}
-
-	void deserializeStringImpl()
-	{
-		auto len = integer();
-
-		auto data = t.vm.alloc.allocArray!(char)(cast(uword)len);
-		scope(exit) t.vm.alloc.freeArray(data);
-
-		readExact(t, mInput, data);
-		pushString(t, data);
-		addObject(getValue(t, -1).mBaseObj);
-	}
-
-	void deserializeTable()
-	{
-		if(checkObjTag(CrocValue.Type.Table))
-			deserializeTableImpl();
-	}
-
-	void deserializeTableImpl()
-	{
-		auto len = integer();
-
-		auto v = newTable(t);
-		addObject(getValue(t, -1).mBaseObj);
+		auto len = _length(t);
 
 		for(uword i = 0; i < len; i++)
 		{
-			deserializeValue();
-			deserializeValue();
-			idxa(t, v);
+			_deserializeObj(t, "_deserializeString");
+			_deserialize(t);
+			fielda(t, -3);
 		}
+
+		return 1;
 	}
 
-	void deserializeArray()
+	uword _deserializeFunctionImpl(CrocThread* t)
 	{
-		if(checkObjTag(CrocValue.Type.Array))
-			deserializeArrayImpl();
-	}
+		auto numUpvals = _length(t);
+		auto ret = func.createPartial(t.vm.alloc, numUpvals);
+		_addObject(t, cast(CrocBaseObject*)ret);
 
-	void deserializeArrayImpl()
-	{
-		auto arr = t.vm.alloc.allocate!(CrocArray);
-		addObject(cast(CrocBaseObject*)arr);
+		_deserializeObj(t, "_deserializeFuncdef");
 
-		auto len = integer();
-		auto v = newArray(t, cast(uword)len);
-
-		for(uword i = 0; i < len; i++)
-		{
-			deserializeValue();
-			idxai(t, v, cast(crocint)i);
-		}
-	}
-
-	void deserializeMemblock()
-	{
-		if(checkObjTag(CrocValue.Type.Memblock))
-			deserializeMemblockImpl();
-	}
-
-	void deserializeMemblockImpl()
-	{
-		newMemblock(t, cast(uword)integer());
-  		addObject(getValue(t, -1).mBaseObj);
-  		insertAndPop(t, -2);
-  		readExact(t, mInput, getMemblock(t, -1).data);
-	}
-
-	void deserializeFunction()
-	{
-		if(checkObjTag(CrocValue.Type.Function))
-			deserializeFunctionImpl();
-	}
-
-	void deserializeFunctionImpl()
-	{
-		auto numUpvals = cast(uword)integer();
-		auto func = t.vm.alloc.allocate!(CrocFunction)(func.ScriptClosureSize(numUpvals));
-		addObject(cast(CrocBaseObject*)func);
-		// Future Me: if this causes some kind of horrible bug down the road, feel free to come back in time
-		// and beat the shit out of me. But since you haven't yet, I'm guessing that it doesn't. So ha.
-		func.maxParams = cast(uword)integer();
-
-		func.isNative = false;
-		func.numUpvals = numUpvals;
-		deserializeString();
-		func.name = getStringObj(t, -1);
-		pop(t);
-		deserializeFuncDef();
-		func.scriptFunc = getValue(t, -1).mFuncDef;
-		pop(t);
-
-		bool haveEnv;
-		get(t, mInput, haveEnv);
-
-		if(haveEnv)
-			deserializeNamespace();
+		if(_readUInt8(t) != 0)
+			_deserializeObj(t, "_deserializeNamespace");
 		else
-			pushGlobal(t, "_G");
+			push(t, CrocValue(t.vm.globals));
 
-		func.environment = getNamespace(t, -1);
-		pop(t);
+		auto def = getFuncDef(t, -2);   assert(def !is null);
+		auto env = getNamespace(t, -1); assert(env !is null);
+		func.finishCreate(t.vm.alloc, ret, env, def);
+		pop(t, 2);
 
-		foreach(ref val; func.scriptUpvals())
+		foreach(ref val; ret.scriptUpvals())
 		{
-			deserializeUpval();
+			_deserializeObj(t, "_deserializeUpvalue");
 			val = cast(CrocUpval*)getValue(t, -1).mBaseObj;
 			pop(t);
 		}
 
-		push(t, CrocValue(func));
+		push(t, CrocValue(ret));
+		return 1;
 	}
 
-	void deserializeUpval()
+	uword _deserializeFuncdefImpl(CrocThread* t)
 	{
-		if(checkObjTag(CrocValue.Type.Upvalue))
-			deserializeUpvalImpl();
-	}
+		auto def = funcdef.create(t.vm.alloc);
+		_addObject(t, cast(CrocBaseObject*)def);
 
-	void deserializeUpvalImpl()
-	{
-		auto uv = t.vm.alloc.allocate!(CrocUpval)();
-		addObject(cast(CrocBaseObject*)uv);
-		uv.value = &uv.closedValue;
-		deserializeValue();
-		uv.closedValue = *getValue(t, -1);
-		pop(t);
-		push(t, CrocValue(cast(CrocBaseObject*)uv));
-	}
+		def.locFile = _deserializeString(t);
+		def.locLine = _length(t);
+		def.locCol = _length(t);
+		def.isVararg = cast(bool)_readUInt8(t);
+		def.name = _deserializeString(t);
+		def.numParams = _length(t);
 
-	void deserializeFuncDef()
-	{
-		if(checkObjTag(CrocValue.Type.FuncDef))
-			deserializeFuncDefImpl();
-	}
-
-	void deserializeFuncDefImpl()
-	{
-		auto def = t.vm.alloc.allocate!(CrocFuncDef);
-		addObject(cast(CrocBaseObject*)def);
-
-		deserializeString();
-		def.locFile = getStringObj(t, -1);
-		pop(t);
-		integer(def.locLine);
-		integer(def.locCol);
-		get(t, mInput, def.isVararg);
-		deserializeString();
-		def.name = getStringObj(t, -1);
-		pop(t);
-		integer(def.numParams);
-		t.vm.alloc.resizeArray(def.paramMasks, cast(uword)integer());
+		t.vm.alloc.resizeArray(def.paramMasks, _length(t));
 
 		foreach(ref mask; def.paramMasks)
-			integer(mask);
+			mask = _length(t);
 
-		integer(def.numUpvals);
-
-		t.vm.alloc.resizeArray(def.upvals, cast(uword)integer());
+		t.vm.alloc.resizeArray(def.upvals, _length(t));
 
 		foreach(ref uv; def.upvals)
 		{
-			get(t, mInput, uv.isUpvalue);
-			integer(uv.index);
+			uv.isUpvalue = cast(bool)_readUInt8(t);
+			uv.index = _length(t);
 		}
 
-		integer(def.stackSize);
-		t.vm.alloc.resizeArray(def.innerFuncs, cast(uword)integer());
+		def.stackSize = _length(t);
+
+		t.vm.alloc.resizeArray(def.innerFuncs, _length(t));
 
 		foreach(ref func; def.innerFuncs)
 		{
-			deserializeFuncDef();
-			func = getValue(t, -1).mFuncDef;
+			_deserializeObj(t, "_deserializeFuncdef");
+			func = getFuncDef(t, -1); assert(func !is null);
 			pop(t);
 		}
 
-		t.vm.alloc.resizeArray(def.constants, cast(uword)integer());
+		t.vm.alloc.resizeArray(def.constants, _length(t));
 
 		foreach(ref val; def.constants)
 		{
-			deserializeValue();
+			_deserialize(t);
 			val = *getValue(t, -1);
 			pop(t);
 		}
 
-		t.vm.alloc.resizeArray(def.code, cast(uword)integer());
-		readExact(t, mInput, def.code);
+		t.vm.alloc.resizeArray(def.code, _length(t));
+		_readBlock(t, def.code);
 
-		bool haveEnvironment;
-		get(t, mInput, haveEnvironment);
-
-		if(haveEnvironment)
+		if(_readUInt8(t) != 0)
 		{
-			deserializeNamespace();
-			def.environment = getNamespace(t, -1);
+			_deserializeObj(t, "_deserializeNamespace");
+			def.environment = getNamespace(t, -1); assert(def.environment !is null);
 			pop(t);
 		}
-		else
-			def.environment = null;
 
-		bool haveCached;
-		get(t, mInput, haveCached);
-
-		if(haveCached)
+		if(_readUInt8(t) != 0)
 		{
-			deserializeFunction();
-			def.cachedFunc = getFunction(t, -1);
+			_deserializeObj(t, "_deserializeFunction");
+			def.cachedFunc = getFunction(t, -1); assert(def.cachedFunc !is null);
 			pop(t);
 		}
-		else
-			def.cachedFunc = null;
 
-		t.vm.alloc.resizeArray(def.switchTables, cast(uword)integer());
+		t.vm.alloc.resizeArray(def.switchTables, _length(t));
 
 		foreach(ref st; def.switchTables)
 		{
-			auto numOffsets = cast(uword)integer();
+			auto numOffsets = _length(t);
 
 			for(uword i = 0; i < numOffsets; i++)
 			{
-				deserializeValue();
-				integer(*st.offsets.insert(t.vm.alloc, *getValue(t, -1)));
+				_deserialize(t);
+				auto offs = cast(word)_integer(t);
+				*st.offsets.insert(t.vm.alloc, *getValue(t, -1)) = offs;
 				pop(t);
 			}
 
-			integer(st.defaultOffset);
+			st.defaultOffset = cast(word)_integer(t);
 		}
 
-		t.vm.alloc.resizeArray(def.lineInfo, cast(uword)integer());
-		readExact(t, mInput, def.lineInfo);
+		t.vm.alloc.resizeArray(def.lineInfo, _length(t));
+		_readBlock(t, def.lineInfo);
 
-		t.vm.alloc.resizeArray(def.upvalNames, cast(uword)integer());
+		t.vm.alloc.resizeArray(def.upvalNames, _length(t));
 
 		foreach(ref name; def.upvalNames)
-		{
-			deserializeString();
-			name = getStringObj(t, -1);
-			pop(t);
-		}
+			name = _deserializeString(t);
 
-		t.vm.alloc.resizeArray(def.locVarDescs, cast(uword)integer());
+		t.vm.alloc.resizeArray(def.locVarDescs, _length(t));
 
 		foreach(ref desc; def.locVarDescs)
 		{
-			deserializeString();
-			desc.name = getStringObj(t, -1);
-			pop(t);
-			integer(desc.pcStart);
-			integer(desc.pcEnd);
-			integer(desc.reg);
+			desc.name = _deserializeString(t);
+			desc.pcStart = _length(t);
+			desc.pcEnd = _length(t);
+			desc.reg = _length(t);
 		}
 
-		push(t, CrocValue(cast(CrocBaseObject*)def));
+		push(t, CrocValue(def));
+		return 1;
 	}
 
-	void deserializeClass()
+	uword _deserializeClassImpl(CrocThread* t)
 	{
-		if(checkObjTag(CrocValue.Type.Class))
-			deserializeClassImpl();
-	}
+		auto v = classobj.create(t.vm.alloc, null);
+		_addObject(t, cast(CrocBaseObject*)v);
 
-	void deserializeClassImpl()
-	{
-    	auto cls = t.vm.alloc.allocate!(CrocClass)();
-    	addObject(cast(CrocBaseObject*)cls);
+		v.name = _deserializeString(t);
 
-    	deserializeString();
-		cls.name = getStringObj(t, -1);
-		pop(t);
+		auto numMethods = _length(t);
 
-		bool haveParent;
-		get(t, mInput, haveParent);
-
-		if(haveParent)
+		for(uword i = 0; i < numMethods; i++)
 		{
-			deserializeClass();
-			cls.parent = getClass(t, -1);
+			auto name = _deserializeString(t);
+			_deserialize(t);
+
+			if(!classobj.addMethod(t.vm.alloc, v, name, getValue(t, -1), false))
+			{
+				throwStdException(t, "ValueError", "Malformed data (class {} already has a method '{}')",
+					v.name.toString(), name.toString());
+			}
+
 			pop(t);
 		}
-		else
-			cls.parent = null;
 
-		deserializeNamespace();
-		// TODO: this
-		assert(false);
+		auto numFields = _length(t);
 
-		/* pop(t);
-
-		assert(!cls.parent || cls.fields.parent);
-
-		push(t, CrocValue(cls)); */
-	}
-
-	void deserializeInstance()
-	{
-		if(checkObjTag(CrocValue.Type.Instance))
-			deserializeInstanceImpl();
-	}
-
-	void deserializeInstanceImpl()
-	{
-		deserializeClass();
-		auto parent = getClass(t, -1);
-		auto inst = t.vm.alloc.allocate!(CrocInstance)(instance.InstanceSize(parent));
-		pop(t);
-		addObject(cast(CrocBaseObject*)inst);
-
-		bool isSpecial;
-		get(t, mInput, isSpecial);
-
-		if(isSpecial)
+		for(uword i = 0; i < numFields; i++)
 		{
-			push(t, CrocValue(inst));
+			auto name = _deserializeString(t);
+			_deserialize(t);
+
+			if(!classobj.addField(t.vm.alloc, v, name, getValue(t, -1), false))
+			{
+				throwStdException(t, "ValueError", "Malformed data (class {} already has a field '{}')",
+					v.name.toString(), name.toString());
+			}
+
+			pop(t);
+		}
+
+		if(_readUInt8(t) != 0)
+			classobj.freeze(v);
+
+		push(t, CrocValue(v));
+		return 1;
+	}
+
+	uword _deserializeInstanceImpl(CrocThread* t)
+	{
+		auto size = _length(t);
+
+		if(size < CrocInstance.sizeof || size >= (1 << 20)) // 1MB should be a reasonably insane upper bound :P
+			throwStdException(t, "ValueError", "Malformed data (invalid instance size)");
+
+		auto v = instance.createPartial(t.vm.alloc, size, false); // always false for now, might change later
+		_addObject(t, cast(CrocBaseObject*)v);
+
+		_deserializeObj(t, "_deserializeClass");
+		auto parent = getClass(t, -1); assert(parent !is null);
+
+		if(!parent.isFrozen)
+			throwStdException(t, "ValueError", "Malformed data (instance of an unfrozen class somehow exists)");
+
+		if(!instance.finishCreate(v, parent))
+			throwStdException(t, "ValueError", "Malformed data (instance size does not match base class size)");
+
+		if(_readUInt8(t) != 0)
+		{
+			push(t, CrocValue(v));
 
 			if(!hasMethod(t, -1, "opDeserialize"))
 			{
 				pushToString(t, -1, true);
-				throwStdException(t, "ValueException",
+				throwStdException(t, "ValueError",
 					"'{}' was serialized with opSerialize, but does not have a matching opDeserialize", getString(t, -1));
 			}
 
 			pushNull(t);
-			push(t, CrocValue(mStream));
-			push(t, CrocValue(mDeserializeFunc));
+			field(t, 0, _Input);
+			field(t, 0, _DeserializeFunc);
 			methodCall(t, -4, "opDeserialize", 0);
 		}
 		else
 		{
-			// TODO: this
-			assert(false);
+			auto numFields = _length(t);
+
+			for(uword i = 0; i < numFields; i++)
+			{
+				auto name = _deserializeString(t);
+				_deserialize(t);
+
+				auto slot = instance.getField(v, name);
+
+				if(slot is null)
+				{
+					throwStdException(t, "ValueError", "Malformed data (no field '{}' in instance of class '{}')",
+						name.toString(), parent.name.toString());
+				}
+
+				instance.setField(t.vm.alloc, v, slot, getValue(t, -1));
+				pop(t);
+			}
 		}
 
-		push(t, CrocValue(inst));
+		push(t, CrocValue(v));
+		return 1;
 	}
 
-	void deserializeNamespace()
+	uword _limitedSize(CrocThread* t, uword max, char[] msg)
 	{
-		if(checkObjTag(CrocValue.Type.Namespace))
-			deserializeNamespaceImpl();
+		auto ret = _length(t);
+
+		if(ret >= max)
+			throwStdException(t, "ValueError", "Malformed data ({})", msg);
+
+		return ret;
 	}
 
-	void deserializeNamespaceImpl()
+	void _deserializeStack(CrocThread* t, CrocThread* ret)
 	{
-		auto ns = t.vm.alloc.allocate!(CrocNamespace);
-		addObject(cast(CrocBaseObject*)ns);
+		// TODO: define some "max stack size" for threads so that we know when stuff is borked
+		auto stackIndex = _limitedSize(t, 100_000, "invalid thread stack size");
+		auto stackBase = _limitedSize(t, stackIndex, "invalid thread stack base");
+		auto stackTop = _limitedSize(t, 100_000, "invalid thread stack top");
 
-		deserializeString();
-		ns.name = getStringObj(t, -1);
-		pop(t);
-		push(t, CrocValue(ns));
+		t.vm.alloc.resizeArray(ret.stack, stackTop < 20 ? 20 : stackTop);
+		ret.stackIndex = stackIndex;
+		ret.stackBase = stackBase;
 
-		bool haveParent;
-		get(t, mInput, haveParent);
-
-		if(haveParent)
+		foreach(ref val; ret.stack[0 .. stackTop])
 		{
-			deserializeNamespace();
-			ns.parent = getNamespace(t, -1);
+			_deserialize(t);
+			val = *getValue(t, -1);
 			pop(t);
 		}
-		else
-			ns.parent = null;
+	}
 
-		auto len = cast(uword)integer();
+	void _deserializeActRec(CrocThread* t, CrocThread* ret, ref ActRecord rec)
+	{
+		rec.base = _limitedSize(t, ret.stackIndex, "invalid call record base slot");
+		rec.savedTop = _limitedSize(t, 100_000, "invalid call record saved top slot");
+		rec.vargBase = _limitedSize(t, rec.base + 1, "invalid call record variadic base slot");
+		rec.returnSlot = _limitedSize(t, 100_000, "invalid call record return value slot");
 
-		for(uword i = 0; i < len; i++)
+		if(_readUInt8(t))
 		{
-			deserializeString();
-			deserializeValue();
-			fielda(t, -3);
+			_deserializeObj(t, "_deserializeFunction");
+			rec.func = getFunction(t, -1);
+			pop(t);
+
+			auto diff = _limitedSize(t, rec.func.scriptFunc.code.length, "invalid call record instruction pointer");
+			rec.pc = rec.func.scriptFunc.code.ptr + diff;
+		}
+		else
+		{
+			rec.func = null;
+			rec.pc = null;
+		}
+
+		rec.numReturns = cast(word)_integer(t);
+
+		if(rec.numReturns < -1 || rec.numReturns > 100_000)
+			throwStdException(t, "ValueError", "Malformed data (invalid call record number of returns)");
+
+		rec.numTailcalls = _length(t);
+		rec.firstResult = _length(t);
+
+		if(ret.resultIndex > 0 && rec.firstResult >= ret.resultIndex)
+			throwStdException(t, "ValueError", "Malformed data (invalid call record result index)");
+
+		rec.numResults = _length(t);
+
+		if(rec.numResults > 0 && rec.numResults > (ret.resultIndex - rec.firstResult))
+			throwStdException(t, "ValueError", "Malformed data (invalid call record number of results)");
+
+		rec.unwindCounter = _length(t); // check later
+
+		if(_readUInt8(t))
+		{
+			auto diff = _limitedSize(t, rec.func.scriptFunc.code.length, "invalid call record EH return pointer");
+			rec.unwindReturn = rec.func.scriptFunc.code.ptr + diff;
+		}
+		else
+			rec.unwindReturn = null;
+	}
+
+	void _checkActRecs(CrocThread* t, CrocThread* ret)
+	{
+		auto ars = ret.actRecs[0 .. ret.arIndex];
+
+		// forall act rec i:
+		foreach(i, ar; ars)
+		{
+			auto prevBase = (i > 0) ? ars[i - 1].base : 0;
+			auto nextBase = (i + 1 < ars.length) ? ars[i + 1].base : ret.stackIndex;
+
+			// base_i <= base_(i + 1)
+			if(ar.base > nextBase)
+				throwStdException(t, "ValueError", "invalid call record base slot");
+
+			// base_(i-1) <= returnSlot_i < base_(i + 1)
+			// TODO: determine if this is actually true :P
+
+			// unwindCounter_i <= number of EH frames this call record has
+			// TODO:
 		}
 	}
 
-	void deserializeThread()
+	void _deserializeCallStack(CrocThread* t, CrocThread* ret)
 	{
-		if(checkObjTag(CrocValue.Type.Thread))
-			deserializeThreadImpl();
-	}
+		// TODO: define some "recursion limit" for threads so that we know when stuff is borked
 
-	void deserializeThreadImpl()
-	{
-		auto ret = t.vm.alloc.allocate!(CrocThread);
-		addObject(cast(CrocBaseObject*)ret);
-		ret.vm = t.vm;
-		integer(ret.savedCallDepth);
-		integer(ret.arIndex);
+		version(CrocExtendedThreads) {} else
+			ret.savedCallDepth = _limitedSize(t, 100_000, "invalid thread saved call stack size");
+
+		ret.arIndex = _limitedSize(t, 100_000, "invalid thread call stack size");
+
 		t.vm.alloc.resizeArray(ret.actRecs, ret.arIndex < 10 ? 10 : ret.arIndex);
 
 		if(ret.arIndex > 0)
@@ -1405,64 +953,15 @@ private:
 			ret.currentAR = null;
 
 		foreach(ref rec; ret.actRecs[0 .. ret.arIndex])
-		{
-			integer(rec.base);
-			integer(rec.savedTop);
-			integer(rec.vargBase);
-			integer(rec.returnSlot);
+			_deserializeActRec(t, ret, rec);
 
-			bool haveFunc;
-			get(t, mInput, haveFunc);
+		_checkActRecs(t, ret);
+	}
 
-			if(haveFunc)
-			{
-				deserializeFunction();
-				rec.func = getFunction(t, -1);
-				pop(t);
-
-				uword diff;
-				integer(diff);
-				rec.pc = rec.func.scriptFunc.code.ptr + diff;
-			}
-			else
-			{
-				rec.func = null;
-				rec.pc = null;
-			}
-
-			integer(rec.numReturns);
-
-			bool haveProto;
-			get(t, mInput, haveProto);
-
-			if(haveProto)
-			{
-				deserializeClass();
-				rec.proto = getClass(t, -1);
-				pop(t);
-			}
-			else
-				rec.proto = null;
-
-			integer(rec.numTailcalls);
-			integer(rec.firstResult);
-			integer(rec.numResults);
-			integer(rec.unwindCounter);
-
-			bool haveUnwindRet;
-			get(t, mInput, haveUnwindRet);
-
-			if(haveUnwindRet)
-			{
-				uword diff;
-				integer(diff);
-				rec.unwindReturn = rec.func.scriptFunc.code.ptr + diff;
-			}
-			else
-				rec.unwindReturn = null;
-		}
-
-		integer(ret.trIndex);
+	void _deserializeEHStack(CrocThread* t, CrocThread* ret)
+	{
+		// TODO: define some EH frame limit so that we know when stuff is borked
+		ret.trIndex = _limitedSize(t, 5_000, "invalid thread exception handling stack size");
 		t.vm.alloc.resizeArray(ret.tryRecs, ret.trIndex < 10 ? 10 : ret.trIndex);
 
 		if(ret.trIndex > 0)
@@ -1472,139 +971,120 @@ private:
 
 		foreach(ref rec; ret.tryRecs[0 .. ret.trIndex])
 		{
-			get(t, mInput, rec.isCatch);
-			integer(rec.slot);
-			integer(rec.actRecord);
+			rec.isCatch = cast(bool)_readUInt8(t);
+			rec.slot = _limitedSize(t, ret.stackIndex, "invalid thread EH frame stack slot");
+			rec.actRecord = _limitedSize(t, ret.arIndex, "invalid thread EH frame call record index");
 
-			uword diff;
-			integer(diff);
-			rec.pc = ret.actRecs[rec.actRecord].func.scriptFunc.code.ptr + diff;
+			auto func = ret.actRecs[rec.actRecord].func;
+
+			if(func is null || func.isNative)
+				throwStdException(t, "ValueError", "Malformed data (invalid thread EH frame call record index)");
+
+			auto diff = _limitedSize(t, func.scriptFunc.code.length, "invalid thread EH frame instruction pointer");
+			rec.pc = func.scriptFunc.code.ptr + diff;
 		}
+	}
 
-		integer(ret.stackIndex);
-
-		uword stackTop;
-		integer(stackTop);
-		t.vm.alloc.resizeArray(ret.stack, stackTop < 20 ? 20 : stackTop);
-
-		foreach(ref val; ret.stack[0 .. stackTop])
-		{
-			deserializeValue();
-			val = *getValue(t, -1);
-			pop(t);
-		}
-
-		integer(ret.stackBase);
-		integer(ret.resultIndex);
+	void _deserializeResultStack(CrocThread* t, CrocThread* ret)
+	{
+		// TODO: define some result stack limit
+		ret.resultIndex = _limitedSize(t, 10_000, "invalid thread result stack size");
 		t.vm.alloc.resizeArray(ret.results, ret.resultIndex < 8 ? 8 : ret.resultIndex);
 
 		foreach(ref val; ret.results[0 .. ret.resultIndex])
 		{
-			deserializeValue();
+			_deserialize(t);
 			val = *getValue(t, -1);
 			pop(t);
 		}
+	}
 
-		get(t, mInput, ret.shouldHalt);
-
-		bool haveCoroFunc;
-		get(t, mInput, haveCoroFunc);
-
-		if(haveCoroFunc)
+	void _deserializeCoroFunc(CrocThread* t, CrocThread* ret)
+	{
+		if(_readUInt8(t))
 		{
-			deserializeFunction();
-			ret.coroFunc = getFunction(t, -1);
+			_deserializeObj(t, "_deserializeFunction");
+			auto func = getFunction(t, -1);
+
+			if(func.isNative)
+				throwStdException(t, "ValueError", "Malformed data (invalid thread main function)");
+
+			ret.coroFunc = func;
 			pop(t);
 		}
 		else
 			ret.coroFunc = null;
+	}
 
-		integer(ret.state);
-		integer(ret.numYields);
+	void _deserializeUpvals(CrocThread* t, CrocThread* ret)
+	{
+		// TODO: define an upval stack size or something
+		auto numUpvals = _limitedSize(t, 100_000, "invalid thread upval stack size");
 
-		// TODO: hooks?!
-
+		CrocUpval* cur = null;
 		auto next = &t.upvalHead;
 
-		while(true)
+		for(uword i = 0; i < numUpvals; i++)
 		{
-			deserializeValue();
-
-			if(isNull(t, -1))
-			{
-				pop(t);
-				break;
-			}
-
+			_deserializeObj(t, "_deserializeUpvalue");
 			auto uv = cast(CrocUpval*)getValue(t, -1).mBaseObj;
 			pop(t);
 
-			uword diff;
-			integer(diff);
-
+			auto diff = _limitedSize(t, ret.stackIndex, "invalid thread upval slot");
 			uv.value = ret.stack.ptr + diff;
+
+			if(cur && uv.value <= cur.value)
+				throwStdException(t, "ValueError", "Malformed data (invalid thread upval list)");
+
 			*next = uv;
 			next = &uv.nextuv;
+			cur = uv;
 		}
 
 		*next = null;
+	}
+
+	uword _deserializeThreadImpl(CrocThread* t)
+	{
+		version(CrocExtendedThreads)
+			throwStdException(t, "ValueError", "Attempting to deserialize a thread while extended threads were compiled in");
+
+		auto ret = thread.createPartial(t.vm);
+		_addObject(t, cast(CrocBaseObject*)ret);
+
+		ret.shouldHalt = cast(bool)_readUInt8(t);
+
+		auto state = _limitedSize(t, CrocThread.State.max + 1, "invalid thread state");
+
+		if(state == CrocThread.State.Running)
+			throwStdException(t, "ValueError", "Malformed data (invalid thread state)");
+
+		ret.state = cast(CrocThread.State)state;
+
+		_deserializeStack(t, ret);
+
+		ret.numYields = _limitedSize(t, ret.stackIndex, "invalid yield count");
+
+		_deserializeResultStack(t, ret);
+		_deserializeCallStack(t, ret);
+		_deserializeEHStack(t, ret);
+		_deserializeCoroFunc(t, ret);
+		_deserializeUpvals(t, ret);
 
 		pushThread(t, ret);
+		return 1;
 	}
 
-	void deserializeWeakref()
+	uword _deserializeUpvalueImpl(CrocThread* t)
 	{
-		if(checkObjTag(CrocValue.Type.WeakRef))
-			deserializeWeakrefImpl();
+		auto uv = t.vm.alloc.allocate!(CrocUpval)();
+		uv.value = &uv.closedValue;
+		_addObject(t, cast(CrocBaseObject*)uv);
+		_deserialize(t);
+
+		throwStdException(t, "ValueError", "Wangs!");
+		uv.closedValue = *getValue(t, -1);
+		push(t, CrocValue(cast(CrocBaseObject*)uv));
+		return 1;
 	}
-
-	void deserializeWeakrefImpl()
-	{
-		auto wr = t.vm.alloc.allocate!(CrocWeakRef);
-		wr.obj = null;
-		addObject(cast(CrocBaseObject*)wr);
-
-		bool isNull;
-		get(t, mInput, isNull);
-
-		if(!isNull)
-		{
-			deserializeValue();
-			wr.obj = getValue(t, -1).mBaseObj;
-			pop(t);
-			*t.vm.weakRefTab.insert(t.vm.alloc, wr.obj) = wr;
-		}
-
-		push(t, CrocValue(wr));
-	}
-
-	void addObject(CrocBaseObject* v)
-	{
-		t.vm.alloc.resizeArray(mObjTable, mObjTable.length + 1);
-		mObjTable[$ - 1] = v;
-	}
-}
-
-void get(T)(CrocThread* t, InputStream i, ref T ret)
-{
-	if(i.read(cast(void[])(&ret)[0 .. 1]) != T.sizeof)
-		throwStdException(t, "IOException", "End of stream while reading");
-}
-
-void put(T)(CrocThread* t, OutputStream o, T val)
-{
-	if(o.write(cast(void[])(&val)[0 .. 1]) != T.sizeof)
-		throwStdException(t, "IOException", "End of stream while writing");
-}
-
-void readExact(CrocThread* t, InputStream i, void[] dest)
-{
-	if(i.read(dest) != dest.length)
-		throwStdException(t, "IOException", "End of stream while reading");
-}
-
-void append(CrocThread* t, OutputStream o, void[] val)
-{
-	if(o.write(val) != val.length)
-		throwStdException(t, "IOException", "End of stream while writing");
 }

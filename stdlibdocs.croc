@@ -1,18 +1,14 @@
 module stdlibdocs
 
-import docs:
-	LinkResolver,
-	LinkTranslator,
-	docsOf,
-	TracWikiDocOutput
+import docs: docsOf
+import doctools.output: SectionOrder, LinkResolver, LinkTranslator, OutputDocVisitor
+import doctools.trac: TracWikiOutputter
 
 function main()
 {
-	local t = CrocWikiLinkTranslator()
-	local r = LinkResolver(t)
-	local o = TracWikiDocOutput(r)
+	local o = OutputDocVisitor(SectionOrder(), TracWikiOutputter$ LinkResolver$ CrocWikiLinkTranslator())
 
-	o.outputItem(docsOf(docs), "")
+	o.visitItem(docsOf(docs))
 
 	t.printErrors()
 }
@@ -53,10 +49,10 @@ local StdlibLookup =
 
 class CrocWikiLinkTranslator : LinkTranslator
 {
-	__errors
+	_errors
 
 	this()
-		:__errors = []
+		:_errors = []
 
 	function translateLink(mod: string, item: string)
 	{
@@ -65,17 +61,14 @@ class CrocWikiLinkTranslator : LinkTranslator
 			if(item is "")
 				return "StdLib/BaseLib"
 			else switch(item)
-			{
-				case "Throwable": return "StdLib/Throwable"
-				default:          return "StdLib/BaseLib#" ~ item
-			}
+				return "StdLib/BaseLib#" ~ item
 		}
 		else
 		{
 			local ret = StdlibLookup[mod]
 
 			if(ret is null)
-				throw ValueException("Unknown stdlib module '{}'".format(mod))
+				throw ValueError("Unknown stdlib module '{}'".format(mod))
 
 			if(item is "")
 				return ret
@@ -89,20 +82,20 @@ class CrocWikiLinkTranslator : LinkTranslator
 
 	function invalidLink(link: string)
 	{
-		:__errors.append(link)
+		:_errors.append(link)
 
 		return ""
 	}
 
 	function printErrors()
 	{
-		if(#:__errors == 0)
+		if(#:_errors == 0)
 			return
 
 		writeln()
 		writeln("!!!!!!! Link resolution failures !!!!!!!")
 
-		foreach(err; :__errors)
+		foreach(err; :_errors)
 			writeln("   ", err)
 	}
 }

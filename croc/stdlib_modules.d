@@ -35,16 +35,16 @@ import croc.api_stack;
 import croc.compiler;
 import croc.ex;
 import croc.ex_library;
-import croc.serialization;
+import croc.ex_serialization;
 import croc.types;
 
 alias CrocDoc.Docs Docs;
 alias CrocDoc.Param Param;
 alias CrocDoc.Extra Extra;
 
-// ================================================================================================================================================
+// =========================================================================================================================================
 // Public
-// ================================================================================================================================================
+// =========================================================================================================================================
 
 public:
 
@@ -60,7 +60,6 @@ void initModulesLib(CrocThread* t)
 	newTable(t);        fielda(t, ns, "customLoaders");
 	dup(t, ns); newFunctionWithEnv(t, 1, &_load,       "load");       fielda(t, ns, "load");
 	dup(t, ns); newFunctionWithEnv(t, 1, &_reload,     "reload");     fielda(t, ns, "reload");
-	dup(t, ns); newFunctionWithEnv(t, 2, &_initModule, "initModule"); fielda(t, ns, "initModule");
 	dup(t, ns); newFunctionWithEnv(t,    &_runMain,    "runMain");    fielda(t, ns, "runMain");
 
 	newTable(t);
@@ -70,8 +69,8 @@ void initModulesLib(CrocThread* t)
 	fielda(t, ns, "loaded");
 
 	pushString(t, "loaders");
-		dup(t, ns); newFunctionWithEnv(t, 1, &_customLoad,    "customLoad");
-		dup(t, ns); newFunctionWithEnv(t, 1, &_loadFiles,     "loadFiles");
+		dup(t, ns); newFunctionWithEnv(t, 1, &_customLoad, "customLoad");
+		dup(t, ns); newFunctionWithEnv(t, 1, &_loadFiles,  "loadFiles");
 		newArrayFromStack(t, 2);
 	fielda(t, ns);
 
@@ -95,65 +94,64 @@ version(CrocBuiltinDocs) void docModulesLib(CrocThread* t)
 	pop(t);
 }
 
-// ================================================================================================================================================
+// =========================================================================================================================================
 // Private
-// ================================================================================================================================================
+// =========================================================================================================================================
 
 private:
 
 const Loading = "modules.loading";
 const Prefixes = "modules.prefixes";
 
-uword _load(CrocThread* t)
+// =========================================================================================================================================
+// Internal funcs
+
+bool isLoading(CrocThread* t, char[] name)
 {
-	auto name = checkStringParam(t, 1);
-
-	pushGlobal(t, "loaded");
-	dup(t, 1);
-	idx(t, -2);
-
-	if(isNamespace(t, -1))
-		return 1;
-
-	pop(t, 2);
-	return commonLoad(t, name);
-}
-
-uword _reload(CrocThread* t)
-{
-	auto name = checkStringParam(t, 1);
-
-	pushGlobal(t, "loaded");
-	dup(t, 1);
-	idx(t, -2);
-
-	if(isNull(t, -1))
-		throwStdException(t, "ImportException", "Attempting to reload module '{}' which has not yet been loaded", name);
-
-	pop(t, 2);
-	return commonLoad(t, name);
-}
-
-uword commonLoad(CrocThread* t, char[] name)
-{
-	// Check to see if we're circularly importing
 	auto loading = getRegistryVar(t, Loading);
+	auto ret = hasField(t, loading, name);
+	pop(t);
+	return ret;
+}
 
-	if(hasField(t, loading, name))
-		throwStdException(t, "ImportException", "Attempting to import module '{}' while it's in the process of being imported; is it being circularly imported?", name);
+void setLoading(CrocThread* t, char[] name, bool loading)
+{
+	auto loadingTab = getRegistryVar(t, Loading);
 
-	pushBool(t, true);
-	fielda(t, loading, name);
-
-	scope(exit)
-	{
-		getRegistryVar(t, Loading);
+	if(loading)
+		pushBool(t, true);
+	else
 		pushNull(t);
-		fielda(t, -2, name);
+
+	fielda(t, loadingTab, name);
+	pop(t);
+}
+
+void setLoaded(CrocThread* t, char[] name, word reg)
+{
+	auto loaded = pushGlobal(t, "loaded");
+	dup(t, reg);
+	fielda(t, loaded, name);
+	pop(t);
+
+	auto idx = name.locate('.');
+
+	if(idx != name.length)
+	{
+		auto prefixes = getRegistryVar(t, Prefixes);
+
+		for(; idx != name.length; idx = name.locate('.', idx + 1))
+		{
+			pushBool(t, true);
+			fielda(t, prefixes, name[0 .. idx]);
+		}
+
 		pop(t);
 	}
+}
 
-	// Check for name conflicts
+void checkNameConflicts(CrocThread* t, char[] name)
+{
 	auto loaded = pushGlobal(t, "loaded");
 
 	for(auto idx = name.locate('.'); idx != name.length; idx = name.locate('.', idx + 1))
@@ -168,6 +166,19 @@ uword commonLoad(CrocThread* t, char[] name)
 		throwStdException(t, "ImportException", "Attempting to import module '{}', but other modules use that name as a prefix", name);
 
 	pop(t, 2);
+}
+
+uword commonLoad(CrocThread* t, char[] name)
+{
+	// Check to see if we're circularly importing
+	if(isLoading(t, name))
+		throwStdException(t, "ImportException", "Attempting to import module '{}' while it's in the process of being imported; is it being circularly imported?", name);
+
+	setLoading(t, name, true);
+	scope(exit) setLoading(t, name, false);
+
+	// Check for name conflicts
+	checkNameConflicts(t, name);
 
 	// Run through the loaders
 	auto loaders = pushGlobal(t, "loaders");
@@ -178,15 +189,12 @@ uword commonLoad(CrocThread* t, char[] name)
 		auto reg = idxi(t, loaders, i);
 		pushNull(t);
 		pushString(t, name);
-		rawCall(t, reg, 1);
+		call(t, reg, 1);
 
 		if(isFuncDef(t, reg) || isFunction(t, reg))
 		{
-			pushGlobal(t, "initModule");
-			pushNull(t);
-			moveToTop(t, reg);
-			pushString(t, name);
-			return rawCall(t, -4, 1);
+			initModule(t, name, reg);
+			return 1;
 		}
 		else if(isNamespace(t, reg))
 		{
@@ -196,7 +204,7 @@ uword commonLoad(CrocThread* t, char[] name)
 		else if(!isNull(t, reg))
 		{
 			pushTypeString(t, reg);
-			throwStdException(t, "TypeException", "modules.loaders[{}] expected to return a function, funcdef, namespace, or null, not '{}'", i, getString(t, -1));
+			throwStdException(t, "TypeError", "modules.loaders[{}] expected to return a function, funcdef, namespace, or null, not '{}'", i, getString(t, -1));
 		}
 
 		pop(t);
@@ -207,17 +215,10 @@ uword commonLoad(CrocThread* t, char[] name)
 	assert(false);
 }
 
-uword _initModule(CrocThread* t)
+void initModule(CrocThread* t, char[] name, word reg)
 {
-	checkAnyParam(t, 1);
-
-	if(!isFunction(t, 1) && !isFuncDef(t, 1))
-		paramTypeError(t, 1, "function|funcdef");
-
-	if(isFunction(t, 1) && !funcIsNative(t, 1))
-		throwStdException(t, "ValueException", "Function must be a native function");
-
-	auto name = checkStringParam(t, 2);
+	if(isFunction(t, reg) && !funcIsNative(t, reg))
+		throwStdException(t, "ValueError", "Top-level module function must be a native function");
 
 	// Make the namespace
 	auto ns = pushGlobal(t, "_G");
@@ -257,7 +258,6 @@ uword _initModule(CrocThread* t)
 	}
 
 	// at this point foundSplit is only true if we had to create new namespaces -- that is, upon first loading, and not during reloading
-
 	if(len(t, ns) > 0)
 		clearNamespace(t, ns);
 
@@ -265,20 +265,20 @@ uword _initModule(CrocThread* t)
 	word funcSlot;
 	dup(t, ns);
 
-	if(isFunction(t, 1))
+	if(isFunction(t, reg))
 	{
-		setFuncEnv(t, 1);
-		funcSlot = dup(t, 1);
+		setFuncEnv(t, reg);
+		funcSlot = dup(t, reg);
 	}
 	else
-		funcSlot = newFunctionWithEnv(t, 1);
+		funcSlot = newFunctionWithEnv(t, reg);
 
 	dup(t, ns);
 
 	// Call the top-level function
 	croctry(t,
 	{
-		rawCall(t, funcSlot, 0);
+		call(t, funcSlot, 0);
 	},
 	(CrocException e, word exSlot)
 	{
@@ -286,7 +286,7 @@ uword _initModule(CrocThread* t)
 		pushNull(t);
 		pushFormat(t, "Error loading module '{}': exception thrown from module's top-level function", name);
 		dup(t, exSlot);
-		rawCall(t, slot, 1);
+		call(t, slot, 1);
 		throwException(t);
 	});
 
@@ -301,30 +301,39 @@ uword _initModule(CrocThread* t)
 	}
 
 	dup(t, ns);
-	return 1;
 }
 
-void setLoaded(CrocThread* t, char[] name, word reg)
+// =========================================================================================================================================
+// Implementations
+
+uword _load(CrocThread* t)
 {
-	auto loaded = pushGlobal(t, "loaded");
-	dup(t, reg);
-	fielda(t, loaded, name);
-	pop(t);
+	auto name = checkStringParam(t, 1);
 
-	auto idx = name.locate('.');
+	pushGlobal(t, "loaded");
+	dup(t, 1);
+	idx(t, -2);
 
-	if(idx != name.length)
-	{
-		auto prefixes = getRegistryVar(t, Prefixes);
+	if(isNamespace(t, -1))
+		return 1;
 
-		for(; idx != name.length; idx = name.locate('.', idx + 1))
-		{
-			pushBool(t, true);
-			fielda(t, prefixes, name[0 .. idx]);
-		}
+	pop(t, 2);
+	return commonLoad(t, name);
+}
 
-		pop(t);
-	}
+uword _reload(CrocThread* t)
+{
+	auto name = checkStringParam(t, 1);
+
+	pushGlobal(t, "loaded");
+	dup(t, 1);
+	idx(t, -2);
+
+	if(isNull(t, -1))
+		throwStdException(t, "ImportException", "Attempting to reload module '{}' which has not yet been loaded", name);
+
+	pop(t, 2);
+	return commonLoad(t, name);
 }
 
 uword _runMain(CrocThread* t)
@@ -338,7 +347,7 @@ uword _runMain(CrocThread* t)
 		if(isFunction(t, main))
 		{
 			insert(t, 1);
-			rawCall(t, 1, 0);
+			call(t, 1, 0);
 		}
 	}
 
@@ -413,7 +422,8 @@ uword _loadFiles(CrocThread* t)
 		else if(bin.exists)
 		{
 			char[] loadedName = void;
-			scope fc = new File(bin.toString(), File.ReadExisting);
+			auto fc = new File(bin.toString(), File.ReadExisting);
+
 			deserializeModule(t, loadedName, fc);
 
 			if(loadedName != name)
@@ -442,6 +452,7 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	{kind: "variable", name: "modules.loaded",
 	extra: [Extra("protection", "global")],
 	docs:
+
 	"This is a table that holds all currently-loaded modules. The keys are the module names as strings, and the values
 	are the corresponding modules' namespaces. This is the table that \tt{modules.load} will check in first before trying
 	to look for a loader."},
@@ -496,10 +507,22 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 			name; for example, if you have a module "foo.bar", you may not have a module "foo" as it's a prefix of
 			"foo.bar". If there are any conflicts, it throws an error.
 		\li It iterates through the \link{modules.loaders} array, calling each successive loader with the module's name.
-			If a loader returns a namespace, it puts it in the \link{modules.loaded} table and returns that namespace. If
-			a loader returns a function or funcdef, it calls \link{modules.initModule} with the function/funcdef as the first
-			parameter and the name of the module as the second parameter, and returns the result of that function. If
-			a loader returns null, it continues on to the next loader.
+			If a loader returns null, it continues on to the next loader. If a loader returns a namespace, it puts it in
+			the \link{modules.loaded} table and returns that namespace. If a loader returns a function (native only) or
+			funcdef, it is assumed to be the modules's top-level function, and the following occurs:
+
+			\nlist
+				\li The dotted module name is used to create the namespace for the module in the global namespace hierarchy
+					if it doesn't already exist. If the namespace already exists (such as when a module is being reloaded),
+					it is cleared at this point.
+				\li If the loader returned a funcdef, a closure is created here using that funcdef and the new namespace as
+					its environment. If the loader returned a (native) function, its environment is changed to the new namespace.
+				\li The top-level function is called, with the module's namespace as the 'this' parameter.
+				\li If the top-level function succeeds, the module's namespace will be inserted into the global namespace hierarchy
+					and into the \link{modules.loaded} table, at which point \tt{modules.load} returns that namespace.
+				\li Otherwise, if the top-level function fails, no change will be made to the global namespace hierarchy
+					(unless the namespace was cleared during a module reload), and an exception will be thrown.
+			\endlist
 		\li If it gets through the entire array without getting a function or namespace from any loaders, an error is
 			thrown saying that the module could not be loaded.
 	\endlist
@@ -517,31 +540,6 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	`Very similar to \link{modules.load}, but reloads an already-loaded module. This function replaces step 1 of
 	\link{modules.load}'s process with a check to see if the module has already been loaded; if it has, it continues
 	on with the process. If it hasn't been loaded, throws an error.`},
-
-	{kind: "function", name: "modules.initModule",
-	params: [Param("topLevel", "function|funcdef"), Param("name", "string")],
-	extra: [Extra("protection", "global")],
-	docs:
-	`Initialize a module with a top-level function/funcdef and a name.
-
-	The name is used to create the namespace for the module in the global namespace hierarchy if it doesn't already exist.
-	If the module namespace does already exist (such as in the case when a module is being reloaded), it is cleared before
-	the top-level is called. Once the namespace has been created, the top-level function (or if the first parameter is a
-	funcdef, the result of creating a new closure of that funcdef with the new namespace as the environment) is called with
-	the module namespace as the 'this' parameter.
-
-	If the top-level function completes successfully, the module's namespace will be inserted into the global namespace
-	hierarchy and also be added to the \link{modules.loaded} table.
-
-	If the top-level function fails, no change will be made to the global namespace hierarchy (unless the module's namespace
-	was cleared).
-
-	Note that if you pass a function as the \tt{topLevel} parameter, it can only be a native function. Script functions'
-	environments are fixed and cannot be set to the new module namespace. For that matter, if you pass a funcdef, that funcdef
-	must not have had any closures created from it yet, as that would associate a namespace with that funcdef as well.
-
-	\param[topLevel] Either a native function or a script function definition, used as the top-level statements of the module.
-	\param[name]     The name of the module, in dotted form (such as "foo.bar").`},
 
 	{kind: "function", name: "modules.runMain",
 	params: [Param("ns", "namespace"), Param("vararg", "vararg")],

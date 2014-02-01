@@ -48,7 +48,7 @@ void initAsciiCodec(CrocThread* t)
 	newTable(t);
 		registerFields(t, _funcs);
 
-	rawCall(t, -3, 0);
+	call(t, -3, 0);
 }
 
 // =====================================================================================================================
@@ -102,13 +102,13 @@ uword _asciiEncodeInternal(CrocThread* t)
 			last = src;
 
 			if(errors == "strict")
-				throwStdException(t, "UnicodeException", "Character U+{:X6} cannot be encoded as ASCII", cast(uint)c);
+				throwStdException(t, "UnicodeError", "Character U+{:X6} cannot be encoded as ASCII", cast(uint)c);
 			else if(errors == "ignore")
 				continue;
   			else if(errors == "replace")
 				*(dest++) = '?';
 			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+				throwStdException(t, "ValueError", "Invalid error handling type '{}'", errors);
 		}
 	}
 
@@ -147,13 +147,13 @@ uword _asciiDecodeInternal(CrocThread* t)
 			last = src;
 
 			if(errors == "strict")
-				throwStdException(t, "UnicodeException", "Character 0x{:X2} is invalid ASCII (above 0x7F)", c);
+				throwStdException(t, "UnicodeError", "Character 0x{:X2} is invalid ASCII (above 0x7F)", c);
 			else if(errors == "ignore")
 				continue;
 			else if(errors == "replace")
 				s.addChar('\uFFFD');
 			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+				throwStdException(t, "ValueError", "Invalid error handling type '{}'", errors);
 		}
 	}
 
@@ -165,49 +165,49 @@ uword _asciiDecodeInternal(CrocThread* t)
 }
 
 const char[] _code =
-`
+CrocLinePragma!(__LINE__, __FILE__) ~ `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.asciiEncodeInternal, _internal.asciiDecodeInternal
 
 local class AsciiIncrementalEncoder : IncrementalEncoder
 {
-	__errors
+	_errors
 
-	this(errors: string = "strict")
-		:__errors = errors
+	override this(errors: string = "strict")
+		:_errors = errors
 
-	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
-		_encodeInto(str, dest, start, :__errors)
+	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
+		_encodeInto(str, dest, start, :_errors)
 
-	function reset() {}
+	override function reset() {}
 }
 
 local class AsciiIncrementalDecoder : IncrementalDecoder
 {
-	__errors
+	_errors
 
-	this(errors: string = "strict")
-		:__errors = errors
+	override this(errors: string = "strict")
+		:_errors = errors
 
-	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false) =
-		_decodeRange(src, lo, hi, :__errors)
+	override function decodeRange(src: memblock, lo: int, hi: int, final: bool = false) =
+		_decodeRange(src, lo, hi, :_errors)
 
-	function reset() {}
+	override function reset() {}
 }
 
 class AsciiCodec : TextCodec
 {
-	name = "ascii"
+	override name = "ascii"
 
-	function incrementalEncoder(errors: string = "strict") =
+	override function incrementalEncoder(errors: string = "strict") =
 		AsciiIncrementalEncoder(errors)
 
-	function incrementalDecoder(errors: string = "strict") =
+	override function incrementalDecoder(errors: string = "strict") =
 		AsciiIncrementalDecoder(errors)
 }
 
-object.addMethod(AsciiCodec, "encodeInto", _encodeInto)
-object.addMethod(AsciiCodec, "decodeRange", _decodeRange)
+object.addMethodOverride(AsciiCodec, "encodeInto", _encodeInto)
+object.addMethodOverride(AsciiCodec, "decodeRange", _decodeRange)
 
 registerCodec("ascii", AsciiCodec())
 `;

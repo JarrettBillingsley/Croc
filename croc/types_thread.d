@@ -25,6 +25,9 @@ subject to the following restrictions:
 
 module croc.types_thread;
 
+version(CrocExtendedThreads)
+	import tango.core.Thread;
+
 import croc.base_alloc;
 import croc.base_writebarrier;
 import croc.types;
@@ -42,39 +45,74 @@ package:
 	// Create a new thread object.
 	CrocThread* create(CrocVM* vm)
 	{
+		auto t = createPartial(vm);
 		auto alloc = &vm.alloc;
-		auto t = alloc.allocate!(CrocThread);
 
 		t.tryRecs = alloc.allocArray!(TryRecord)(10);
 		t.actRecs = alloc.allocArray!(ActRecord)(10);
 		t.stack = alloc.allocArray!(CrocValue)(20);
-		t.stackIndex = cast(AbsStack)1; // So that there is a 'this' at top-level.
 		t.results = alloc.allocArray!(CrocValue)(8);
-		t.tryRecs[0].actRecord = uword.max;
 
+		t.stackIndex = cast(AbsStack)1; // So that there is a 'this' at top-level.
+
+		return t;
+	}
+
+	// Partially create a new thread. Doesn't allocate any memory for its various stacks. Used for serialization.
+	CrocThread* createPartial(CrocVM* vm)
+	{
+		auto t = vm.alloc.allocate!(CrocThread);
 		t.vm = vm;
-
 		t.next = vm.allThreads;
 
 		if(t.next)
 			t.next.prev = t;
 
 		vm.allThreads = t;
-
 		return t;
 	}
 
-	// Create a new thread object with a function to be used as the coroutine body.
+	// Create a new thread object with a function to be used as the thread body.
 	CrocThread* create(CrocVM* vm, CrocFunction* coroFunc)
 	{
 		auto t = create(vm);
 		t.coroFunc = coroFunc;
+
+		version(CrocExtendedThreads)
+		{
+			version(CrocPoolFibers)
+			{
+				if(vm.fiberPool.length > 0)
+				{
+					Fiber f = void;
+
+					foreach(fiber, _; vm.fiberPool)
+					{
+						f = fiber;
+						break;
+					}
+
+					vm.fiberPool.remove(f);
+					t.threadFiber = nativeobj.create(vm, f);
+				}
+			}
+		}
+
 		return t;
 	}
 
 	void reset(CrocThread* t)
 	{
 		assert(t.upvalHead is null); // should be..?
+
+		version(CrocExtendedThreads)
+		{
+			if(t.threadFiber)
+			{
+				assert(t.getFiber().state == Fiber.State.TERM);
+				t.getFiber().reset();
+			}
+		}
 
 		t.currentTR = null;
 		t.trIndex = 0;
@@ -105,6 +143,18 @@ package:
 		}
 	}
 
+	version(CrocExtendedThreads)
+	{
+		void setThreadFiber(ref Allocator alloc, CrocThread* t, CrocNativeObj* f)
+		{
+			if(t.threadFiber !is f)
+			{
+				mixin(writeBarrier!("alloc", "t"));
+				t.threadFiber = f;
+			}
+		}
+	}
+
 	// Free a thread object.
 	void free(CrocThread* t)
 	{
@@ -113,6 +163,15 @@ package:
 
 		if(t.vm.allThreads is t)
 			t.vm.allThreads = t.next;
+
+		version(CrocExtendedThreads)
+		{
+			version(CrocPoolFibers)
+			{
+				if(t.threadFiber)
+					t.vm.fiberPool[t.getFiber()] = true;
+			}
+		}
 
 		for(auto uv = t.upvalHead; uv !is null; uv = t.upvalHead)
 		{

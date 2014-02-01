@@ -155,7 +155,7 @@ static:
 		auto sec = field(t, tab, "sec");
 
 		if(!isInt(t, year) || !isInt(t, month) || !isInt(t, day))
-			throwStdException(t, "ValueException", "year, month, and day fields in time table must exist and must be integers");
+			throwStdException(t, "ValueError", "year, month, and day fields in time table must exist and must be integers");
 
 		Time time = void;
 
@@ -196,7 +196,7 @@ static:
 
 		StopWatch w;
 		w.start();
-		rawCall(t, 1, 0);
+		call(t, 1, 0);
 		pushFloat(t, w.stop());
 
 		return 1;
@@ -205,20 +205,17 @@ static:
 	static struct Timer
 	{
 	static:
-		const Start = "Timer__start";
-		const Time = "Timer__time";
-
 		void init(CrocThread* t)
 		{
 			CreateClass(t, "Timer", (CreateClass* c)
 			{
-				pushInt(t, 0); c.field("__start");
-				pushInt(t, 0); c.field("__time");
-				c.method("start",       0, &start);
-				c.method("stop",        0, &stop);
-				c.method("seconds",     0, &seconds);
-				c.method("millisecs",   0, &millisecs);
-				c.method("microsecs",   0, &microsecs);
+				pushInt(t, 0); c.field("_start");
+				pushInt(t, 0); c.field("_time");
+				c.method("start",     0, &start);
+				c.method("stop",      0, &stop);
+				c.method("seconds",   0, &seconds);
+				c.method("millisecs", 0, &millisecs);
+				c.method("microsecs", 0, &microsecs);
 			});
 
 			newGlobal(t, "Timer");
@@ -227,36 +224,36 @@ static:
 		uword start(CrocThread* t)
 		{
 			pushInt(t, _getTime());
-			fielda(t, 0, Start);
+			fielda(t, 0, "_start");
 			return 0;
 		}
 
 		uword stop(CrocThread* t)
 		{
 			auto end = _getTime();
-			field(t, 0, Start);
+			field(t, 0, "_start");
 			pushInt(t, end - getInt(t, -1));
-			fielda(t, 0, Time);
+			fielda(t, 0, "_time");
 			return 0;
 		}
 
 		uword seconds(CrocThread* t)
 		{
-			field(t, 0, Time);
+			field(t, 0, "_time");
 			pushFloat(t, getInt(t, -1) / 1_000_000.0);
 			return 1;
 		}
 
 		uword millisecs(CrocThread* t)
 		{
-			field(t, 0, Time);
+			field(t, 0, "_time");
 			pushFloat(t, getInt(t, -1) / 1_000.0);
 			return 1;
 		}
 
 		uword microsecs(CrocThread* t)
 		{
-			field(t, 0, Time);
+			field(t, 0, "_time");
 			return 1;
 		}
 	}

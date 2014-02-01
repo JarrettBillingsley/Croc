@@ -37,7 +37,7 @@ static:
 	// ================================================================================================================================================
 
 package:
-	
+
 	const uint MaxParams = uint.max - 1;
 
 	// Create a script function.
@@ -49,13 +49,26 @@ package:
 		if(def.cachedFunc)
 			return def.cachedFunc;
 
-		auto f = alloc.allocate!(CrocFunction)(ScriptClosureSize(def.numUpvals));
-		f.scriptUpvals()[] = null;
+		auto f = createPartial(alloc, def.upvals.length);
+		finishCreate(alloc, f, env, def);
+		return f;
+	}
 
+	// Partially construct a script closure. This is used by the serialization system.
+	CrocFunction* createPartial(ref Allocator alloc, uword numUpvals)
+	{
+		auto f = alloc.allocate!(CrocFunction)(ScriptClosureSize(numUpvals));
 		f.isNative = false;
+		f.numUpvals = numUpvals;
+		f.scriptUpvals()[] = null;
+		return f;
+	}
+
+	// Finish constructing a script closure. Also used by serialization.
+	void finishCreate(ref Allocator alloc, CrocFunction* f, CrocNamespace* env, CrocFuncDef* def)
+	{
 		f.environment = env;
 		f.name = def.name;
-		f.numUpvals = def.numUpvals;
 		f.numParams = def.numParams;
 
 		if(def.isVararg)
@@ -71,13 +84,11 @@ package:
 			def.environment = env;
 		}
 
-		if(def.numUpvals == 0)
+		if(def.upvals.length == 0 && def.cachedFunc is null)
 		{
 			mixin(writeBarrier!("alloc", "def"));
 			def.cachedFunc = f;
 		}
-
-		return f;
 	}
 
 	// Create a native function.
@@ -85,7 +96,7 @@ package:
 	{
 		auto f = alloc.allocate!(CrocFunction)(NativeClosureSize(numUpvals));
 		f.nativeUpvals()[] = CrocValue.nullValue;
-		
+
 		f.isNative = true;
 		f.environment = env;
 		f.name = name;
@@ -97,11 +108,11 @@ package:
 
 		return f;
 	}
-	
+
 	void setNativeUpval(ref Allocator alloc, CrocFunction* f, uword idx, CrocValue* val)
 	{
 		auto slot = &f.nativeUpvals()[idx];
-		
+
 		if(*slot != *val)
 		{
 			if((*slot).isGCObject() || val.isGCObject())
@@ -110,7 +121,7 @@ package:
 			*slot = *val;
 		}
 	}
-	
+
 	void setEnvironment(ref Allocator alloc, CrocFunction* f, CrocNamespace* ns)
 	{
 		if(f.environment !is ns)

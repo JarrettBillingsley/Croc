@@ -405,16 +405,16 @@ public:
 						return ret;
 
 					case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
-					case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
-					case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
+					case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret, docs, docsLoc); return ret;
+					case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret, docs, docsLoc); return ret;
 
 					default:
 						c.synException(l.loc, "Illegal token '{}' after '{}'", l.peek.typeString(), l.tok.typeString());
 				}
 
 			case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
-			case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
-			case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
+			case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret, docs, docsLoc); return ret;
+			case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret, docs, docsLoc); return ret;
 
 			default:
 				l.expected("Declaration");
@@ -480,7 +480,9 @@ public:
 			endLocation = initializer[$ - 1].endLocation;
 		}
 
-		return new(c) VarDecl(location, endLocation, protection, namesArr, initializer);
+		auto ret = new(c) VarDecl(location, endLocation, protection, namesArr, initializer);
+		propagateFuncLiteralNames(ret.names, ret.initializer);
+		return ret;
 	}
 
 	/**
@@ -757,7 +759,7 @@ public:
 
 				ret = TypeMask.Any;
 			}
-			else if(l.type == Token.Not)
+			else if(l.type == Token.Not || l.type == Token.NotKeyword)
 			{
 				l.next();
 				l.expect(Token.Null);
@@ -865,63 +867,43 @@ public:
 			l.next();
 		}
 
-		auto def = parseClassDef(false);
-		return new(c) ClassDecl(location, protection, def, deco);
-	}
+		l.expect(Token.Class);
 
-	/**
-	Parse a class definition.
+		auto className = parseIdentifier();
 
-	Params:
-		nameOptional = If true, the name is optional (such as with class literal expressions).
-			Otherwise, the name is required (such as with class declarations).
-
-	Returns:
-		An instance of ClassDef.
-	*/
-	ClassDef parseClassDef(bool nameOptional)
-	{
-		auto location = l.expect(Token.Class).loc;
-
-		Identifier className;
-
-		if(nameOptional)
-		{
-			if(l.type == Token.Ident)
-				className = parseIdentifier();
-			else
-				className = dummyClassLiteralName(location);
-		}
-		else
-			className = parseIdentifier();
-
-		Expression baseClass = null;
+		scope baseClasses = new List!(Expression)(c);
 
 		if(l.type == Token.Colon)
 		{
 			l.next();
+
+			Expression baseClass;
 			baseClass.sourceStr = capture({baseClass = parseExpression();});
+			baseClasses ~= baseClass;
+
+			while(l.type == Token.Comma)
+			{
+				l.next();
+				baseClass.sourceStr = capture({baseClass = parseExpression();});
+				baseClasses ~= baseClass;
+			}
 		}
 
 		l.expect(Token.LBrace);
 
 		auto oldClassName = mCurrentClassName;
 		mCurrentClassName = className.name;
+		scope(exit) mCurrentClassName = oldClassName;
 
-		scope(exit)
-			mCurrentClassName = oldClassName;
-
-		alias ClassDef.Field Field;
+		alias ClassDecl.Field Field;
 		scope fields = new List!(Field)(c);
 
-		void addField(Identifier name, Expression v, bool isMethod, char[] preDocs, CompileLoc preDocsLoc)
+		void addField(Decorator deco, Identifier name, Expression v, FuncLiteralExp func, bool isOverride, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			auto privacy = getFieldPrivacy(name.name);
+			if(deco !is null)
+				v = decoToExp(deco, v);
 
-			if(privacy is Privacy.Private)
-				fields ~= Field(makePrivateFieldName(className.name, name.name), v, cast(ubyte)privacy, isMethod);
-			else
-				fields ~= Field(name.name, v, cast(ubyte)privacy, isMethod);
+			fields ~= Field(checkPrivateFieldName(name.name), v, func, isOverride);
 
 			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
 			auto tmp = fields[fields.length - 1];
@@ -929,9 +911,10 @@ public:
 			fields[fields.length - 1] = tmp;
 		}
 
-		void addMethod(FuncDef m, char[] preDocs, CompileLoc preDocsLoc)
+		void addMethod(Decorator deco, FuncDef m, bool isOverride, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			addField(m.name, new(c) FuncLiteralExp(m.location, m), true, preDocs, preDocsLoc);
+			auto func = new(c) FuncLiteralExp(m.location, m);
+			addField(deco, m.name, func, func, isOverride, preDocs, preDocsLoc);
 			m.docs = fields[fields.length - 1].docs;
 			m.docsLoc = fields[fields.length - 1].docsLoc;
 		}
@@ -940,56 +923,27 @@ public:
 		{
 			auto docs = l.tok.preComment;
 			auto docsLoc = l.tok.preCommentLoc;
+			bool isOverride = false;
+			Decorator memberDeco = null;
+
+			if(l.type == Token.At)
+				memberDeco = parseDecorators();
+
+			if(l.type == Token.Override)
+			{
+				l.next();
+				isOverride = true;
+			}
 
 			switch(l.type)
 			{
 				case Token.Function:
-					addMethod(parseSimpleFuncDef(), docs, docsLoc);
+					addMethod(memberDeco, parseSimpleFuncDef(), isOverride, docs, docsLoc);
 					break;
 
 				case Token.This:
 					auto loc = l.expect(Token.This).loc;
-					addMethod(parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor"))), docs, docsLoc);
-					break;
-
-				case Token.At:
-					auto dec = parseDecorators();
-					Identifier fieldName = void;
-					Expression init = void;
-					bool isMethod = false;
-
-					if(l.type == Token.Function || l.type == Token.This)
-					{
-						isMethod = true;
-						FuncDef fd = void;
-
-						if(l.type == Token.Function)
-							fd = parseSimpleFuncDef();
-						else
-						{
-							auto loc = l.expect(Token.This).loc;
-							fd = parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor")));
-						}
-
-						fieldName = fd.name;
-						init = new(c) FuncLiteralExp(fd.location, fd);
-					}
-					else
-					{
-						fieldName = parseIdentifier();
-
-						if(l.type == Token.Assign)
-						{
-							l.next();
-							init.sourceStr = capture({init = parseExpression();});
-						}
-						else
-							init = new(c) NullExp(fieldName.location);
-
-						l.statementTerm();
-					}
-
-					addField(fieldName, decoToExp(dec, init), isMethod, docs, docsLoc);
+					addMethod(memberDeco, parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor"))), isOverride, docs, docsLoc);
 					break;
 
 				case Token.Ident:
@@ -1006,7 +960,7 @@ public:
 						v = new(c) NullExp(id.location);
 
 					l.statementTerm();
-					addField(id, v, false, docs, docsLoc);
+					addField(memberDeco, id, v, null, isOverride, docs, docsLoc);
 					break;
 
 				case Token.EOF:
@@ -1018,7 +972,7 @@ public:
 		}
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) ClassDef(location, endLocation, className, baseClass, fields.toArray());
+		return new(c) ClassDecl(location, endLocation, protection, deco, className, baseClasses.toArray(), fields.toArray());
 	}
 
 	/**
@@ -1040,19 +994,6 @@ public:
 			l.next();
 		}
 
-		auto def = parseNamespaceDef();
-		return new(c) NamespaceDecl(location, protection, def, deco);
-	}
-
-	/**
-	Parse a namespace. Both literals and declarations require a name.
-
-	Returns:
-		An instance of this class.
-	*/
-	NamespaceDef parseNamespaceDef()
-	{
-		auto location = l.loc;
 		l.expect(Token.Namespace);
 
 		auto name = parseIdentifier();
@@ -1064,7 +1005,6 @@ public:
 			parent.sourceStr = capture({parent = parseExpression();});
 		}
 
-
 		l.expect(Token.LBrace);
 
 		auto fieldMap = newTable(c.thread);
@@ -1072,22 +1012,26 @@ public:
 		scope(exit)
 			pop(c.thread);
 
-		alias NamespaceDef.Field Field;
+		alias NamespaceDecl.Field Field;
 		scope fields = new List!(Field)(c);
 
-		void addField(char[] name, Expression v, char[] preDocs, CompileLoc preDocsLoc)
+		void addField(Decorator deco, Identifier name, Expression v, FuncLiteralExp func, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			pushString(c.thread, name);
+			pushString(c.thread, name.name);
 
 			if(opin(c.thread, -1, fieldMap))
 			{
 				pop(c.thread);
-				c.semException(v.location, "Redeclaration of member '{}'", name);
+				c.semException(v.location, "Redeclaration of member '{}'", name.name);
 			}
 
 			pushBool(c.thread, true);
 			idxa(c.thread, fieldMap);
-			fields ~= Field(name, v);
+
+			if(deco !is null)
+				v = decoToExp(deco, v);
+
+			fields ~= Field(name.name, v, func);
 
 			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
 			auto tmp = fields[fields.length - 1];
@@ -1095,52 +1039,31 @@ public:
 			fields[fields.length - 1] = tmp;
 		}
 
+		void addMethod(Decorator deco, FuncDef m, char[] preDocs, CompileLoc preDocsLoc)
+		{
+			auto func = new(c) FuncLiteralExp(m.location, m);
+			addField(deco, m.name, func, func, preDocs, preDocsLoc);
+			m.docs = fields[fields.length - 1].docs;
+			m.docsLoc = fields[fields.length - 1].docsLoc;
+		}
+
 		while(l.type != Token.RBrace)
 		{
 			auto docs = l.tok.preComment;
 			auto docsLoc = l.tok.preCommentLoc;
+			Decorator memberDeco = null;
+
+			if(l.type == Token.At)
+				memberDeco = parseDecorators();
 
 			switch(l.type)
 			{
 				case Token.Function:
-					auto fd = parseSimpleFuncDef();
-					addField(fd.name.name, new(c) FuncLiteralExp(fd.location, fd), docs, docsLoc);
+					addMethod(memberDeco, parseSimpleFuncDef(), docs, docsLoc);
 					break;
-
-				case Token.At:
-					auto dec = parseDecorators();
-
-					Identifier fieldName = void;
-					Expression init = void;
-
-					if(l.type == Token.Function)
-					{
-						auto fd = parseSimpleFuncDef();
-						fieldName = fd.name;
-						init = new(c) FuncLiteralExp(fd.location, fd);
-					}
-					else
-					{
-						fieldName = parseIdentifier();
-
-						if(l.type == Token.Assign)
-						{
-							l.next();
-							init.sourceStr = capture({init = parseExpression();});
-						}
-						else
-							init = new(c) NullExp(fieldName.location);
-
-						l.statementTerm();
-					}
-
-					addField(fieldName.name, decoToExp(dec, init), docs, docsLoc);
-					break;
-
 
 				case Token.Ident:
-					auto loc = l.loc;
-					auto fieldName = parseName();
+					auto id = parseIdentifier();
 
 					Expression v;
 
@@ -1150,10 +1073,10 @@ public:
 						v.sourceStr = capture({v = parseExpression();});
 					}
 					else
-						v = new(c) NullExp(loc);
+						v = new(c) NullExp(id.location);
 
 					l.statementTerm();
-					addField(fieldName, v, docs, docsLoc);
+					addField(memberDeco, id, v, null, docs, docsLoc);
 					break;
 
 				case Token.EOF:
@@ -1164,9 +1087,8 @@ public:
 			}
 		}
 
-
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) NamespaceDef(location, endLocation, name, parent, fields.toArray());
+		return new(c) NamespaceDecl(location, endLocation, protection, deco, name, parent, fields.toArray());
 	}
 
 	/**
@@ -1497,7 +1419,7 @@ public:
 				name ~= parseName();
 			}
 
-			auto arr = name.toArray();
+			auto arr = name.toArrayView();
 			expr = new(c) StringExp(location, c.newString(arr));
 		}
 
@@ -1715,23 +1637,36 @@ public:
 
 		scope catches = new List!(CC)(c);
 
+		bool hadCatchall = false;
+
+
 		while(l.type == Token.Catch)
 		{
+			if(hadCatchall)
+				c.synException(l.loc, "Cannot have a catch clause after a catchall clause");
+
 			l.next();
 			l.expect(Token.LParen);
 
 			CC cc;
 			cc.catchVar = parseIdentifier();
-			l.expect(Token.Colon);
 
 			scope types = new List!(Expression)(c);
-			types ~= parseDottedName();
 
-			while(l.type == Token.Or)
+			if(l.type == Token.Colon)
 			{
 				l.next();
+
 				types ~= parseDottedName();
+
+				while(l.type == Token.Or)
+				{
+					l.next();
+					types ~= parseDottedName();
+				}
 			}
+			else
+				hadCatchall = true;
 
 			l.expect(Token.RParen);
 
@@ -1843,9 +1778,9 @@ public:
 			l.next();
 			return new(c) DecStmt(location, location, exp);
 		}
-		else if(l.type == Token.OrOr)
+		else if(l.type == Token.OrOr || l.type == Token.OrKeyword)
 			exp = parseOrOrExp(exp);
-		else if(l.type == Token.AndAnd)
+		else if(l.type == Token.AndAnd || l.type == Token.AndKeyword)
 			exp = parseAndAndExp(exp);
 		else if(l.type == Token.Question)
 			exp = parseCondExp(exp);
@@ -1895,7 +1830,9 @@ public:
 			c.semException(location, "Assignment has fewer destinations than sources");
 
 		auto rhsArr = rhs.toArray();
-		return new(c) AssignStmt(location, rhsArr[$ - 1].endLocation, lhs.toArray(), rhsArr);
+		auto ret = new(c) AssignStmt(location, rhsArr[$ - 1].endLocation, lhs.toArray(), rhsArr);
+		propagateFuncLiteralNames(ret.lhs, ret.rhs);
+		return ret;
 	}
 
 	/**
@@ -1964,7 +1901,7 @@ public:
 		Expression exp3;
 
 		if(exp1 is null)
-			exp1 = parseOrOrExp();
+			exp1 = parseLogicalCondExp();
 
 		while(l.type == Token.Question)
 		{
@@ -1979,6 +1916,26 @@ public:
 		}
 
 		return exp1;
+	}
+
+	Expression parseLogicalCondExp()
+	{
+		auto location = l.loc;
+		Expression exp1 = parseOrExp();
+
+		switch(l.type)
+		{
+			case Token.OrOr:
+			case Token.OrKeyword:
+				return parseOrOrExp(exp1);
+
+			case Token.AndAnd:
+			case Token.AndKeyword:
+				return parseAndAndExp(exp1);
+
+			default:
+				return exp1;
+		}
 	}
 
 	/**
@@ -1997,13 +1954,13 @@ public:
 		Expression exp2;
 
 		if(exp1 is null)
-			exp1 = parseAndAndExp();
+			exp1 = parseOrExp();
 
-		while(l.type == Token.OrOr)
+		while(l.type == Token.OrOr || l.type == Token.OrKeyword)
 		{
 			l.next();
 
-			exp2 = parseAndAndExp();
+			exp2 = parseOrExp();
 			exp1 = new(c) OrOrExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
@@ -2030,7 +1987,7 @@ public:
 		if(exp1 is null)
 			exp1 = parseOrExp();
 
-		while(l.type == Token.AndAnd)
+		while(l.type == Token.AndAnd || l.type == Token.AndKeyword)
 		{
 			l.next();
 
@@ -2159,10 +2116,30 @@ public:
 
 				break;
 
+			case Token.NotKeyword:
+				if(l.peek.type == Token.In)
+				{
+					l.next();
+					l.next();
+					exp2 = parseShiftExp();
+					exp1 = new(c) NotInExp(location, exp2.endLocation, exp1, exp2);
+				}
+				break;
+
 			case Token.Is:
-				l.next();
-				exp2 = parseShiftExp();
-				exp1 = new(c) IsExp(location, exp2.endLocation, exp1, exp2);
+				if(l.peek.type == Token.NotKeyword)
+				{
+					l.next();
+					l.next();
+					exp2 = parseShiftExp();
+					exp1 = new(c) NotIsExp(location, exp2.endLocation, exp1, exp2);
+				}
+				else
+				{
+					l.next();
+					exp2 = parseShiftExp();
+					exp1 = new(c) IsExp(location, exp2.endLocation, exp1, exp2);
+				}
 				break;
 
 			case Token.LT:
@@ -2187,12 +2164,6 @@ public:
 				l.next();
 				exp2 = parseShiftExp();
 				exp1 = new(c) GEExp(location, exp2.endLocation, exp1, exp2);
-				break;
-
-			case Token.As:
-				l.next();
-				exp2 = parseShiftExp();
-				exp1 = new(c) AsExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.In:
@@ -2358,6 +2329,7 @@ public:
 				break;
 
 			case Token.Not:
+			case Token.NotKeyword:
 				l.next();
 				exp = parseUnExp();
 				exp = new(c) NotExp(location, exp);
@@ -2408,13 +2380,10 @@ public:
 			case Token.StringLiteral:          exp = parseStringExp(); break;
 			case Token.Function:               exp = parseFuncLiteralExp(); break;
 			case Token.Backslash:              exp = parseHaskellFuncLiteralExp(); break;
-			case Token.Class:                  exp = parseClassLiteralExp(); break;
 			case Token.LParen:                 exp = parseParenExp(); break;
 			case Token.LBrace:                 exp = parseTableCtorExp(); break;
 			case Token.LBracket:               exp = parseArrayCtorExp(); break;
-			case Token.Namespace:              exp = parseNamespaceCtorExp(); break;
 			case Token.Yield:                  exp = parseYieldExp(); break;
-			case Token.Super:                  exp = parseSuperCallExp(); break;
 			case Token.Colon:                  exp = parseMemberExp(); break;
 
 			default:
@@ -2517,15 +2486,6 @@ public:
 	}
 
 	/**
-	*/
-	ClassLiteralExp parseClassLiteralExp()
-	{
-		auto location = l.loc;
-		auto def = parseClassDef(true);
-		return new(c) ClassLiteralExp(location, def);
-	}
-
-	/**
 	Parse a parenthesized expression.
 	*/
 	Expression parseParenExp()
@@ -2575,6 +2535,9 @@ public:
 						l.expect(Token.Assign);
 						k = new(c) StringExp(id.location, id.name);
 						v = parseExpression();
+
+						if(auto fl = v.as!(FuncLiteralExp))
+							propagateFuncLiteralName(k, fl);
 						break;
 				}
 
@@ -2653,15 +2616,6 @@ public:
 
 	/**
 	*/
-	NamespaceCtorExp parseNamespaceCtorExp()
-	{
-		auto location = l.loc;
-		auto def = parseNamespaceDef();
-		return new(c) NamespaceCtorExp(location, def);
-	}
-
-	/**
-	*/
 	YieldExp parseYieldExp()
 	{
 		auto location = l.expect(Token.Yield).loc;
@@ -2674,65 +2628,6 @@ public:
 
 		auto endLocation = l.expect(Token.RParen).loc;
 		return new(c) YieldExp(location, endLocation, args);
-	}
-
-	/**
-	*/
-	MethodCallExp parseSuperCallExp()
-	{
-		auto location = l.expect(Token.Super).loc;
-
-		Expression method;
-
-		if(l.type == Token.Dot)
-		{
-			l.next();
-
-			if(l.type == Token.Ident)
-			{
-				with(l.expect(Token.Ident))
-					method = new(c) StringExp(location, stringValue);
-			}
-			else
-			{
-				l.expect(Token.LParen);
-				method = parseExpression();
-				l.expect(Token.RParen);
-			}
-		}
-		else
-			method = new(c) StringExp(location, c.newString("constructor"));
-
-		Expression[] args;
-		CompileLoc endLocation;
-
-		if(l.type == Token.LParen)
-		{
-			l.next();
-
-			if(l.type != Token.RParen)
-				args = parseArguments();
-
-			endLocation = l.expect(Token.RParen).loc;
-		}
-		else
-		{
-			l.expect(Token.Dollar);
-
-			scope a = new List!(Expression)(c);
-			a ~= parseExpression();
-
-			while(l.type == Token.Comma)
-			{
-				l.next();
-				a ~= parseExpression();
-			}
-
-			args = a.toArray();
-			endLocation = args[$ - 1].endLocation;
-		}
-
-		return new(c) MethodCallExp(location, endLocation, null, method, args, true);
 	}
 
 	/**
@@ -2760,11 +2655,7 @@ public:
 		else
 		{
 			endLoc = l.loc;
-			auto name = parseName();
-
-			if(mCurrentClassName !is null && isPrivateFieldName(name))
-				name = makePrivateFieldName(mCurrentClassName, name);
-
+			auto name = checkPrivateFieldName(parseName());
 			return new(c) DotExp(new(c) ThisExp(loc), new(c) StringExp(endLoc, name));
 		}
 	}
@@ -2790,11 +2681,7 @@ public:
 					if(l.type == Token.Ident)
 					{
 						auto loc = l.loc;
-						auto name = parseName();
-
-						if(mCurrentClassName !is null && isPrivateFieldName(name))
-							name = makePrivateFieldName(mCurrentClassName, name);
-
+						auto name = checkPrivateFieldName(parseName());
 						exp = new(c) DotExp(exp, new(c) StringExp(loc, name));
 					}
 					else if(l.type == Token.Super)
@@ -2827,14 +2714,14 @@ public:
 					auto arr = args.toArray();
 
 					if(auto dot = exp.as!(DotExp))
-						exp = new(c) MethodCallExp(dot.location, arr[$ - 1].endLocation, dot.op, dot.name, arr, false);
+						exp = new(c) MethodCallExp(dot.location, arr[$ - 1].endLocation, dot.op, dot.name, arr);
 					else
 						exp = new(c) CallExp(arr[$ - 1].endLocation, exp, null, arr);
 					continue;
 
 				case Token.LParen:
 					if(exp.endLocation.line != l.loc.line)
-						c.synException(l.loc, "ambiguous left-paren (function call or beginning of new statement?)");
+						return exp;
 
 					l.next();
 
@@ -2862,7 +2749,7 @@ public:
 					auto endLocation = l.expect(Token.RParen).loc;
 
 					if(auto dot = exp.as!(DotExp))
-						exp = new(c) MethodCallExp(dot.location, endLocation, dot.op, dot.name, args, false);
+						exp = new(c) MethodCallExp(dot.location, endLocation, dot.op, dot.name, args);
 					else
 						exp = new(c) CallExp(endLocation, exp, context, args);
 					continue;
@@ -3059,6 +2946,46 @@ public:
 // ================================================================================================================================================
 
 private:
+import tango.io.Stdout;
+	void propagateFuncLiteralNames(AstNode[] lhs, Expression[] rhs)
+	{
+		// Rename function literals on the RHS that have dummy names with appropriate names derived from the LHS.
+		foreach(i, r; rhs)
+		{
+			if(auto fl = r.as!(FuncLiteralExp))
+				propagateFuncLiteralName(lhs[i], fl);
+		}
+	}
+
+	void propagateFuncLiteralName(AstNode lhs, FuncLiteralExp fl)
+	{
+		if(fl.def.name.name[0] != '<')
+			return;
+
+		if(auto id = lhs.as!(Identifier))
+		{
+			// This case happens in variable declarations
+			fl.def.name = new(c) Identifier(fl.def.name.location, id.name);
+		}
+		else if(auto id = lhs.as!(IdentExp))
+		{
+			// This happens in assignments
+			fl.def.name = new(c) Identifier(fl.def.name.location, id.name.name);
+		}
+		else if(auto str = lhs.as!(StringExp))
+		{
+			// This happens in table ctors
+			fl.def.name = new(c) Identifier(fl.def.name.location, str.value);
+		}
+		else if(auto fe = lhs.as!(DotExp))
+		{
+			if(auto id = fe.name.as!(StringExp))
+			{
+				// This happens in assignments
+				fl.def.name = new(c) Identifier(fl.def.name.location, id.value);
+			}
+		}
+	}
 
 	Identifier dummyForeachIndex(CompileLoc loc)
 	{
@@ -3076,37 +3003,24 @@ private:
 		return new(c) Identifier(loc, str);
 	}
 
-	Identifier dummyClassLiteralName(CompileLoc loc)
-	{
-		pushFormat(c.thread, "<class at {}({}:{})>", loc.file, loc.line, loc.col);
-		auto str = c.newString(getString(c.thread, -1));
-		pop(c.thread);
-		return new(c) Identifier(loc, str);
-	}
-
-	Privacy getFieldPrivacy(char[] name)
-	{
-		if(name.startsWith("__"))
-			return Privacy.Private;
-		else if(name.startsWith("_"))
-			return Privacy.Protected;
-		else
-			return Privacy.Public;
-	}
-
 	bool isPrivateFieldName(char[] name)
 	{
-		return getFieldPrivacy(name) == Privacy.Private;
+		return name.startsWith("__");
 	}
 
-	char[] makePrivateFieldName(char[] className, char[] fieldName)
+	char[] checkPrivateFieldName(char[] fieldName)
 	{
-		pushString(c.thread, className);
-		pushString(c.thread, fieldName);
-		cat(c.thread, 2);
-		auto ret = c.newString(getString(c.thread, -1));
-		pop(c.thread);
-		return ret;
+		if(mCurrentClassName !is null && isPrivateFieldName(fieldName))
+		{
+			pushString(c.thread, mCurrentClassName);
+			pushString(c.thread, fieldName);
+			cat(c.thread, 2);
+			auto ret = c.newString(getString(c.thread, -1));
+			pop(c.thread);
+			return ret;
+		}
+		else
+			return fieldName;
 	}
 
 	void attachDocs(T)(T t, char[] preDocs, CompileLoc preDocsLoc)
@@ -3148,7 +3062,7 @@ private:
 			if(dec.context !is null)
 				c.semException(dec.location, "'with' is disallowed for method calls");
 
-			return new(c) MethodCallExp(dec.location, dec.endLocation, f.op, f.name, argsArray, false);
+			return new(c) MethodCallExp(dec.location, dec.endLocation, f.op, f.name, argsArray);
 		}
 		else
 			return new(c) CallExp(dec.endLocation, dec.func, dec.context, argsArray);

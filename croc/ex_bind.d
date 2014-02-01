@@ -845,7 +845,7 @@ Type superGet(Type)(CrocThread* t, word idx)
 
 // 		getWrappedClass(t, typeid(T));
 
-// 		if(!as(t, idx, -1))
+// 		if(!instanceOf(t, idx, -1))
 		if(!isInstance(t, idx) || numExtraVals(t, idx) == 0)
 			paramTypeError(t, idx, "instance of " ~ Type.stringof);
 
@@ -870,7 +870,7 @@ Type superGet(Type)(CrocThread* t, word idx)
 
 		getWrappedClass(t, T.classinfo);
 
-		if(!as(t, idx, -1))
+		if(!instanceOf(t, idx, -1))
 			paramTypeError(t, idx, "instance of " ~ Type.stringof);
 
 		pop(t);
@@ -888,7 +888,7 @@ Type superGet(Type)(CrocThread* t, word idx)
 		getWrappedClass(t, typeid(T));
 		// the wrapped class will always be non-null, since the struct got on the stack in the first place..
 
-		if(!as(t, idx, -1))
+		if(!instanceOf(t, idx, -1))
 			paramTypeError(t, idx, "instance of " ~ Type.stringof);
 
 		pop(t);
@@ -1055,14 +1055,14 @@ bool canCastTo(Type)(CrocThread* t, word idx)
 			return true;
 
 		getWrappedClass(t, T.classinfo);
-		auto ret = as(t, idx, -1);
+		auto ret = instanceOf(t, idx, -1);
 		pop(t);
 		return ret;
 	}
 	else static if(is(T == struct))
 	{
 		getWrappedClass(t, typeid(T));
-		auto ret = as(t, idx, -1);
+		auto ret = instanceOf(t, idx, -1);
 		pop(t);
 		return ret;
 	}

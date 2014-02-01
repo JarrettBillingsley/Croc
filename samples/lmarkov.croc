@@ -6,7 +6,7 @@ local NOWORD = '\n'
 local wordRE = regexp.Regexp(@"(\w[a-zA-Z']+)")
 
 function allwords(f) =
-	coroutine function()
+	thread.new$ function()
 	{
 		foreach(line; f)
 			foreach(m; wordRE.search(line))
@@ -18,7 +18,7 @@ function prefix(words: array) = "".join(words.expand())
 function analyze(input, N)
 {
 	local statetab = {}
-	
+
 	function insert(index, value)
 		if(local a = statetab[index])
 			a ~= value
@@ -27,21 +27,21 @@ function analyze(input, N)
 
 	// build table
 	local words = array.new(N)
-	
+
 	foreach(word; allwords(input))
 	{
 		words.fill(NOWORD)
-	
+
 		foreach(c; word)
 		{
 			insert(prefix(words), c.toLower())
-	
+
 			for(i: 0 .. #words - 1)
 				words[i] = words[i + 1]
 
 			words[-1] = c.toLower()
 		}
-	
+
 		insert(prefix(words), NOWORD)
 	}
 

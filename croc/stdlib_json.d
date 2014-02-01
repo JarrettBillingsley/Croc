@@ -78,7 +78,9 @@ static:
 		checkAnyParam(t, 2);
 		auto pretty = optBoolParam(t, 3, false);
 
-		if(!as(t, 1, -1))
+		lookup(t, "stream.TextWriter");
+
+		if(!instanceOf(t, 1, -1))
 			paramTypeError(t, 1, "stream.TextWriter");
 
 		pop(t);

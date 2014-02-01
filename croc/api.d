@@ -49,6 +49,7 @@ import croc.stdlib_compiler;
 import croc.stdlib_console;
 import croc.stdlib_debug;
 import croc.stdlib_docs;
+import croc.stdlib_doctools;
 import croc.stdlib_env;
 import croc.stdlib_exceptions;
 import croc.stdlib_file;
@@ -61,7 +62,7 @@ import croc.stdlib_modules;
 import croc.stdlib_object;
 import croc.stdlib_os;
 import croc.stdlib_path;
-// import croc.stdlib_serialization;
+import croc.stdlib_serialization;
 import croc.stdlib_stream;
 import croc.stdlib_string;
 import croc.stdlib_text;
@@ -164,8 +165,8 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	}
 
 	// Finish up the safe libs.
-	HashLib.init(t);
-	MathLib.init(t);
+	initHashLib(t);
+	initMathLib(t);
 	initObjectLib(t);
 	initMemblockLib(t);
 	initTextLib(t); // depends on memblock
@@ -177,9 +178,10 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	initEnvLib(t);
 	JSONLib.init(t); // depends on stream
 	initPathLib(t);
-	// SerializationLib.init(t); // depends on stream
+	initSerializationLib(t); // depends on .. lots of libs :P
 	ThreadLib.init(t);
 	TimeLib.init(t);
+	initDoctoolsLibs(t);
 
 	version(CrocBuiltinDocs)
 		Compiler.setDefaultFlags(t, Compiler.All);

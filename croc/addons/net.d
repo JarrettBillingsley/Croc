@@ -90,18 +90,18 @@ InternetAddress _getAddr(CrocThread* t, word slot)
 	auto port = checkIntParam(t, slot + 1);
 
 	if(port < 0 || port > ushort.max)
-		throwStdException(t, "RangeException", "Invalid port number: {}", port);
+		throwStdException(t, "RangeError", "Invalid port number: {}", port);
 
 	if(isString(t, slot))
-		return safeCode(t, "ValueException", new InternetAddress(getString(t, slot), cast(ushort)port));
+		return safeCode(t, "ValueError", new InternetAddress(getString(t, slot), cast(ushort)port));
 	else if(isInt(t, slot))
 	{
 		auto ip = getInt(t, slot);
 
 		if(ip < 0 || ip > uint.max)
-			throwStdException(t, "RangeException", "Invalid IP address: {}", ip);
+			throwStdException(t, "RangeError", "Invalid IP address: {}", ip);
 
-		return safeCode(t, "ValueException", new InternetAddress(cast(uint)ip, cast(ushort)port));
+		return safeCode(t, "ValueError", new InternetAddress(cast(uint)ip, cast(ushort)port));
 	}
 	else
 		paramTypeError(t, slot, "int|string");
@@ -118,7 +118,7 @@ uword _connect(CrocThread* t)
 	pushGlobal(t, "Socket");
 	pushNull(t);
 	pushNativeObj(t, socket);
-	return rawCall(t, -3, 1);
+	return call(t, -3, 1);
 }
 
 uword _listen(CrocThread* t)
@@ -128,14 +128,14 @@ uword _listen(CrocThread* t)
 	auto reuse = optBoolParam(t, 4, false);
 
 	if(backlog < 1)
-		throwStdException(t, "RangeException", "Invalid backlog: {}", backlog);
+		throwStdException(t, "RangeError", "Invalid backlog: {}", backlog);
 
 	auto socket = safeCode(t, "NetException", new ServerSocket(addr, cast(int)backlog, reuse));
 
 	pushGlobal(t, "ServerSocket");
 	pushNull(t);
 	pushNativeObj(t, socket);
-	return rawCall(t, -3, 1);
+	return call(t, -3, 1);
 
 }
 
@@ -145,15 +145,15 @@ uword _listen(CrocThread* t)
 struct SocketObj
 {
 static:
-	const Socket =  "Socket__socket";
-	const Closed =  "Socket__closed";
+	const _Socket = "socket";
+	const _Closed = "closed";
 
 	void init(CrocThread* t)
 	{
 		CreateClass(t, "Socket", "stream.Stream", (CreateClass* c)
 		{
-			pushNull(t);        c.field("__socket");
-			pushBool(t, false); c.field("__closed");
+			pushNull(t);        c.hfield(_Socket);
+			pushBool(t, false); c.hfield(_Closed);
 
 			c.method("constructor",  1, &_constructor);
 			c.method("finalizer",    0, &_finalizer);
@@ -171,23 +171,23 @@ static:
 
 	void checkOpen(CrocThread* t)
 	{
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 
 		if(getBool(t, -1))
-			throwStdException(t, "StateException", "Attempting to perform operation on a closed socket");
+			throwStdException(t, "StateError", "Attempting to perform operation on a closed socket");
 
 		pop(t);
 	}
 
-	.Socket getThis(CrocThread* t)
+	Socket getThis(CrocThread* t)
 	{
-		field(t, 0, Socket);
-		auto ret = cast(.Socket)getNativeObj(t, -1); assert(ret !is null);
+		hfield(t, 0, _Socket);
+		auto ret = cast(Socket)getNativeObj(t, -1); assert(ret !is null);
 		pop(t);
 		return ret;
 	}
 
-	.Socket getOpenThis(CrocThread* t)
+	Socket getOpenThis(CrocThread* t)
 	{
 		checkOpen(t);
 		return getThis(t);
@@ -195,21 +195,21 @@ static:
 
 	uword _constructor(CrocThread* t)
 	{
-		field(t, 0, Socket);
+		hfield(t, 0, _Socket);
 
 		if(!isNull(t, -1))
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Socket");
+			throwStdException(t, "StateError", "Attempting to call constructor on an already-initialized Socket");
 
 		pop(t);
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
-		auto socket = cast(.Socket)getNativeObj(t, 1);
+		auto socket = cast(Socket)getNativeObj(t, 1);
 
 		if(socket is null)
-			throwStdException(t, "ValueException", "instances of Socket may only be created using instances of the Tango Socket class");
+			throwStdException(t, "ValueError", "instances of Socket may only be created using instances of the Tango Socket class");
 
 		dup(t, 1);
-		fielda(t, 0, Socket);
+		hfielda(t, 0, _Socket);
 
 		pushNull(t);
 		pushNull(t);
@@ -232,10 +232,10 @@ static:
 		auto _size = optIntParam(t, 3, _len - _offset);
 
 		if(_offset < 0 || _offset > _len)
-			throwStdException(t, "BoundsException", "Invalid offset {} in memblock of size {}", _offset, _len);
+			throwStdException(t, "BoundsError", "Invalid offset {} in memblock of size {}", _offset, _len);
 
 		if(_size < 0 || _size > _len - _offset)
-			throwStdException(t, "BoundsException", "Invalid size {} in memblock of size {} starting from offset {}", _size, _len, _offset);
+			throwStdException(t, "BoundsError", "Invalid size {} in memblock of size {} starting from offset {}", _size, _len, _offset);
 
 		auto offset = cast(uword)_offset;
 		auto size = cast(uword)_size;
@@ -271,10 +271,10 @@ static:
 		auto _size = optIntParam(t, 3, _len - _offset);
 
 		if(_offset < 0 || _offset > _len)
-			throwStdException(t, "BoundsException", "Invalid offset {} in memblock of size {}", _offset, _len);
+			throwStdException(t, "BoundsError", "Invalid offset {} in memblock of size {}", _offset, _len);
 
 		if(_size < 0 || _size > _len - _offset)
-			throwStdException(t, "BoundsException", "Invalid size {} in memblock of size {} starting from offset {}", _size, _len, _offset);
+			throwStdException(t, "BoundsError", "Invalid size {} in memblock of size {} starting from offset {}", _size, _len, _offset);
 
 		auto offset = cast(uword)_offset;
 		auto size = cast(uword)_size;
@@ -286,13 +286,7 @@ static:
 			auto numWritten = safeCode(t, "exceptions.IOException", socket.write(src[0 .. size]));
 
 			if(numWritten == IOStream.Eof)
-			{
-				lookup(t, "stream.EOFException");
-				pushNull(t);
-				pushString(t, "End-of-flow encountered while writing");
-				rawCall(t, -3, 1);
-				throwException(t);
-			}
+				throwNamedException(t, "stream.EOFException", "End-of-flow encountered while writing");
 
 			size -= numWritten;
 			src += numWritten;
@@ -318,14 +312,14 @@ static:
 	{
 		auto socket = getThis(t);
 
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 
 		if(!getBool(t, -1))
 		{
 			// Set closed to true first, in case either shutdown or close fails, so that the finalizer won't try to
 			// close it again.
 			pushBool(t, true);
-			fielda(t, 0, Closed);
+			hfielda(t, 0, _Closed);
 			safeCode(t, "NetException", socket.shutdown());
 			safeCode(t, "NetException", socket.close());
 		}
@@ -335,7 +329,7 @@ static:
 
 	uword _isOpen(CrocThread* t)
 	{
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 		pushBool(t, !getBool(t, -1));
 		return 1;
 	}
@@ -357,17 +351,17 @@ static:
 struct ServerSocketObj
 {
 static:
-	const Socket = "ServerSocket__socket";
-	const Closed = "ServerSocket__closed";
-	const Linger = "ServerSocket__linger";
+	const _Socket = "socket";
+	const _Closed = "closed";
+	const _Linger = "linger";
 
 	void init(CrocThread* t)
 	{
 		CreateClass(t, "ServerSocket", (CreateClass* c)
 		{
-			pushNull(t);        c.field("__socket");
-			pushBool(t, false); c.field("__closed");
-			pushInt(t, -1);     c.field("__linger");
+			pushNull(t);        c.hfield(_Socket);
+			pushBool(t, false); c.hfield(_Closed);
+			pushInt(t, -1);     c.hfield(_Linger);
 
 			c.method("constructor",  1, &_constructor);
 			c.method("finalizer",    0, &_finalizer);
@@ -382,17 +376,17 @@ static:
 
 	void checkOpen(CrocThread* t)
 	{
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 
 		if(getBool(t, -1))
-			throwStdException(t, "StateException", "Attempting to perform operation on a closed socket");
+			throwStdException(t, "StateError", "Attempting to perform operation on a closed socket");
 
 		pop(t);
 	}
 
 	ServerSocket getThis(CrocThread* t)
 	{
-		field(t, 0, Socket);
+		hfield(t, 0, _Socket);
 		auto ret = cast(ServerSocket)getNativeObj(t, -1); assert(ret !is null);
 		pop(t);
 		return ret;
@@ -406,21 +400,21 @@ static:
 
 	uword _constructor(CrocThread* t)
 	{
-		field(t, 0, Socket);
+		hfield(t, 0, _Socket);
 
 		if(!isNull(t, -1))
-			throwStdException(t, "StateException", "Attempting to call constructor on an already-initialized Socket");
+			throwStdException(t, "StateError", "Attempting to call constructor on an already-initialized Socket");
 
 		pop(t);
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
-		auto socket = cast(.Socket)getNativeObj(t, 1);
+		auto socket = cast(Socket)getNativeObj(t, 1);
 
 		if(socket is null)
-			throwStdException(t, "ValueException", "instances of Socket may only be created using instances of the Tango Socket class");
+			throwStdException(t, "ValueError", "instances of Socket may only be created using instances of the Tango Socket class");
 
 		dup(t, 1);
-		fielda(t, 0, Socket);
+		hfielda(t, 0, _Socket);
 
 		return 0;
 	}
@@ -436,14 +430,14 @@ static:
 	{
 		auto socket = getThis(t);
 
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 
 		if(!getBool(t, -1))
 		{
 			// Set closed to true first, in case either shutdown or close fails, so that the finalizer won't try to
 			// close it again.
 			pushBool(t, true);
-			fielda(t, 0, Closed);
+			hfielda(t, 0, _Closed);
 			safeCode(t, "NetException", socket.shutdown());
 			safeCode(t, "NetException", socket.close());
 		}
@@ -453,7 +447,7 @@ static:
 
 	uword _isOpen(CrocThread* t)
 	{
-		field(t, 0, Closed);
+		hfield(t, 0, _Closed);
 		pushBool(t, !getBool(t, -1));
 		return 1;
 	}
@@ -463,7 +457,7 @@ static:
 		checkOpen(t);
 		checkIntParam(t, 1);
 		dup(t, 1);
-		fielda(t, 0, Linger);
+		hfielda(t, 0, _Linger);
 		return 0;
 	}
 
@@ -472,7 +466,7 @@ static:
 		auto socket = getOpenThis(t);
 		auto newSock = safeCode(t, "NetException", socket.accept());
 
-		field(t, 0, Linger);
+		hfield(t, 0, _Linger);
 		auto linger = getInt(t, -1);
 
 		if(linger)
@@ -481,7 +475,7 @@ static:
 		pushGlobal(t, "Socket");
 		pushNull(t);
 		pushNativeObj(t, newSock);
-		return rawCall(t, -3, 1);
+		return call(t, -3, 1);
 	}
 }
 

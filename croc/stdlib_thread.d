@@ -60,14 +60,17 @@ static:
 
 		importModuleNoNS(t, "thread");
 	}
-	
+
 	uword _new(CrocThread* t)
 	{
 		checkParam(t, 1, CrocValue.Type.Function);
 		auto func = getFunction(t, 1);
 
-		if(func.isNative)
-			throwStdException(t, "ValueException", "Native functions may not be used as the body of a coroutine");
+		version(CrocExtendedThreads) {} else
+		{
+			if(func.isNative)
+				throwStdException(t, "ValueError", "Native functions may not be used as the body of a thread");
+		}
 
 		auto nt = thread.create(t.vm, func);
 		thread.setHookFunc(t.vm.alloc, nt, t.hookFunc);
@@ -92,7 +95,7 @@ static:
 			haltThread(thread);
 			auto reg = pushThread(t, thread);
 			pushNull(t);
-			rawCall(t, reg, 0);
+			call(t, reg, 0);
 		}
 
 		return 0;

@@ -48,7 +48,7 @@ void initUtf8Codec(CrocThread* t)
 	newTable(t);
 		registerFields(t, _funcs);
 
-	rawCall(t, -3, 0);
+	call(t, -3, 0);
 }
 
 // =====================================================================================================================
@@ -117,13 +117,13 @@ uword _utf8DecodeInternal(CrocThread* t)
 			last = src;
 
 			if(errors == "strict")
-				throwStdException(t, "UnicodeException", "Invalid UTF-8");
+				throwStdException(t, "UnicodeError", "Invalid UTF-8");
 			else if(errors == "ignore")
 				continue;
 			else if(errors == "replace")
 				s.addChar('\uFFFD');
 			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+				throwStdException(t, "ValueError", "Invalid error handling type '{}'", errors);
 		}
 	}
 
@@ -136,55 +136,54 @@ uword _utf8DecodeInternal(CrocThread* t)
 }
 
 const char[] _code =
-`
+CrocLinePragma!(__LINE__, __FILE__) ~ `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.utf8EncodeInternal, _internal.utf8DecodeInternal
-import exceptions: ValueException
 
 // =====================================================================================================================
 // "Raw" UTF-8
 
 local class Utf8IncrementalEncoder : IncrementalEncoder
 {
-	__errors
+	_errors
 
-	this(errors: string = "strict")
-		:__errors = errors
+	override this(errors: string = "strict")
+		:_errors = errors
 
-	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
-		_encodeInto(str, dest, start, :__errors)
+	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
+		_encodeInto(str, dest, start, :_errors)
 
-	function reset() {}
+	override function reset() {}
 }
 
 local class Utf8IncrementalDecoder : BufferedIncrementalDecoder
 {
-	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 		return _decodeRange(src, lo, hi, errors)
 }
 
 class Utf8Codec : TextCodec
 {
-	name = "utf-8"
+	override name = "utf-8"
 
-	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
+	override function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 	{
 		local ret, eaten = _decodeRange(src, lo, hi, errors)
 
 		if(eaten < (hi - lo))
-			throw ValueException("Incomplete text at end of data")
+			throw ValueError("Incomplete text at end of data")
 
 		return ret
 	}
 
-	function incrementalEncoder(errors: string = "strict") =
+	override function incrementalEncoder(errors: string = "strict") =
 		Utf8IncrementalEncoder(errors)
 
-	function incrementalDecoder(errors: string = "strict") =
+	override function incrementalDecoder(errors: string = "strict") =
 		Utf8IncrementalDecoder(errors)
 }
 
-object.addMethod(Utf8Codec, "encodeInto", _encodeInto)
+object.addMethodOverride(Utf8Codec, "encodeInto", _encodeInto)
 
 registerCodec("utf-8", Utf8Codec())
 aliasCodec("utf-8", "utf8")
@@ -194,38 +193,38 @@ aliasCodec("utf-8", "utf8")
 
 local class Utf8SigIncrementalEncoder : IncrementalEncoder
 {
-	__errors
-	__first = true
+	_errors
+	_first = true
 
-	this(errors: string = "strict")
-		:__errors = errors
+	override this(errors: string = "strict")
+		:_errors = errors
 
-	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
+	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
 	{
-		if(!:__first)
-			_encodeInto(str, dest, start, :__errors)
+		if(!:_first)
+			_encodeInto(str, dest, start, :_errors)
 		else
 		{
-			:__first = false
-			_encodeInto(BOM_UTF8_STR ~ str, dest, start, :__errors)
+			:_first = false
+			_encodeInto(BOM_UTF8_STR ~ str, dest, start, :_errors)
 		}
 	}
 
-	function reset()
+	override function reset()
 	{
-		:__first = true
+		:_first = true
 	}
 }
 
 local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 {
-	__first = true
+	_first = true
 
-	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 	{
 		local prefix = 0
 
-		if(:__first)
+		if(:_first)
 		{
 			local sliceLen = hi - lo
 
@@ -234,11 +233,11 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 				if(BOM_UTF8.compare(0, src, lo, sliceLen) == 0)
 					return "", 0
 				else
-					:__first = false
+					:_first = false
 			}
 			else
 			{
-				:__first = false
+				:_first = false
 
 				if(BOM_UTF8.compare(0, src, lo, 3) == 0)
 				{
@@ -252,21 +251,21 @@ local class Utf8SigIncrementalDecoder : BufferedIncrementalDecoder
 		return ret, prefix + eaten
 	}
 
-	function reset()
+	override function reset()
 	{
-		super.reset()
-		:__first = true
+		(BufferedIncrementalDecoder.reset)(with this)
+		:_first = true
 	}
 }
 
 class Utf8SigCodec : TextCodec
 {
-	name = "utf-8-sig"
+	override name = "utf-8-sig"
 
-	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict") =
+	override function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict") =
 		_encodeInto(BOM_UTF8_STR ~ str, dest, start, errors)
 
-	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
+	override function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 	{
 		if((hi - lo) >= 3 && BOM_UTF8.compare(0, src, lo, 3) == 0)
 			lo += 3
@@ -274,15 +273,15 @@ class Utf8SigCodec : TextCodec
 		local ret, eaten = _decodeRange(src, lo, hi, errors)
 
 		if(eaten < (hi - lo))
-			throw ValueException("Incomplete text at end of data")
+			throw ValueError("Incomplete text at end of data")
 
 		return ret
 	}
 
-	function incrementalEncoder(errors: string = "strict") =
+	override function incrementalEncoder(errors: string = "strict") =
 		Utf8SigIncrementalEncoder(errors)
 
-	function incrementalDecoder(errors: string = "strict") =
+	override function incrementalDecoder(errors: string = "strict") =
 		Utf8SigIncrementalDecoder(errors)
 }
 

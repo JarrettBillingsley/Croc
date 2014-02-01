@@ -55,7 +55,7 @@ word fromJSON(CrocThread* t, char[] source)
 	else if(l.type == Token.LBracket)
 		ret = parseArray(t, l);
 	else
-		throwStdException(t, "ValueException", "JSON must have an object or an array as its top-level value");
+		throwStdException(t, "ValueError", "JSON must have an object or an array as its top-level value");
 
 	l.expect(Token.EOF);
 	return ret;
@@ -103,7 +103,7 @@ void toJSON(CrocThread* t, word root, bool pretty, void delegate(char[]) output,
 		foreach(word k, word v; foreachLoop(t, 1))
 		{
 			if(!isString(t, k))
-				throwStdException(t, "ValueException", "All keys in a JSON table must be strings");
+				throwStdException(t, "ValueError", "All keys in a JSON table must be strings");
 
 			if(first)
 				first = false;
@@ -176,7 +176,7 @@ void toJSON(CrocThread* t, word root, bool pretty, void delegate(char[]) output,
 					char[] ret = void;
 
 					if(encodeUtf8Char(buf, c, ret) != UtfError.OK)
-						throwStdException(t, "ValueException", "Invalid character U+{:X6}", cast(uint)c);
+						throwStdException(t, "ValueError", "Invalid character U+{:X6}", cast(uint)c);
 
 					output(ret);
 				}
@@ -216,7 +216,7 @@ void toJSON(CrocThread* t, word root, bool pretty, void delegate(char[]) output,
 
 			case CrocValue.Type.Table:
 				if(opin(t, idx, cycles))
-					throwStdException(t, "ValueException", "Table is cyclically referenced");
+					throwStdException(t, "ValueError", "Table is cyclically referenced");
 
 				dup(t, idx);
 				pushBool(t, true);
@@ -234,7 +234,7 @@ void toJSON(CrocThread* t, word root, bool pretty, void delegate(char[]) output,
 
 			case CrocValue.Type.Array:
 				if(opin(t, idx, cycles))
-					throwStdException(t, "ValueException", "Array is cyclically referenced");
+					throwStdException(t, "ValueError", "Array is cyclically referenced");
 
 				dup(t, idx);
 				pushBool(t, true);
@@ -252,7 +252,7 @@ void toJSON(CrocThread* t, word root, bool pretty, void delegate(char[]) output,
 
 			default:
 				pushTypeString(t, idx);
-				throwStdException(t, "TypeException", "Type '{}' is not a valid type for conversion to JSON", getString(t, -1));
+				throwStdException(t, "TypeError", "Type '{}' is not a valid type for conversion to JSON", getString(t, -1));
 		}
 	}
 
@@ -265,7 +265,7 @@ void toJSON(CrocThread* t, word root, bool pretty, void delegate(char[]) output,
 	else
 	{
 		pushTypeString(t, root);
-		throwStdException(t, "TypeException", "Root element must be either a table or an array, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", "Root element must be either a table or an array, not a '{}'", getString(t, -1));
 	}
 
 	pop(t);

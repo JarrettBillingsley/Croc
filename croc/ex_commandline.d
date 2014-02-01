@@ -426,7 +426,7 @@ public:
 				newFunction(t, reg);
 				insertAndPop(t, -2);
 				pushNull(t);
-				rawCall(t, reg, 0);
+				call(t, reg, 0);
 			}
 			catch(CrocException e2)
 			{
@@ -467,7 +467,7 @@ public:
 				insertAndPop(t, -2);
 
 				pushNull(t);
-				auto numRets = rawCall(t, reg, -1);
+				auto numRets = call(t, reg, -1);
 
 				if(numRets > 0)
 				{
@@ -486,7 +486,7 @@ public:
 						pushNull(t);
 						dup(t, i);
 						pushBool(t, false);
-						rawCall(t, reg, 0);
+						call(t, reg, 0);
 					}
 
 					Stdout.newline;
@@ -609,16 +609,16 @@ private:
 		if(!opin(t, -1, -2))
 		{
 			// class ExitObj { function toString() = ... }
-			newClass(t, "ExitObj");
+			newClass(t, "ExitObj", 0);
 
 			pushNull(t);
-			addField(t, -2, "__goober");
+			addHiddenField(t, -2, "goober");
 
 			newFunction(t, 1, function uword(CrocThread* t)
 			{
 				checkParam(t, 1, CrocValue.Type.NativeObj);
 				dup(t, 1);
-				fielda(t, 0, "ExitObj__goober");
+				hfielda(t, 0, "goober");
 				return 0;
 			}, "constructor");
 			addMethod(t, -2, "constructor");
@@ -632,7 +632,7 @@ private:
 
 			newFunction(t, 0, function uword(CrocThread* t)
 			{
-				field(t, 0, "ExitObj__goober");
+				hfield(t, 0, "goober");
 				auto g = cast(Goober)getNativeObj(t, -1);
 				g.self.mRunning = false;
 				return 0;
@@ -653,7 +653,7 @@ private:
 		// Set up the exit object
 		pushNull(t);
 		pushNativeObj(t, new Goober(this));
-		rawCall(t, -3, 1);
+		call(t, -3, 1);
 
 		// Is there already an 'exit'?
 		if(findGlobal(t, "exit"))

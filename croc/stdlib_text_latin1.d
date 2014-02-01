@@ -48,7 +48,7 @@ void initLatin1Codec(CrocThread* t)
 	newTable(t);
 		registerFields(t, _funcs);
 
-	rawCall(t, -3, 0);
+	call(t, -3, 0);
 }
 
 // =====================================================================================================================
@@ -103,13 +103,13 @@ uword _latin1EncodeInternal(CrocThread* t)
 			if(c <= 0xFF)
 				*dest++ = c;
 			else if(errors == "strict")
-				throwStdException(t, "UnicodeException", "Character U+{:X6} cannot be encoded as ASCII", cast(uint)c);
+				throwStdException(t, "UnicodeError", "Character U+{:X6} cannot be encoded as ASCII", cast(uint)c);
 			else if(errors == "ignore")
 				continue;
   			else if(errors == "replace")
 				*(dest++) = '?';
 			else
-				throwStdException(t, "ValueException", "Invalid error handling type '{}'", errors);
+				throwStdException(t, "ValueError", "Invalid error handling type '{}'", errors);
 		}
 	}
 
@@ -157,49 +157,49 @@ uword _latin1DecodeInternal(CrocThread* t)
 }
 
 const char[] _code =
-`
+CrocLinePragma!(__LINE__, __FILE__) ~ `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.latin1EncodeInternal, _internal.latin1DecodeInternal
 
 local class Latin1IncrementalEncoder : IncrementalEncoder
 {
-	__errors
+	_errors
 
-	this(errors: string = "strict")
-		:__errors = errors
+	override this(errors: string = "strict")
+		:_errors = errors
 
-	function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
-		_encodeInto(str, dest, start, :__errors)
+	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
+		_encodeInto(str, dest, start, :_errors)
 
-	function reset() {}
+	override function reset() {}
 }
 
 local class Latin1IncrementalDecoder : IncrementalDecoder
 {
-	__errors
+	_errors
 
-	this(errors: string = "strict")
-		:__errors = errors
+	override this(errors: string = "strict")
+		:_errors = errors
 
-	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false) =
-		_decodeRange(src, lo, hi, :__errors)
+	override function decodeRange(src: memblock, lo: int, hi: int, final: bool = false) =
+		_decodeRange(src, lo, hi, :_errors)
 
-	function reset() {}
+	override function reset() {}
 }
 
 class Latin1Codec : TextCodec
 {
-	name = "latin1"
+	override name = "latin1"
 
-	function incrementalEncoder(errors: string = "strict") =
+	override function incrementalEncoder(errors: string = "strict") =
 		Latin1IncrementalEncoder(errors)
 
-	function incrementalDecoder(errors: string = "strict") =
+	override function incrementalDecoder(errors: string = "strict") =
 		Latin1IncrementalDecoder(errors)
 }
 
-object.addMethod(Latin1Codec, "encodeInto", _encodeInto)
-object.addMethod(Latin1Codec, "decodeRange", _decodeRange)
+object.addMethodOverride(Latin1Codec, "encodeInto", _encodeInto)
+object.addMethodOverride(Latin1Codec, "decodeRange", _decodeRange)
 
 registerCodec("latin1", Latin1Codec())
 aliasCodec("latin1", "latin-1", "iso8859-1", "cp819")

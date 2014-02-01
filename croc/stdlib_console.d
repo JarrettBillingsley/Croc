@@ -67,8 +67,10 @@ void initConsoleLib(CrocThread* t)
 
 private:
 
+import tango.core.Traits;
+
 const char[] GlobalFuncCode =
- `
+CrocLinePragma!(__LINE__, __FILE__) ~ `
 /**
 The console library provides basic console IO by wrapping the standard input, output, and error streams in
 \link{stream.Stream} objects. This is a safe library. It also exports some functions into the global namespace for

@@ -26,6 +26,9 @@ subject to the following restrictions:
 
 module croc.types;
 
+version(CrocExtendedThreads)
+	import tango.core.Thread;
+
 import tango.text.convert.Format;
 import tango.text.convert.Layout;
 
@@ -103,10 +106,10 @@ final class CrocException : CrocThrowable
 
 /**
 This is a semi-internal exception type. Normally you won't need to know about it or catch it. This is
-thrown when a coroutine (thread) needs to be halted. It should never propagate out of the coroutine.
-The only time you might encounter it is if, in the middle of a native Croc function, one of these
-is thrown, you might be able to catch it and clean up some resources, but you must rethrow it in that
-case, unless you want the interpreter to be in a horrible state.
+thrown when a thread needs to be halted. It should never propagate out of the thread. The only time
+you might encounter it is if, in the middle of a native Croc function, one of these is thrown, you might
+be able to catch it and clean up some resources, but you must rethrow it in that case, unless you want
+the interpreter to be in a horrible state.
 
 Like the other exception types, you can't instantiate this directly, but you can halt threads with the
 "haltThread" function in croc.interpreter.
@@ -134,6 +137,14 @@ final class CrocFatalException : Exception
 		super(msg);
 	}
 }
+
+/**
+A string constant indicating the level of thread support compiled in. Is either "Normal" or "Extended."
+*/
+version(CrocExtendedThreads)
+	const char[] CrocCoroSupport = "Extended";
+else
+	const char[] CrocCoroSupport = "Normal";
 
 // ================================================================================================================================================
 // Package
@@ -472,7 +483,6 @@ package:
 	CrocString* name;
 	uint numParams;
 	uint[] paramMasks;
-	uint numUpvals;
 
 	struct UpvalDesc
 	{
@@ -512,32 +522,18 @@ package:
 	LocVarDesc[] locVarDescs;
 }
 
-enum Privacy
-{
-	Public,
-	Protected,
-	Private
-}
-
-struct FieldValue
-{
-	CrocValue value;
-	CrocClass* proto;
-	ubyte privacy;
-}
-
 struct CrocClass
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Class);
 package:
 	CrocString* name;
-	CrocClass* parent;
 	bool isFrozen;
 	bool visitedOnce;
-	Hash!(CrocString*, FieldValue, true) methods;
-	Hash!(CrocString*, FieldValue, true) fields;
-	FieldValue* constructor;
-	FieldValue* finalizer;
+	Hash!(CrocString*, CrocValue, true) methods;
+	Hash!(CrocString*, CrocValue, true) fields;
+	Hash!(CrocString*, CrocValue, true) hiddenFields;
+	CrocValue* constructor;
+	CrocValue* finalizer;
 }
 
 struct CrocInstance
@@ -546,7 +542,10 @@ struct CrocInstance
 package:
 	CrocClass* parent;
 	bool visitedOnce;
-	Hash!(CrocString*, FieldValue, true) fields;
+	Hash!(CrocString*, CrocValue, true) fields;
+	// The way this works is that it's null to mean there are no hidden fields, and if it's not null, the Hash structure
+	// and its data are appended to the end of the instance, and this points to that structure.
+	Hash!(CrocString*, CrocValue, true)* hiddenFields;
 }
 
 alias uword AbsStack;
@@ -562,7 +561,6 @@ package:
 	CrocFunction* func;
 	Instruction* pc;
 	word numReturns;
-	CrocClass* proto;
 	uword numTailcalls;
 	uword firstResult;
 	uword numResults;
@@ -643,7 +641,22 @@ package:
 	uint hookCounter;
 	CrocFunction* hookFunc;
 
-	uword savedCallDepth;
+	version(CrocExtendedThreads)
+	{
+		// References a Fiber object
+		CrocNativeObj* threadFiber;
+
+		Fiber getFiber()
+		{
+			assert(threadFiber !is null);
+			return cast(Fiber)cast(void*)threadFiber.obj;
+		}
+	}
+	else
+	{
+		uword savedCallDepth;
+	}
+
 	uword nativeCallDepth = 0;
 }
 
@@ -679,7 +692,6 @@ package:
 	Hash!(ulong, CrocBaseObject*) refTab;
 
 	// These point to "special" runtime classes
-	CrocClass* throwable;
 	CrocClass* location;
 	Hash!(CrocString*, CrocClass*) stdExceptions;
 	// ----------------------------------
@@ -706,4 +718,8 @@ package:
 	CrocNativeObj*[Object] nativeObjs;
 	Layout!(char) formatter;
 	CrocException dexception;
+
+	version(CrocExtendedThreads)
+		version(CrocPoolFibers)
+			bool[Fiber] fiberPool;
 }

@@ -60,7 +60,7 @@ void initSdlLib(CrocThread* t)
 {
 	makeModule(t, "sdl", function uword(CrocThread* t)
 	{
-		CreateClass(t, "SdlException", "exceptions.Exception", (CreateClass*){});
+		CreateClass(t, "SdlException", "exceptions.Throwable", (CreateClass*){});
 		newGlobal(t, "SdlException");
 
 		safeCode(t, "SdlException", DerelictSDL.load());
@@ -585,7 +585,7 @@ void _popEvent(CrocThread* t, ref SDL_Event ev)
 			return;
 
 		default:
-			throwStdException(t, "ValueException", "Invalid event name: '{}'", name);
+			throwStdException(t, "ValueError", "Invalid event name: '{}'", name);
 	}
 }
 
@@ -794,7 +794,7 @@ uword _imgLoad(CrocThread* t)
 
 	lookup(t, "SdlSurface");
 	pushNull(t);
-	return rawCall(t, -2, 1);
+	return call(t, -2, 1);
 }
 
 // =====================================================================================================================
@@ -809,13 +809,13 @@ static:
 		this(SDL_Surface* ptr) { this.ptr = ptr; }
 	}
 
-	const Ptr = "SdlSurface__ptr";
+	const _Ptr = "ptr";
 
 	void init(CrocThread* t)
 	{
 		CreateClass(t, "SdlSurface", (CreateClass* c)
 		{
-			pushInt(t, 0); c.field("__ptr");
+			pushInt(t, 0); c.hfield(_Ptr);
 
 			c.method("constructor", &_constructor);
 			c.method("finalizer",   &_finalizer);
@@ -834,12 +834,12 @@ static:
 
 	SDL_Surface* _getThis(CrocThread* t)
 	{
-		field(t, 0, Ptr);
+		hfield(t, 0, _Ptr);
 		auto ret = cast(SDL_Surface*)getInt(t, -1);
 		pop(t);
 
 		if(ret is null)
-			throwStdException(t, "StateException", "Attempting to call a method on a freed surface");
+			throwStdException(t, "StateError", "Attempting to call a method on a freed surface");
 
 		return ret;
 	}
@@ -856,20 +856,20 @@ static:
 			if(ptr !is null)
 			{
 				dup(t);
-				fielda(t, 0, Ptr);
+				hfielda(t, 0, _Ptr);
 				pushInt(t, 0);
 				fielda(t, reg, SdlImagePtr);
 				return 0;
 			}
 		}
 
-		throwStdException(t, "StateException", "Attempting to instantiate SdlSurface directly; use sdl.image.load");
+		throwStdException(t, "StateError", "Attempting to instantiate SdlSurface directly; use sdl.image.load");
 		assert(false);
 	}
 
 	uword _finalizer(CrocThread* t)
 	{
-		field(t, 0, Ptr);
+		hfield(t, 0, _Ptr);
 		auto sfc = cast(SDL_Surface*)getInt(t, -1);
 		pop(t);
 
@@ -877,7 +877,7 @@ static:
 		{
 			SDL_FreeSurface(sfc);
 			pushInt(t, 0);
-			fielda(t, 0, Ptr);
+			hfielda(t, 0, _Ptr);
 		}
 
 		return 0;
@@ -947,7 +947,7 @@ static:
 
 	uword _free(CrocThread* t)
 	{
-		field(t, 0, Ptr);
+		hfield(t, 0, _Ptr);
 		auto sfc = cast(SDL_Surface*)getInt(t, -1);
 		pop(t);
 
@@ -955,7 +955,7 @@ static:
 		{
 			SDL_FreeSurface(sfc);
 			pushInt(t, 0);
-			fielda(t, 0, Ptr);
+			hfielda(t, 0, _Ptr);
 		}
 
 		return 0;

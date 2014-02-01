@@ -44,31 +44,62 @@ static:
 
 package:
 
-	CrocInstance* create(CrocVM* vm, CrocClass* parent)
+	CrocInstance* create(ref Allocator alloc, CrocClass* parent)
 	{
 		assert(parent.isFrozen);
 
-		CrocInstance* i;
+		CrocInstance* i = createPartial(alloc, InstanceSize(parent), parent.finalizer !is null);
+		finishCreate(i, parent);
 
-		if(parent.finalizer)
-			i = vm.alloc.allocateFinalizable!(CrocInstance)(InstanceSize(parent));
+		return i;
+	}
+
+	CrocInstance* createPartial(ref Allocator alloc, uword size, bool finalizable)
+	{
+		assert(size >= CrocInstance.sizeof);
+
+		if(finalizable)
+			return alloc.allocateFinalizable!(CrocInstance)(size);
 		else
-			i = vm.alloc.allocate!(CrocInstance)(InstanceSize(parent));
+			return alloc.allocate!(CrocInstance)(size);
+	}
+
+	bool finishCreate(CrocInstance* i, CrocClass* parent)
+	{
+		assert(parent.isFrozen);
+
+		if(i.memSize != InstanceSize(parent))
+			return false;
 
 		i.parent = parent;
 
+		void* hiddenFieldsLoc = cast(void*)(i + 1);
+
 		if(parent.fields.length > 0)
 		{
-			mixin(containerWriteBarrier!("vm.alloc", "i"));
-
 			auto instNodes = (cast(typeof(i.fields).Node*)(i + 1))[0 .. parent.fields.capacity()];
 			parent.fields.dupInto(i.fields, instNodes);
 
+			hiddenFieldsLoc = cast(void*)(instNodes.ptr + instNodes.length);
+
 			foreach(ref node; &i.fields.allNodes)
-				node.modified |= KeyModified | (node.value.value.isGCObject() ? ValModified : 0);
+				node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
 		}
 
-		return i;
+		if(parent.hiddenFields.length > 0)
+		{
+			i.hiddenFields = cast(typeof(CrocInstance.hiddenFields))hiddenFieldsLoc;
+			auto hiddenNodes = (cast(typeof(i.fields).Node*)(i.hiddenFields + 1))[0 .. parent.hiddenFields.capacity()];
+
+			assert(cast(void*)(hiddenNodes.ptr + hiddenNodes.length) == (cast(void*)i + i.memSize));
+
+			parent.hiddenFields.dupInto(*i.hiddenFields, hiddenNodes);
+
+			foreach(ref node; &i.hiddenFields.allNodes)
+				node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
+		}
+
+		return true;
 	}
 
 	typeof(CrocInstance.fields).Node* getField(CrocInstance* i, CrocString* name)
@@ -83,10 +114,10 @@ package:
 
 	void setField(ref Allocator alloc, CrocInstance* i, typeof(CrocInstance.fields).Node* slot, CrocValue* value)
 	{
-		if(slot.value.value != *value)
+		if(slot.value != *value)
 		{
 			mixin(removeValueRef!("alloc", "slot"));
-			slot.value.value = *value;
+			slot.value = *value;
 
 			if(value.isGCObject())
 			{
@@ -98,23 +129,42 @@ package:
 		}
 	}
 
-	bool nextField(CrocInstance* i, ref uword idx, ref CrocString** key, ref FieldValue* val)
+	alias setField setHiddenField;
+
+	bool nextField(CrocInstance* i, ref uword idx, ref CrocString** key, ref CrocValue* val)
 	{
 		return i.fields.next(idx, key, val);
 	}
 
+	typeof(CrocInstance.fields).Node* getHiddenField(CrocInstance* i, CrocString* name)
+	{
+		if(i.hiddenFields)
+			return i.hiddenFields.lookupNode(name);
+		else
+			return null;
+	}
+
+	bool nextHiddenField(CrocInstance* i, ref uword idx, ref CrocString** key, ref CrocValue* val)
+	{
+		if(i.hiddenFields)
+			return i.hiddenFields.next(idx, key, val);
+		else
+			return false;
+	}
+
 	bool derivesFrom(CrocInstance* i, CrocClass* c)
 	{
-		for(auto o = i.parent; o !is null; o = o.parent)
-			if(o is c)
-				return true;
-
-		return false;
+		return i.parent is c;
 	}
 
 	uword InstanceSize(CrocClass* parent)
 	{
-		return CrocInstance.sizeof + parent.fields.dataSize();
+		auto ret = CrocInstance.sizeof + parent.fields.dataSize();
+
+		if(parent.hiddenFields.length > 0)
+			return ret + typeof(CrocClass.hiddenFields).sizeof + parent.hiddenFields.dataSize();
+		else
+			return ret;
 	}
 
 	// =================================================================================================================
@@ -130,7 +180,7 @@ package:
 	template removeValueRef(char[] alloc, char[] slot)
 	{
 		const char[] removeValueRef =
-		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.value.isGCObject()) "
-			~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.value.toGCObject());";
+		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isGCObject()) "
+			~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
 	}
 }

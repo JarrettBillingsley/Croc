@@ -51,12 +51,6 @@ void initObjectLib(CrocThread* t)
 	makeModule(t, "object", function uword(CrocThread* t)
 	{
 		registerGlobals(t, _globalFuncs);
-
-			newTable(t);
-			dup(t);
-		registerGlobal(t, _bindClassMethodFunc);
-		registerGlobal(t, _bindInstMethodFunc);
-
 		return 0;
 	});
 
@@ -85,24 +79,32 @@ private:
 
 const RegisterFunc[] _globalFuncs =
 [
-	{"fieldsOf",     &_fieldsOf,     maxParams: 1},
-	{"methodsOf",    &_methodsOf,    maxParams: 1},
-	{"rawSetField",  &_rawSetField,  maxParams: 3},
-	{"rawGetField",  &_rawGetField,  maxParams: 2},
-	{"memberOwner",  &_memberOwner,  maxParams: 2},
-	{"addMethod",    &_addMethod,    maxParams: 3},
-	{"addField",     &_addField,     maxParams: 3},
-	{"removeMember", &_removeMember, maxParams: 2},
-	{"freeze",       &_freeze,       maxParams: 1},
-	{"isFrozen",     &_isFrozen,     maxParams: 1},
-	{"finalizable",  &_finalizable,  maxParams: 1},
+	{"newClass",          &_newClass                       },
+	{"fieldsOf",          &_fieldsOf,          maxParams: 1},
+	{"methodsOf",         &_methodsOf,         maxParams: 1},
+	{"rawSetField",       &_rawSetField,       maxParams: 3},
+	{"rawGetField",       &_rawGetField,       maxParams: 2},
+	{"addMethod",         &_addMethod,         maxParams: 3},
+	{"addField",          &_addField,          maxParams: 3},
+	{"addMethodOverride", &_addMethodOverride, maxParams: 3},
+	{"addFieldOverride",  &_addFieldOverride,  maxParams: 3},
+	{"removeMember",      &_removeMember,      maxParams: 2},
+	{"freeze",            &_freeze,            maxParams: 1},
+	{"isFrozen",          &_isFrozen,          maxParams: 1},
+	{"isFinalizable",     &_isFinalizable,     maxParams: 1},
+	{"instanceOf",        &_instanceOf,        maxParams: 2},
 ];
 
-const RegisterFunc _bindClassMethodFunc =
-	{"bindClassMethod", &_bindClassMethod, maxParams: 2, numUpvals: 1};
+uword _newClass(CrocThread* t)
+{
+	auto name = checkStringParam(t, 1);
 
-const RegisterFunc _bindInstMethodFunc =
-	{"bindInstMethod",  &_bindInstMethod,  maxParams: 2, numUpvals: 1};
+	for(int slot = 2; slot < stackSize(t); slot++)
+		checkParam(t, slot, CrocValue.Type.Class);
+
+	newClass(t, name, stackSize(t) - 2);
+	return 1;
+}
 
 uword _fieldsOf(CrocThread* t)
 {
@@ -118,20 +120,16 @@ uword _fieldsOf(CrocThread* t)
 		pop(t, 2);
 
 		CrocString** key = void;
-		FieldValue* value = void;
+		CrocValue* value = void;
 
 		while(classobj.nextField(c, index, key, value))
 		{
-			if(value.privacy is Privacy.Public)
-			{
-				pushInt(t, index);
-				setUpval(t, Idx);
+			pushInt(t, index);
+			setUpval(t, Idx);
 
-				push(t, CrocValue(*key));
-				push(t, value.value);
-				push(t, CrocValue(value.proto));
-				return 3;
-			}
+			push(t, CrocValue(*key));
+			push(t, *value);
+			return 2;
 		}
 
 		return 0;
@@ -146,20 +144,16 @@ uword _fieldsOf(CrocThread* t)
 		pop(t, 2);
 
 		CrocString** key = void;
-		FieldValue* value = void;
+		CrocValue* value = void;
 
 		while(instance.nextField(c, index, key, value))
 		{
-			if(value.privacy is Privacy.Public)
-			{
-				pushInt(t, index);
-				setUpval(t, Idx);
+			pushInt(t, index);
+			setUpval(t, Idx);
 
-				push(t, CrocValue(*key));
-				push(t, value.value);
-				push(t, CrocValue(value.proto));
-				return 3;
-			}
+			push(t, CrocValue(*key));
+			push(t, *value);
+			return 2;
 		}
 
 		return 0;
@@ -193,20 +187,16 @@ uword _methodsOf(CrocThread* t)
 		pop(t, 2);
 
 		CrocString** key = void;
-		FieldValue* value = void;
+		CrocValue* value = void;
 
 		while(classobj.nextMethod(c, index, key, value))
 		{
-			if(value.privacy is Privacy.Public)
-			{
-				pushInt(t, index);
-				setUpval(t, Idx);
+			pushInt(t, index);
+			setUpval(t, Idx);
 
-				push(t, CrocValue(*key));
-				push(t, value.value);
-				push(t, CrocValue(value.proto));
-				return 3;
-			}
+			push(t, CrocValue(*key));
+			push(t, *value);
+			return 2;
 		}
 
 		return 0;
@@ -246,15 +236,6 @@ uword _rawGetField(CrocThread* t)
 	return 1;
 }
 
-uword _memberOwner(CrocThread* t)
-{
-	checkAnyParam(t, 1);
-	checkStringParam(t, 2);
-	dup(t, 2);
-	getMemberOwner(t, 1);
-	return 1;
-}
-
 uword _addMethod(CrocThread* t)
 {
 	checkParam(t, 1, CrocValue.Type.Class);
@@ -278,6 +259,32 @@ uword _addField(CrocThread* t)
 	dup(t, 2);
 	dup(t, 3);
 	addField(t, 1);
+	return 0;
+}
+
+uword _addMethodOverride(CrocThread* t)
+{
+	checkParam(t, 1, CrocValue.Type.Class);
+	checkStringParam(t, 2);
+	checkParam(t, 3, CrocValue.Type.Function);
+
+	dup(t, 2);
+	dup(t, 3);
+	addMethodOverride(t, 1);
+	return 0;
+}
+
+uword _addFieldOverride(CrocThread* t)
+{
+	checkParam(t, 1, CrocValue.Type.Class);
+	checkStringParam(t, 2);
+
+	if(!isValidIndex(t, 3))
+		pushNull(t);
+
+	dup(t, 2);
+	dup(t, 3);
+	addFieldOverride(t, 1);
 	return 0;
 }
 
@@ -306,7 +313,7 @@ uword _isFrozen(CrocThread* t)
 	return 1;
 }
 
-uword _finalizable(CrocThread* t)
+uword _isFinalizable(CrocThread* t)
 {
 	checkAnyParam(t, 1);
 
@@ -327,183 +334,37 @@ uword _finalizable(CrocThread* t)
 	return 1;
 }
 
-uword _binder(CrocThread* t)
+uword _instanceOf(CrocThread* t)
 {
-	enum
-	{
-		Func,
-		Proto
-	}
+	checkParam(t, 2, CrocValue.Type.Class);
 
-	checkParam(t, 1, CrocValue.Type.Instance);
-
-	getUpval(t, Proto);
-	auto proto = getClass(t, -1);
-
-	if(!as(t, 1, -1))
-		paramTypeError(t, 1, proto.name.toString());
-
-	getUpval(t, Func);
-	auto func = getFunction(t, -1);
-	pop(t, 2);
-
-	auto slot = fakeToAbs(t, 1);
-
-	return commonCall(t, slot, -1, callPrologue2(t, func, slot, -1, slot, stackSize(t) - 1, proto));
-}
-
-void _bindImpl(CrocThread* t, CrocClass* cls, CrocString* name)
-{
-	// First, get the method.
-	auto slot = classobj.getMethod(cls, name);
-
-	if(slot is null)
-	{
-		throwStdException(t, "MethodException", "Class '{}' has no method named '{}'",
-			cls.name.toString(), name.toString());
-	}
-
-	auto AR = getActRec(t, 1);
-
-	if(!checkAccess(slot.value, AR))
-	{
-		throwStdException(t, "MethodException", "Attempting to bind method '{}' from outside class '{}'",
-			name.toString(), cls.name.toString());
-	}
-
-	if(slot.value.value.type != CrocValue.Type.Function)
-	{
-		push(t, slot.value.value);
-		pushTypeString(t, -1);
-		throwStdException(t, "TypeException", "'{}' is not a function, it is a '{}'", name.toString(), getString(t, -1));
-	}
-
-	auto realMethod = slot.value.value.mFunction;
-
-	// Next, check to see if we have this method cached.
-	auto tab = getUpval(t, 0); // [tab]
-	push(t, CrocValue(cls));
-	auto methods = idx(t, tab); // [tab methods]
-
-	if(!isNull(t, methods))
-	{
-		push(t, CrocValue(name));
-		auto cached = idx(t, methods); // [tab methods cached]
-
-		if(isNull(t, cached))
-			pop(t); // [tab methods]
-		else
-		{
-			field(t, cached, "func"); // [tab methods cached cachedFunc]
-			auto cachedFunc = getFunction(t, -1);
-
-			if(cachedFunc is realMethod)
-			{
-				field(t, cached, "bound");
-				insertAndPop(t, tab);
-				return;
-			}
-
-			// The method changed; clear the cache and re-create.
-			pop(t, 2); // [tab methods]
-			push(t, CrocValue(name));
-			pushNull(t);
-			idxa(t, methods); // [tab methods]
-		}
-	}
-
-	// No cached function: create it anew.
-		push(t, CrocValue(realMethod));
-		push(t, CrocValue(slot.value.proto));
-	auto newFunc = newFunction(t, &_binder, "binder", 2); // [tab methods newFunc]
-
-	if(isNull(t, methods))
-	{
-		// methods = {}
-		newTable(t);
-		swap(t, methods);
-		pop(t);
-
-		// tab[cls] = methods
-		push(t, CrocValue(cls));
-		dup(t, methods);
-		idxa(t, tab); // [tab methods newFunc]
-	}
-
-	push(t, CrocValue(name)); // [tab methods newFunc name]
-	newTable(t); // [tab methods newFunc name <table>]
-		push(t, CrocValue(realMethod)); fielda(t, -2, "func");
-		dup(t, newFunc);                fielda(t, -2, "bound");
-	idxa(t, methods); // [tab methods newFunc]
-
-	insertAndPop(t, tab); // [newFunc]
-}
-
-uword _bindClassMethod(CrocThread* t)
-{
-	checkParam(t, 1, CrocValue.Type.Class);
-	auto name = checkStringParam(t, 2);
-
-	if(name.startsWith("__"))
-	{
-		pushString(t, nameOf(t, 1));
-		dup(t, 2);
-		cat(t, 2);
-		swap(t, 2);
-		pop(t);
-	}
-
-	_bindImpl(t, getClass(t, 1), getStringObj(t, 2));
-	return 1;
-}
-
-uword _binderInst(CrocThread* t)
-{
-	enum
-	{
-		Func,
-		Self
-	}
-
-	getUpval(t, Func);
-	pushNull(t);
-	getUpval(t, Self);
-	rotate(t, stackSize(t) - 1, 3);
-	return rawCall(t, 1, -1);
-}
-
-uword _bindInstMethod(CrocThread* t)
-{
-	checkParam(t, 1, CrocValue.Type.Instance);
-	auto name = checkStringParam(t, 2);
-
-	if(name.startsWith("__"))
+	if(isInstance(t, 1))
 	{
 		superOf(t, 1);
-		pushString(t, nameOf(t, -1));
-		dup(t, 2);
-		cat(t, 2);
-		swap(t, 2);
-		pop(t, 2);
+		pushBool(t, opis(t, -1, 2));
 	}
+	else
+		pushBool(t, false);
 
-	_bindImpl(t, getInstance(t, 1).parent, getStringObj(t, 2));
-	dup(t, 1);
-	newFunction(t, &_binderInst, "binderInst", 2);
 	return 1;
 }
 
 const Docs[] _globalFuncDocs =
 [
+	{kind: "function", name: "newClass",
+	params: [Param("name", "string"), Param("vararg", "vararg")],
+	docs:
+	`A function for creating a class from a name and optional base classes. The built-in class declaration syntax in
+	Croc doesn't allow you to parameterize the name, so this function allows you to do so.
+
+	The varargs are the optional base classes, and they must all be of type \tt{class}.`},
 
 	{kind: "function", name: "fieldsOf",
 	params: [Param("value", "class|instance")],
 	docs:
-	`Given a class or instance, returns an iterator function which iterates over all the public fields accessible from
-	that object.
+	`Given a class or instance, returns an iterator function which iterates over all the fields in that object.
 
-	The iterator gives three indices: the name of the field, its value, and the class in which it was defined. For
-	example:
+	The iterator gives two indices: the name of the field, then its value. For example:
 
 \code
 class Base
@@ -518,24 +379,20 @@ class Derived : Base
 	z = 30
 }
 
-foreach(name, val, cls; object.fieldsOf(Derived))
-	writefln("{} = {} ({})", name, val, nameOf(cls))
+foreach(name, val; object.fieldsOf(Derived))
+	writefln("{} = {}", name, val)
 \endcode
 
 	This will print out (though not necessarily in this order):
 
 \verbatim
-x = 20 (Derived)
-y = 10 (Base)
-z = 30 (Derived)
+x = 20
+y = 10
+z = 30
 \endverbatim
 
-	Notice that \tt{x}'s owner is \tt{Derived}, even though there is an \tt{x} in \tt{Base} as well, because
-	\tt{Derived} redefined it.
-
 	\param[value] is the class or instance whose fields you want to iterate over.
-	\returns an iterator function.
-	`},
+	\returns an iterator function. `},
 
 	{kind: "function", name: "methodsOf",
 	params: [Param("value", "class|instance")],
@@ -544,7 +401,7 @@ z = 30 (Derived)
 
 	\param[value] is the class or instance whose methods you want to iterate over. If you pass an \tt{instance}, it will
 	just iterate over its class's methods instead (since instances don't store methods).
-	\returns an iterator function`},
+	\returns an iterator function.`},
 
 	{kind: "function", name: "rawSetField",
 	params: [Param("o", "instance"), Param("name", "string"), Param("value")],
@@ -556,27 +413,56 @@ z = 30 (Derived)
 	docs:
 	`Gets a field from an instance bypassing any \b{\tt{opField}} metamethods.`},
 
-	{kind: "function", name: "memberOwner",
-	params: [Param("o", "class|instance"), Param("name", "string")],
+	{kind: "function", name: "addMethod",
+	params: [Param("cls", "class"), Param("name", "string"), Param("func", "function")],
 	docs:
-	`Gets the class in which the given member (field or method) was defined.
+	`Adds a new method to a class.
 
-	When you use \link{fieldsOf} or \link{methodsOf}, each field has an associated "owner" which is the class in which
-	that field or method was defined. You can directly access this owner class with this function. For instance,
+	The class must not be frozen, and no method or field of the same name may exist.`},
 
-\code
-class C
-{
-	x = 5
-}
-\endcode
+	{kind: "function", name: "addField",
+	params: [Param("cls", "class"), Param("name", "string"), Param("value", "any", "null")],
+	docs:
+	`Adds a new field to a class.
 
-	With this class, \tt{object.memberOwner(C, "x")} returns \tt{C} itself, as this is the class in which \tt{"x"} was
-	defined.
+	The class must not be frozen, and no method or field of the same name may exist. The \tt{value} parameter is
+	optional.`},
 
-	\param[o] is the class or instance in which to look.
-	\param[name] is the name of the field whose owner is to be retrieved.
-	\returns the class in which the given field was defined.`},
+	{kind: "function", name: "addMethodOverride",
+	params: [Param("cls", "class"), Param("name", "string"), Param("func", "function")],
+	docs:
+	`Adds a new method to a class, overriding any existing method of the same name. Works just like the \tt{override}
+	keyword in an actual class declaration.
+
+	The class must not be frozen, and a method of the same name must exist.`},
+
+	{kind: "function", name: "addFieldOverride",
+	params: [Param("cls", "class"), Param("name", "string"), Param("value", "any", "null")],
+	docs:
+	`Adds a new field to a class, overriding any existing field of the same name. Works just like the \tt{override}
+	keyword in an actual class declaration.
+
+	The class must not be frozen, and a field of the same name must exist. The \tt{value} parameter is optional.`},
+
+	{kind: "function", name: "removeMember",
+	params: [Param("cls", "class"), Param("name", "string")],
+	docs:
+	`Removes a member (method or field) from a class.
+
+	The class must not be frozen, and there must be a member of the given name to remove.`},
+
+	{kind: "function", name: "freeze",
+	params: [Param("cls", "class")],
+	docs:
+	`Forces a class to be frozen.
+
+	Normally classes are frozen when they are instantiated or derived from, but you can force them to be frozen with
+	this function to prevent any tampering.`},
+
+	{kind: "function", name: "isFrozen",
+	params: [Param("cls", "class")],
+	docs:
+	`\returns a bool indicating whether or not the given class is frozen.`},
 
 	{kind: "function", name: "addMethod",
 	params: [Param("cls", "class"), Param("name", "string"), Param("func", "function")],
@@ -585,92 +471,16 @@ class C
 
 	The class must not be frozen, and no method or field of the same name may exist.`},
 
-	{kind: "function", name: "bindClassMethod",
-	params: [Param("cls", "class"), Param("name", "string")],
+	{kind: "function", name: "isFinalizable",
+	params: [Param("value", "class|instance")],
 	docs:
-	`Given a class and the name of a (public) method from that class, returns a function which allows you to call that
-	method using a normal function call. This is often useful for situations where you want to transparently forward a
-	call to an instance's method, such as when making mock objects.
+	`\returns a bool indicating whether or not the given class or instance is finalizable.
 
-	The returned function has the signature \tt{function(self: instance(cls), vararg)}; that is, the first parameter
-	must be an instance of the \tt{cls} from which the method is bound, and then a variable number of arguments which
-	will be passed through unchanged to the bound method. The \tt{self} parameter will then become the \tt{this}
-	parameter in the underlying method call.
+	\b{If \tt{value} is an unfrozen class, it will be frozen!} There is no way to be sure a class is finalizable without
+	freezing it first.`},
 
-	For example:
-
-\code
-class C
-{
-	_prot = 5
-	function getProt() = :_prot
-}
-
-local c = C()
-
-writeln(c.getProt()) // prints 5
-
-local boundGetProt = object.bindClassMethod(C, "getProt")
-
-writeln(boundGetProt(c)) // also prints 5
-\endcode
-
-	This function can be used to bind protected and private methods as well, but only as long as you call it from within
-	a method from the appropriate class. It uses the exact same rules as normal field/method access in this regard. If
-	you want to bind a private method, pass its unmangled name (such as \tt{"__foo"}) to this function; it will be
-	automatically mangled for you.
-
-	Note that this function will intelligently cache the function that it returns. If you use
-	\tt{bindClassMethod(C, name)} twice, both times it will return the same function closure. If you happen to change
-	the method in the class in between those calls (such as might happen before the class is frozen), the cache will
-	adapt and a new closure will be returned which binds the new method.
-
-	\param[cls] is the class from which the method should be bound.
-	\param[name] is the name of the method to bind.
-	\throws[exceptions.MethodException] if the given method doesn't exist or can't be accessed.
-	\throws[exceptions.TypeException] if \tt{name} names a method which is not a function.`},
-
-	{kind: "function", name: "bindInstMethod",
-	params: [Param("inst", "instance"), Param("name", "string")],
+	{kind: "function", name: "instanceOf",
+	params: [Param("value"), Param("cls", "class")],
 	docs:
-	`Similar to \link{bindClassMethod}, but works on an instance instead of a class. Basically what it does is the
-	following:
-
-\code
-function bindInstMethod(inst: instance, name: string)
-{
-	local boundFunc = bindClassMethod(inst.super, name)
-	return function(vararg)
-	{
-		return boundFunc(inst, vararg)
-	}
-\endcode
-
-	That is, it just uses \link{bindClassMethod} to get a bound class method, and then returns a closure that will call
-	that bound method with \tt{inst} as the \tt{self} parameter. However, if you tried to implement this function in
-	Croc as above, it wouldn't work for binding protected or private methods. This native implementation gets around
-	that and allows you to bind non-public methods as well. In this regard it behaves exactly as \link{bindClassMethod}.
-
-	You can use it like:
-
-\code
-class C
-{
-	_prot = 5
-	function getProt() = :_prot
-}
-
-local c = C()
-
-writeln(c.getProt()) // prints 5
-
-local bound = object.bindInstMethod(c, "getProt")
-
-writeln(bound()) // also prints 5
-\endcode
-
-	\param[inst] is the instance from which the method should be bound.
-	\param[name] is the name of the method to bind.
-	\throws[exceptions.MethodException] if the given method doesn't exist or can't be accessed.
-	\throws[exceptions.TypeException] if \tt{name} names a method which is not a function.`},
+	`\returns \tt{true} if \tt{value} is an instance and it is an instance of \tt{cls}, and \tt{false} otherwise.`},
 ];

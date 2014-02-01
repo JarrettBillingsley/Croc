@@ -28,7 +28,7 @@ import tango.io.Stdout;
 
 import croc.api;
 import croc.compiler;
-import croc.serialization;
+import croc.ex_serialization;
 
 void printUsage()
 {

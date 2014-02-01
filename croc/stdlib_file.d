@@ -116,7 +116,7 @@ static:
 		pushBool(t, true);
 		pushBool(t, true);
 		pushBool(t, false);
-		rawCall(t, slot, 1);
+		call(t, slot, 1);
 
 		if(bufSize > 0)
 		{
@@ -124,7 +124,7 @@ static:
 			pushNull(t);
 			dup(t, slot);
 			pushInt(t, bufSize);
-			rawCall(t, -4, 1);
+			call(t, -4, 1);
 		}
 
 		return 1;
@@ -144,7 +144,7 @@ static:
 			case "a": style = File.WriteAppending; break;
 			case "c": style = File.WriteCreate;    break;
 			default:
-				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
+				throwStdException(t, "ValueError", "Unknown open mode '{}'", mode);
 		}
 
 		auto f = safeCode(t, "exceptions.IOException", new File(name, style));
@@ -155,7 +155,7 @@ static:
 		pushBool(t, true);
 		pushBool(t, false);
 		pushBool(t, true);
-		rawCall(t, slot, 1);
+		call(t, slot, 1);
 
 		if(bufSize > 0)
 		{
@@ -163,7 +163,7 @@ static:
 			pushNull(t);
 			dup(t, slot);
 			pushInt(t, bufSize);
-			rawCall(t, -4, 1);
+			call(t, -4, 1);
 		}
 
 		return 1;
@@ -185,7 +185,7 @@ static:
 			case "a": style = ReadWriteAppending;     break;
 			case "c": style = File.ReadWriteCreate;   break;
 			default:
-				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
+				throwStdException(t, "ValueError", "Unknown open mode '{}'", mode);
 		}
 
 		auto f = safeCode(t, "exceptions.IOException", new File(name, style));
@@ -196,7 +196,7 @@ static:
 		pushBool(t, true);
 		pushBool(t, true);
 		pushBool(t, true);
-		rawCall(t, slot, 1);
+		call(t, slot, 1);
 
 		// TODO:
 		// if(bufSize > 0)
@@ -205,7 +205,7 @@ static:
 		// 	pushNull(t);
 		// 	dup(t, slot);
 		// 	pushInt(t, bufSize);
-		// 	rawCall(t, -4, 1);
+		// 	call(t, -4, 1);
 		// }
 
 		return 1;
@@ -347,7 +347,7 @@ static:
 						pushString(t, info.path);
 						pushString(t, info.name);
 						cat(t, 2);
-						rawCall(t, -3, 1);
+						call(t, -3, 1);
 
 						if(isBool(t, -1) && !getBool(t, -1))
 							break;
@@ -372,7 +372,7 @@ static:
 						pushString(t, info.path);
 						pushString(t, info.name);
 						cat(t, 2);
-						rawCall(t, -3, 1);
+						call(t, -3, 1);
 
 						if(isBool(t, -1) && !getBool(t, -1))
 							break;
@@ -446,7 +446,7 @@ static:
 		auto size = safeCode(t, "exceptions.IOException", Path_fileSize(name));
 
 		if(size > uword.max)
-			throwStdException(t, "ValueException", "file too big ({} bytes)", size);
+			throwStdException(t, "ValueError", "file too big ({} bytes)", size);
 
 		newMemblock(t, cast(uword)size);
 		auto mb = getMemblock(t, -1);
@@ -523,13 +523,13 @@ static:
 		pushNull(t);
 		dup(t, 1);
 		pushInt(t, 0); // disable buffering, as TextReader does its own
-		rawCall(t, -4, 1);
+		call(t, -4, 1);
 
 		lookupCT!("stream.TextReader")(t);
 		pushNull(t);
 		moveToTop(t, -3);
 		pushString(t, encoding);
-		rawCall(t, -4, 1);
+		call(t, -4, 1);
 
 		pushInt(t, 0);
 		getUpval(t, stripEnding ? StripIterator : NostripIterator);

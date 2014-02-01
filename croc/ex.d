@@ -36,7 +36,7 @@ import croc.api_debug;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.compiler;
-import croc.serialization;
+import croc.ex_serialization;
 import croc.types;
 import croc.utf;
 import croc.utils;
@@ -59,7 +59,7 @@ void throwNamedException(CrocThread* t, char[] exName, char[] fmt, ...)
 	lookup(t, exName);
 	pushNull(t);
 	pushVFormat(t, fmt, _arguments, _argptr);
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 	throwException(t);
 }
 
@@ -99,13 +99,13 @@ word importModule(CrocThread* t, word name)
 	if(!isString(t, name))
 	{
 		pushTypeString(t, name);
-		throwStdException(t, "TypeException", __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeError", __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
 	}
 
 	lookup(t, "modules.load");
 	pushNull(t);
 	dup(t, name);
-	rawCall(t, -3, 1);
+	call(t, -3, 1);
 
 	assert(t.stack[t.stackIndex - 1].type == CrocValue.Type.Namespace);
 	return stackSize(t) - 1;
@@ -143,18 +143,17 @@ word importModuleFromString(CrocThread* t, char[] name, char[] src, char[] srcNa
 	if(srcName is null)
 		srcName = name;
 
-	scope c = new Compiler(t);
-	auto f = lookup(t, "modules.initModule");
-	pushNull(t);
+	lookup(t, "modules.customLoaders");
 	char[] modName;
+	scope c = new Compiler(t);
 	c.compileModule(src, srcName, modName);
 
 	if(name != modName)
 		throwStdException(t, "ImportException", "Import name ({}) does not match name given in module statement ({})", name, modName);
 
-	pushString(t, name);
-	rawCall(t, f, 0);
-	return importModule(t, name);
+	fielda(t, -2, modName);
+	pop(t);
+	return importModule(t, modName);
 }
 
 /**
@@ -216,7 +215,7 @@ public:
 		char[] s = void;
 
 		if(encodeUtf8Char(outbuf, c, s) != UtfError.OK)
-			throwStdException(t, "UnicodeException", "Invalid character U+{:X6}", cast(uint)c);
+			throwStdException(t, "UnicodeError", "Invalid character U+{:X6}", cast(uint)c);
 
 		if(pos + s.length - 1 >= data.length)
 			flush();
@@ -279,7 +278,7 @@ public:
 		else
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", "Trying to add a '{}' to a StrBuffer", getString(t, -1));
+			throwStdException(t, "TypeError", "Trying to add a '{}' to a StrBuffer", getString(t, -1));
 		}
 	}
 
@@ -367,7 +366,7 @@ metamethods are respected.
 -----
 auto slot = lookup(t, "time.Timer");
 pushNull(t);
-rawCall(t, slot, 1);
+call(t, slot, 1);
 // We now have an instance of time.Timer on top of the stack.
 -----
 
@@ -474,7 +473,7 @@ word loadString(CrocThread* t, char[] code, bool customEnv = false, char[] name 
 		if(!isNamespace(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
 		}
 	}
 	else
@@ -500,7 +499,7 @@ void runString(CrocThread* t, char[] code, bool customEnv = false, char[] name =
 {
 	loadString(t, code, customEnv, name);
 	pushNull(t);
-	rawCall(t, -2, 0);
+	call(t, -2, 0);
 }
 
 /**
@@ -526,7 +525,7 @@ uword eval(CrocThread* t, char[] code, word numReturns = 1, bool customEnv = fal
 		if(!isNamespace(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwStdException(t, "TypeException", "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
+			throwStdException(t, "TypeError", "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
 		}
 	}
 	else
@@ -542,7 +541,7 @@ uword eval(CrocThread* t, char[] code, word numReturns = 1, bool customEnv = fal
 	insertAndPop(t, -2);
 
 	pushNull(t);
-	return rawCall(t, -2, numReturns);
+	return call(t, -2, numReturns);
 }
 
 /**
@@ -584,16 +583,15 @@ void runFile(CrocThread* t, char[] filename, uword numParams = 0)
 	}
 	else
 	{
-		scope f = safeCode(t, "exceptions.IOException", new File(filename, File.ReadExisting));
+		auto f = safeCode(t, "exceptions.IOException", new File(filename, File.ReadExisting));
 		deserializeModule(t, modName, f);
 	}
 
-	lookup(t, "modules.initModule");
-	pushNull(t);
-	moveToTop(t, -3);
-	pushString(t, modName);
-	rawCall(t, -4, 1);
-	commonRun(t, numParams, modName);
+	lookup(t, "modules.customLoaders");
+	swap(t);
+	fielda(t, -2, modName);
+	pop(t);
+	runModule(t, modName, numParams);
 }
 
 /**
@@ -603,7 +601,11 @@ void runModule(CrocThread* t, char[] moduleName, uword numParams = 0)
 	mixin(apiCheckNumParams!("numParams"));
 
 	importModule(t, moduleName);
-	commonRun(t, numParams, moduleName);
+	pushNull(t);
+	lookup(t, "modules.runMain");
+	swap(t, -3);
+	rotate(t, numParams + 3, 3);
+	call(t, -3 - numParams, 0);
 }
 
 /**
@@ -625,13 +627,13 @@ you call a lot of native functions.
 Instead, you can wrap the call to this unsafe function with a call to safeCode().
 
 -----
-File f = safeCode(t, OpenFile("filename"));
+File f = safeCode(t, "IOException", OpenFile("filename"));
 -----
 
 What safeCode() does is it tries to execute the code it is passed. If it succeeds, it simply returns any value that
 the code returns. If it throws an exception derived from CrocException, it rethrows the exception. And if it throws
-an exception that derives from Exception, it throws a new CrocException with the original exception's message as the
-message.
+an exception that derives from Exception, it throws a Croc exception of the given type with the original exception's
+message as the new exception's message. In the example above, a Croc IOException will be thrown.
 
 If you want to wrap statements, you can use a delegate literal:
 
@@ -652,24 +654,10 @@ safeCode() is templated to allow any return value.
 Params:
 	code = The code to be executed. This is a lazy parameter, so it's not actually executed until inside the call to
 		safeCode.
+	exName = The fully-qualified name of the Croc exception type to translate D exceptions into.
 
 Returns:
 	Whatever the code parameter returns.
-*/
-T safeCode(T)(CrocThread* t, lazy T code)
-{
-	try
-		return code;
-	catch(CrocException e)
-		throw e;
-	catch(Exception e)
-		throwStdException(t, "Exception", "{}", e);
-
-	assert(false);
-}
-
-/**
-ditto
 */
 T safeCode(T)(CrocThread* t, char[] exName, lazy T code)
 {
@@ -1000,7 +988,7 @@ of parameters were passed to your function.
 void checkAnyParam(CrocThread* t, word index)
 {
 	if(!isValidIndex(t, index))
-		throwStdException(t, "ParamException", "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
+		throwStdException(t, "ParamError", "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
 }
 
 /**
@@ -1108,14 +1096,14 @@ void checkInstParam(CrocThread* t, word index, char[] name)
 
 	lookup(t, name);
 
-	if(!as(t, index, -1))
+	if(!instanceOf(t, index, -1))
 	{
 		pushTypeString(t, index);
 
 		if(index == 0)
-			throwStdException(t, "TypeException", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
 		else
-			throwStdException(t, "TypeException", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
 	}
 
 	pop(t);
@@ -1136,15 +1124,15 @@ void checkInstParamRef(CrocThread* t, word index, ulong classRef)
 
 	pushRef(t, classRef);
 
-	if(!as(t, index, -1))
+	if(!instanceOf(t, index, -1))
 	{
 		auto name = className(t, -1);
 		pushTypeString(t, index);
 
 		if(index == 0)
-			throwStdException(t, "TypeException", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
 		else
-			throwStdException(t, "TypeException", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
 	}
 
 	pop(t);
@@ -1161,15 +1149,15 @@ void checkInstParamSlot(CrocThread* t, word index, word classIndex)
 {
 	checkInstParam(t, index);
 
-	if(!as(t, index, classIndex))
+	if(!instanceOf(t, index, classIndex))
 	{
 		auto name = className(t, classIndex);
 		pushTypeString(t, index);
 
 		if(index == 0)
-			throwStdException(t, "TypeException", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
 		else
-			throwStdException(t, "TypeException", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			throwStdException(t, "TypeError", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
 	}
 }
 
@@ -1196,9 +1184,9 @@ void paramTypeError(CrocThread* t, word index, char[] expected)
 	pushTypeString(t, index);
 
 	if(index == 0)
-		throwStdException(t, "TypeException", "Expected type '{}' for 'this', not '{}'", expected, getString(t, -1));
+		throwStdException(t, "TypeError", "Expected type '{}' for 'this', not '{}'", expected, getString(t, -1));
 	else
-		throwStdException(t, "TypeException", "Expected type '{}' for parameter {}, not '{}'", expected, absIndex(t, index), getString(t, -1));
+		throwStdException(t, "TypeError", "Expected type '{}' for parameter {}, not '{}'", expected, absIndex(t, index), getString(t, -1));
 }
 
 /**
@@ -1304,15 +1292,6 @@ bool optParam(CrocThread* t, word index, CrocValue.Type type)
 // ================================================================================================================================================
 
 private:
-
-void commonRun(CrocThread* t, uword numParams, char[] modName)
-{
-	pushNull(t);
-	lookup(t, "modules.runMain");
-	swap(t, -3);
-	rotate(t, numParams + 3, 3);
-	rawCall(t, -3 - numParams, 0);
-}
 
 // Check the format of a name of the form "\w[\w\d]*(\.\w[\w\d]*)*". Could we use an actual regex for this?  I guess,
 // but then we'd have to create a regex object, and either it'd have to be static and access to it would have to be

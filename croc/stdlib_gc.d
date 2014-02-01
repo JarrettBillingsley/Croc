@@ -108,13 +108,13 @@ uword _allocated(CrocThread* t)
 uword _limit(CrocThread* t)
 {
 	auto limType = checkStringParam(t, 1);
-	
+
 	if(isValidIndex(t, 2))
 	{
 		auto lim = checkIntParam(t, 2);
-		
+
 		if(lim < 0 || lim > uword.max)
-			throwStdException(t, "RangeException", "Invalid limit ({})", lim);
+			throwStdException(t, "RangeError", "Invalid limit ({})", lim);
 
 		pushInt(t, gcLimit(t, limType, cast(uword)lim));
 	}
@@ -144,7 +144,7 @@ uword _removePostCallback(CrocThread* t)
 	checkParam(t, 1, CrocValue.Type.Function);
 
 	auto callbacks = getRegistryVar(t, PostGCCallbacks);
-	
+
 	dup(t);
 	pushNull(t);
 	dup(t, 1);

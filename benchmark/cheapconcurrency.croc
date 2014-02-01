@@ -7,7 +7,7 @@ local function link(n)
 {
 	if(n > 1)
 	{
-		local cofunc = coroutine link
+		local cofunc = thread.new$ link
 		cofunc(n - 1)
 		yield()
 
@@ -31,7 +31,7 @@ function main(N)
 	local timer = time.Timer()
 	timer.start()
 
-	local cofunc = coroutine link
+	local cofunc = thread.new$ link
 	cofunc(500)
 	local count = 0
 

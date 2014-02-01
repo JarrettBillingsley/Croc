@@ -74,7 +74,6 @@ private Op AstTagToOpcode(AstTag tag)
 		case AstTag.ShrExp: return Op.Shr;
 		case AstTag.UShrExp: return Op.UShr;
 
-		case AstTag.AsExp: return Op.As;
 		case AstTag.Cmp3Exp: return Op.Cmp3;
 
 		// Reflex
@@ -1021,7 +1020,7 @@ package:
 	}
 
 	// [Local Const src] => []
-	void addClassField(ref CompileLoc loc, ubyte privacy)
+	void addClassField(ref CompileLoc loc, bool isOverride)
 	{
 		auto cls = getExp(-3);
 		auto name = getExp(-2);
@@ -1031,16 +1030,16 @@ package:
 		debug(EXPSTACKCHECK) assert(name.type == ExpType.Const);
 		debug(EXPSTACKCHECK) assert(src.isSource());
 
-		codeRD(loc, Op.AddField, cls);
+		codeRD(loc, Op.AddMember, cls);
 		codeRC(name);
 		codeRC(src);
-		codeUImm(cast(ushort)privacy);
+		codeUImm(0 | (isOverride ? 2 : 0));
 
 		pop(3);
 	}
 
 	// [Local Const src] => []
-	void addClassMethod(ref CompileLoc loc, ubyte privacy)
+	void addClassMethod(ref CompileLoc loc, bool isOverride)
 	{
 		auto cls = getExp(-3);
 		auto name = getExp(-2);
@@ -1050,10 +1049,10 @@ package:
 		debug(EXPSTACKCHECK) assert(name.type == ExpType.Const);
 		debug(EXPSTACKCHECK) assert(src.isSource());
 
-		codeRD(loc, Op.AddMethod, cls);
+		codeRD(loc, Op.AddMember, cls);
 		codeRC(name);
 		codeRC(src);
-		codeUImm(cast(ushort)privacy);
+		codeUImm(1 | (isOverride ? 2 : 0));
 
 		pop(3);
 	}
@@ -1205,19 +1204,24 @@ package:
 		}
 	}
 
-	// [src src] => [NeedsDest]
-	void newClass(ref CompileLoc loc)
+	// [src Temp*nbase] => [NeedsDest]
+	void newClass(ref CompileLoc loc, uword numBases)
 	{
-		auto name = getExp(-2);
-		auto base = getExp(-1);
+		auto name = getExp(-numBases - 1);
 
 		debug(EXPSTACKCHECK) assert(name.isSource());
-		debug(EXPSTACKCHECK) assert(base.isSource());
+		debug(EXPSTACKCHECK) for(int i = -numBases; i < 0; i++) assert(getExp(i).type == ExpType.Temporary);
 
 		auto i = codeRD(loc, Op.Class, 0);
 		codeRC(name);
-		codeRC(base);
-		pop(2);
+
+		if(numBases > 0)
+			codeRC(getExp(-numBases));
+		else
+			codeRC(Exp.Empty);
+
+		codeUImm(numBases);
+		pop(numBases + 1);
 		pushExp(ExpType.NeedsDest, i);
 	}
 
@@ -1403,7 +1407,7 @@ package:
 	}
 
 	// [src src args] => [Call]
-	void pushMethodCall(ref CompileLoc loc, bool isSuperCall, ref MethodCallDesc desc)
+	void pushMethodCall(ref CompileLoc loc, ref MethodCallDesc desc)
 	{
 		// desc.baseExp holds obj, baseExp + 1 holds method name. assert they're both sources
 		// everything after that is args. assert they're all in registers
@@ -1422,11 +1426,9 @@ package:
 		assert(mExpSP == desc.baseExp);
 		assert(mFreeReg == desc.baseReg);
 
-		auto inst = codeRD(loc, isSuperCall ? Op.SuperMethod : Op.Method, desc.baseReg);
+		auto inst = codeRD(loc, Op.Method, desc.baseReg);
 
-		if(!isSuperCall)
-			codeRC(obj);
-
+		codeRC(obj);
 		codeRC(name);
 		codeUImm(numArgs);
 		codeUImm(0);
@@ -1494,7 +1496,6 @@ package:
 		{
 			case Op.Call: setOpcode(e.index, Op.TailCall); break;
 			case Op.Method: setOpcode(e.index, Op.TailMethod); break;
-			case Op.SuperMethod: setOpcode(e.index, Op.TailSuperMethod); break;
 			default: assert(false);
 		}
 	}
@@ -1966,9 +1967,8 @@ private:
 		{
 			case Op.Vararg, Op.VargSlice: setUImm(index + 1, num); break;
 			case Op.Call, Op.Yield:       setUImm(index + 2, num); break;
-			case Op.SuperMethod:          setUImm(index + 3, num); break;
 			case Op.Method:               setUImm(index + 4, num); break;
-			case Op.TailCall, Op.TailSuperMethod, Op.TailMethod: break; // these don't care about the number of returns at all
+			case Op.TailCall, Op.TailMethod: break; // these don't care about the number of returns at all
 			default: assert(false);
 		}
 	}
@@ -2331,7 +2331,6 @@ package:
 		ret.numParams = mNumParams;
 		ret.paramMasks = mParamMasks;
 		mParamMasks = null;
-		ret.numUpvals = mUpvals.length;
 
 		c.alloc.resizeArray(ret.upvals, mUpvals.length);
 
@@ -2564,8 +2563,6 @@ package:
 			case Op.UShr: Stdout("ushr"); goto _8;
 			case Op.Index:       Stdout("idx"); goto _8;
 			case Op.IndexAssign: Stdout("idxa"); goto _8;
-			case Op.Class:       Stdout("class"); goto _8;
-			case Op.As:          Stdout("as"); goto _8;
 			case Op.Field:       Stdout("field"); goto _8;
 			case Op.FieldAssign: Stdout("fielda"); goto _8;
 			_8: rd(i); rc(); rc(); break;
@@ -2616,13 +2613,9 @@ package:
 			// (__, rs, rt, imm)
 			case Op.SwitchCmp: Stdout("swcmp"); rc(false); rc(); imm(); break;
 
-			// (rd, rt, uimm, uimm)
-			case Op.SuperMethod:     Stdout("smethod"); rd(i); rc(); uimm(); uimm(); break;
-			case Op.TailSuperMethod: Stdout("tsmethod"); rd(i); rc(); uimm(); nextIns(); break;
-
 			// (rd, rs, rt, uimm)
-			case Op.AddField: Stdout("addfield"); goto _12;
-			case Op.AddMethod: Stdout("addmethod"); goto _12;
+			case Op.AddMember: Stdout("addmember"); goto _12;
+			case Op.Class:     Stdout("class"); goto _12;
 			_12: rd(i); rc(); rc(); uimm(); break;
 
 			// (rd, rs, rt, uimm, uimm)

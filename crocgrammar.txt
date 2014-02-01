@@ -10,12 +10,12 @@ Space:
 	\u000C
 	EndOfLine
 	Comment
+	LinePragma
 
 EndOfLine:
 	\r
 	\n
 	\r\n
-	\n\r
 	EOF
 
 EOF:
@@ -28,6 +28,9 @@ Comment:
 
 NestedComment:
 	/* (Character | NestedComment)* */
+
+LinePragma:
+	//#line (' ' | \t)+ Decimal ((' ' | \t)+ " Character* ")? EndOfLine
 
 Token:
 	Identifier
@@ -59,10 +62,10 @@ IdentifierChar:
 	!
 
 Keyword:
-	as | assert | break | case | catch | class | continue | default | do
-	else | false | finally | for | foreach | function | global | if | import
-	in | is | local | module | namespace | null | return | scope | super
-	switch | this | throw | true | try | vararg | while | with | yield
+	and | as | assert | break | case | catch | class | continue | default | do | else
+	false | finally | for | foreach | function | global | if | import | in | is | local
+	module | namespace | not | null | or | override | return | scope | super | switch
+	this | throw | true | try | vararg | while | with | yield
 
 StringLiteral:
 	RegularString
@@ -236,6 +239,7 @@ Parameter:
 Type:
 	BasicType
 	! null
+	not null
 	any
 	@ DottedName
 
@@ -260,12 +264,12 @@ BasicType:
 	funcdef
 
 ClassDeclaration:
-	(local | global)? class Identifier (: Expression)? { ClassMember* }
+	(local | global)? class Identifier (: List(Expression))? { ClassMember* }
 
 ClassMember:
-	Decorators? SimpleFunctionDeclaration
-	Decorators? this FunctionBody
-	Decorators? Identifier (= Expression)? StatementTerminator
+	Decorators? override? SimpleFunctionDeclaration
+	Decorators? override? this FunctionBody
+	Decorators? override? Identifier (= Expression)? StatementTerminator
 
 NamespaceDeclaration:
 	(local | global) namespace Identifier (: Expression)? { NamespaceMember* }
@@ -320,12 +324,19 @@ ReturnStatement:
 	return List(Expression)? StatementTerminator
 
 TryCatchStatement:
-	try Statement CatchClause+
+	try Statement CatchClauses
 	try Statement finally Statement
-	try Statement CatchClause+ finally Statement
+	try Statement CatchClauses finally Statement
+
+CatchClauses:
+	CatchallClause
+	CatchClause+ CatchallClause?
 
 CatchClause:
 	catch '(' Identifier : DottedName ('|' DottedName)* ')' Statement
+
+CatchallClause:
+	catch '(' Identifier ')' Statement
 
 ThrowStatement:
 	throw Expression StatementTerminator
@@ -366,16 +377,21 @@ Expression:
 	ConditionalExpression
 
 ConditionalExpression:
+	LogicalConjExpression
+	LogicalConjExpression '?' Expression : ConditionalExpression
+
+LogicalConjExpression:
+	OrExpression
 	OrOrExpression
-	OrOrExpression ? Expression : ConditionalExpression
+	AndAndExpression
 
 OrOrExpression:
-	AndAndExpression
-	OrOrExpression || AndAndExpression
+	OrOrExpression || OrExpression
+	OrOrExpression or OrExpression
 
 AndAndExpression:
-	OrExpression
 	AndAndExpression && OrExpression
+	AndAndExpression and OrExpression
 
 OrExpression:
 	XorExpression
@@ -399,6 +415,7 @@ EqualExpression:
 	ShiftExpression != ShiftExpression
 	ShiftExpression is ShiftExpression
 	ShiftExpression ! is ShiftExpression
+	ShiftExpression is not ShiftExpression
 
 RelExpression:
 	ShiftExpression < ShiftExpression
@@ -409,6 +426,7 @@ RelExpression:
 	ShiftExpression as ShiftExpression
 	ShiftExpression in ShiftExpression
 	ShiftExpression ! in ShiftExpression
+	ShiftExpression not in ShiftExpression
 
 ShiftExpression:
 	AddExpression
@@ -432,6 +450,7 @@ UnaryExpression:
 	PostfixExpression
 	- UnaryExpression
 	! UnaryExpression
+	not UnaryExpression
 	~ UnaryExpression
 	# UnaryExpression
 
@@ -473,11 +492,9 @@ PrimaryExpression:
 	: (Identifier | super | '(' Expression ')')
 	function Identifier? FunctionBody
 	\ Parameters ((-> Expression) | BlockStatement)
-	class Identifier? (: Expression)? { ClassMember* }
 	'(' Expression ')'
 	TableCtorExp
 	ArrayLiteral
-	namespace Identifier (: Expression)? { NamespaceMember* }
 	yield '(' Arguments? ')'
 
 ArrayLiteral:

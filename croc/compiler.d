@@ -196,6 +196,18 @@ public:
 	}
 
 	/**
+	This gets the default compiler flags for compilers created in the VM that owns the given thread.
+	*/
+	static uint getDefaultFlags(CrocThread* t)
+	{
+		auto reg = getRegistry(t);
+		field(t, reg, "compiler.defaultFlags");
+		auto ret = getInt(t, -1);
+		pop(t, 2);
+		return cast(uint)ret;
+	}
+
+	/**
 	Set the compiler's code-generation flags.
 	*/
 	void setFlags(uint flags)
@@ -492,7 +504,7 @@ private:
 		auto ex = getStdException(t, exType);
 		pushNull(t);
 		pushVFormat(t, msg, arguments, argptr);
-		rawCall(t, ex, 1);
+		call(t, ex, 1);
 		dup(t);
 		pushNull(t);
 		pushLocationObject(t, loc.file, loc.line, loc.col);

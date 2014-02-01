@@ -49,7 +49,7 @@ static:
 
 		importModuleNoNS(t, "compiler");
 	}
-	
+
 	uword loadString(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
@@ -103,7 +103,7 @@ static:
 
 		newFunctionWithEnv(t, -2);
 		pushNull(t);
-		return rawCall(t, -2, -1);
+		return call(t, -2, -1);
 	}
 
 	uword compileModule(CrocThread* t)

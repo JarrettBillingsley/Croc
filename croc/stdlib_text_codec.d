@@ -47,7 +47,7 @@ const char[] encodeIntoHeader =
 
 	if(start < 0) start += destlen;
 	if(start < 0 || start > destlen)
-		throwStdException(t, "BoundsException", "Invalid start index {} for memblock of length {}", start, destlen);`;
+		throwStdException(t, "BoundsError", "Invalid start index {} for memblock of length {}", start, destlen);`;
 
 /**
 */
@@ -63,7 +63,7 @@ const char[] decodeRangeHeader =
 
 	if(lo < 0 || lo > hi || hi > data.length)
 	{
-		throwStdException(t, "BoundsException",
+		throwStdException(t, "BoundsError",
 			"Invalid slice indices({} .. {}) for memblock of length {}", lo, hi, data.length);
 	}
 

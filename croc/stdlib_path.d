@@ -104,31 +104,31 @@ uword _join(CrocThread* t)
 	for(uword i = 1; i <= numParams; i++)
 		tmp[i - 1] = checkStringParam(t, i);
 
-	pushString(t, safeCode(t, "exceptions.ValueException", Path_join(tmp)));
+	pushString(t, safeCode(t, "exceptions.ValueError", Path_join(tmp)));
 	return 1;
 }
 
 uword _dirName(CrocThread* t)
 {
-	pushString(t, safeCode(t, "exceptions.ValueException", Path_parse(checkStringParam(t, 1))).path);
+	pushString(t, safeCode(t, "exceptions.ValueError", Path_parse(checkStringParam(t, 1))).path);
 	return 1;
 }
 
 uword _name(CrocThread* t)
 {
-	pushString(t, safeCode(t, "exceptions.ValueException", Path_parse(checkStringParam(t, 1))).name);
+	pushString(t, safeCode(t, "exceptions.ValueError", Path_parse(checkStringParam(t, 1))).name);
 	return 1;
 }
 
 uword _extension(CrocThread* t)
 {
-	pushString(t, safeCode(t, "exceptions.ValueException", Path_parse(checkStringParam(t, 1))).ext);
+	pushString(t, safeCode(t, "exceptions.ValueError", Path_parse(checkStringParam(t, 1))).ext);
 	return 1;
 }
 
 uword _fileName(CrocThread* t)
 {
-	pushString(t, safeCode(t, "exceptions.ValueException", Path_parse(checkStringParam(t, 1))).file);
+	pushString(t, safeCode(t, "exceptions.ValueError", Path_parse(checkStringParam(t, 1))).file);
 	return 1;
 }
 
@@ -139,12 +139,12 @@ uword _parentDir(CrocThread* t)
 	if(p == ".")
 		p = Environment.cwd();
 
-	auto pp = safeCode(t, "exceptions.ValueException", Path_parse(p));
+	auto pp = safeCode(t, "exceptions.ValueError", Path_parse(p));
 
 	if(pp.isAbsolute)
-		pushString(t, safeCode(t, "exceptions.ValueException", Path_pop(p)));
+		pushString(t, safeCode(t, "exceptions.ValueError", Path_pop(p)));
 	else
-		pushString(t, safeCode(t, "exceptions.ValueException", Path_join(Environment.cwd(), p)));
+		pushString(t, safeCode(t, "exceptions.ValueError", Path_join(Environment.cwd(), p)));
 
 	return 1;
 }

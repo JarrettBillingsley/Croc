@@ -147,8 +147,13 @@ public:
 		if(d.docs.length == 0)
 			return d;
 
+		bool isDitto = d.docs.trim() == "ditto";
+
 		// We don't actually process the comments here, as with other kinds of doc tables..
-		pushDocTable(d.location, d.location, "function", d.name.name, "");
+		pushDocTable(d.location, d.location, "function", d.name.name, d.docs);
+
+		if(isDitto)
+			mDittoDepth--;
 
 		foreach(i, ref p; d.params)
 		{
@@ -180,50 +185,41 @@ public:
 			popDocTable("params");
 		}
 
-		// NOW we do the comment processing
-		addComments(d.docsLoc, d.docs);
+		if(isDitto)
+			mDittoDepth++;
+		else
+		{
+			// NOW we do the comment processing
+			addComments(d.docsLoc, d.docs);
+		}
+
 		popDocTable();
 		return d;
 	}
 
 	override ClassDecl visit(ClassDecl d)
 	{
-		if(d.def.docs.length == 0)
-			return d;
-
-		d.def = visit(d.def);
-		doProtection(d.protection);
-
-		if(c.docDecorators)
-			d.decorator = makeDeco(d.location, d.decorator);
-
-		return d;
-	}
-
-	override ClassDef visit(ClassDef d)
-	{
 		if(d.docs.length == 0)
 			return d;
 
 		pushDocTable(d.location, d.docsLoc, "class", d.name.name, d.docs);
 
-		if(d.baseClass)
+		if(d.baseClasses.length > 0)
 		{
-			pushString(t, d.baseClass.sourceStr);
+			pushString(t, d.baseClasses[0].sourceStr);
+
+			foreach(base; d.baseClasses[1 .. $])
+			{
+				pushString(t, ", ");
+				pushString(t, base.sourceStr);
+			}
+
+			cat(t, (d.baseClasses.length * 2) - 1);
 			fielda(t, mDocTable, "base");
 		}
 
 		doFields(d.fields);
 		popDocTable();
-		return d;
-	}
-
-	override NamespaceDecl visit(NamespaceDecl d)
-	{
-		if(d.def.docs.length == 0)
-			return d;
-
-		d.def = visit(d.def);
 		doProtection(d.protection);
 
 		if(c.docDecorators)
@@ -232,7 +228,7 @@ public:
 		return d;
 	}
 
-	override NamespaceDef visit(NamespaceDef d)
+	override NamespaceDecl visit(NamespaceDecl d)
 	{
 		if(d.docs.length == 0)
 			return d;
@@ -247,6 +243,11 @@ public:
 
 		doFields(d.fields);
 		popDocTable();
+		doProtection(d.protection);
+
+		if(c.docDecorators)
+			d.decorator = makeDeco(d.location, d.decorator);
+
 		return d;
 	}
 
@@ -511,9 +512,9 @@ private:
 			if(f.docs.length == 0)
 				continue;
 
-			if(auto method = f.initializer.as!(FuncLiteralExp))
+			if(auto method = f.func)
 			{
-				f.initializer = visit(method);
+				visit(method);
 
 				if(c.docDecorators)
 					f.initializer = makeDocCall(f.initializer);

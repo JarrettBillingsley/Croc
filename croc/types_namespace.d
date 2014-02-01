@@ -42,20 +42,30 @@ package:
 	// Create a new namespace object.
 	CrocNamespace* create(ref Allocator alloc, CrocString* name, CrocNamespace* parent = null)
 	{
-		assert(name !is null);
+		auto ret = createPartial(alloc);
+		finishCreate(ret, name, parent);
+		return ret;
+	}
 
-		auto ns = alloc.allocate!(CrocNamespace);
-		ns.parent = parent;
+	// Partially construct a namespace. This is used by the serialization system.
+	CrocNamespace* createPartial(ref Allocator alloc)
+	{
+		return alloc.allocate!(CrocNamespace);
+	}
+
+	// Finish constructing a namespace. Also used by serialization.
+	void finishCreate(CrocNamespace* ns, CrocString* name, CrocNamespace* parent)
+	{
+		assert(name !is null);
+		ns.name = name;
 
 		if(parent)
 		{
+			ns.parent = parent;
 			auto root = parent;
 			for( ; root.parent !is null; root = root.parent){}
 			ns.root = root;
 		}
-
-		ns.name = name;
-		return ns;
 	}
 
 	// Free a namespace object.
