@@ -84,6 +84,14 @@ namespace croc
 		size_t mSize;
 
 	public:
+		void init()
+		{
+			mNodes = DArray<Node>::n(nullptr, 0);
+			mHashMask = 0;
+			mColBucket = nullptr;
+			mSize = 0;
+		}
+
 		void dupInto(Hash<K, V, Hasher, Node>& other)
 		{
 			other.mNodes.slicea(mNodes);

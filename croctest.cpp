@@ -33,9 +33,8 @@ int main()
 	Memory mem;
 	mem.init(DefaultMemFunc, nullptr);
 
-	typedef Hash<int, int> H;
-	H h;
-	memset(&h, 0, sizeof(h));
+	Hash<int, int> h;
+	h.init();
 
 	for(int i = 1; i <= 10; i++)
 	{
