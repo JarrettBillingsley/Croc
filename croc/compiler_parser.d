@@ -1901,7 +1901,7 @@ public:
 		Expression exp3;
 
 		if(exp1 is null)
-			exp1 = parseOrOrExp();
+			exp1 = parseLogicalCondExp();
 
 		while(l.type == Token.Question)
 		{
@@ -1916,6 +1916,26 @@ public:
 		}
 
 		return exp1;
+	}
+
+	Expression parseLogicalCondExp()
+	{
+		auto location = l.loc;
+		Expression exp1 = parseOrExp();
+
+		switch(l.type)
+		{
+			case Token.OrOr:
+			case Token.OrKeyword:
+				return parseOrOrExp(exp1);
+
+			case Token.AndAnd:
+			case Token.AndKeyword:
+				return parseAndAndExp(exp1);
+
+			default:
+				return exp1;
+		}
 	}
 
 	/**
@@ -1934,13 +1954,13 @@ public:
 		Expression exp2;
 
 		if(exp1 is null)
-			exp1 = parseAndAndExp();
+			exp1 = parseOrExp();
 
 		while(l.type == Token.OrOr || l.type == Token.OrKeyword)
 		{
 			l.next();
 
-			exp2 = parseAndAndExp();
+			exp2 = parseOrExp();
 			exp1 = new(c) OrOrExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;

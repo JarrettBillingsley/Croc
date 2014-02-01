@@ -373,16 +373,19 @@ Expression:
 	ConditionalExpression
 
 ConditionalExpression:
+	LogicalConjExpression
+	LogicalConjExpression '?' Expression : ConditionalExpression
+
+LogicalConjExpression:
+	OrExpression
 	OrOrExpression
-	OrOrExpression ? Expression : ConditionalExpression
+	AndAndExpression
 
 OrOrExpression:
-	AndAndExpression
-	OrOrExpression || AndAndExpression
-	OrOrExpression or AndAndExpression
+	OrOrExpression || OrExpression
+	OrOrExpression or OrExpression
 
 AndAndExpression:
-	OrExpression
 	AndAndExpression && OrExpression
 	AndAndExpression and OrExpression
 
