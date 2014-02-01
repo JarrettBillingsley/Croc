@@ -40,54 +40,47 @@ static:
 
 package:
 
-	CrocClass* create(ref Allocator alloc, CrocString* name, CrocClass* parent)
+	CrocClass* create(ref Allocator alloc, CrocString* name)
 	{
 		auto c = alloc.allocate!(CrocClass)();
 		c.name = name;
+		return c;
 
-		if(parent)
+	}
+
+	typeof(CrocClass.fields).Node* derive(ref Allocator alloc, CrocClass* c, CrocClass* parent, out char[] which)
+	{
+		assert(parent.isFrozen);
+		assert(parent.finalizer is null);
+
+		foreach(ref node; &parent.fields.allNodes)
 		{
-			assert(parent.isFrozen);
-			assert(parent.finalizer is null);
-
-			if(parent.fields.length)
+			if(!addField(alloc, c, node.key, &node.value, false))
 			{
-				// mixin(containerWriteBarrier!("alloc", "c"));
-
-				c.fields.prealloc(alloc, parent.fields.capacity());
-				assert(c.fields.capacity() == parent.fields.capacity());
-				parent.fields.dupInto(c.fields);
-
-				foreach(ref node; &c.fields.allNodes)
-					node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
-			}
-
-			if(parent.hiddenFields.length)
-			{
-				// mixin(containerWriteBarrier!("alloc", "c"));
-
-				c.hiddenFields.prealloc(alloc, parent.hiddenFields.capacity());
-				assert(c.hiddenFields.capacity() == parent.hiddenFields.capacity());
-				parent.hiddenFields.dupInto(c.hiddenFields);
-
-				foreach(ref node; &c.hiddenFields.allNodes)
-					node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
-			}
-
-			if(parent.methods.length)
-			{
-				// mixin(containerWriteBarrier!("alloc", "c"));
-
-				c.methods.prealloc(alloc, parent.methods.capacity());
-				assert(c.methods.capacity() == parent.methods.capacity());
-				parent.methods.dupInto(c.methods);
-
-				foreach(ref node; &c.methods.allNodes)
-					node.modified |= KeyModified | (node.value.isGCObject() ? ValModified : 0);
+				which = "field";
+				return &node;
 			}
 		}
 
-		return c;
+		foreach(ref node; &parent.methods.allNodes)
+		{
+			if(!addMethod(alloc, c, node.key, &node.value, false))
+			{
+				which = "method";
+				return &node;
+			}
+		}
+
+		foreach(ref node; &parent.hiddenFields.allNodes)
+		{
+			if(!addHiddenField(alloc, c, node.key, &node.value, false))
+			{
+				which = "hidden field";
+				return &node;
+			}
+		}
+
+		return null;
 	}
 
 	void free(ref Allocator alloc, CrocClass* c)

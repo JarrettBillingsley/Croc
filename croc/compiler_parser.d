@@ -870,12 +870,22 @@ public:
 
 		auto className = parseIdentifier();
 
-		Expression baseClass = null;
+		scope baseClasses = new List!(Expression)(c);
 
 		if(l.type == Token.Colon)
 		{
 			l.next();
+
+			Expression baseClass;
 			baseClass.sourceStr = capture({baseClass = parseExpression();});
+			baseClasses ~= baseClass;
+
+			while(l.type == Token.Comma)
+			{
+				l.next();
+				baseClass.sourceStr = capture({baseClass = parseExpression();});
+				baseClasses ~= baseClass;
+			}
 		}
 
 		l.expect(Token.LBrace);
@@ -957,7 +967,7 @@ public:
 		}
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) ClassDecl(location, endLocation, protection, deco, className, baseClass, fields.toArray());
+		return new(c) ClassDecl(location, endLocation, protection, deco, className, baseClasses.toArray(), fields.toArray());
 	}
 
 	/**

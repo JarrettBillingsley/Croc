@@ -204,9 +204,17 @@ public:
 
 		pushDocTable(d.location, d.docsLoc, "class", d.name.name, d.docs);
 
-		if(d.baseClass)
+		if(d.baseClasses.length > 0)
 		{
-			pushString(t, d.baseClass.sourceStr);
+			pushString(t, d.baseClasses[0].sourceStr);
+
+			foreach(base; d.baseClasses[1 .. $])
+			{
+				pushString(t, ", ");
+				pushString(t, base.sourceStr);
+			}
+
+			cat(t, (d.baseClasses.length * 2) - 1);
 			fielda(t, mDocTable, "base");
 		}
 

@@ -329,8 +329,8 @@ public:
 		if(d.decorator !is null)
 			d.decorator = visit(d.decorator);
 
-		if(d.baseClass)
-			d.baseClass = visit(d.baseClass);
+		foreach(ref base; d.baseClasses)
+			base = visit(base);
 
 		foreach(ref field; d.fields)
 			field.initializer = visit(field.initializer);

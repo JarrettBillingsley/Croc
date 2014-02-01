@@ -731,7 +731,7 @@ static:
 
 	uword _deserializeClassImpl(CrocThread* t)
 	{
-		auto v = classobj.create(t.vm.alloc, null, null);
+		auto v = classobj.create(t.vm.alloc, null);
 		_addObject(t, cast(CrocBaseObject*)v);
 
 		v.name = _deserializeString(t);

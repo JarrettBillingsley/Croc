@@ -476,19 +476,19 @@ class ClassDecl : Statement
 	Protection protection;
 	Decorator decorator;
 	Identifier name;
-	Expression baseClass;
+	Expression[] baseClasses;
 	Field[] fields;
 	char[] docs;
 	CompileLoc docsLoc;
 
 	this(CompileLoc location, CompileLoc endLocation, Protection protection, Decorator decorator,
-		Identifier name, Expression baseClass, Field[] fields)
+		Identifier name, Expression[] baseClasses, Field[] fields)
 	{
 		super(location, endLocation, AstTag.ClassDecl);
 		this.protection = protection;
 		this.decorator = decorator;
 		this.name = name;
-		this.baseClass = baseClass;
+		this.baseClasses = baseClasses;
 		this.fields = fields;
 	}
 }

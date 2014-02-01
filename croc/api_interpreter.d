@@ -847,48 +847,46 @@ word newFunctionWithEnv(CrocThread* t, word funcDef)
 }
 
 /**
-Creates a new class and pushes it onto the stack.
+Creates a new class, pops any base classes, and pushes the new class onto the stack.
 
-After creating the class, you can then fill it with members by using fielda.
+After creating the class, you can then fill it with members by using addField/addMethod and their override counterparts.
 
 Params:
-	base = The stack index of the _base class. The _base can be `null`, in which case the new class will have no base
-		class. Otherwise it must be a class.
-
 	name = The _name of the class. Remember that you still have to store the class object somewhere,
 		though, like in a global.
+
+	numBases = How many base classes this class will have. There should be this many classes sitting on the top of the
+		stack.
 
 Returns:
 	The stack index of the newly-created class.
 */
-word newClass(CrocThread* t, word base, char[] name)
+word newClass(CrocThread* t, char[] name, uword numBases)
 {
-	mixin(FuncNameMix);
+	mixin(apiCheckNumParams!("numBases"));
+	auto cls = newClassImpl(t, createString(t, name));
+	push(t, CrocValue(cls));
 
-	CrocClass* b = void;
-
-	if(isNull(t, base))
-		b = null;
-	else if(auto c = getClass(t, base))
-		b = c;
-	else
+	if(numBases > 0)
 	{
-		pushTypeString(t, base);
-		throwStdException(t, "TypeError", __FUNCTION__ ~ " - Base must be 'null' or 'class', not '{}'", getString(t, -1));
+		insert(t, -numBases - 1);
+
+		for(int slot = stackSize(t) - numBases; slot < stackSize(t); slot++)
+		{
+			if(auto base = getClass(t, slot))
+				classDeriveImpl(t, cls, base);
+			else
+			{
+				pushTypeString(t, slot);
+				throwStdException(t, "TypeError", __FUNCTION__ ~ " - Base must be 'class', not '{}'", getString(t, -1));
+			}
+		}
+
+		pop(t, numBases);
 	}
 
 	maybeGC(t);
-	return push(t, CrocValue(newClassImpl(t, createString(t, name), b)));
-}
-
-/**
-Same as above, except it uses null as the base. The new class is left on the top of the stack.
-*/
-word newClass(CrocThread* t, char[] name)
-{
-	mixin(FuncNameMix);
-	maybeGC(t);
-	return push(t, CrocValue(newClassImpl(t, createString(t, name), null)));
+	return stackSize(t) - 1;
 }
 
 /**

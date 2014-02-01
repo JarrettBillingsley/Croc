@@ -1204,19 +1204,24 @@ package:
 		}
 	}
 
-	// [src src] => [NeedsDest]
-	void newClass(ref CompileLoc loc)
+	// [src Temp*nbase] => [NeedsDest]
+	void newClass(ref CompileLoc loc, uword numBases)
 	{
-		auto name = getExp(-2);
-		auto base = getExp(-1);
+		auto name = getExp(-numBases - 1);
 
 		debug(EXPSTACKCHECK) assert(name.isSource());
-		debug(EXPSTACKCHECK) assert(base.isSource());
+		debug(EXPSTACKCHECK) for(int i = -numBases; i < 0; i++) assert(getExp(i).type == ExpType.Temporary);
 
 		auto i = codeRD(loc, Op.Class, 0);
 		codeRC(name);
-		codeRC(base);
-		pop(2);
+
+		if(numBases > 0)
+			codeRC(getExp(-numBases));
+		else
+			codeRC(Exp.Empty);
+
+		codeUImm(numBases);
+		pop(numBases + 1);
 		pushExp(ExpType.NeedsDest, i);
 	}
 
@@ -2558,7 +2563,6 @@ package:
 			case Op.UShr: Stdout("ushr"); goto _8;
 			case Op.Index:       Stdout("idx"); goto _8;
 			case Op.IndexAssign: Stdout("idxa"); goto _8;
-			case Op.Class:       Stdout("class"); goto _8;
 			case Op.Field:       Stdout("field"); goto _8;
 			case Op.FieldAssign: Stdout("fielda"); goto _8;
 			_8: rd(i); rc(); rc(); break;
@@ -2611,6 +2615,7 @@ package:
 
 			// (rd, rs, rt, uimm)
 			case Op.AddMember: Stdout("addmember"); goto _12;
+			case Op.Class:     Stdout("class"); goto _12;
 			_12: rd(i); rc(); rc(); uimm(); break;
 
 			// (rd, rs, rt, uimm, uimm)

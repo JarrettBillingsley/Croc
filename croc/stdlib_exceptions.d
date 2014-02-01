@@ -88,11 +88,9 @@ void initExceptionsLib(CrocThread* t)
 		foreach(desc; ExDescs)
 		{
 			pushGlobal(t, "Throwable");
-			newClass(t, -1, desc.name);
+			newClass(t, desc.name, 1);
 			*t.vm.stdExceptions.insert(t.vm.alloc, createString(t, desc.name)) = getClass(t, -1);
-
 			newGlobal(t, desc.name);
-			pop(t);
 		}
 
 		pushGlobal(t, "_G");

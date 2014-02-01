@@ -260,7 +260,7 @@ BasicType:
 	funcdef
 
 ClassDeclaration:
-	(local | global)? class Identifier (: Expression)? { ClassMember* }
+	(local | global)? class Identifier (: List(Expression))? { ClassMember* }
 
 ClassMember:
 	Decorators? override? SimpleFunctionDeclaration

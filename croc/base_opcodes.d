@@ -328,7 +328,6 @@ THREE SHORTS:
 	idx:    rd = rs[rt]
 	idxa:   rd[rs] = rt
 	in:     rd = rs in rt
-	class:  rd = class rs : rt {}
 	field:  rd = rs.(rt)
 	fielda: rd.(rs) = rt
 (__, rs, rt)
@@ -360,6 +359,7 @@ FOUR SHORTS:
 	swcmp: if(switchcmp(rs, rt)) jump by imm
 (rd, rs, rt, uimm)
 	addember: add field/method named rs to class in rd with value rt. uimm bit 0 is field(0)/method(1) and bit 1 is override or not.
+	class:  rd = class rs : (rt + 0, rt + 1 .. rt + uimm - 1) {}
 
 FIVE SHORTS:
 

@@ -2155,17 +2155,25 @@ CrocValue superOfImpl(CrocThread* t, CrocValue* v)
 	assert(false);
 }
 
-CrocClass* newClassImpl(CrocThread* t, CrocString* name, CrocClass* base)
+CrocClass* newClassImpl(CrocThread* t, CrocString* name)
 {
-	if(base)
+	return classobj.create(t.vm.alloc, name);
+}
+
+void classDeriveImpl(CrocThread* t, CrocClass* c, CrocClass* base)
+{
+	freezeImpl(t, base);
+
+	if(base.finalizer)
+		throwStdException(t, "ValueError", "Attempting to derive from class '{}' which has a finalizer", base.name.toString());
+
+	char[] which;
+
+	if(auto conflict = classobj.derive(t.vm.alloc, c, base, which))
 	{
-		freezeImpl(t, base);
-
-		if(base.finalizer)
-			throwStdException(t, "ValueError", "Attempting to derive from class '{}' which has a finalizer", base.name.toString());
+		throwStdException(t, "ValueError", "Attempting to derive {} '{}' from class '{}', but it already exists in the new class '{}'",
+			which, conflict.key.toString(), base.name.toString(), c.name.toString());
 	}
-
-	return classobj.create(t.vm.alloc, name, base);
 }
 
 void freezeImpl(CrocThread* t, CrocClass* c)
@@ -3512,16 +3520,21 @@ void execute(CrocThread* t, uword depth = 1)
 					mixin(GetRS);
 					mixin(GetRT);
 
-					if(RT.type == CrocValue.Type.Null)
-						t.stack[stackBase + rd] = newClassImpl(t, RS.mString, null);
-					else if(RT.type == CrocValue.Type.Class)
-						t.stack[stackBase + rd] = newClassImpl(t, RS.mString, RT.mClass);
-					else
+					auto cls = newClassImpl(t, RS.mString);
+					auto numBases = mixin(GetUImm);
+
+					foreach(ref base; RT[0 .. numBases])
 					{
-						typeString(t, RT);
-						throwStdException(t, "TypeError", "Attempting to derive a class from a value of type '{}'", getString(t, -1));
+						if(base.type != CrocValue.Type.Class)
+						{
+							typeString(t, &base);
+							throwStdException(t, "TypeError", "Attempting to derive a class from a value of type '{}'", getString(t, -1));
+						}
+
+						classDeriveImpl(t, cls, base.mClass);
 					}
 
+					t.stack[stackBase + rd] = cls;
 					maybeGC(t);
 					break;
 

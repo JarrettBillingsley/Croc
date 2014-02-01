@@ -609,7 +609,7 @@ private:
 		if(!opin(t, -1, -2))
 		{
 			// class ExitObj { function toString() = ... }
-			newClass(t, "ExitObj");
+			newClass(t, "ExitObj", 0);
 
 			pushNull(t);
 			addHiddenField(t, -2, "goober");

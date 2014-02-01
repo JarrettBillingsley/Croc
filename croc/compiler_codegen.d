@@ -327,18 +327,16 @@ public:
 		// put empty class in d.name
 		fs.pushString(d.name.name);
 
-		if(d.baseClass)
+		if(d.baseClasses.length > 0)
 		{
-			visit(d.baseClass);
-			fs.toSource(d.baseClass.location);
-		}
-		else
-		{
-			fs.pushNull();
-			fs.toSource(d.location);
+			foreach(base; d.baseClasses)
+			{
+				visit(base);
+				fs.toTemporary(base.location);
+			}
 		}
 
-		fs.newClass(d.location);
+		fs.newClass(d.location, d.baseClasses.length);
 		fs.assign(d.location, 1, 1);
 
 		// evaluate rest of decl

@@ -175,31 +175,20 @@ public:
 	/** */
 	static void opCall(CrocThread* t, char[] name, void delegate(CreateClass*) dg)
 	{
-		CreateClass co;
-		co.t = t;
-		co.name = name;
-		co.idx = newClass(t, name);
-
-		dg(&co);
-
-		if(co.idx >= stackSize(t))
-			throwStdException(t, "ApiError", "You popped the class {} before it could be finished!", name);
-
-		if(stackSize(t) > co.idx + 1)
-			setStackSize(t, co.idx + 1);
+		opCall(t, name, null, dg);
 	}
 
 	/** */
-	static void opCall(CrocThread* t, char[] name, char[] base, void delegate(CreateClass*) dg)
+	static void opCall(CrocThread* t, char[] name, char[][] bases, void delegate(CreateClass*) dg)
 	{
 		CreateClass co;
 		co.t = t;
 		co.name = name;
 
-		co.idx = lookup(t, base);
-		newClass(t, -1, name);
-		swap(t);
-		pop(t);
+		foreach(base; bases)
+			lookup(t, base);
+
+		co.idx = newClass(t, name, bases.length);
 
 		dg(&co);
 
