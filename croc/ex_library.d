@@ -27,6 +27,7 @@ subject to the following restrictions:
 
 module croc.ex_library;
 
+import tango.core.Traits;
 import tango.text.Util;
 
 import croc.ex;
@@ -34,6 +35,14 @@ import croc.ex_doccomments;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.types;
+
+template CrocLinePragma(int n, char[] file = "")
+{
+	static if(file.length == 0)
+		const char[] CrocLinePragma = `//#line ` ~ ctfe_i2a(n + 1);
+	else
+		const char[] CrocLinePragma = `//#line ` ~ ctfe_i2a(n + 1) ~ ` "` ~ file ~ `"`;
+}
 
 struct RegisterFunc
 {

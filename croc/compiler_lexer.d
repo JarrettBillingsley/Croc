@@ -322,6 +322,9 @@ private:
 	bool mHaveLookahead;
 	bool mNewlineSinceLastTok;
 	bool mTokSinceLastNewline;
+	bool mHadLinePragma;
+	char[] mLinePragmaFile;
+	uword mLinePragmaLine;
 
 	char* mCaptureEnd;
 
@@ -570,7 +573,20 @@ private:
 			if(isNewline() && mCharacter != old)
 				nextChar();
 
-			mLoc.line++;
+			if(mHadLinePragma)
+			{
+				mHadLinePragma = false;
+				mLoc.line = mLinePragmaLine;
+
+				if(mLinePragmaFile !is null)
+				{
+					mLoc.file = mLinePragmaFile;
+					mLinePragmaFile = null;
+				}
+			}
+			else
+				mLoc.line++;
+
 			mLoc.col = 1;
 
 			if(!readMultiple)
@@ -1055,8 +1071,86 @@ private:
 			auto arr = buf.toArrayView();
 			addComment(mCompiler.newString(arr), loc);
 		}
+		else if(mCharacter == '#')
+		{
+			nextChar();
+			if(mCharacter != 'l') goto _regularComment; nextChar();
+			if(mCharacter != 'i') goto _regularComment; nextChar();
+			if(mCharacter != 'n') goto _regularComment; nextChar();
+			if(mCharacter != 'e') goto _regularComment; nextChar();
+			if(mCharacter != ' ' && mCharacter != '\t') goto _regularComment;
+
+			// at this point we're assuming we've got an actual line pragma :P
+
+			while(mCharacter == ' ' || mCharacter == '\t')
+				nextChar();
+
+			if(!isDecimalDigit())
+				mCompiler.lexException(mLoc, "Line number expected");
+
+			scope lineBuf = new List!(dchar, 16)(mCompiler);
+			auto lineNumLoc = mLoc;
+
+			while(isDecimalDigit() || mCharacter == '_')
+			{
+				if(mCharacter != '_')
+					lineBuf.add(mCharacter);
+
+				nextChar();
+			}
+
+			crocint lineNum = void;
+			if(!convertInt(lineBuf.toArrayView(), lineNum, 10))
+				mCompiler.lexException(lineNumLoc, "Line number overflow");
+
+			if(lineNum < 1 || lineNum > uword.max)
+				mCompiler.lexException(lineNumLoc, "Invalid line number");
+
+			mLinePragmaLine = cast(uword)lineNum;
+
+			char[] filename;
+
+			if(!isEOL())
+			{
+				if(mCharacter != ' ' && mCharacter != '\t')
+					mCompiler.lexException(mLoc, "Filename expected");
+
+				while(mCharacter == ' ' || mCharacter == '\t')
+					nextChar();
+
+				if(mCharacter != '"')
+					mCompiler.lexException(mLoc, "Filename expected");
+
+				auto fileNameLoc = mLoc;
+				nextChar();
+
+				scope fileBuf = new List!(char, 32)(mCompiler);
+
+				while(mCharacter != '"')
+				{
+					if(isEOL())
+						mCompiler.lexException(mLoc, "Unterminated line pragma filename");
+
+					fileBuf.add(mCharacter);
+					nextChar();
+				}
+
+				if(fileBuf.length == 0)
+					mCompiler.lexException(fileNameLoc, "Filename cannot be empty");
+
+				nextChar(); // skip closing quote
+
+				if(!isEOL())
+					mCompiler.lexException(mLoc, "End-of-line expected immediately after line pragma");
+
+				mLinePragmaFile = mCompiler.newString(fileBuf.toArray());
+			}
+
+			mHadLinePragma = true;
+		}
 		else
 		{
+		_regularComment:
 			while(!isEOL())
 				nextChar();
 		}

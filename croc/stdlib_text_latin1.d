@@ -157,7 +157,7 @@ uword _latin1DecodeInternal(CrocThread* t)
 }
 
 const char[] _code =
-`
+CrocLinePragma!(__LINE__, __FILE__) ~ `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.latin1EncodeInternal, _internal.latin1DecodeInternal
 

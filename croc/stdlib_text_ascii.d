@@ -165,7 +165,7 @@ uword _asciiDecodeInternal(CrocThread* t)
 }
 
 const char[] _code =
-`
+CrocLinePragma!(__LINE__, __FILE__) ~ `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.asciiEncodeInternal, _internal.asciiDecodeInternal
 

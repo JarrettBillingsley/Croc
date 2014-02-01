@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.stdlib_doctools_trac;
 
 import croc.ex;
+import croc.ex_library;
 import croc.types;
 
 // ================================================================================================================================================
@@ -46,7 +47,8 @@ void initDoctoolsTracLib(CrocThread* t)
 private:
 
 const char[] Code =
-`/**
+CrocLinePragma!(__LINE__, __FILE__) ~ `
+/**
 This module defines a means of outputting docs in the Trac wiki syntax format.
 */
 module doctools.trac

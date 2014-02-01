@@ -28,6 +28,7 @@ module croc.stdlib_text;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
+import croc.ex_library;
 import croc.types;
 
 import croc.stdlib_text_ascii;
@@ -59,7 +60,8 @@ void initTextLib(CrocThread* t)
 private:
 
 const char[] textSource =
-`/**
+CrocLinePragma!(__LINE__, __FILE__) ~ `
+/**
 This library contains utilities for performing text encoding and formatting.
 
 Note that this is somewhat different from the purpose of the \tt{string} library, which concerns itself with

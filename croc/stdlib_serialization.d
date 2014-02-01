@@ -133,7 +133,8 @@ const RegisterFunc[] _deserializeFuncs =
 ];
 
 const Code =
-`module serialization
+CrocLinePragma!(__LINE__, __FILE__) ~ `
+module serialization
 
 import stream: InStream, OutStream, BinaryStream
 import math: intMin, intSize, floatSize

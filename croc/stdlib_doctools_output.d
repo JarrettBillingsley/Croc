@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.stdlib_doctools_output;
 
 import croc.ex;
+import croc.ex_library;
 import croc.types;
 
 // ================================================================================================================================================
@@ -46,7 +47,8 @@ void initDoctoolsOutputLib(CrocThread* t)
 private:
 
 const char[] Code =
-`/**
+CrocLinePragma!(__LINE__, __FILE__) ~ `
+/**
 This sub-module of the docs lib contains functionality for outputting docs in a human-readable form, as well as a small
 framework which makes it easier to output docs to new formats.
 */

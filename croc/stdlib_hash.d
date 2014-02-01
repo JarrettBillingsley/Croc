@@ -574,7 +574,8 @@ uword _remove(CrocThread* t)
 }
 
 private const char[] WeakTableCode =
-`local weakref, deref = weakref, deref
+CrocLinePragma!(__LINE__, __FILE__) ~ `
+local weakref, deref = weakref, deref
 local allWeakTables = {}
 
 gc.postCallback$ function postGC()

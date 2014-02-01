@@ -120,7 +120,8 @@ uword _getMetatable(CrocThread* t)
 }
 
 const char[] docsSource =
-`/**
+CrocLinePragma!(__LINE__, __FILE__) ~ `
+/**
 This module contains the runtime interface to Croc's built-in documentation system. It defines the decorator function
 which the compiler can translate doc comments into, as well as the actual documentation processing functions. It also
 contains a basic doc outputting scaffold, so that you can output documentation in a human-readable format without much

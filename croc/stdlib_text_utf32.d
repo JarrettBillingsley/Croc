@@ -156,7 +156,7 @@ uword _utf32DecodeInternal(CrocThread* t)
 }
 
 const char[] _code =
-`
+CrocLinePragma!(__LINE__, __FILE__) ~ `
 local _internal = vararg
 local _encodeInto, _decodeRange = _internal.utf32EncodeInternal, _internal.utf32DecodeInternal
 

@@ -10,6 +10,7 @@ Space:
 	\u000C
 	EndOfLine
 	Comment
+	LinePragma
 
 EndOfLine:
 	\r
@@ -27,6 +28,9 @@ Comment:
 
 NestedComment:
 	/* (Character | NestedComment)* */
+
+LinePragma:
+	//#line (' ' | \t)+ Decimal ((' ' | \t)+ " Character* ")? EndOfLine
 
 Token:
 	Identifier

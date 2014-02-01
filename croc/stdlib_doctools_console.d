@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.stdlib_doctools_console;
 
 import croc.ex;
+import croc.ex_library;
 import croc.types;
 
 // ================================================================================================================================================
@@ -46,7 +47,8 @@ void initDoctoolsConsoleLib(CrocThread* t)
 private:
 
 const char[] Code =
-`/**
+CrocLinePragma!(__LINE__, __FILE__) ~ `
+/**
 This module defines a means of outputting docs to the console (or any console-like stream).
 */
 module doctools.console

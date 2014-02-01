@@ -213,7 +213,8 @@ uword _streamClose(CrocThread* t)
 }
 
 const Code =
-`/**
+CrocLinePragma!(__LINE__, __FILE__) ~ `
+/**
 This module contains Croc's streamed input/output framework. The base class for all data streams, \link{Stream}, as well
 as several useful subclasses and helpers are defined in this module.
 
