@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 
+#include "croc/apitypes.h"
 #include "croc/base/darray.hpp"
 #include "croc/base/deque.hpp"
 #include "croc/base/hash.hpp"
@@ -21,11 +22,11 @@ namespace croc
 	typedef crocint_t crocint;
 	typedef crocfloat_t crocfloat;
 
-	enum Location
+	enum CrocLocation
 	{
-		Location_Unknown = 0,
-		Location_Native = -1,
-		Location_Script = -2
+		CrocLocation_Unknown = 0,
+		CrocLocation_Native = -1,
+		CrocLocation_Script = -2
 	};
 
 	// Forward decls :P
@@ -92,28 +93,19 @@ namespace croc
 		inline bool isFalse() const
 		{
 			// ORDER CROCTYPE
-			return type <= CrocType_Float && mInt == 0; // NONPORTABLE
+			return type == CrocType_Null || (type <= CrocType_Float && mInt == 0); // NONPORTABLE
 		}
 
 		hash_t toHash() const;
 
 		// ORDER CROCTYPE
-		inline bool isValType() const
-		{
-			return type <  CrocType_FirstRefType;
-		}
+		inline bool isValType() const { return type <  CrocType_FirstRefType; }
 
 		// ORDER CROCTYPE
-		inline bool isRefType() const
-		{
-			return type >= CrocType_FirstRefType;
-		}
+		inline bool isRefType() const { return type >= CrocType_FirstRefType; }
 
 		// ORDER CROCTYPE
-		inline bool isGCObject() const
-		{
-			return type >= CrocType_FirstGCType;
-		}
+		inline bool isGCObject() const { return type >= CrocType_FirstGCType; }
 
 		inline GCObject* toGCObject() const
 		{
@@ -128,11 +120,11 @@ namespace croc
 		}
 
 #define MAKE_SET(name, nativetype)\
-	inline void set##name(nativetype v)\
-	{\
-		type = CrocType_##name;\
-		m##name = v;\
-	}
+		inline void set##name(nativetype v)\
+		{\
+			type = CrocType_##name;\
+			m##name = v;\
+		}
 
 		MAKE_SET(Bool, bool)
 		MAKE_SET(Int, crocint)
@@ -177,52 +169,6 @@ namespace croc
 		}
 	};
 
-	enum Privacy
-	{
-		Privacy_Public,
-		Privacy_Protected,
-		Privacy_Private
-	};
-
-	struct FieldValue
-	{
-		Value value;
-		Class* proto;
-		Privacy privacy;
-	};
-
-	typedef Hash<String*, FieldValue, MethodHasher> FieldHash;
-
-	typedef uword AbsStack;
-	typedef uword RelStack;
-
-	struct ActRecord
-	{
-		AbsStack base;
-		AbsStack savedTop;
-		AbsStack vargBase;
-		AbsStack returnSlot;
-		Function* func;
-		Instruction* pc;
-		word numReturns;
-		Class* proto;
-		uword numTailcalls;
-		AbsStack firstResult;
-		uword numResults;
-		uword unwindCounter;
-		Instruction* unwindReturn;
-	};
-
-	struct TryRecord
-	{
-		bool isCatch;
-		RelStack slot;
-		uword actRecord;
-		Instruction* pc;
-	};
-
-	extern const char* ThreadStateStrings[5];
-
 	struct Weakref : public GCObject
 	{
 		// acyclic
@@ -253,11 +199,7 @@ namespace croc
 		{
 			Value value;
 			bool modified;
-
-			bool operator==(const Slot& other) const
-			{
-				return value == other.value;
-			}
+			inline bool operator==(const Slot& other) const { return value == other.value; }
 		};
 
 		uword length;
@@ -315,7 +257,6 @@ namespace croc
 		String* name;
 		uint32_t numParams;
 		DArray<uint32_t> paramMasks;
-		uint32_t numUpvals;
 
 		struct UpvalDesc
 		{
@@ -358,26 +299,60 @@ namespace croc
 
 	struct Class : public GCObject
 	{
+		typedef Hash<String*, Value, MethodHasher> HashType;
+
 		String* name;
-		Class* parent;
 		bool isFrozen;
 		bool visitedOnce;
-		FieldHash methods;
-		FieldHash fields;
-		FieldValue* constructor;
-		FieldValue* finalizer;
+		HashType methods;
+		HashType fields;
+		HashType hiddenFields;
+		Value* constructor;
+		Value* finalizer;
 	};
 
 	struct Instance : public GCObject
 	{
 		Class* parent;
 		bool visitedOnce;
-		FieldHash fields;
+		Class::HashType fields;
+		// The way this works is that it's null to mean there are no hidden fields, and if it's not null, the Hash structure
+		// and its data are appended to the end of the instance, and this points to that structure.
+		Class::HashType* hiddenFields;
 	};
+
+	typedef uword AbsStack;
+	typedef uword RelStack;
+
+	struct ActRecord
+	{
+		AbsStack base;
+		AbsStack savedTop;
+		AbsStack vargBase;
+		AbsStack returnSlot;
+		Function* func;
+		Instruction* pc;
+		word numReturns;
+		uword numTailcalls;
+		AbsStack firstResult;
+		uword numResults;
+		uword unwindCounter;
+		Instruction* unwindReturn;
+	};
+
+	struct TryRecord
+	{
+		bool isCatch;
+		RelStack slot;
+		uword actRecord;
+		Instruction* pc;
+	};
+
+	extern const char* ThreadStateStrings[5];
 
 	struct Thread : public GCObject
 	{
-		// used by allThreads list
+		// weak references used in the VM's allThreads list
 		Thread* next;
 		Thread* prev;
 
@@ -437,10 +412,8 @@ namespace croc
 		Instance* exception;
 		Namespace* registry;
 		RefTab refTab;
-		Thread* allThreads;
 
 		// These point to "special" runtime classes
-		Class* throwable;
 		Class* location;
 		ExTab stdExceptions;
 		// ----------------------------------
@@ -456,6 +429,7 @@ namespace croc
 		// Others
 		Hash<DArray<const char>, String*, DefaultHasher, HashNodeWithHash<DArray<const char>, String*> > stringTab;
 		Hash<GCObject*, Weakref*> weakrefTab;
+		Thread* allThreads;
 		uint64_t currentRef;
 		String* ctorString; // also stored in metaStrings, don't have to scan it as a root
 		String* finalizerString; // also stored in metaStrings, don't have to scan it as a root

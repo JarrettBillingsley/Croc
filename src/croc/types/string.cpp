@@ -21,7 +21,7 @@ namespace croc
 			if(s)
 				return *s;
 
-			return NULL;
+			return nullptr;
 		}
 
 		// Create a new string object. String objects with the same data are reused. Thus,

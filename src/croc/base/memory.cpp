@@ -116,9 +116,9 @@ namespace croc
 	void* Memory::allocRaw(size_t size TYPEID_PARAM)
 	{
 		if(size == 0)
-			return NULL;
+			return nullptr;
 
-		void* ret = realloc(NULL, 0, size);
+		void* ret = realloc(nullptr, 0, size);
 		LEAK_DETECT(leaks.newRaw(ret, size, ti));
 		return ret;
 	}
@@ -159,7 +159,7 @@ namespace croc
 		LEAK_DETECT(leaks.freeRaw(ptr, ti));
 		STOMPYSTOMP(ptr, len);
 		realloc(ptr, len, 0);
-		ptr = NULL;
+		ptr = nullptr;
 		len = 0;
 	}
 
@@ -176,13 +176,16 @@ namespace croc
 			modBuffer.add(*this, ret);
 
 		decBuffer.add(*this, ret);
+
+		nurseryBytes += size; // yes, this is right; this prevents large RC objects from never triggering collections.
+
 		LEAK_DETECT(leaks.newRC(ret, size, ti));
 		return ret;
 	}
 
 	GCObject* Memory::allocateGCObject(size_t size, bool acyclic, uint32_t gcflags)
 	{
-		GCObject* ret = cast(GCObject*)realloc(NULL, 0, size);
+		GCObject* ret = cast(GCObject*)realloc(nullptr, 0, size);
 		memset(ret, 0, size);
 		ret->refCount = 1;
 		ret->memSize = size;
@@ -196,7 +199,7 @@ namespace croc
 
 		// printf("REALLOC p = %p, old = %d, new = %d ret = %p\n", p, oldSize, newSize, ret);
 
-		if(ret == NULL && newSize != 0)
+		if(ret == nullptr && newSize != 0)
 			assert(false); // TODO:
 
 		totalBytes += newSize - oldSize;

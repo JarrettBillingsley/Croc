@@ -20,9 +20,9 @@ namespace croc
 	namespace namespaceobj
 	{
 		// Create a new namespace object.
-		Namespace* create(Allocator& alloc, String* name, Namespace* parent = NULL)
+		Namespace* create(Allocator& alloc, String* name, Namespace* parent = nullptr)
 		{
-			assert(name !is NULL);
+			assert(name !is nullptr);
 
 			Namespace* ns = alloc.allocate<Namespace>();
 			ns->parent = parent;
@@ -37,7 +37,7 @@ namespace croc
 			alloc.free(ns);
 		}
 
-		// Get a pointer to the value of a key-value pair, or NULL if it doesn't exist.
+		// Get a pointer to the value of a key-value pair, or nullptr if it doesn't exist.
 		Value* get(Namespace* ns, String* key)
 		{
 			return ns->data.lookup(key);
@@ -59,7 +59,7 @@ namespace croc
 		{
 			Namespace::Node* node = ns->data.lookupNode(key);
 
-			if(node == NULL)
+			if(node == nullptr)
 				return false;
 
 			if(node->value != *value)
@@ -110,7 +110,7 @@ namespace croc
 		// Returns `true` if the key exists in the table.
 		bool contains(Namespace* ns, String* key)
 		{
-			return ns->data.lookup(key) != NULL;
+			return ns->data.lookup(key) != nullptr;
 		}
 
 		bool next(Namespace* ns, uword& idx, String**& key, Value*& val)

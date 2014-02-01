@@ -52,7 +52,7 @@ namespace croc
 			size_t byteLength = ARRAY_BYTE_SIZE(length);
 			void* tmp = ptr;
 			mem.freeRaw(tmp, byteLength MEMBERTYPEID);
-			ptr = NULL;
+			ptr = nullptr;
 			length = 0;
 		}
 

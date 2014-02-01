@@ -44,11 +44,11 @@ namespace croc
 		GCFlags_Unlogged =    (1 << 0), // 0b0_00000001
 		GCFlags_InRC =        (1 << 1), // 0b0_00000010
 
-		GCFlags_Black =       0,        // 0b0_00000000
+		GCFlags_Black =       (0 << 2), // 0b0_00000000
 		GCFlags_Grey =        (1 << 2), // 0b0_00000100
-		GCFlags_White =       (1 << 3), // 0b0_00001000
+		GCFlags_White =       (2 << 2), // 0b0_00001000
 		GCFlags_Purple =      (3 << 2), // 0b0_00001100
-		GCFlags_Green =       (1 << 4), // 0b0_00010000
+		GCFlags_Green =       (4 << 2), // 0b0_00010000
 		GCFlags_ColorMask =   (7 << 2), // 0b0_00011100
 
 		GCFlags_CycleLogged = (1 << 5), // 0b0_00100000

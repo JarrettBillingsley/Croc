@@ -127,19 +127,19 @@ namespace croc
 			{
 				Node* node = lookupNode(key, hash);
 
-				if(node != NULL)
+				if(node != nullptr)
 					return node;
 			}
 
 			DArray<Node> nodes = mNodes;
 			Node* colBucket = getColBucket();
 
-			if(colBucket == NULL)
+			if(colBucket == nullptr)
 			{
 				rehash(mem);
 				nodes = mNodes;
 				colBucket = getColBucket();
-				assert(colBucket != NULL);
+				assert(colBucket != nullptr);
 			}
 
 			size_t mainPosNodeIdx = hash & mHashMask;
@@ -231,7 +231,7 @@ namespace croc
 			if(ret)
 				return &ret->value;
 			else
-				return NULL;
+				return nullptr;
 		}
 
 		V* lookup(K key, hash_t hash)
@@ -241,7 +241,7 @@ namespace croc
 			if(ret)
 				return &ret->value;
 			else
-				return NULL;
+				return nullptr;
 		}
 
 		inline Node* lookupNode(K key)
@@ -252,7 +252,7 @@ namespace croc
 		Node* lookupNode(K key, hash_t hash)
 		{
 			if(mNodes.length == 0)
-				return NULL;
+				return nullptr;
 
 			DArray<Node> nodes = mNodes;
 
@@ -265,7 +265,7 @@ namespace croc
 					break;
 			}
 
-			return NULL;
+			return nullptr;
 		}
 
 		bool next(size_t& idx, K*& key, V*& val)
@@ -348,7 +348,7 @@ namespace croc
 		{
 			mNodes.free(mem);
 			mHashMask = 0;
-			mColBucket = NULL;
+			mColBucket = nullptr;
 			mSize = 0;
 		}
 
@@ -403,7 +403,7 @@ namespace croc
 				if(!IS_USED(mColBucket))
 					return mColBucket;
 
-			return NULL;
+			return nullptr;
 		}
 	};
 }

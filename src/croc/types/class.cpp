@@ -49,7 +49,7 @@ namespace croc
 				}
 			}
 
-			return NULL;
+			return nullptr;
 		}
 
 		void setField(Allocator& alloc, Class* c, String* name, Value* value)

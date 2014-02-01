@@ -14,7 +14,7 @@ namespace croc
 {
 	void Deque::init()
 	{
-		mDataPtr = NULL;
+		mDataPtr = nullptr;
 		mDataLen = 0;
 		mStart = 0;
 		mEnd = 0;
@@ -121,7 +121,7 @@ namespace croc
 	{
 		void* p = mDataPtr;
 		mem.freeRaw(p, mDataLen MEMBERTYPEID);
-		mDataPtr = NULL;
+		mDataPtr = nullptr;
 		reset();
 	}
 

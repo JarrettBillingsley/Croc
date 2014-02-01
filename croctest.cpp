@@ -18,12 +18,12 @@ void* DefaultMemFunc(void* ctx, void* p, size_t oldSize, size_t newSize)
 	if(newSize == 0)
 	{
 		free(p);
-		return NULL;
+		return nullptr;
 	}
 	else
 	{
 		void* ret = cast(void*)realloc(p, newSize);
-		assert(ret != NULL);
+		assert(ret != nullptr);
 		return ret;
 	}
 }
@@ -31,7 +31,7 @@ void* DefaultMemFunc(void* ctx, void* p, size_t oldSize, size_t newSize)
 int main()
 {
 	Memory mem;
-	mem.init(DefaultMemFunc, NULL);
+	mem.init(DefaultMemFunc, nullptr);
 
 	typedef Hash<int, int> H;
 	H h;

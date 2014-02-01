@@ -37,11 +37,13 @@ set(croc_ALLSRC
 
 if(CMAKE_COMPILER_IS_GNUCXX)
 	message(status "wtf")
-	set(CMAKE_CXX_FLAGS "-std=c++98 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions")
+	set(CMAKE_CXX_FLAGS "-std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions")
 	set(CMAKE_CXX_FLAGS_DEBUG "-g -DCROC_STOMP_MEMORY -DCROC_LEAK_DETECTOR")
 	set(CMAKE_CXX_FLAGS_RELEASE "-fno-rtti")
 elseif(MSVC)
 	message(FATAL_ERROR "VC not supported yet")
+else()
+	message(FATAL_ERROR "Dunno what compiler you have but I don't support it")
 endif()
 
 add_library(croc ${croc_ALLSRC})

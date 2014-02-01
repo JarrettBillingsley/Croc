@@ -1,21 +1,21 @@
+#include <functional>
+
 #include "croc/base/writebarrier.hpp"
 #include "croc/base/memory.hpp"
 #include "croc/base/sanity.hpp"
 
 namespace croc
 {
-	void writeBarrierSlowCallback(GCObject* slot, void* ctx)
-	{
-		Memory* mem = cast(Memory*)ctx;
-
-		if(GCOBJ_INRC(slot))
-			mem->decBuffer.add(*mem, slot);
-	}
-
 	void writeBarrierSlow(Memory& mem, GCObject* srcObj)
 	{
 		mem.modBuffer.add(mem, srcObj);
-		visitObj(srcObj, false, writeBarrierSlowCallback, &mem);
+
+		visitObj(srcObj, false, [&](GCObject* slot)
+		{
+			if(GCOBJ_INRC(slot))
+				mem.decBuffer.add(mem, slot);
+		});
+
 		GCOBJ_LOG(srcObj);
 	}
 
@@ -23,19 +23,19 @@ namespace croc
 #define VALUE_CALLBACK(name)\
 	{if((name).isGCObject())\
 	{\
-		(*callback)((name).toGCObject(), ctx);\
+		callback((name).toGCObject());\
 	}}
 
 // For visiting pointers. Visits it only if it's non-null.
 #define COND_CALLBACK(name)\
-	{if((name) != NULL)\
+	{if((name) != nullptr)\
 	{\
-		(*callback)((name), ctx);\
+		callback((name));\
 	}}
 
 	namespace
 	{
-	void visitTable(Table* o, WBCallback callback, void* ctx, bool isModifyPhase)
+	void visitTable(Table* o, WBCallback callback, bool isModifyPhase)
 	{
 		if(isModifyPhase)
 		{
@@ -62,7 +62,7 @@ namespace croc
 		}
 	}
 
-	void visitNamespace(Namespace* o, WBCallback callback, void* ctx, bool isModifyPhase)
+	void visitNamespace(Namespace* o, WBCallback callback, bool isModifyPhase)
 	{
 		if(isModifyPhase)
 		{
@@ -96,16 +96,16 @@ namespace croc
 
 			HASH_FOREACH(String*, key, Value, val, o->data)
 			{
-				(*callback)(*key, ctx);
+				callback(*key);
 				VALUE_CALLBACK(*val);
 			}
 			HASH_END_FOREACH
 		}
 	}
 
-	void visitArray(Array* o, WBCallback callback, void* ctx, bool isModifyPhase)
+	void visitArray(Array* o, WBCallback callback, bool isModifyPhase)
 	{
-		DArray<Array::Slot> vals = o->toArray();
+		auto vals = o->toArray();
 
 		if(isModifyPhase)
 		{
@@ -125,7 +125,7 @@ namespace croc
 		}
 	}
 
-	void visitFunction(Function* o, WBCallback callback, void* ctx)
+	void visitFunction(Function* o, WBCallback callback)
 	{
 		COND_CALLBACK(o->environment);
 		COND_CALLBACK(o->name);
@@ -148,7 +148,7 @@ namespace croc
 		}
 	}
 
-	void visitFuncDef(Funcdef* o, WBCallback callback, void* ctx)
+	void visitFuncDef(Funcdef* o, WBCallback callback)
 	{
 		COND_CALLBACK(o->locFile);
 		COND_CALLBACK(o->name);
@@ -161,7 +161,7 @@ namespace croc
 
 		ARRAY_FOREACH(Funcdef::SwitchTable, st, o->switchTables)
 		{
-			Funcdef::SwitchTable::OffsetsType offsets = st->offsets;
+			auto offsets = st->offsets;
 
 			HASH_FOREACH_NODE(Funcdef::SwitchTable::OffsetsType::NodeType, n, offsets)
 				VALUE_CALLBACK(n->key);
@@ -178,23 +178,23 @@ namespace croc
 		COND_CALLBACK(o->cachedFunc);
 	}
 
-	void visitClass(Class*, WBCallback, void*, bool);
-	void visitInstance(Instance*, WBCallback, void*, bool);
-	void visitThread(Thread*, WBCallback, void*, bool);
-	void visitUpval(Upval*, WBCallback, void*);
+	void visitClass(Class*, WBCallback, bool);
+	void visitInstance(Instance*, WBCallback, bool);
+	void visitThread(Thread*, WBCallback, bool);
+	void visitUpval(Upval*, WBCallback);
 
 	} // anon namespace
 
 	// Visit the roots of this VM.
-	void visitRoots(VM* vm, WBCallback callback, void* ctx)
+	void visitRoots(VM* vm, WBCallback callback)
 	{
-		(*callback)(vm->globals, ctx);
-		(*callback)(vm->mainThread, ctx);
+		callback(vm->globals);
+		callback(vm->mainThread);
 
 		// We visit all the threads, but the threads themselves (except the main thread, visited above) are not roots.
 		// allThreads is basically a list of weakrefs to tables.
-		for(Thread* t = vm->allThreads; t != NULL; t = t->next)
-			visitThread(t, callback, ctx, true);
+		for(Thread* t = vm->allThreads; t != nullptr; t = t->next)
+			visitThread(t, callback, true);
 
 		DArray<Namespace*>& mt = vm->metaTabs;
 		size_t i;
@@ -205,34 +205,33 @@ namespace croc
 		DArray<String*>& ms = vm->metaStrings;
 
 		for(i = 0; i < ms.length; i++)
-			(*callback)(ms[i], ctx);
+			callback(ms[i]);
 
 		if(vm->isThrowing)
-			(*callback)(vm->exception, ctx);
+			callback(vm->exception);
 
-		(*callback)(vm->registry, ctx);
+		callback(vm->registry);
 
 		VM::RefTab& rt = vm->refTab;
 
 		HASH_FOREACH(uint64_t, _, GCObject*, val, rt)
-			(*callback)(*val, ctx);
+			callback(*val);
 		HASH_END_FOREACH
 
-		(*callback)(vm->throwable, ctx);
-		(*callback)(vm->location, ctx);
+		callback(vm->location);
 
 		VM::ExTab& et = vm->stdExceptions;
 
 		HASH_FOREACH(String*, k, Class*, v, et)
 		{
-			(*callback)(*k, ctx);
-			(*callback)(*v, ctx);
+			callback(*k);
+			callback(*v);
 		}
 		HASH_END_FOREACH
 	}
 
 	// Dynamically dispatch the appropriate visiting method at runtime from a GCObject*.
-	void visitObj(GCObject* o, bool isModifyPhase, WBCallback callback, void* ctx)
+	void visitObj(GCObject* o, bool isModifyPhase, WBCallback callback)
 	{
 		// Green objects have no references to other objects.
 		if(GCOBJ_COLOR(o) == GCFlags_Green)
@@ -240,15 +239,15 @@ namespace croc
 
 		switch(o->type)
 		{
-			case CrocType_Table:     visitTable    (cast(Table*)o,     callback, ctx, isModifyPhase); return;
-			case CrocType_Namespace: visitNamespace(cast(Namespace*)o, callback, ctx, isModifyPhase); return;
-			case CrocType_Array:     visitArray    (cast(Array*)o,     callback, ctx, isModifyPhase); return;
-			case CrocType_Function:  visitFunction (cast(Function*)o,  callback, ctx);                return;
-			case CrocType_Funcdef:   visitFuncDef  (cast(Funcdef*)o,   callback, ctx);                return;
-			case CrocType_Class:     visitClass    (cast(Class*)o,     callback, ctx, isModifyPhase); return;
-			case CrocType_Instance:  visitInstance (cast(Instance*)o,  callback, ctx, isModifyPhase); return;
-			case CrocType_Thread:    visitThread   (cast(Thread*)o,    callback, ctx, false);         return;
-			case CrocType_Upval:     visitUpval    (cast(Upval*)o,     callback, ctx);                return;
+			case CrocType_Table:     visitTable    (cast(Table*)o,     callback, isModifyPhase); return;
+			case CrocType_Namespace: visitNamespace(cast(Namespace*)o, callback, isModifyPhase); return;
+			case CrocType_Array:     visitArray    (cast(Array*)o,     callback, isModifyPhase); return;
+			case CrocType_Function:  visitFunction (cast(Function*)o,  callback);                return;
+			case CrocType_Funcdef:   visitFuncDef  (cast(Funcdef*)o,   callback);                return;
+			case CrocType_Class:     visitClass    (cast(Class*)o,     callback, isModifyPhase); return;
+			case CrocType_Instance:  visitInstance (cast(Instance*)o,  callback, isModifyPhase); return;
+			case CrocType_Thread:    visitThread   (cast(Thread*)o,    callback, false);         return;
+			case CrocType_Upval:     visitUpval    (cast(Upval*)o,     callback);                return;
 			default:
 				//debug Stdout.formatln("{} {:b} {}", (cast(CrocBaseObject*)o).mType, o.gcflags & GCFlags.ColorMask, o.refCount).flush;
 				assert(false);

@@ -7,7 +7,7 @@ namespace croc
 {
 	namespace namespaceobj
 	{
-		Namespace* create(Allocator& alloc, String* name, Namespace* parent = NULL);
+		Namespace* create(Allocator& alloc, String* name, Namespace* parent = nullptr);
 		void free(Allocator& alloc, Namespace* ns);
 		Value* get(Namespace* ns, String* key);
 		void set(Allocator& alloc, Namespace* ns, String* key, Value* value);

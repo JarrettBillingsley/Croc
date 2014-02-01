@@ -52,7 +52,7 @@ TWO SHORTS:
 	len:             rd = #rs
 	lena:            #rd = rs
 	append:          rd.append(rs)
-	superof:         rd = rs.superof
+	superof:         rd = rs.super
 	customparamfail: give error message about parameter rd not satisfying the constraint whose name is in rs
 	slice:           rd = rs[rs + 1 .. rs + 2]
 	slicea:          rd[rd + 1 .. rd + 2] = rs
@@ -88,8 +88,6 @@ THREE SHORTS:
 	idx:    rd = rs[rt]
 	idxa:   rd[rs] = rt
 	in:     rd = rs in rt
-	class:  rd = class rs : rt {}
-	as:     rd = rs as rt
 	field:  rd = rs.(rt)
 	fielda: rd.(rs) = rt
 (__, rs, rt)
@@ -119,12 +117,9 @@ FOUR SHORTS:
 	is:     if((rs is rt) == rd) jump by imm
 (__, rs, rt, imm)
 	swcmp: if(switchcmp(rs, rt)) jump by imm
-(rd, rt, uimm1, uimm2)
-	smethod:  method supercall. works same as method, but lookup is based on the proto instead of a value.
-	tsmethod: same as above, but does a tailcall. uimm2 is unused, but this makes codegen easier
 (rd, rs, rt, uimm)
-	addfield: add field named rs to class in rd with value rt. last uimm is 0 for private, nonzero for public.
-	addmethod: add method named rs to class in rd with value rt. last uimm is 0 for private, nonzero for public.
+	addember: add field/method named rs to class in rd with value rt. uimm bit 0 is field(0)/method(1) and bit 1 is override or not.
+	class:  rd = class rs : (rt + 0, rt + 1 .. rt + uimm - 1) {}
 
 FIVE SHORTS:
 
@@ -189,8 +184,6 @@ FIVE SHORTS:
 	X(Throw),\
 	X(Method),\
 	X(TailMethod),\
-	X(SuperMethod),\
-	X(TailSuperMethod),\
 	X(Call),\
 	X(TailCall),\
 	X(SaveRets),\
@@ -226,18 +219,14 @@ FIVE SHORTS:
 	X(Class),\
 	X(Namespace),\
 	X(NamespaceNP),\
-	X(As),\
 	X(SuperOf),\
-	X(AddField),\
-	X(AddMethod)
+	X(AddMember)
 
 #define POOP(x) Op_ ## x
-
 	enum Op
 	{
 		INSTRUCTION_LIST(POOP)
 	};
-
 #undef POOP
 
 	// TODO:
