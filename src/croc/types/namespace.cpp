@@ -1,18 +1,17 @@
-#include "croc/base/alloc.hpp"
-// #include "croc/base/writebarrier.hpp"
-#include "croc/base/hash.hpp"
-#include "croc/types.hpp"
 
-#define NS_REMOVEKEYREF(alloc, slot)\
+#include "croc/base/writebarrier.hpp"
+#include "croc/types/namespace.hpp"
+
+#define REMOVEKEYREF(mem, slot)\
 	do {\
-		if(!((slot)->modified & KeyModified))\
-			(alloc).decBuffer.add((alloc), cast(GCObject*)(slot)->key);\
+	if(!IS_KEY_MODIFIED(slot))\
+		(mem).decBuffer.add((mem), cast(GCObject*)(slot)->key);\
 	} while(false)
 
-#define NS_REMOVEVALUEREF(alloc, slot)\
+#define REMOVEVALUEREF(mem, slot)\
 	do {\
-		if(!((slot)->modified & ValModified) && (slot)->value.isGCObject())\
-			(alloc).decBuffer.add((alloc), (slot)->value.toGCObject());\
+	if(!IS_VAL_MODIFIED(slot) && (slot)->value.isGCObject())\
+		(mem).decBuffer.add((mem), (slot)->value.toGCObject());\
 	} while(false)
 
 namespace croc
@@ -20,91 +19,108 @@ namespace croc
 	namespace namespaceobj
 	{
 		// Create a new namespace object.
-		Namespace* create(Allocator& alloc, String* name, Namespace* parent = nullptr)
+		Namespace* create(Memory& mem, String* name, Namespace* parent)
 		{
-			assert(name !is nullptr);
+			auto ret = createPartial(mem);
+			finishCreate(ret, name, parent);
+			return ret;
+		}
 
-			Namespace* ns = alloc.allocate<Namespace>();
-			ns->parent = parent;
+		// Partially construct a namespace. This is used by the serialization system.
+		Namespace* createPartial(Memory& mem)
+		{
+			return ALLOC_OBJ(mem, Namespace);
+		}
+
+		// Finish constructing a namespace. Also used by serialization.
+		void finishCreate(Namespace* ns, String* name, Namespace* parent)
+		{
+			assert(name != nullptr);
 			ns->name = name;
-			return ns;
+
+			if(parent)
+			{
+				ns->parent = parent;
+				auto root = parent;
+				for( ; root->parent != nullptr; root = root->parent){}
+				ns->root = root;
+			}
 		}
 
 		// Free a namespace object.
-		void free(Allocator& alloc, Namespace* ns)
+		void free(Memory& mem, Namespace* ns)
 		{
-			ns->data.clear(alloc);
-			alloc.free(ns);
+			ns->data.clear(mem);
+			FREE_OBJ(mem, Namespace, ns);
 		}
 
-		// Get a pointer to the value of a key-value pair, or nullptr if it doesn't exist.
+		// Get a pointer to the value of a key-value pair, or null if it doesn't exist.
 		Value* get(Namespace* ns, String* key)
 		{
 			return ns->data.lookup(key);
 		}
 
 		// Sets a key-value pair.
-		void set(Allocator& alloc, Namespace* ns, String* key, Value* value)
+		void set(Memory& mem, Namespace* ns, String* key, Value* value)
 		{
-			if(setIfExists(alloc, ns, key, value))
+			if(setIfExists(mem, ns, key, value))
 				return;
 
-			// CONTAINER_WRITE_BARRIER(alloc, ns);
-			Namespace::Node* node = ns->data.insertNode(alloc, key);
+			CONTAINER_WRITE_BARRIER(mem, ns);
+			auto node = ns->data.insertNode(mem, key);
 			node->value = *value;
-			node->modified |= KeyModified | (value->isGCObject() ? ValModified : 0);
+
+			if(value->isGCObject())
+				SET_BOTH_MODIFIED(node);
+			else
+				SET_KEY_MODIFIED(node);
 		}
 
-		bool setIfExists(Allocator& alloc, Namespace* ns, String* key, Value* value)
+		bool setIfExists(Memory& mem, Namespace* ns, String* key, Value* value)
 		{
-			Namespace::Node* node = ns->data.lookupNode(key);
+			auto node = ns->data.lookupNode(key);
 
 			if(node == nullptr)
 				return false;
 
 			if(node->value != *value)
 			{
-				NS_REMOVEVALUEREF(alloc, node)
+				REMOVEVALUEREF(mem, node);
 				node->value = *value;
 
 				if(value->isGCObject())
 				{
-					// CONTAINER_WRITE_BARRIER(alloc, ns);
-					node->modified |= ValModified;
+					CONTAINER_WRITE_BARRIER(mem, ns);
+					SET_VAL_MODIFIED(node);
 				}
 				else
-					node->modified &= ~ValModified;
+					CLEAR_VAL_MODIFIED(node);
 			}
 
 			return true;
 		}
 
 		// Remove a key-value pair from the namespace.
-		void remove(Allocator& alloc, Namespace* ns, String* key)
+		void remove(Memory& mem, Namespace* ns, String* key)
 		{
-			Namespace::Node* node = ns->data.lookupNode(key);
-
-			if(node)
+			if(auto node = ns->data.lookupNode(key))
 			{
-				NS_REMOVEKEYREF(alloc, node);
-				NS_REMOVEVALUEREF(alloc, node);
+				REMOVEKEYREF(mem, node);
+				REMOVEVALUEREF(mem, node);
 				ns->data.remove(key);
 			}
 		}
 
 		// Clears all items from the namespace.
-		void clear(Allocator& alloc, Namespace* ns)
+		void clear(Memory& mem, Namespace* ns)
 		{
-			uword i = 0;
-			Namespace::Node* node;
-
-			while(ns->data.nextNode(i, node))
+			for(auto node: ns->data)
 			{
-				NS_REMOVEKEYREF(alloc, node);
-				NS_REMOVEVALUEREF(alloc, node);
+				REMOVEKEYREF(mem, node);
+				REMOVEVALUEREF(mem, node);
 			}
 
-			ns->data.clear(alloc);
+			ns->data.clear(mem);
 		}
 
 		// Returns `true` if the key exists in the table.

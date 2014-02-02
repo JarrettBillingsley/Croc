@@ -30,6 +30,8 @@ set(croc_SRC
 	croc/types/instance.hpp
 	croc/types/memblock.cpp
 	croc/types/memblock.hpp
+	croc/types/namespace.cpp
+	croc/types/namespace.hpp
 	croc/types/string.cpp
 	croc/types/string.hpp
 	croc/types.cpp
