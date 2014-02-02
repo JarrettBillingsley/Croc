@@ -51,6 +51,9 @@ namespace croc
 
 		void resize(Memory& mem, size_t newLength)
 		{
+			if(length == newLength)
+				return;
+
 			auto byteLength = ARRAY_BYTE_SIZE(length);
 			auto newByteLength = ARRAY_BYTE_SIZE(newLength);
 			void* tmp = ptr;

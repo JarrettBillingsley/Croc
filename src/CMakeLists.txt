@@ -28,6 +28,8 @@ set(croc_SRC
 	croc/types/function.hpp
 	croc/types/instance.cpp
 	croc/types/instance.hpp
+	croc/types/memblock.cpp
+	croc/types/memblock.hpp
 	croc/types/string.cpp
 	croc/types/string.hpp
 	croc/types.cpp

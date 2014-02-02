@@ -1,4 +1,3 @@
-#include <limits>
 
 #include "croc/base/writebarrier.hpp"
 #include "croc/types/class.hpp"

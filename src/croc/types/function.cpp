@@ -12,7 +12,7 @@ namespace croc
 	{
 		namespace
 		{
-		const uint32_t MaxParams = std::numeric_limits<uint32_t>::max();
+			const uint32_t MaxParams = std::numeric_limits<uint32_t>::max();
 		}
 
 		// Create a script function.
