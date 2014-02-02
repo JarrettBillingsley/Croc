@@ -22,6 +22,8 @@ set(croc_SRC
 	croc/types/array.hpp
 	croc/types/class.cpp
 	croc/types/class.hpp
+	croc/types/funcdef.cpp
+	croc/types/funcdef.hpp
 	croc/types/string.cpp
 	croc/types/string.hpp
 	croc/types.cpp
