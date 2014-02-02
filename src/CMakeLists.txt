@@ -34,6 +34,8 @@ set(croc_SRC
 	croc/types/namespace.hpp
 	croc/types/string.cpp
 	croc/types/string.hpp
+	croc/types/table.cpp
+	croc/types/table.hpp
 	croc/types.cpp
 	croc/types.hpp
 	croc/utf.cpp
