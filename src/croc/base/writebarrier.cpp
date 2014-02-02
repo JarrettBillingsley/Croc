@@ -101,7 +101,7 @@ namespace croc
 
 	void visitArray(Array* o, WBCallback callback, bool isModifyPhase)
 	{
-		auto vals = o->toArray();
+		auto vals = o->toDArray();
 
 		if(isModifyPhase)
 		{

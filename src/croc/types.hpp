@@ -10,6 +10,7 @@
 #include "croc/base/memory.hpp"
 #include "croc/base/opcodes.hpp"
 #include "croc/base/sanity.hpp"
+#include "croc/utf.hpp"
 
 namespace croc
 {
@@ -180,12 +181,34 @@ namespace croc
 		{
 			return hash;
 		}
+
+		// The index is in codepoints, not byte indices.
+		inline dchar charAt(uword idx)
+		{
+			return utf8CharAt(this->toDArray(), idx);
+		}
+
+		static String* lookup(VM* vm, crocstr data, uword& h);
+		static String* create(VM* vm, crocstr data, uword h, uword cpLen);
+		static void free(VM* vm, String* s);
+		crocint compare(String* other);
+		bool contains(crocstr sub);
+		String* slice(VM* vm, uword lo, uword hi);
 	};
 
 	struct Weakref : public GCObject
 	{
 		// acyclic
 		GCObject* obj;
+
+		inline GCObject* getObj()
+		{
+			return this->obj;
+		}
+
+		static Weakref* create(VM* vm, GCObject* obj);
+		static Value makeref(VM* vm, Value val);
+		static void free(VM* vm, Weakref* r);
 	};
 
 	struct Table : public GCObject
@@ -193,6 +216,35 @@ namespace croc
 		typedef Hash<Value, Value, MethodHasher> HashType;
 
 		HashType data;
+
+		// Get a pointer to the value of a key-value pair, or null if it doesn't exist.
+		inline Value* get(Value key)
+		{
+			return this->data.lookup(key);
+		}
+
+		// Returns `true` if the key exists in the table.
+		inline bool contains(Value& key)
+		{
+			return this->data.lookup(key) != nullptr;
+		}
+
+		// Get the number of key-value pairs in the table.
+		inline uword length()
+		{
+			return this->data.length();
+		}
+
+		inline bool next(size_t& idx, Value*& key, Value*& val)
+		{
+			return this->data.next(idx, key, val);
+		}
+
+		static Table* create(Memory& mem, uword size = 0);
+		static void free(Memory& mem, Table* t);
+		Table* dup(Memory& mem);
+		void idxa(Memory& mem, Value& key, Value& val);
+		void clear(Memory& mem);
 	};
 
 	struct Namespace : public GCObject
@@ -204,6 +256,37 @@ namespace croc
 		Namespace* root;
 		String* name;
 		bool visitedOnce;
+
+		// Get a pointer to the value of a key-value pair, or null if it doesn't exist.
+		inline Value* get(String* key)
+		{
+			return this->data.lookup(key);
+		}
+
+		// Returns `true` if the key exists in the table.
+		inline bool contains(String* key)
+		{
+			return this->data.lookup(key) != nullptr;
+		}
+
+		inline bool next(uword& idx, String**& key, Value*& val)
+		{
+			return this->data.next(idx, key, val);
+		}
+
+		inline uword length()
+		{
+			return this->data.length();
+		}
+
+		Namespace* create(Memory& mem, String* name, Namespace* parent = nullptr);
+		Namespace* createPartial(Memory& mem);
+		void finishCreate(Namespace* ns, String* name, Namespace* parent);
+		void free(Memory& mem, Namespace* ns);
+		void set(Memory& mem, String* key, Value* value);
+		bool setIfExists(Memory& mem, String* key, Value* value);
+		void remove(Memory& mem, String* key);
+		void clear(Memory& mem);
 	};
 
 	struct Array : public GCObject
@@ -218,10 +301,25 @@ namespace croc
 		uword length;
 		DArray<Slot> data;
 
-		inline DArray<Slot> toArray()
+		inline DArray<Slot> toDArray()
 		{
 			return DArray<Slot>::n(data.ptr, length);
 		}
+
+		static Array* create(Memory& alloc, uword size);
+		static void free(Memory& alloc, Array* a);
+
+		void resize(Memory& alloc, uword newSize);
+		Array* slice(Memory& alloc, uword lo, uword hi);
+		void sliceAssign(Memory& alloc, uword lo, uword hi, Array* other);
+		void sliceAssign(Memory& alloc, uword lo, uword hi, DArray<Value> other);
+		void setBlock(Memory& alloc, uword block, DArray<Value> data);
+		void fill(Memory& alloc, Value val);
+		void idxa(Memory& alloc, uword idx, Value val);
+		bool contains(Value& v);
+		Array* cat(Memory& alloc, Array* other);
+		Array* cat(Memory& alloc, Value* v);
+		void append(Memory& alloc, Value* v);
 	};
 
 	struct Memblock : public GCObject
@@ -229,6 +327,15 @@ namespace croc
 		// acyclic
 		DArray<uint8_t> data;
 		bool ownData;
+
+		static Memblock* create(Memory& mem, uword itemLength);
+		static Memblock* createView(Memory& mem, DArray<uint8_t> data);
+		static void free(Memory& mem, Memblock* m);
+		void view(Memory& mem, DArray<uint8_t> data);
+		void resize(Memory& mem, uword newLength);
+		Memblock* slice(Memory& mem, uword lo, uword hi);
+		void sliceAssign(uword lo, uword hi, Memblock* other);
+		Memblock* cat(Memory& mem, Memblock* other);
 	};
 
 	struct Function : public GCObject
@@ -258,6 +365,19 @@ namespace croc
 		{
 			return DArray<Upval*>::n(cast(Upval**)(this + 1), numUpvals);
 		}
+
+		// inline bool isNative()
+		// {
+		// 	return this->isNative;
+		// }
+
+		static Function* create(Memory& mem, Namespace* env, Funcdef* def);
+		static Function* createPartial(Memory& mem, uword numUpvals);
+		static void finishCreate(Memory& mem, Function* f, Namespace* env, Funcdef* def);
+		static Function* create(Memory& mem, Namespace* env, String* name, CrocNativeFunc func, uword numUpvals, uword numParams);
+		void setNativeUpval(Memory& mem, uword idx, Value* val);
+		void setEnvironment(Memory& mem, Namespace* ns);
+		bool isVararg();
 	};
 
 	// The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
@@ -308,6 +428,9 @@ namespace croc
 		};
 
 		DArray<LocVarDesc> locVarDescs;
+
+		static Funcdef* create(Memory& mem);
+		static void free(Memory& mem, Funcdef* fd);
 	};
 
 	struct Class : public GCObject
@@ -322,6 +445,26 @@ namespace croc
 		HashType hiddenFields;
 		Value* constructor;
 		Value* finalizer;
+
+		static Class* create(Memory& mem, String* name);
+		static Class::HashType::NodeType* derive(Memory& mem, Class* c, Class* parent, const char*& which);
+		static void free(Memory& mem, Class* c);
+
+		void freeze();
+		Class::HashType::NodeType* getField(String* name);
+		Class::HashType::NodeType* getMethod(String* name);
+		Class::HashType::NodeType* getHiddenField(String* name);
+		void setMember(Memory& mem, Class::HashType::NodeType* slot, Value* value);
+		bool addField(Memory& mem, String* name, Value* value, bool isOverride);
+		bool addMethod(Memory& mem, String* name, Value* value, bool isOverride);
+		bool addHiddenField(Memory& mem, String* name, Value* value);
+		bool removeField(Memory& mem, String* name);
+		bool removeMethod(Memory& mem, String* name);
+		bool removeHiddenField(Memory& mem, String* name);
+		bool removeMember(Memory& mem, String* name);
+		bool nextField(uword& idx, String**& key, Value*& val);
+		bool nextMethod(uword& idx, String**& key, Value*& val);
+		bool nextHiddenField(uword& idx, String**& key, Value*& val);
 	};
 
 	struct Instance : public GCObject
@@ -332,6 +475,47 @@ namespace croc
 		// The way this works is that it's null to mean there are no hidden fields, and if it's not null, the Hash structure
 		// and its data are appended to the end of the instance, and this points to that structure.
 		Class::HashType* hiddenFields;
+
+		inline Class::HashType::NodeType* getField(String* name)
+		{
+			return this->fields.lookupNode(name);
+		}
+
+		inline Class::HashType::NodeType* getMethod(String* name)
+		{
+			return this->parent->getMethod(name);
+		}
+
+		inline bool nextField(Instance* i, uword& idx, String**& key, Value*& val)
+		{
+			return i->fields.next(idx, key, val);
+		}
+
+		inline Class::HashType::NodeType* getHiddenField(Instance* i, String* name)
+		{
+			if(i->hiddenFields)
+				return i->hiddenFields->lookupNode(name);
+			else
+				return nullptr;
+		}
+
+		inline bool nextHiddenField(Instance* i, uword& idx, String**& key, Value*& val)
+		{
+			if(i->hiddenFields)
+				return i->hiddenFields->next(idx, key, val);
+			else
+				return false;
+		}
+
+		inline bool derivesFrom(Instance* i, Class* c)
+		{
+			return i->parent == c;
+		}
+
+		static Instance* create(Memory& mem, Class* parent);
+		static Instance* createPartial(Memory& mem, uword size, bool finalizable);
+		static bool finishCreate(Instance* i, Class* parent);
+		void setField(Memory& mem, Class::HashType::NodeType* slot, Value* value);
 	};
 
 	typedef uword AbsStack;
@@ -401,6 +585,14 @@ namespace croc
 
 		uword savedCallDepth;
 		uword nativeCallDepth;
+
+		static Thread* create(VM* vm);
+		static Thread* createPartial(VM* vm);
+		static Thread* create(VM* vm, Function* coroFunc);
+		static void free(Thread* t);
+		void reset();
+		void setHookFunc(Memory& mem, Function* f);
+		void setCoroFunc(Memory& mem, Function* f);
 	};
 
 	struct Upval : public GCObject

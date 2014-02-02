@@ -19,27 +19,16 @@ set(croc_SRC
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
 	croc/types/array.cpp
-	croc/types/array.hpp
 	croc/types/class.cpp
-	croc/types/class.hpp
 	croc/types/funcdef.cpp
-	croc/types/funcdef.hpp
 	croc/types/function.cpp
-	croc/types/function.hpp
 	croc/types/instance.cpp
-	croc/types/instance.hpp
 	croc/types/memblock.cpp
-	croc/types/memblock.hpp
 	croc/types/namespace.cpp
-	croc/types/namespace.hpp
 	croc/types/string.cpp
-	croc/types/string.hpp
 	croc/types/table.cpp
-	croc/types/table.hpp
 	croc/types/thread.cpp
-	croc/types/thread.hpp
 	croc/types/weakref.cpp
-	croc/types/weakref.hpp
 	croc/types.cpp
 	croc/types.hpp
 	croc/utf.cpp
