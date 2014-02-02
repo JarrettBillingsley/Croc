@@ -121,7 +121,14 @@ namespace croc
 		}
 
 #define MAKE_SET(name, nativetype)\
-		inline void set##name(nativetype v)\
+		static inline Value from(nativetype v)\
+		{\
+			Value ret;\
+			ret.set(v);\
+			return ret;\
+		}\
+		\
+		inline void set(nativetype v)\
 		{\
 			type = CrocType_##name;\
 			m##name = v;\

@@ -38,6 +38,8 @@ set(croc_SRC
 	croc/types/table.hpp
 	croc/types/thread.cpp
 	croc/types/thread.hpp
+	croc/types/weakref.cpp
+	croc/types/weakref.hpp
 	croc/types.cpp
 	croc/types.hpp
 	croc/utf.cpp
