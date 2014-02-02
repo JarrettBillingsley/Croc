@@ -1,6 +1,8 @@
 #ifndef CROC_BASE_DEQUE_HPP
 #define CROC_BASE_DEQUE_HPP
 
+#include <functional>
+
 #include "croc/base/gcobject.hpp"
 // #include "croc/base/memory.hpp"
 #include "croc/base/sanity.hpp"
@@ -34,6 +36,8 @@ namespace croc
 		void reset();
 		void clear(Memory& mem);
 		void minimize(Memory& mem);
+
+		void foreach(std::function<void(GCObject*)> dg);
 
 		struct Iterator
 		{

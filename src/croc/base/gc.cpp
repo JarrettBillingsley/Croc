@@ -177,8 +177,10 @@ namespace croc
 			}
 
 			// Scan
-			for(auto it = cycleRoots.iterator(); it.hasNext(); )
-				cycleScan(vm, it.next());
+			cycleRoots.foreach([&vm](GCObject* obj)
+			{
+				cycleScan(vm, obj);
+			});
 
 			// Collect
 			while(!cycleRoots.isEmpty())
@@ -273,13 +275,12 @@ namespace croc
 		// PROCESS NEW ROOT BUFFER. Go through the new root buffer, incrementing their RCs, and put them all in the old root
 		// buffer.
 		// debug(PHASES) Stdout.formatln("NEWROOTS").flush;
-		for(auto it = newRoots.iterator(); it.hasNext(); )
+		newRoots.foreach([](GCObject* obj)
 		{
-			auto obj = it.next();
 			assert(GCOBJ_INRC(obj));
 			rcIncrement(obj);
 			// debug(INCDEC) Stdout.formatln("Incremented {}, rc is now {}", obj, obj.refCount).flush;
-		}
+		});
 
 		// heehee sneaky
 		vm->oldRootIdx = 1 - vm->oldRootIdx;
@@ -351,21 +352,18 @@ namespace croc
 
 		// debug(PHASES) Stdout.formatln("NURSERY").flush;
 
-		for(auto it = vm->mem.nursery.iterator(); it.hasNext(); )
+		vm->mem.nursery.foreach([&vm](GCObject* obj)
 		{
-			auto obj = it.next();
-
 			if(GCOBJ_INRC(obj) && obj->refCount > 0)
-			{
 				GCOBJ_CLEARJUSTMOVED(obj);
-				continue;
+			else
+			{
+				assert(!GCOBJ_FINALIZABLE(obj));
+
+				if(!GCOBJ_CYCLELOGGED(obj)) // let the cycle collector sweep up otherwise
+					free(vm, obj);
 			}
-
-			assert(!GCOBJ_FINALIZABLE(obj));
-
-			if(!GCOBJ_CYCLELOGGED(obj)) // let the cycle collector sweep up otherwise
-				free(vm, obj);
-		}
+		});
 
 		vm->mem.clearNurserySpace();
 

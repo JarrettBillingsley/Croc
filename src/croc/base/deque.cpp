@@ -138,6 +138,26 @@ namespace croc
 		}
 	}
 
+	void Deque::foreach(std::function<void(GCObject*)> dg)
+	{
+		if(mSize == 0)
+			return;
+
+		if(mStart >= mEnd)
+		{
+			for(size_t i = mStart; i < mDataLen; i++)
+				dg(mDataPtr[i]);
+
+			for(size_t i = 0; i < mEnd; i++)
+				dg(mDataPtr[i]);
+		}
+		else
+		{
+			for(size_t i = mStart; i < mEnd; i++)
+				dg(mDataPtr[i]);
+		}
+	}
+
 	Deque::Iterator::Iterator(Deque* d):
 		mDeque(d),
 		mIdx(d->mStart),
