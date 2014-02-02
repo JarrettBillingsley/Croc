@@ -190,7 +190,7 @@ namespace croc
 
 	struct Namespace : public GCObject
 	{
-		typedef Hash<String*, Value, MethodHasher> HashType;
+		typedef Hash<String*, Value> HashType;
 
 		HashType data;
 		Namespace* parent;
@@ -305,7 +305,7 @@ namespace croc
 
 	struct Class : public GCObject
 	{
-		typedef Hash<String*, Value, MethodHasher> HashType;
+		typedef Hash<String*, Value> HashType;
 
 		String* name;
 		bool isFrozen;
@@ -406,7 +406,7 @@ namespace croc
 	struct VM
 	{
 		typedef Hash<uint64_t, GCObject*> RefTab;
-		typedef Hash<String*, Class*, MethodHasher> ExTab;
+		typedef Hash<String*, Class*> ExTab;
 
 		Memory mem;
 

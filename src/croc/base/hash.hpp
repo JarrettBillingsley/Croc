@@ -27,6 +27,7 @@ enum NodeFlags
 
 #define IS_EITHER_MODIFIED(n) TEST_FLAG((n)->flags, (NodeFlags_KeyModified | NodeFlags_ValModified))
 
+#define SET_BOTH_MODIFIED(n) SET_FLAG((n)->flags, (NodeFlags_KeyModified | NodeFlags_ValModified))
 #define CLEAR_BOTH_MODIFIED(n) CLEAR_FLAG((n)->flags, (NodeFlags_KeyModified | NodeFlags_ValModified))
 
 namespace croc
@@ -251,7 +252,7 @@ namespace croc
 
 		inline Node* lookupNode(K key)
 		{
-			return lookupNode(key, Hasher::hash(key));
+			return lookupNode(key, Hasher::toHash(&key));
 		}
 
 		Node* lookupNode(K key, hash_t hash)

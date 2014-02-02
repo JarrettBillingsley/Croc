@@ -7,14 +7,24 @@ namespace croc
 {
 	namespace classobj
 	{
-		Class* create(Allocator& alloc, String* name, Class* parent);
-		Value* getField(Class* c, String* name);
-		Value* getField(Class* c, String* name, Class*& owner);
-		void setField(Allocator& alloc, Class* c, String* name, Value* value);
-		void setFinalizer(Allocator& alloc, Class* c, Function* f);
-		void setAllocator(Allocator& alloc, Class* c, Function* f);
-		Namespace* fieldsOf(Class* c);
-		bool next(Class* c, uword& idx, String**& key, Value*& val);
+		Class* create(Memory& mem, String* name);
+		Class::HashType::NodeType* derive(Memory& mem, Class* c, Class* parent, const char*& which);
+		void free(Memory& mem, Class* c);
+		void freeze(Class* c);
+		Class::HashType::NodeType* getField(Class* c, String* name);
+		Class::HashType::NodeType* getMethod(Class* c, String* name);
+		Class::HashType::NodeType* getHiddenField(Class* c, String* name);
+		void setMember(Memory& mem, Class* c, Class::HashType::NodeType* slot, Value* value);
+		bool addField(Memory& mem, Class* c, String* name, Value* value, bool isOverride);
+		bool addMethod(Memory& mem, Class* c, String* name, Value* value, bool isOverride);
+		bool addHiddenField(Memory& mem, Class* c, String* name, Value* value);
+		bool removeField(Memory& mem, Class* c, String* name);
+		bool removeMethod(Memory& mem, Class* c, String* name);
+		bool removeHiddenMethod(Memory& mem, Class* c, String* name);
+		bool removeMember(Memory& mem, Class* c, String* name);
+		bool nextField(Class* c, uword& idx, String**& key, Value*& val);
+		bool nextMethod(Class* c, uword& idx, String**& key, Value*& val);
+		bool nextHiddenMethod(Class* c, uword& idx, String**& key, Value*& val);
 	}
 }
 

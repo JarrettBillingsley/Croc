@@ -1,90 +1,198 @@
-#include "croc/base/alloc.hpp"
-// #include "croc/base/writebarrier.hpp"
-#include "croc/types/namespace.hpp"
-#include "croc/types/string.hpp"
+
+#include "croc/base/hash.hpp"
+#include "croc/base/memory.hpp"
+#include "croc/base/writebarrier.hpp"
 #include "croc/types.hpp"
+#include "croc/types/string.hpp"
+#include "croc/types/class.hpp"
+
+#define CLASS_REMOVEKEYREF(mem, slot)\
+	do {\
+	if(!IS_KEY_MODIFIED(slot))\
+		(mem).decBuffer.add((mem), cast(GCObject*)(slot)->key);\
+	} while(false)
+
+#define CLASS_REMOVEVALUEREF(mem, slot)\
+	do {\
+	if(!IS_VAL_MODIFIED(slot) && (slot)->value.isGCObject())\
+		(mem).decBuffer.add((mem), (slot)->value.toGCObject());\
+	} while(false)
 
 namespace croc
 {
 	namespace classobj
 	{
-		Class* create(Allocator& alloc, String* name, Class* parent)
+		Class* create(Memory& mem, String* name)
 		{
-			Class* c = alloc.allocate<Class>();
+			auto c = ALLOC_OBJ(mem, Class);
 			c->name = name;
-			c->parent = parent;
-
-			if(parent)
-			{
-				c->allocator = parent->allocator;
-				c->finalizer = parent->finalizer;
-				// c->fields = namespace::create(alloc, name, parent->fields);
-			}
-			else
-			{
-				// c->fields = namespace::create(alloc, name);
-			}
-
-			// Note that even if this class has a finalizer copied from its parent, we can still change it -- once
-			c->finalizerSet = false;
 			return c;
 		}
 
-		Value* getField(Class* c, String* name)
+		Class::HashType::NodeType* derive(Memory& mem, Class* c, Class* parent, const char*& which)
 		{
-			Class* dummy;
-			return getField(c, name, dummy);
-		}
+			assert(parent->isFrozen);
+			assert(parent->finalizer == nullptr);
 
-		Value* getField(Class* c, String* name, Class*& owner)
-		{
-			for(Class* obj = c; obj !is null; obj = obj.parent)
+			for(auto node: parent->fields)
 			{
-				Value* ret = namespace::get(obj->fields, name);
-
-				if(ret)
+				if(!addField(mem, c, node->key, &node->value, false))
 				{
-					owner = obj;
-					return ret;
+					which = "field";
+					return node;
+				}
+			}
+
+			for(auto node: parent->methods)
+			{
+				if(!addMethod(mem, c, node->key, &node->value, false))
+				{
+					which = "method";
+					return node;
+				}
+			}
+
+			for(auto node: parent->hiddenFields)
+			{
+				if(!addHiddenField(mem, c, node->key, &node->value))
+				{
+					which = "hidden field";
+					return node;
 				}
 			}
 
 			return nullptr;
 		}
 
-		void setField(Allocator& alloc, Class* c, String* name, Value* value)
+		void free(Memory& mem, Class* c)
 		{
-			namespace::set(alloc, c->fields, name, value);
+			c->hiddenFields.clear(mem);
+			c->fields.clear(mem);
+			c->methods.clear(mem);
+			FREE_OBJ(mem, Class, c);
 		}
 
-		void setFinalizer(Allocator& alloc, Class* c, Function* f)
+		void freeze(Class* c)
 		{
-			if(c->finalizer != f)
+			c->isFrozen = true;
+		}
+
+		// =================================================================================================================
+		// Common stuff
+
+	#define MAKE_GET_MEMBER(funcName, memberName)\
+		Class::HashType::NodeType* funcName(Class* c, String* name)\
+		{\
+			return c->memberName.lookupNode(name);\
+		}
+
+		void setMember(Memory& mem, Class* c, Class::HashType::NodeType* slot, Value* value)
+		{
+			if(slot->value != *value)
 			{
-				// WRITE_BARRIER(alloc, c);
+				CLASS_REMOVEVALUEREF(mem, slot);
+				slot->value = *value;
+
+				if(value->isGCObject())
+				{
+					CONTAINER_WRITE_BARRIER(mem, c);
+					SET_VAL_MODIFIED(slot);
+				}
+				else
+					CLEAR_VAL_MODIFIED(slot);
 			}
-
-			c->finalizer = f;
 		}
 
-		void setAllocator(Allocator& alloc, Class* c, Function* f)
+	#define COMMON_ADD_MEMBER(memberName)\
+			CONTAINER_WRITE_BARRIER(mem, c);\
+			auto slot = c->memberName.insertNode(mem, name);\
+			slot->value = *value;\
+			if(value->isGCObject())\
+				SET_BOTH_MODIFIED(slot);\
+			else\
+				SET_KEY_MODIFIED(slot);\
+\
+			return true;
+
+		bool addHiddenField(Memory& mem, Class* c, String* name, Value* value)
 		{
-			if(c->allocator != f)
-			{
-				// WRITE_BARRIER(alloc, c);
-			}
+			assert(!c->isFrozen);
 
-			c->allocator = f;
+			if(c->hiddenFields.lookupNode(name))
+				return false;
+
+			COMMON_ADD_MEMBER(hiddenFields)
 		}
 
-		Namespace* fieldsOf(Class* c)
+#define MAKE_ADD_MEMBER(funcName, memberName, wantedSlot, otherSlot)\
+		bool funcName(Memory& mem, Class* c, String* name, Value* value, bool isOverride)\
+		{\
+			assert(!c->isFrozen);\
+\
+			auto fieldSlot = c->fields.lookupNode(name);\
+			auto methodSlot = c->methods.lookupNode(name);\
+\
+			if(isOverride)\
+			{\
+				if(otherSlot != nullptr || wantedSlot == nullptr)\
+					return false;\
+				else\
+				{\
+					setMember(mem, c, wantedSlot, value);\
+					return true;\
+				}\
+			}\
+			else if(methodSlot != nullptr || fieldSlot != nullptr)\
+				return false;\
+\
+			COMMON_ADD_MEMBER(memberName)\
+		}
+
+	#define MAKE_REMOVE_MEMBER(funcName, memberName)\
+		bool funcName(Memory& mem, Class* c, String* name)\
+		{\
+			assert(!c->isFrozen);\
+\
+			if(auto slot = c->memberName.lookupNode(name))\
+			{\
+				CLASS_REMOVEKEYREF(mem, slot);\
+				CLASS_REMOVEVALUEREF(mem, slot);\
+				c->memberName.remove(name);\
+				return true;\
+			}\
+			else\
+				return false;\
+		}
+
+	#define MAKE_NEXT_MEMBER(funcName, memberName)\
+		bool funcName(Class* c, uword& idx, String**& key, Value*& val)\
+		{\
+			return c->memberName.next(idx, key, val);\
+		}
+
+		// =================================================================================================================
+		// Blerf
+
+		MAKE_GET_MEMBER(getField, fields)
+		MAKE_GET_MEMBER(getMethod, methods)
+		MAKE_GET_MEMBER(getHiddenField, hiddenFields)
+
+		MAKE_ADD_MEMBER(addField, fields, fieldSlot, methodSlot)
+		MAKE_ADD_MEMBER(addMethod, methods, methodSlot, fieldSlot)
+
+		MAKE_REMOVE_MEMBER(removeField, fields)
+		MAKE_REMOVE_MEMBER(removeMethod, methods)
+		MAKE_REMOVE_MEMBER(removeHiddenField, hiddenFields)
+
+		bool removeMember(Memory& mem, Class* c, String* name)
 		{
-			return c->fields;
+			return
+				removeField(mem, c, name) ||
+				removeMethod(mem, c, name);
 		}
 
-		bool next(Class* c, uword& idx, String**& key, Value*& val)
-		{
-			return c->fields->data.next(idx, key, val);
-		}
+		MAKE_NEXT_MEMBER(nextField, fields)
+		MAKE_NEXT_MEMBER(nextMethod, methods)
+		MAKE_NEXT_MEMBER(nextHiddenField, hiddenFields)
 	}
 }
