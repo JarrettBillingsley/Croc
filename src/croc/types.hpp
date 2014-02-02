@@ -279,10 +279,10 @@ namespace croc
 			return this->data.length();
 		}
 
-		Namespace* create(Memory& mem, String* name, Namespace* parent = nullptr);
-		Namespace* createPartial(Memory& mem);
-		void finishCreate(Namespace* ns, String* name, Namespace* parent);
-		void free(Memory& mem, Namespace* ns);
+		static Namespace* create(Memory& mem, String* name, Namespace* parent = nullptr);
+		static Namespace* createPartial(Memory& mem);
+		static void finishCreate(Namespace* ns, String* name, Namespace* parent);
+		static void free(Memory& mem, Namespace* ns);
 		void set(Memory& mem, String* key, Value* value);
 		bool setIfExists(Memory& mem, String* key, Value* value);
 		void remove(Memory& mem, String* key);

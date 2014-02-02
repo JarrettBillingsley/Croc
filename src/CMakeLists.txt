@@ -4,6 +4,8 @@ set(croc_SRC
 	croc/base/darray.hpp
 	croc/base/deque.cpp
 	croc/base/deque.hpp
+	croc/base/gc.cpp
+	croc/base/gc.hpp
 	croc/base/hash.hpp
 	croc/base/leakdetector.hpp
 	croc/base/leakdetector.cpp

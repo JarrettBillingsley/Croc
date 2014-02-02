@@ -28,6 +28,7 @@
 
 #define GCOBJ_INRC(o) TEST_FLAG((o)->gcflags, GCFlags_InRC)
 #define GCOBJ_TORC(o) SET_FLAG((o)->gcflags, GCFlags_InRC | GCFlags_JustMoved | GCFlags_Unlogged)
+#define GCOBJ_JUSTMOVED(o) TEST_FLAG((o)->gcflags, GCFlags_JustMoved)
 #define GCOBJ_CLEARJUSTMOVED(o) CLEAR_FLAG((o)->gcflags, GCFlags_JustMoved)
 
 #define GCOBJ_COLOR(o) ((o)->gcflags & GCFlags_ColorMask)
