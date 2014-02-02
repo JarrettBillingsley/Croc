@@ -12,7 +12,7 @@
 #include "croc/types.hpp"
 
 #define WRITE_BARRIER(mem, srcObj)\
-	assert((srcObj).type != CrocType_Array && srcObj.type != CrocType_Table);\
+	assert((srcObj)->type != CrocType_Array && (srcObj)->type != CrocType_Table);\
 	if(GCOBJ_UNLOGGED((srcObj)))\
 		writeBarrierSlow((mem), (srcObj));
 
