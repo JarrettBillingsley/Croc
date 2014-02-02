@@ -266,7 +266,7 @@ int             CROCAPI(thread_hasPendingHalt) (CrocThread* t);
 // =====================================================================================================================
 // Basic Croc operations
 
-// struct foreachLoop
+// TODO: struct foreachLoop
 void      CROCAPI(removeKey)       (CrocThread* t, word_t obj);
 word_t    CROCAPI(pushToString)    (CrocThread* t, word_t slot);
 word_t    CROCAPI(pushToStringRaw) (CrocThread* t, word_t slot);

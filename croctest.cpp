@@ -9,6 +9,7 @@
 #include "croc/types.hpp"
 #include "croc/base/gc.hpp"
 #include "croc/apifuncs.h"
+#include "croc/apiex.h"
 
 using namespace croc;
 
@@ -163,6 +164,5 @@ int main()
 	VM vm;
 	openVMImpl(&vm, DefaultMemFunc);
 	closeVMImpl(&vm);
-
 	return 0;
 }

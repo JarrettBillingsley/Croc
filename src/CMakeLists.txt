@@ -42,6 +42,7 @@ set(croc_SRC
 set(croc_API
 	croc/apifuncs.h
 	croc/apitypes.h
+	croc/apiex.h
 )
 
 set(croc_ALLSRC
