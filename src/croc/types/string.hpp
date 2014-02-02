@@ -2,19 +2,19 @@
 #define CROC_TYPES_STRING_HPP
 
 #include "croc/types.hpp"
+#include "croc/utf.hpp"
 
 namespace croc
 {
 	namespace string
 	{
-		String* lookup(VM* vm, DArray<const char> data, uword& h);
-		String* create(VM* vm, DArray<const char> data, uword h, uword cpLen);
+		String* lookup(VM* vm, crocstr data, uword& h);
+		String* create(VM* vm, crocstr data, uword h, uword cpLen);
 		void free(VM* vm, String* s);
 		crocint compare(String* a, String* b);
-		bool contains(String* s, crocchar c);
-		bool contains(String* s, DArray<const char> sub);
+		bool contains(String* s, crocstr sub);
 		String* slice(VM* vm, String* s, uword lo, uword hi);
-		crocchar charAt(String* s, uword idx);
+		dchar charAt(String* s, uword idx);
 	}
 }
 

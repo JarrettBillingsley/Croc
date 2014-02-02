@@ -21,6 +21,7 @@ namespace croc
 	typedef size_t uword;
 	typedef crocint_t crocint;
 	typedef crocfloat_t crocfloat;
+	typedef DArray<const char> crocstr;
 
 	enum CrocLocation
 	{
@@ -153,14 +154,19 @@ namespace croc
 		uword length;
 		uword cpLength;
 
-		inline const char* toString() const
+		inline const char* toCString() const
 		{
 			return cast(const char*)(this + 1);
 		}
 
-		inline DArray<const char> toDArray() const
+		inline crocstr toDArray() const
 		{
-			return DArray<const char>::n(toString(), length);
+			return crocstr::n(toCString(), length);
+		}
+
+		inline void setData(crocstr src)
+		{
+			DArray<char>::n(cast(char*)toCString(), length).slicea(DArray<char>::n(cast(char*)src.ptr, src.length));
 		}
 
 		inline hash_t toHash() const
@@ -427,7 +433,7 @@ namespace croc
 		bool inGCCycle;
 
 		// Others
-		Hash<DArray<const char>, String*, DefaultHasher, HashNodeWithHash<DArray<const char>, String*> > stringTab;
+		Hash<crocstr, String*, MethodHasher, HashNodeWithHash<crocstr, String*> > stringTab;
 		Hash<GCObject*, Weakref*> weakrefTab;
 		Thread* allThreads;
 		uint64_t currentRef;

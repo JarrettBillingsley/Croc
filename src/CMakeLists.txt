@@ -20,6 +20,8 @@ set(croc_SRC
 	croc/ext/jhash.hpp
 	croc/types/array.cpp
 	croc/types/array.hpp
+	croc/types/string.cpp
+	croc/types/string.hpp
 	croc/types.cpp
 	croc/types.hpp
 	croc/utf.cpp

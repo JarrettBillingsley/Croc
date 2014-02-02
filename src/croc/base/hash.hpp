@@ -69,7 +69,7 @@ namespace croc
 
 		inline void init(hash_t hash)                 { this->hash = hash; }
 		inline bool equals(const K& key, hash_t hash) { return this->hash == hash && this->key == key; }
-		inline void copyFrom(HashNode<K, V>* other)   { this->value = other->value; hash = other->hash; }
+		inline void copyFrom(HashNodeWithHash<K, V>* other)   { this->value = other->value; hash = other->hash; }
 	};
 
 	template<typename K, typename V, typename Hasher = DefaultHasher, typename Node = HashNode<K, V> >
@@ -122,7 +122,7 @@ namespace croc
 
 		V* insert(Memory& mem, K key)
 		{
-			return &insertNode(mem, key).value;
+			return &insertNode(mem, key)->value;
 		}
 
 		Node* insertNode(Memory& mem, K key)
@@ -209,7 +209,7 @@ namespace croc
 			}
 			else
 			{
-				while(n->next != nodes.length && IS_USED(n->next))
+				while(n->next != nodes.length && IS_USED(&nodes[n->next]))
 				{
 					auto next = &nodes[n->next];
 
