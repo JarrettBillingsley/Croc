@@ -17,7 +17,7 @@
 
 namespace croc
 {
-	void Memory::init(MemFunc func, void* context)
+	void Memory::init(CrocMemFunc func, void* context)
 	{
 		memFunc = func;
 		ctx = context;

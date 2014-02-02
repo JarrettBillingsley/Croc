@@ -353,7 +353,6 @@ namespace croc
 			case CrocType_Thread:    visitThread   (cast(Thread*)o,    callback, false);         return;
 			case CrocType_Upval:     visitUpval    (cast(Upval*)o,     callback);                return;
 			default:
-				//debug Stdout.formatln("{} {:b} {}", (cast(CrocBaseObject*)o).mType, o.gcflags & GCFlags.ColorMask, o.refCount).flush;
 				DBGPRINT("%p %d %03x %d\n", cast(void*)o, o->type, GCOBJ_COLOR(o), o->refCount);
 				assert(false);
 		}

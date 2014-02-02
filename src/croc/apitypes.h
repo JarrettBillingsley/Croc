@@ -32,6 +32,26 @@ An opaque type that represents a Croc thread. This type is used in virtually eve
 typedef struct CrocThread CrocThread;
 
 /**
+A nicer name for size_t.
+*/
+typedef size_t uword_t;
+
+/**
+A nicer name for ptrdiff_t.
+*/
+typedef ptrdiff_t word_t;
+
+/**
+The type of native references, a way for native code to keep a Croc object from being collected.
+*/
+typedef uint64_t crocref_t;
+
+/**
+The type of Croc characters, a type big enough to hold any single Unicode codepoint.
+*/
+typedef uint32_t crocchar_t;
+
+/**
 A typedef for the type signature of a native function.
 */
 typedef ptrdiff_t(*CrocNativeFunc)(CrocThread*);
@@ -69,7 +89,7 @@ Returns:
 If a deallocation was requested, should return null.  Otherwise, should return a $(B non-null) pointer.  If memory
 cannot be allocated, the memory allocation function should fail somehow (longjump perhaps), not return null.
 */
-typedef void* (*MemFunc)(void* ctx, void* p, size_t oldSize, size_t newSize);
+typedef void* (*CrocMemFunc)(void* ctx, void* p, size_t oldSize, size_t newSize);
 
 // IF THIS CHANGES, GREP "ORDER CROCTYPE"
 
@@ -131,6 +151,31 @@ typedef enum CrocThreadHook
 	CrocThreadHook_Delay = 8,
 	CrocThreadHook_Line = 16
 } CrocThreadHook;
+
+/* */
+typedef enum CrocUnsafeLib
+{
+	CrocUnsafeLib_None =  0,
+	CrocUnsafeLib_File =  1,
+	CrocUnsafeLib_OS =    2,
+	CrocUnsafeLib_Debug = 4,
+	CrocUnsafeLib_All = CrocUnsafeLib_File | CrocUnsafeLib_OS,
+	CrocUnsafeLib_ReallyAll = CrocUnsafeLib_All | CrocUnsafeLib_Debug
+} CrocUnsafeLib;
+
+/* */
+typedef enum CrocAddons
+{
+	CrocAddons_None =  0,
+	CrocAddons_Pcre =  1,
+	CrocAddons_Sdl =   2,
+	CrocAddons_Devil = 4,
+	CrocAddons_Gl =    8,
+	CrocAddons_Net =   16,
+	CrocAddons_Safe = CrocAddons_Pcre | CrocAddons_Sdl,
+	CrocAddons_Unsafe = CrocAddons_Devil | CrocAddons_Gl | CrocAddons_Net,
+	CrocAddons_All = CrocAddons_Safe | CrocAddons_Unsafe
+} CrocAddons;
 
 #ifdef __cplusplus
 } /* extern "C" */

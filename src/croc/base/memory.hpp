@@ -11,7 +11,7 @@ namespace croc
 {
 	struct Memory
 	{
-		MemFunc memFunc;
+		CrocMemFunc memFunc;
 		void* ctx;
 
 		Deque modBuffer;
@@ -30,7 +30,7 @@ namespace croc
 		size_t cycleMetadataLimit;
 		LEAK_DETECT(LeakDetector leaks;)
 
-		void init(MemFunc func, void* context);
+		void init(CrocMemFunc func, void* context);
 
 		inline bool couldUseGC() const
 		{

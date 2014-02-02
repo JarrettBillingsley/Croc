@@ -8,6 +8,7 @@
 #include "croc/base/gcobject.hpp"
 #include "croc/types.hpp"
 #include "croc/base/gc.hpp"
+#include "croc/apifuncs.h"
 
 using namespace croc;
 
@@ -50,7 +51,7 @@ String* createString(Thread* t, DArray<const char> data)
 	uword cpLen;
 
 	if(verifyUtf8(data, cpLen) != UtfError_OK)
-		assert(false);
+		assert(false); // TODO: throw exception
 
 	return String::create(t->vm, data, h, cpLen);
 }
@@ -76,7 +77,7 @@ void freeAll(VM* vm)
 	do
 	{
 		if(limit > FinalizeLoopLimit)
-			assert(false);
+			assert(false); // TODO: throw exception
 			// throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or something's broken.");
 
 		// runFinalizers(vm->mainThread);
@@ -87,7 +88,7 @@ void freeAll(VM* vm)
 	gcCycle(vm, GCCycleType_NoRoots);
 
 	if(!vm->toFinalize.isEmpty())
-		assert(false);
+		assert(false); // TODO: throw exception
 		// throw new Exception("Did you stick a finalizable object in a global metatable or something? I think you did. Stop doing that.");
 }
 
@@ -96,7 +97,7 @@ DArray<const char> atoda(const char* str)
 	return DArray<const char>::n(str, strlen(str));
 }
 
-void openVMImpl(VM* vm, MemFunc memFunc, void* ctx = nullptr)
+void openVMImpl(VM* vm, CrocMemFunc memFunc, void* ctx = nullptr)
 {
 	assert(vm->mainThread == nullptr);
 
@@ -161,24 +162,6 @@ int main()
 {
 	VM vm;
 	openVMImpl(&vm, DefaultMemFunc);
-
-	// auto &mem = vm.mem;
-
-	// Hash<int, int> h;
-	// h.init();
-
-	// for(int i = 1; i <= 10; i++)
-	// {
-	// 	auto n = h.insertNode(mem, i);
-	// 	n->value = i * 5;
-
-	// 	if(i & 1)
-	// 		SET_KEY_MODIFIED(n);
-	// }
-
-	// for(auto n: h.modifiedNodes())
-	// 	printf("h[%d (%d)] = %d (%d) \n", n->key, IS_KEY_MODIFIED(n) != 0, n->value, IS_VAL_MODIFIED(n) != 0);
-
 	closeVMImpl(&vm);
 
 	return 0;
