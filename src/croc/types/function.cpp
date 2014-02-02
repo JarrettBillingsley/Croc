@@ -3,8 +3,8 @@
 #include "croc/base/writebarrier.hpp"
 #include "croc/types/function.hpp"
 
-#define SCRIPT_CLOSURE_SIZE(numUpvals) (sizeof(Function) + (sizeof(Upval*) * (numUpvals)))
-#define NATIVE_CLOSURE_SIZE(numUpvals) (sizeof(Function) + (sizeof(Value) * (numUpvals)))
+#define SCRIPT_CLOSURE_EXTRA_SIZE(numUpvals) (sizeof(Upval*) * (numUpvals))
+#define NATIVE_CLOSURE_EXTRA_SIZE(numUpvals) (sizeof(Value) * (numUpvals))
 
 namespace croc
 {
@@ -32,7 +32,7 @@ namespace croc
 		// Partially construct a script closure. This is used by the serialization system.
 		Function* createPartial(Memory& mem, uword numUpvals)
 		{
-			auto f = ALLOC_OBJSZ(mem, Function, SCRIPT_CLOSURE_SIZE(numUpvals));
+			auto f = ALLOC_OBJSZ(mem, Function, SCRIPT_CLOSURE_EXTRA_SIZE(numUpvals));
 			f->isNative = false;
 			f->numUpvals = numUpvals;
 			f->scriptUpvals().fill(nullptr);
@@ -69,7 +69,7 @@ namespace croc
 		// Create a native function.
 		Function* create(Memory& mem, Namespace* env, String* name, CrocNativeFunc func, uword numUpvals, uword numParams)
 		{
-			auto f = ALLOC_OBJSZ(mem, Function, NATIVE_CLOSURE_SIZE(numUpvals));
+			auto f = ALLOC_OBJSZ(mem, Function, NATIVE_CLOSURE_EXTRA_SIZE(numUpvals));
 			f->nativeUpvals().fill(Value::nullValue);
 			f->isNative = true;
 			f->environment = env;

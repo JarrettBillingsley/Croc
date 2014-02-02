@@ -7,28 +7,28 @@
 #include "croc/types/array.hpp"
 #include "croc/utils.hpp"
 
-#define ARRAY_ADDREF(slot)\
+#define ADDREF(slot)\
 	do {\
 	if((slot).value.isGCObject())\
 		(slot).modified = true;\
 	} while(false)
 
-#define ARRAY_REMOVEREF(mem, slot)\
+#define REMOVEREF(mem, slot)\
 	do {\
 		if(!(slot).modified && (slot).value.isGCObject())\
 			(mem).decBuffer.add((mem), (slot).value.toGCObject());\
 	} while(false)
 
-#define ARRAY_ADDREFS(arr)\
+#define ADDREFS(arr)\
 	do {\
 		for(auto &_slot: (arr))\
-			ARRAY_ADDREF(_slot);\
+			ADDREF(_slot);\
 	} while(false)
 
-#define ARRAY_REMOVEREFS(mem, arr)\
+#define REMOVEREFS(mem, arr)\
 	do {\
 		for(auto &_slot: (arr))\
-			ARRAY_REMOVEREF((mem), _slot);\
+			REMOVEREF((mem), _slot);\
 	} while(false)
 
 namespace croc
@@ -62,7 +62,7 @@ namespace croc
 
 			if(newSize < oldSize)
 			{
-				ARRAY_REMOVEREFS(mem, a->data.slice(newSize, oldSize));
+				REMOVEREFS(mem, a->data.slice(newSize, oldSize));
 				a->data.slice(newSize, oldSize).fill(Array::Slot());
 
 				if(newSize < (a->data.length >> 1))
@@ -79,7 +79,7 @@ namespace croc
 			n->length = hi - lo;
 			n->data = a->data.slice(lo, hi).dup(mem);
 			// don't have to write barrier n cause it starts logged
-			ARRAY_ADDREFS(n->data.slice(0, n->length));
+			ADDREFS(n->data.slice(0, n->length));
 			return n;
 		}
 
@@ -95,7 +95,7 @@ namespace croc
 
 			if(len > 0)
 			{
-				ARRAY_REMOVEREFS(mem, dest);
+				REMOVEREFS(mem, dest);
 
 				if((dest.ptr + len) <= src.ptr || (src.ptr + len) <= dest.ptr)
 					memcpy(dest.ptr, src.ptr, len);
@@ -103,7 +103,7 @@ namespace croc
 					memmove(dest.ptr, src.ptr, len);
 
 				CONTAINER_WRITE_BARRIER(mem, a);
-				ARRAY_ADDREFS(dest);
+				ADDREFS(dest);
 			}
 		}
 
@@ -115,14 +115,14 @@ namespace croc
 
 			if(len > 0)
 			{
-				ARRAY_REMOVEREFS(mem, dest);
+				REMOVEREFS(mem, dest);
 				CONTAINER_WRITE_BARRIER(mem, a);
 
 				for(uword i = 0; i < dest.length; i++)
 				{
 					dest[i].value = other[i];
 					dest[i].modified = false;
-					ARRAY_ADDREF(dest[i]);
+					ADDREF(dest[i]);
 				}
 			}
 		}
@@ -147,7 +147,7 @@ namespace croc
 			for(uword i = 0; i < dest.length; i++)
 			{
 				dest[i].value = data[i];
-				ARRAY_ADDREF(dest[i]);
+				ADDREF(dest[i]);
 			}
 		}
 
@@ -157,7 +157,7 @@ namespace croc
 			if(a->length > 0)
 			{
 				auto data = a->toArray();
-				ARRAY_REMOVEREFS(mem, data);
+				REMOVEREFS(mem, data);
 
 				Array::Slot slot;
 				slot.value = val;
@@ -181,7 +181,7 @@ namespace croc
 
 			if(slot.value != val)
 			{
-				ARRAY_REMOVEREF(mem, slot);
+				REMOVEREF(mem, slot);
 				slot.value = val;
 
 				if(val.isGCObject())
@@ -210,7 +210,7 @@ namespace croc
 			auto ret = array::create(mem, a->length + b->length);
 			ret->data.slicea(0, a->length, a->toArray());
 			ret->data.slicea(a->length, ret->length, b->toArray());
-			ARRAY_ADDREFS(ret->toArray());
+			ADDREFS(ret->toArray());
 			return ret;
 		}
 
@@ -220,7 +220,7 @@ namespace croc
 			Array* ret = array::create(mem, a->length + 1);
 			ret->data.slicea(0, ret->length - 1, a->toArray());
 			ret->data[ret->length - 1].value = *v;
-			ARRAY_ADDREFS(ret->toArray());
+			ADDREFS(ret->toArray());
 			return ret;
 		}
 

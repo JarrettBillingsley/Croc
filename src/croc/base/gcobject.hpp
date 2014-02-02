@@ -9,12 +9,16 @@
 #  define ALLOC_OBJ_ACYC(mem, type)          cast(type*)mem.allocate(sizeof(type),           true,  typeid(type))
 #  define ALLOC_OBJSZ(mem, type, extra)      cast(type*)mem.allocate(sizeof(type) + (extra), false, typeid(type))
 #  define ALLOC_OBJSZ_ACYC(mem, type, extra) cast(type*)mem.allocate(sizeof(type) + (extra), true,  typeid(type))
+#  define ALLOC_OBJ_FINAL(mem, type)               cast(type*)mem.allocateFinalizable(sizeof(type),           typeid(type))
+#  define ALLOC_OBJSZ_FINAL(mem, type, extra)      cast(type*)mem.allocateFinalizable(sizeof(type) + (extra), typeid(type))
 #  define FREE_OBJ(mem, type, ptr)           mem.free((ptr), typeid(type))
 #else
 #  define ALLOC_OBJ(mem, type)               cast(type*)mem.allocate(sizeof(type),           false)
 #  define ALLOC_OBJ_ACYC(mem, type)          cast(type*)mem.allocate(sizeof(type),           true)
 #  define ALLOC_OBJSZ(mem, type, extra)      cast(type*)mem.allocate(sizeof(type) + (extra), false)
 #  define ALLOC_OBJSZ_ACYC(mem, type, extra) cast(type*)mem.allocate(sizeof(type) + (extra), true)
+#  define ALLOC_OBJ_FINAL(mem, type)               cast(type*)mem.allocateFinalizable(sizeof(type)          )
+#  define ALLOC_OBJSZ_FINAL(mem, type, extra)      cast(type*)mem.allocateFinalizable(sizeof(type) + (extra))
 #  define FREE_OBJ(mem, type, ptr)           mem.free((ptr))
 #endif
 

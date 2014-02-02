@@ -6,13 +6,13 @@
 #include "croc/types/string.hpp"
 #include "croc/types/class.hpp"
 
-#define CLASS_REMOVEKEYREF(mem, slot)\
+#define REMOVEKEYREF(mem, slot)\
 	do {\
 	if(!IS_KEY_MODIFIED(slot))\
 		(mem).decBuffer.add((mem), cast(GCObject*)(slot)->key);\
 	} while(false)
 
-#define CLASS_REMOVEVALUEREF(mem, slot)\
+#define REMOVEVALUEREF(mem, slot)\
 	do {\
 	if(!IS_VAL_MODIFIED(slot) && (slot)->value.isGCObject())\
 		(mem).decBuffer.add((mem), (slot)->value.toGCObject());\
@@ -90,7 +90,7 @@ namespace croc
 		{
 			if(slot->value != *value)
 			{
-				CLASS_REMOVEVALUEREF(mem, slot);
+				REMOVEVALUEREF(mem, slot);
 				slot->value = *value;
 
 				if(value->isGCObject())
@@ -155,8 +155,8 @@ namespace croc
 \
 			if(auto slot = c->memberName.lookupNode(name))\
 			{\
-				CLASS_REMOVEKEYREF(mem, slot);\
-				CLASS_REMOVEVALUEREF(mem, slot);\
+				REMOVEKEYREF(mem, slot);\
+				REMOVEVALUEREF(mem, slot);\
 				c->memberName.remove(name);\
 				return true;\
 			}\

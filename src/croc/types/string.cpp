@@ -4,7 +4,7 @@
 #include "croc/utf.hpp"
 #include "croc/utils.hpp"
 
-#define STRING_SIZE(len) (sizeof(String) + sizeof(char) * (len))
+#define STRING_EXTRA_SIZE(len) (sizeof(char) * (len))
 
 namespace croc
 {
@@ -29,7 +29,7 @@ namespace croc
 		// if two string objects are identical, they are also equal.
 		String* create(VM* vm, crocstr data, uword h, uword cpLen)
 		{
-			auto ret = ALLOC_OBJSZ_ACYC(vm->mem, String, STRING_SIZE(data.length));
+			auto ret = ALLOC_OBJSZ_ACYC(vm->mem, String, STRING_EXTRA_SIZE(data.length));
 			ret->hash = h;
 			ret->length = data.length;
 			ret->cpLength = cpLen;
