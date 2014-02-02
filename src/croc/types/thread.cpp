@@ -21,6 +21,7 @@ namespace croc
 	Thread* Thread::createPartial(VM* vm)
 	{
 		auto t = ALLOC_OBJ(vm->mem, Thread);
+		t->type = CrocType_Thread;
 		t->vm = vm;
 		t->next = vm->allThreads;
 

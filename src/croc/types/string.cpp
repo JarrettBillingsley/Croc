@@ -27,6 +27,7 @@ namespace croc
 	String* String::create(VM* vm, crocstr data, uword h, uword cpLen)
 	{
 		auto ret = ALLOC_OBJSZ_ACYC(vm->mem, String, STRING_EXTRA_SIZE(data.length));
+		ret->type = CrocType_String;
 		ret->hash = h;
 		ret->length = data.length;
 		ret->cpLength = cpLen;

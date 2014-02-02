@@ -120,8 +120,10 @@ namespace croc
 	void Deque::clear(Memory& mem)
 	{
 		void* p = mDataPtr;
-		mem.freeRaw(p, mDataLen MEMBERTYPEID);
+		auto sz = mDataLen * sizeof(GCObject*);
+		mem.freeRaw(p, sz MEMBERTYPEID);
 		mDataPtr = nullptr;
+		mDataLen = 0;
 		reset();
 	}
 
@@ -210,7 +212,8 @@ namespace croc
 		}
 
 		void* p = mDataPtr;
-		mem.freeRaw(p, mDataLen MEMBERTYPEID);
+		auto sz = mDataLen * sizeof(GCObject*);
+		mem.freeRaw(p, sz MEMBERTYPEID);
 		mDataPtr = newData;
 		mDataLen = newSize;
 		mStart = 0;

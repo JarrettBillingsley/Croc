@@ -18,6 +18,7 @@ namespace croc
 	Table* Table::create(Memory& mem, uword size)
 	{
 		auto t = ALLOC_OBJ(mem, Table);
+		t->type = CrocType_Table;
 		t->data.prealloc(mem, size);
 		return t;
 	}
@@ -33,6 +34,7 @@ namespace croc
 	Table* Table::dup(Memory& mem)
 	{
 		auto newTab = ALLOC_OBJ(mem, Table);
+		newTab->type = CrocType_Table;
 		newTab->data.prealloc(mem, this->data.capacity());
 
 		assert(newTab->data.capacity() == this->data.capacity());

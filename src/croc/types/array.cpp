@@ -36,6 +36,7 @@ namespace croc
 	Array* Array::create(Memory& mem, uword size)
 	{
 		auto ret = ALLOC_OBJ(mem, Array);
+		ret->type = CrocType_Array;
 		ret->data = DArray<Array::Slot>::alloc(mem, size);
 		ret->length = size;
 		return ret;
@@ -73,6 +74,7 @@ namespace croc
 	Array* Array::slice(Memory& mem, uword lo, uword hi)
 	{
 		auto n = ALLOC_OBJ(mem, Array);
+		n->type = CrocType_Array;
 		n->length = hi - lo;
 		n->data = this->data.slice(lo, hi).dup(mem);
 		// don't have to write barrier n cause it starts logged

@@ -607,6 +607,11 @@ namespace croc
 		typedef Hash<uint64_t, GCObject*> RefTab;
 		typedef Hash<String*, Class*> ExTab;
 
+		VM()
+		{
+			memset(this, 0, sizeof(VM));
+		}
+
 		Memory mem;
 
 		// These are all GC roots -----------

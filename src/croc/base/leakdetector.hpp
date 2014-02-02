@@ -33,6 +33,9 @@ namespace croc
 		BlockMap rcBlocks;
 		BlockMap rawBlocks;
 
+		void init();
+		void cleanup();
+
 		void newRaw(void* ptr, size_t size TYPEID_PARAM);
 		void newNursery(void* ptr, size_t size TYPEID_PARAM);
 		void newRC(void* ptr, size_t size TYPEID_PARAM);

@@ -33,7 +33,9 @@ namespace croc
 #define POOP(x, _) x
 	typedef enum Metamethod
 	{
-		METAMETHOD_LIST(POOP)
+		METAMETHOD_LIST(POOP),
+
+		MM_NUMMETAMETHODS
 	} Metamethod;
 #undef POOP
 

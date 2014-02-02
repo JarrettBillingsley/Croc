@@ -26,7 +26,9 @@ namespace croc
 	// Partially construct a namespace. This is used by the serialization system.
 	Namespace* Namespace::createPartial(Memory& mem)
 	{
-		return ALLOC_OBJ(mem, Namespace);
+		auto ret = ALLOC_OBJ(mem, Namespace);
+		ret->type = CrocType_Namespace;
+		return ret;
 	}
 
 	// Finish constructing a namespace. Also used by serialization.

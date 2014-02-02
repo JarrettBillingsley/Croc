@@ -21,6 +21,7 @@ namespace croc
 	Class* Class::create(Memory& mem, String* name)
 	{
 		auto c = ALLOC_OBJ(mem, Class);
+		c->type = CrocType_Class;
 		c->name = name;
 		return c;
 	}

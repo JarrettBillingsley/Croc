@@ -38,10 +38,14 @@ namespace croc
 
 	Instance* Instance::createPartial(Memory& mem, uword extraSize, bool finalizable)
 	{
+		Instance* ret;
 		if(finalizable)
-			return ALLOC_OBJSZ_FINAL(mem, Instance, extraSize);
+			ret = ALLOC_OBJSZ_FINAL(mem, Instance, extraSize);
 		else
-			return ALLOC_OBJSZ(mem, Instance, extraSize);
+			ret = ALLOC_OBJSZ(mem, Instance, extraSize);
+
+		ret->type = CrocType_Instance;
+		return ret;
 	}
 
 	bool Instance::finishCreate(Instance* i, Class* parent)

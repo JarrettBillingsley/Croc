@@ -31,6 +31,7 @@ namespace croc
 	Function* Function::createPartial(Memory& mem, uword numUpvals)
 	{
 		auto f = ALLOC_OBJSZ(mem, Function, SCRIPT_CLOSURE_EXTRA_SIZE(numUpvals));
+		f->type = CrocType_Function;
 		f->isNative = false;
 		f->numUpvals = numUpvals;
 		f->scriptUpvals().fill(nullptr);
@@ -68,6 +69,7 @@ namespace croc
 	Function* Function::create(Memory& mem, Namespace* env, String* name, CrocNativeFunc func, uword numUpvals, uword numParams)
 	{
 		auto f = ALLOC_OBJSZ(mem, Function, NATIVE_CLOSURE_EXTRA_SIZE(numUpvals));
+		f->type = CrocType_Function;
 		f->nativeUpvals().fill(Value::nullValue);
 		f->isNative = true;
 		f->environment = env;

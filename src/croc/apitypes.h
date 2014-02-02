@@ -104,6 +104,8 @@ typedef enum CrocType
 	CrocType_Upval,      /* 16 */
 
 	/* Other */
+	CrocType_NUMTYPES,
+
 	CrocType_FirstGCType = CrocType_String,
 	CrocType_FirstRefType = CrocType_Table,
 	CrocType_FirstUserType = CrocType_Null,

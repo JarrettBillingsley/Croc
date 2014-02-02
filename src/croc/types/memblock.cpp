@@ -8,6 +8,7 @@ namespace croc
 	Memblock* Memblock::create(Memory& mem, uword itemLength)
 	{
 		auto ret = ALLOC_OBJ_ACYC(mem, Memblock);
+		ret->type = CrocType_Memblock;
 		ret->data = DArray<uint8_t>::alloc(mem, itemLength);
 		ret->ownData = true;
 		return ret;
@@ -17,6 +18,7 @@ namespace croc
 	Memblock* Memblock::createView(Memory& mem, DArray<uint8_t> data)
 	{
 		auto ret = ALLOC_OBJ_ACYC(mem, Memblock);
+		ret->type = CrocType_Memblock;
 		ret->data = data;
 		ret->ownData = false;
 		return ret;
@@ -52,6 +54,7 @@ namespace croc
 	Memblock* Memblock::slice(Memory& mem, uword lo, uword hi)
 	{
 		auto n = ALLOC_OBJ_ACYC(mem, Memblock);
+		n->type = CrocType_Memblock;
 		n->data = this->data.slice(lo, hi).dup(mem);
 		n->ownData = true;
 		return n;

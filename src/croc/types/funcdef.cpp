@@ -4,7 +4,9 @@ namespace croc
 {
 	Funcdef* Funcdef::create(Memory& mem)
 	{
-		return ALLOC_OBJ(mem, Funcdef);
+		auto ret = ALLOC_OBJ(mem, Funcdef);
+		ret->type = CrocType_Funcdef;
+		return ret;
 	}
 
 	// Free a function definition.

@@ -80,6 +80,20 @@ namespace croc
 		}
 	}
 
+	void LeakDetector::init()
+	{
+		nurseryBlocks = BlockMap();
+		rcBlocks = BlockMap();
+		rawBlocks = BlockMap();
+	}
+
+	void LeakDetector::cleanup()
+	{
+		nurseryBlocks.clear();
+		rcBlocks.clear();
+		rawBlocks.clear();
+	}
+
 	void LeakDetector::newRaw(void* ptr, size_t size TYPEID_PARAM)
 	{
 		LeakMemBlock& n = rawBlocks[ptr];

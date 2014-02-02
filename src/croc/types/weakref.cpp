@@ -11,6 +11,7 @@ namespace croc
 			return *r;
 
 		auto ret = ALLOC_OBJ_ACYC(vm->mem, Weakref);
+		ret->type = CrocType_Weakref;
 		ret->obj = obj;
 		*vm->weakrefTab.insert(vm->mem, obj) = ret;
 		return ret;

@@ -15,4 +15,11 @@ A few little things that help me keep my sanity when developing in such a.. prim
 #define SET_FLAG(o, f)   ((o) |= (f))
 #define CLEAR_FLAG(o, f) ((o) &= ~(f))
 
+#ifndef NDEBUG
+#include <stdio.h>
+#define DBGPRINT(...) printf(__VA_ARGS__)
+#else
+#define DBGPRINT(...)
+#endif
+
 #endif

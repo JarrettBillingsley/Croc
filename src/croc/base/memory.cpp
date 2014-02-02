@@ -22,6 +22,7 @@ namespace croc
 		memFunc = func;
 		ctx = context;
 
+		LEAK_DETECT(leaks.init());
 		modBuffer.init();
 		decBuffer.init();
 		nursery.init();
@@ -197,12 +198,13 @@ namespace croc
 	{
 		void* ret = memFunc(ctx, p, oldSize, newSize);
 
-		// printf("REALLOC p = %p, old = %d, new = %d ret = %p\n", p, oldSize, newSize, ret);
-
 		if(ret == nullptr && newSize != 0)
 			assert(false); // TODO:
 
 		totalBytes += newSize - oldSize;
+
+		// DBGPRINT("REALLOC p = %p, old = %d, new = %d ret = %p\n", p, oldSize, newSize, ret);
+
 		return ret;
 	}
 }
