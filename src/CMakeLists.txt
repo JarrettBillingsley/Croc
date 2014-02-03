@@ -24,6 +24,7 @@ set(croc_SRC
 	croc/base/sanity.hpp
 	croc/base/writebarrier.cpp
 	croc/base/writebarrier.hpp
+	croc/ex/paramchecks.cpp
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
 	croc/internal/apichecks.hpp

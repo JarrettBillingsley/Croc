@@ -3,39 +3,39 @@
 #include "croc/apitypes.h"
 #include "croc/types.hpp"
 
-// extern "C" const char* croc_typeString(CrocType t)
-// {
-// 	switch(t)
-// 	{
-// 		case CrocType_Null:      return "null";
-// 		case CrocType_Bool:      return "bool";
-// 		case CrocType_Int:       return "int";
-// 		case CrocType_Float:     return "float";
-// 		case CrocType_Nativeobj: return "nativeobj";
-
-// 		case CrocType_String:    return "string";
-// 		case CrocType_WeakRef:   return "weakref";
-
-// 		case CrocType_Table:     return "table";
-// 		case CrocType_Namespace: return "namespace";
-// 		case CrocType_Array:     return "array";
-// 		case CrocType_Memblock:  return "memblock";
-// 		case CrocType_Function:  return "function";
-// 		case CrocType_FuncDef:   return "funcdef";
-// 		case CrocType_Class:     return "class";
-// 		case CrocType_Instance:  return "instance";
-// 		case CrocType_Thread:    return "thread";
-
-// 		case CrocType_Upvalue:   return "upvalue";
-
-// 		default:
-// 			// TODO: make this actually error
-// 			assert(false);
-// 	}
-// }
-
 namespace croc
 {
+	const char* typeToString(CrocType t)
+	{
+		switch(t)
+		{
+			case CrocType_Null:      return "null";
+			case CrocType_Bool:      return "bool";
+			case CrocType_Int:       return "int";
+			case CrocType_Float:     return "float";
+			case CrocType_Nativeobj: return "nativeobj";
+
+			case CrocType_String:    return "string";
+			case CrocType_Weakref:   return "weakref";
+
+			case CrocType_Table:     return "table";
+			case CrocType_Namespace: return "namespace";
+			case CrocType_Array:     return "array";
+			case CrocType_Memblock:  return "memblock";
+			case CrocType_Function:  return "function";
+			case CrocType_Funcdef:   return "funcdef";
+			case CrocType_Class:     return "class";
+			case CrocType_Instance:  return "instance";
+			case CrocType_Thread:    return "thread";
+
+			case CrocType_Upval:     return "upval";
+
+			default:
+				// TODO: make this actually error
+				assert(false);
+		}
+	}
+
 	const Value Value::nullValue = {CrocType_Null, { cast(crocint)0 }};
 
 	hash_t Value::toHash() const

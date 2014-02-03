@@ -18,6 +18,18 @@ extern "C"
 		return !getValue(Thread::from(t), slot)->isFalse();
 	}
 
+	int croc_isNum(CrocThread* t, word_t slot)
+	{
+		auto v = getValue(Thread::from(t), slot);
+		return v->type == CrocType_Int || v->type == CrocType_Float;
+	}
+
+	int croc_isChar(CrocThread* t, word_t slot)
+	{
+		auto v = getValue(Thread::from(t), slot);
+		return v->type == CrocType_String && v->mString->cpLength == 1;
+	}
+
 	// TODO:api
 	// word_t croc_pushTypeString(CrocThread* t, word_t slot)
 }

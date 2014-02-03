@@ -15,7 +15,7 @@
 
 #define API_CHECK_PARAM(name, idx, type, niceName)\
 	if(croc_type(*t, (idx)) != CrocType_##type)\
-		API_PARAM_TYPE_ERROR(idx, niceName, #type);\
+		API_PARAM_TYPE_ERROR(idx, niceName, typeToString(CrocType_##type));\
 	auto name = getValue(t, (idx))->m##type;
 
 #define API_PARAM_TYPE_ERROR(idx, paramName, expected)\

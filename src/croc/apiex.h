@@ -65,23 +65,22 @@ void        CROCAPI(checkAnyParam)        (CrocThread* t, word_t index);
 int         CROCAPI(checkBoolParam)       (CrocThread* t, word_t index);
 crocint_t   CROCAPI(checkIntParam)        (CrocThread* t, word_t index);
 crocfloat_t CROCAPI(checkFloatParam)      (CrocThread* t, word_t index);
+crocfloat_t CROCAPI(checkNumParam)        (CrocThread* t, word_t index);
 const char* CROCAPI(checkStringParam)     (CrocThread* t, word_t index);
 const char* CROCAPI(checkStringParamn)    (CrocThread* t, word_t index, uword_t* len);
 crocchar_t  CROCAPI(checkCharParam)       (CrocThread* t, word_t index);
-crocfloat_t CROCAPI(checkNumParam)        (CrocThread* t, word_t index);
-void        CROCAPI(checkInstParam)       (CrocThread* t, word_t index);
-void        CROCAPI(checkInstParamOf)     (CrocThread* t, word_t index, const char* name);
-void        CROCAPI(checkInstParamOfSlot) (CrocThread* t, word_t index, word_t classIndex);
+void        CROCAPI(checkInstParam)       (CrocThread* t, word_t index, const char* name);
+void        CROCAPI(checkInstParamSlot)   (CrocThread* t, word_t index, word_t classIndex);
 void        CROCAPI(checkParam)           (CrocThread* t, word_t index, CrocType type);
 
-bool        CROCAPI(optBoolParam)         (CrocThread* t, word_t index, int def);
+int         CROCAPI(optBoolParam)         (CrocThread* t, word_t index, int def);
 crocint_t   CROCAPI(optIntParam)          (CrocThread* t, word_t index, crocint_t def);
 crocfloat_t CROCAPI(optFloatParam)        (CrocThread* t, word_t index, crocfloat_t def);
+crocfloat_t CROCAPI(optNumParam)          (CrocThread* t, word_t index, crocfloat_t def);
 const char* CROCAPI(optStringParam)       (CrocThread* t, word_t index, const char* def);
 const char* CROCAPI(optStringParamn)      (CrocThread* t, word_t index, const char* def, uword_t* len);
 crocchar_t  CROCAPI(optCharParam)         (CrocThread* t, word_t index, crocchar_t def);
-crocfloat_t CROCAPI(optNumParam)          (CrocThread* t, word_t index, crocfloat_t def);
-bool        CROCAPI(optParam)             (CrocThread* t, word_t index, CrocType type);
+int         CROCAPI(optParam)             (CrocThread* t, word_t index, CrocType type);
 
 void        CROCAPI(paramTypeError)       (CrocThread* t, word_t index, const char* expected);
 

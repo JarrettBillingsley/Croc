@@ -109,15 +109,15 @@ void    CROCAPI(transferVals) (CrocThread* src, CrocThread* dest, uword_t num);
 CrocType CROCAPI(type)           (CrocThread* t, word_t slot);
 word_t   CROCAPI(pushTypeString) (CrocThread* t, word_t slot);
 int      CROCAPI(isTrue)         (CrocThread* t, word_t slot);
+int      CROCAPI(isNum)          (CrocThread* t, word_t slot);
+int      CROCAPI(isChar)         (CrocThread* t, word_t slot);
 
 #define croc_isNull(t, slot)      (croc_type((t), (slot)) == CrocType_Null)
 #define croc_isBool(t, slot)      (croc_type((t), (slot)) == CrocType_Bool)
 #define croc_isInt(t, slot)       (croc_type((t), (slot)) == CrocType_Int)
 #define croc_isFloat(t, slot)     (croc_type((t), (slot)) == CrocType_Float)
-#define croc_isNum(t, slot)       (croc_type((t), (slot)) == CrocType_Num)
 #define croc_isNativeobj(t, slot) (croc_type((t), (slot)) == CrocType_Nativeobj)
 #define croc_isString(t, slot)    (croc_type((t), (slot)) == CrocType_String)
-#define croc_isChar(t, slot)      (croc_type((t), (slot)) == CrocType_Char)
 #define croc_isWeakRef(t, slot)   (croc_type((t), (slot)) == CrocType_WeakRef)
 #define croc_isTable(t, slot)     (croc_type((t), (slot)) == CrocType_Table)
 #define croc_isNamespace(t, slot) (croc_type((t), (slot)) == CrocType_Namespace)
@@ -143,6 +143,22 @@ void   CROCAPI(setGlobal)       (CrocThread* t, const char* name);
 void   CROCAPI(setGlobalStk)    (CrocThread* t);
 
 #define croc_pushCurEnvironment(t) (croc_pushEnvironment((t), 0))
+
+// =====================================================================================================================
+// Function calling
+
+uword_t CROCAPI(call)          (CrocThread* t, word_t slot, word_t numReturns);
+uword_t CROCAPI(methodCall)    (CrocThread* t, word_t slot, const char* name, word_t numReturns);
+uword_t CROCAPI(methodCallStk) (CrocThread* t, word_t slot, word_t numReturns);
+
+// =====================================================================================================================
+// Reflection
+const char* CROCAPI(getNameOf)    (CrocThread* t, word_t obj);
+const char* CROCAPI(getNameOfn)   (CrocThread* t, word_t obj, uword_t* len);
+int         CROCAPI(hasField)     (CrocThread* t, word_t obj, const char* fieldName);
+int         CROCAPI(hasFieldStk)  (CrocThread* t, word_t obj, word_t name);
+int         CROCAPI(hasMethod)    (CrocThread* t, word_t obj, const char* methodName);
+int         CROCAPI(hasMethodStk) (CrocThread* t, word_t obj, word_t name);
 
 // =====================================================================================================================
 // Value types
@@ -304,22 +320,6 @@ word_t    CROCAPI(cat)             (CrocThread* t, uword_t num);
 void      CROCAPI(cateq)           (CrocThread* t, word_t dest, uword_t num);
 int       CROCAPI(instanceOf)      (CrocThread* t, word_t obj, word_t base);
 word_t    CROCAPI(superOf)         (CrocThread* t, word_t slot);
-
-// =====================================================================================================================
-// Function calling
-
-uword_t CROCAPI(call)          (CrocThread* t, word_t slot, word_t numReturns);
-uword_t CROCAPI(methodCall)    (CrocThread* t, word_t slot, const char* name, word_t numReturns);
-uword_t CROCAPI(methodCallStk) (CrocThread* t, word_t slot, word_t numReturns);
-
-// =====================================================================================================================
-// Reflection
-const char* CROCAPI(getNameOf)    (CrocThread* t, word_t obj);
-const char* CROCAPI(getNameOfn)   (CrocThread* t, word_t obj, uword_t* len);
-int         CROCAPI(hasField)     (CrocThread* t, word_t obj, const char* fieldName);
-int         CROCAPI(hasFieldStk)  (CrocThread* t, word_t obj, word_t name);
-int         CROCAPI(hasMethod)    (CrocThread* t, word_t obj, const char* methodName);
-int         CROCAPI(hasMethodStk) (CrocThread* t, word_t obj, word_t name);
 
 #ifdef __cplusplus
 } /* extern "C" */

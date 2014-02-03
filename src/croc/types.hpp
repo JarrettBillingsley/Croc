@@ -31,6 +31,8 @@ namespace croc
 		CrocLocation_Script = -2
 	};
 
+	const char* typeToString(CrocType type);
+
 	// Forward decls :P
 	struct VM;
 	struct String;
