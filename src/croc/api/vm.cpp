@@ -5,6 +5,7 @@
 #include "croc/base/gc.hpp"
 #include "croc/internal/apichecks.hpp"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/all.hpp"
 
 namespace croc
 {
@@ -103,42 +104,42 @@ extern "C"
 		Compiler.setDefaultFlags(t, Compiler.AllDocs);
 #endif
 		// Core libs
-		// initModulesLib(t);
-		// initExceptionsLib(t);
-		// initGCLib(t);
+		initModulesLib(*t);
+		// initExceptionsLib(*t);
+		// initGCLib(*t);
 
 		// Safe libs
-		// initBaseLib(t);
-		// initStringLib(t);
-		// initDocsLib(t); // implicitly depends on the stringlib because of how ex_doccomments is implemented
+		// initBaseLib(*t);
+		// initStringLib(*t);
+		// initDocsLib(*t); // implicitly depends on the stringlib because of how ex_doccomments is implemented
 
 #ifdef CROC_BUILTIN_DOCS
 		// TODO:docs
 		// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later.. OR IS IT)
-		docModulesLib(t);
-		docExceptionsLib(t);
-		docGCLib(t);
-		docBaseLib(t);
-		docStringLib(t);
+		docModulesLib(*t);
+		docExceptionsLib(*t);
+		docGCLib(*t);
+		docBaseLib(*t);
+		docStringLib(*t);
 #endif
 		// Finish up the safe libs.
-		// initHashLib(t);
-		// initMathLib(t);
-		// initObjectLib(t);
-		// initMemblockLib(t);
-		// initTextLib(t); // depends on memblock
-		// initStreamLib(t); // depends on math, object, text
-		// initArrayLib(t);
-		// initAsciiLib(t);
-		// CompilerLib.init(t);
-		// initConsoleLib(t); // depends on stream
-		// initEnvLib(t);
-		// JSONLib.init(t); // depends on stream
-		// initPathLib(t);
-		// initSerializationLib(t); // depends on .. lots of libs :P
-		// ThreadLib.init(t);
-		// TimeLib.init(t);
-		// initDoctoolsLibs(t);
+		// initHashLib(*t);
+		// initMathLib(*t);
+		// initObjectLib(*t);
+		// initMemblockLib(*t);
+		// initTextLib(*t); // depends on memblock
+		// initStreamLib(*t); // depends on math, object, text
+		// initArrayLib(*t);
+		// initAsciiLib(*t);
+		// CompilerLib.init(*t);
+		// initConsoleLib(*t); // depends on stream
+		// initEnvLib(*t);
+		// JSONLib.init(*t); // depends on stream
+		// initPathLib(*t);
+		// initSerializationLib(*t); // depends on .. lots of libs :P
+		// ThreadLib.init(*t);
+		// TimeLib.init(*t);
+		// initDoctoolsLibs(*t);
 
 #ifdef CROC_BUILTIN_DOCS
 		// TODO:docs

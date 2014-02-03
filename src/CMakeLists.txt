@@ -34,6 +34,8 @@ set(croc_SRC
 	croc/internal/stack.hpp
 	croc/internal/variables.cpp
 	croc/internal/variables.hpp
+	croc/stdlib/all.hpp
+	croc/stdlib/modules.cpp
 	croc/types.cpp
 	croc/types.hpp
 	croc/types/array.cpp
