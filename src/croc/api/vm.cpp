@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#include "croc/apifuncs.h"
+#include "croc/api.h"
 #include "croc/types.hpp"
 #include "croc/base/gc.hpp"
 
@@ -29,7 +29,7 @@ namespace croc
 			do
 			{
 				if(limit > FinalizeLoopLimit)
-					assert(false); // TODO: throw exception
+					assert(false); // TODO:ex
 					// throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or something's broken.");
 
 				// runFinalizers(vm->mainThread);
@@ -40,7 +40,7 @@ namespace croc
 			gcCycle(vm, GCCycleType_NoRoots);
 
 			if(!vm->toFinalize.isEmpty())
-				assert(false); // TODO: throw exception
+				assert(false); // TODO:ex
 				// throw new Exception("Did you stick a finalizable object in a global metatable or something? I think you did. Stop doing that.");
 		}
 	}
@@ -97,7 +97,7 @@ extern "C"
 		// newGlobal(t, "_G");
 
 #ifdef CROC_BUILTIN_DOCS
-		// TODO:
+		// TODO:docs
 		Compiler.setDefaultFlags(t, Compiler.AllDocs);
 #endif
 		// Core libs
@@ -111,7 +111,7 @@ extern "C"
 		// initDocsLib(t); // implicitly depends on the stringlib because of how ex_doccomments is implemented
 
 #ifdef CROC_BUILTIN_DOCS
-		// TODO:
+		// TODO:docs
 		// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later.. OR IS IT)
 		docModulesLib(t);
 		docExceptionsLib(t);
@@ -139,7 +139,7 @@ extern "C"
 		// initDoctoolsLibs(t);
 
 #ifdef CROC_BUILTIN_DOCS
-		// TODO:
+		// TODO:docs
 		Compiler.setDefaultFlags(t, Compiler.All);
 #endif
 		// Done, turn the GC back on and clear out any garbage we made.

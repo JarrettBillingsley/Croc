@@ -1,0 +1,229 @@
+
+#include <string.h>
+
+#include "croc/api.h"
+#include "croc/internal/stack.hpp"
+#include "croc/types.hpp"
+
+namespace croc
+{
+extern "C"
+{
+	uword_t croc_getStackSize(CrocThread* t_)
+	{
+		auto t = Thread::from(t_);
+
+		assert(t->stackIndex > t->stackBase);
+		return t->stackIndex - t->stackBase;
+	}
+
+	void croc_setStackSize(CrocThread* t_, uword_t newSize)
+	{
+		if(newSize == 0)
+			assert(false); // TODO:ex
+			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - newSize must be nonzero");
+
+		auto curSize = croc_getStackSize(t_);
+
+		if(newSize != curSize)
+		{
+			auto t = Thread::from(t_);
+
+			t->stackIndex = t->stackBase + newSize;
+
+			if(newSize > curSize)
+			{
+				checkStack(t, t->stackIndex);
+				t->stack.slice(t->stackBase + curSize, t->stackIndex).fill(Value::nullValue);
+			}
+		}
+	}
+
+	word_t croc_absIndex(CrocThread* t, word_t idx)
+	{
+		return cast(word_t)fakeToRel(Thread::from(t), idx);
+	}
+
+	int croc_isValidIndex(CrocThread* t, word_t idx)
+	{
+		if(idx < 0)
+			return idx >= -cast(word_t)croc_getStackSize(t);
+		else
+			return idx < cast(word_t)croc_getStackSize(t);
+	}
+
+	word_t croc_dup(CrocThread* t_, word_t slot)
+	{
+		auto t = Thread::from(t_);
+		return push(t, *getValue(t, slot));
+	}
+
+	void croc_swap(CrocThread* t_, word_t first, word_t second)
+	{
+		auto t = Thread::from(t_);
+		auto f = fakeToAbs(t, first);
+		auto s = fakeToAbs(t, second);
+
+		if(f == s)
+			return;
+
+		auto tmp = t->stack[f];
+		t->stack[f] = t->stack[s];
+		t->stack[s] = tmp;
+	}
+
+	void croc_insert(CrocThread* t_, word_t slot)
+	{
+		// mixin(apiCheckNumParams!("1")); TODO:api
+		auto t = Thread::from(t_);
+		auto s = fakeToAbs(t, slot);
+
+		if(s == t->stackBase)
+			assert(false); // TODO:ex
+			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot use 'this' as the destination");
+
+		if(s == t->stackIndex - 1)
+			return;
+
+		auto tmp = t->stack[t->stackIndex - 1];
+		memmove(&t->stack[s + 1], &t->stack[s], (t->stackIndex - s - 1) * sizeof(Value));
+		t->stack[s] = tmp;
+	}
+
+	void croc_insertAndPop(CrocThread* t_, word_t slot)
+	{
+		// mixin(apiCheckNumParams!("1")); TODO:api
+		auto t = Thread::from(t_);
+		auto s = fakeToAbs(t, slot);
+
+		if(s == t->stackBase)
+			assert(false); // TODO:ex
+			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot use 'this' as the destination");
+
+		if(s == t->stackIndex - 1)
+			return;
+
+		t->stack[s] = t->stack[t->stackIndex - 1];
+		t->stackIndex = s + 1;
+	}
+
+	void croc_moveToTop(CrocThread* t_, word_t slot)
+	{
+		// mixin(apiCheckNumParams!("1")); TODO:api
+		auto t = Thread::from(t_);
+		auto s = fakeToAbs(t, slot);
+
+		if(s == t->stackBase)
+			assert(false); // TODO:ex
+			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot move 'this' to the top of the stack");
+
+		if(s == t->stackIndex - 1)
+			return;
+
+		auto tmp = t->stack[s];
+		memmove(&t->stack[s], &t->stack[s + 1], (t->stackIndex - s - 1) * sizeof(Value));
+		t->stack[t->stackIndex - 1] = tmp;
+	}
+
+	void croc_rotate(CrocThread* t_, uword_t numSlots, uword_t dist)
+	{
+		auto t = Thread::from(t_);
+
+		if(numSlots > (croc_getStackSize(t_) - 1))
+			assert(false); // TODO:ex
+			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Trying to rotate more values ({}) than can be rotated ({})", numSlots, stackSize(t) - 1);
+
+		if(numSlots == 0)
+			return;
+
+		if(dist >= numSlots)
+			dist %= numSlots;
+
+		if(dist == 0)
+			return;
+		else if(dist == 1)
+			return croc_insert(t_, -numSlots);
+		else if(dist == numSlots - 1)
+			return croc_moveToTop(t_, -numSlots);
+
+		auto slots = t->stack.slice(t->stackIndex - numSlots, t->stackIndex);
+
+		if(dist <= 8)
+		{
+			Value temp_[8];
+			auto temp = DArray<Value>::n(temp_, 8);
+			temp.slicea(0, dist, slots.slice(slots.length - dist, slots.length));
+			auto numOthers = numSlots - dist;
+			memmove(&slots[slots.length - numOthers], &slots[0], numOthers * sizeof(Value));
+			slots.slicea(0, dist, temp.slice(0, dist));
+		}
+		else
+		{
+			dist = numSlots - dist;
+			uword c = 0;
+
+			for(uword v = 0; c < slots.length; v++)
+			{
+				auto i = v;
+				auto j = v + dist;
+				auto tmp = slots[v];
+				c++;
+
+				while(j != v)
+				{
+					slots[i] = slots[j];
+					i = j;
+					j += dist;
+
+					if(j >= slots.length)
+						j -= slots.length;
+
+					c++;
+				}
+
+				slots[i] = tmp;
+			}
+		}
+	}
+
+	void croc_rotateAll(CrocThread* t, uword_t dist)
+	{
+		croc_rotate(t, croc_getStackSize(t) - 1, dist);
+	}
+
+	void croc_pop(CrocThread* t_, uword_t n)
+	{
+		auto t = Thread::from(t_);
+
+		if(n == 0)
+			assert(false); // TODO:ex
+			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Trying to pop zero items");
+
+		if(n > (t->stackIndex - (t->stackBase + 1)))
+			assert(false); // TODO:ex
+			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Stack underflow");
+
+		t->stackIndex -= n;
+	}
+
+	void croc_transferVals(CrocThread* src_, CrocThread* dest_, uword_t num)
+	{
+		auto src = Thread::from(src_);
+		auto dest = Thread::from(dest_);
+
+		if(src->vm != dest->vm)
+			assert(false); // TODO:ex
+			// throwStdException(src, "ApiError", "transferVals - Source and destination threads belong to different VMs");
+
+		if(num == 0 || dest == src)
+			return;
+
+		// mixin(apiCheckNumParams!("num", "src")); TODO:api
+		checkStack(dest, dest->stackIndex + num);
+
+		dest->stack.slicea(dest->stackIndex, dest->stackIndex + num, src->stack.slice(src->stackIndex - num, src->stackIndex));
+		dest->stackIndex += num;
+		src->stackIndex -= num;
+	}
+} // extern "C"
+}

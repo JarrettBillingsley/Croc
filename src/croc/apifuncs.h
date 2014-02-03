@@ -18,10 +18,10 @@ void*       CROCAPI(DefaultMemFunc)               (void* ctx, void* p, uword_t o
 CrocThread* CROCAPI(vm_open)                      (CrocMemFunc memFunc, void* ctx);
 void        CROCAPI(vm_close)                     (CrocThread* t);
 void        CROCAPI(vm_loadUnsafeLibs)            (CrocThread* t, CrocUnsafeLib libs);
-#define croc_vm_loadAllUnsafeLibs(t) (croc_vm_loadUnsafeLibs((t), CrocUnsafeLib_All))
 void        CROCAPI(vm_loadAddons)                (CrocThread* t, CrocAddons libs);
 void        CROCAPI(vm_loadAvailableAddonsExcept) (CrocThread* t, CrocAddons exclude);
 
+#define croc_vm_loadAllUnsafeLibs(t) (croc_vm_loadUnsafeLibs((t), CrocUnsafeLib_All))
 #define croc_vm_loadAllAvailableAddons(t) (croc_vm_loadAllAvailableAddonsExcept((t), CrocAddons_None))
 
 // =====================================================================================================================
@@ -89,18 +89,19 @@ void    CROCAPI(setStackSize) (CrocThread* t, uword_t newSize);
 word_t  CROCAPI(absIndex)     (CrocThread* t, word_t idx);
 int     CROCAPI(isValidIndex) (CrocThread* t, word_t idx);
 word_t  CROCAPI(dup)          (CrocThread* t, word_t slot);
-#define croc_dupTop(t) (croc_dup((t), -1))
 void    CROCAPI(swap)         (CrocThread* t, word_t first, word_t second);
-#define croc_swapTop(t) (croc_swap((t), -2, -1))
-#define croc_swapTopWith(t, n) (croc_swap((t), (n), -1))
 void    CROCAPI(insert)       (CrocThread* t, word_t slot);
 void    CROCAPI(insertAndPop) (CrocThread* t, word_t slot);
 void    CROCAPI(moveToTop)    (CrocThread* t, word_t slot);
 void    CROCAPI(rotate)       (CrocThread* t, uword_t numSlots, uword_t dist);
 void    CROCAPI(rotateAll)    (CrocThread* t, uword_t dist);
 void    CROCAPI(pop)          (CrocThread* t, uword_t n);
-#define croc_popTop(t) (croc_pop((t), 1))
 void    CROCAPI(transferVals) (CrocThread* src, CrocThread* dest, uword_t num);
+
+#define croc_dupTop(t) (croc_dup((t), -1))
+#define croc_swapTop(t) (croc_swap((t), -2, -1))
+#define croc_swapTopWith(t, n) (croc_swap((t), (n), -1))
+#define croc_popTop(t) (croc_pop((t), 1))
 
 // =====================================================================================================================
 // Type queries
@@ -131,7 +132,6 @@ int      CROCAPI(isTrue)         (CrocThread* t, word_t slot);
 // Variables
 
 word_t CROCAPI(pushEnvironment) (CrocThread* t, uword_t depth);
-#define croc_pushCurEnvironment(t) (croc_pushEnvironment((t), 0))
 void   CROCAPI(setUpval)        (CrocThread* t, uword_t idx);
 word_t CROCAPI(pushUpval)       (CrocThread* t, uword_t idx);
 void   CROCAPI(newGlobal)       (CrocThread* t, const char* name);
@@ -140,6 +140,8 @@ word_t CROCAPI(pushGlobal)      (CrocThread* t, const char* name);
 word_t CROCAPI(pushGlobalStk)   (CrocThread* t);
 void   CROCAPI(setGlobal)       (CrocThread* t, const char* name);
 void   CROCAPI(setGlobalStk)    (CrocThread* t);
+
+#define croc_pushCurEnvironment(t) (croc_pushEnvironment((t), 0))
 
 // =====================================================================================================================
 // Value types

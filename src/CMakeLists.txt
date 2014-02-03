@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 set(croc_SRC
+	croc/api/stack.cpp
 	croc/api/vm.cpp
 	croc/base/darray.hpp
 	croc/base/deque.cpp
@@ -21,6 +22,8 @@ set(croc_SRC
 	croc/base/sanity.hpp
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
+	croc/internal/stack.cpp
+	croc/internal/stack.hpp
 	croc/types/array.cpp
 	croc/types/class.cpp
 	croc/types/funcdef.cpp
