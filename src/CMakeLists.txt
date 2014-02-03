@@ -10,6 +10,7 @@ set(croc_SRC
 	croc/api/namespace.cpp
 	croc/api/stack.cpp
 	croc/api/table.cpp
+	croc/api/thread.cpp
 	croc/api/typequeries.cpp
 	croc/api/valuetypes.cpp
 	croc/api/variables.cpp

@@ -39,7 +39,8 @@ namespace croc
 			uword cpLen;
 
 			if(verifyUtf8(data, cpLen) != UtfError_OK)
-				assert(false); // TODO: throw exception
+				assert(false); // TODO:ex
+				// throwStdException(t, "UnicodeError", "Invalid UTF-8 sequence");
 
 			return cpLen;
 		});
