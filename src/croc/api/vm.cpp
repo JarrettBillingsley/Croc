@@ -3,6 +3,8 @@
 #include "croc/api.h"
 #include "croc/types.hpp"
 #include "croc/base/gc.hpp"
+#include "croc/internal/apichecks.hpp"
+#include "croc/internal/stack.hpp"
 
 namespace croc
 {
@@ -145,7 +147,7 @@ extern "C"
 		// Done, turn the GC back on and clear out any garbage we made.
 		vm->enableGC();
 		gcCycle(vm, GCCycleType_Full);
-		// croc_gc_collect(*t);
+		// croc_gc_collect(*t); TODO:api
 
 		return *t;
 	}
@@ -233,10 +235,67 @@ extern "C"
 		return Thread::from(t)->vm->mem.totalBytes;
 	}
 
-	// word_t croc_vm_pushTypeMT(CrocThread* t, CrocType type);
-	// void croc_vm_setTypeMT(CrocThread* t, CrocType type);
-	// word_t croc_vm_pushRegistry(CrocThread* t);
-	// word_t croc_vm_pushLocationClass(CrocThread* t);
-	// word_t croc_vm_pushLocationObject(CrocThread* t, const char* file, int line, int col);
+	word_t croc_vm_pushTypeMT(CrocThread* t, CrocType type)
+	{
+		// ORDER CROCTYPE
+		if(!(type >= CrocType_FirstUserType && type <= CrocType_LastUserType))
+		{
+			// TODO:ex
+			if(type >= 0 && type < CrocType_NUMTYPES)
+				{} // throwStdException(t, "TypeError", __FUNCTION__ " - Cannot get metatable for type '{}'", CrocValue.typeStrings[type]);
+			else
+				{} // throwStdException(t, "ApiError", __FUNCTION__ " - Invalid type '{}'", type);
+
+			assert(false);
+		}
+
+		if(auto ns = Thread::from(t)->vm->metaTabs[cast(uword)type])
+			return push(Thread::from(t), Value::from(ns));
+		else
+			return croc_pushNull(t);
+	}
+
+	void croc_vm_setTypeMT(CrocThread* t_, CrocType type)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
+
+		// ORDER CROCTYPE
+		if(!(type >= CrocType_FirstUserType && type <= CrocType_LastUserType))
+		{
+			// TODO:ex
+			if(type >= 0 && type < CrocType_NUMTYPES)
+				{} // throwStdException(t, "TypeError", __FUNCTION__ ~ " - Cannot set metatable for type '{}'", CrocValue.typeStrings[type]);
+			else
+				{} // throwStdException(t, "ApiError", __FUNCTION__ ~ " - Invalid type '{}'", type);
+			assert(false);
+		}
+
+		auto v = getValue(t, -1);
+
+		if(v->type == CrocType_Namespace)
+			t->vm->metaTabs[cast(uword)type] = v->mNamespace;
+		else if(v->type == CrocType_Null)
+			t->vm->metaTabs[cast(uword)type] = nullptr;
+		else
+			API_PARAM_TYPE_ERROR(-1, "metatable", "namespace|null");
+
+		croc_popTop(t_);
+	}
+
+	word_t croc_vm_pushRegistry(CrocThread* t_)
+	{
+		auto t = Thread::from(t_);
+		return push(t, Value::from(t->vm->registry));
+	}
+
+	word_t croc_vm_pushLocationClass(CrocThread* t_)
+	{
+		auto t = Thread::from(t_);
+		return push(t, Value::from(t->vm->location));
+	}
+
+	// TODO:api
+	// word_t croc_vm_pushLocationObject(CrocThread* t_, const char* file, int line, int col)
 } // extern "C"
 }

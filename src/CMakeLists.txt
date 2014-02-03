@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 set(croc_SRC
 	croc/api/stack.cpp
+	croc/api/valuetypes.cpp
 	croc/api/vm.cpp
 	croc/base/darray.hpp
 	croc/base/deque.cpp
@@ -9,22 +10,24 @@ set(croc_SRC
 	croc/base/gc.cpp
 	croc/base/gc.hpp
 	croc/base/hash.hpp
-	croc/base/leakdetector.hpp
 	croc/base/leakdetector.cpp
-	croc/base/memory.hpp
+	croc/base/leakdetector.hpp
 	croc/base/memory.cpp
+	croc/base/memory.hpp
 	croc/base/metamethods.cpp
 	croc/base/metamethods.hpp
 	croc/base/opcodes.cpp
 	croc/base/opcodes.hpp
+	croc/base/sanity.hpp
 	croc/base/writebarrier.cpp
 	croc/base/writebarrier.hpp
-	croc/base/sanity.hpp
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
 	croc/internal/apichecks.hpp
 	croc/internal/stack.cpp
 	croc/internal/stack.hpp
+	croc/types.cpp
+	croc/types.hpp
 	croc/types/array.cpp
 	croc/types/class.cpp
 	croc/types/funcdef.cpp
@@ -36,8 +39,6 @@ set(croc_SRC
 	croc/types/table.cpp
 	croc/types/thread.cpp
 	croc/types/weakref.cpp
-	croc/types.cpp
-	croc/types.hpp
 	croc/utf.cpp
 	croc/utf.hpp
 	croc/utils.cpp

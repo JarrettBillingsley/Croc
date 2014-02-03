@@ -90,6 +90,11 @@ namespace croc
 			return hashlittle(ptr, ARRAY_BYTE_SIZE(length), 0xFACEDAB5); // face dabs!
 		}
 
+		inline DArray<const T> toConst() const
+		{
+			return DArray<const T>::n(cast(const T*)ptr, length);
+		}
+
 		inline T operator[](size_t idx) const
 		{
 			assert(idx < length);
