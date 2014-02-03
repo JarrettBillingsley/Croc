@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 set(croc_SRC
 	croc/api/array.cpp
 	croc/api/gc.cpp
+	croc/api/memblock.cpp
 	croc/api/namespace.cpp
 	croc/api/stack.cpp
 	croc/api/table.cpp
