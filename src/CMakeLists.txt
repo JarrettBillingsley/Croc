@@ -7,11 +7,13 @@ set(croc_SRC
 	croc/api/valuetypes.cpp
 	croc/api/variables.cpp
 	croc/api/vm.cpp
+	croc/api/weakref.cpp
 	croc/base/darray.hpp
 	croc/base/deque.cpp
 	croc/base/deque.hpp
 	croc/base/gc.cpp
 	croc/base/gc.hpp
+	croc/base/gcobject.hpp
 	croc/base/hash.hpp
 	croc/base/leakdetector.cpp
 	croc/base/leakdetector.hpp

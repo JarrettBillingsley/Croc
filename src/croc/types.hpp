@@ -203,10 +203,10 @@ namespace croc
 		// acyclic
 		GCObject* obj;
 
-		inline GCObject* getObj()
-		{
-			return this->obj;
-		}
+		// inline GCObject* getObj()
+		// {
+		// 	return this->obj;
+		// }
 
 		static Weakref* create(VM* vm, GCObject* obj);
 		static Value makeref(VM* vm, Value val);
