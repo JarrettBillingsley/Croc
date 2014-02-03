@@ -108,25 +108,26 @@ void    CROCAPI(transferVals) (CrocThread* src, CrocThread* dest, uword_t num);
 
 CrocType CROCAPI(type)           (CrocThread* t, word_t slot);
 word_t   CROCAPI(pushTypeString) (CrocThread* t, word_t slot);
-int      CROCAPI(isNull)         (CrocThread* t, word_t slot);
-int      CROCAPI(isBool)         (CrocThread* t, word_t slot);
-int      CROCAPI(isInt)          (CrocThread* t, word_t slot);
-int      CROCAPI(isFloat)        (CrocThread* t, word_t slot);
-int      CROCAPI(isNum)          (CrocThread* t, word_t slot);
-int      CROCAPI(isNativeobj)    (CrocThread* t, word_t slot);
-int      CROCAPI(isString)       (CrocThread* t, word_t slot);
-int      CROCAPI(isChar)         (CrocThread* t, word_t slot);
-int      CROCAPI(isWeakRef)      (CrocThread* t, word_t slot);
-int      CROCAPI(isTable)        (CrocThread* t, word_t slot);
-int      CROCAPI(isNamespace)    (CrocThread* t, word_t slot);
-int      CROCAPI(isArray)        (CrocThread* t, word_t slot);
-int      CROCAPI(isMemblock)     (CrocThread* t, word_t slot);
-int      CROCAPI(isFunction)     (CrocThread* t, word_t slot);
-int      CROCAPI(isFuncDef)      (CrocThread* t, word_t slot);
-int      CROCAPI(isClass)        (CrocThread* t, word_t slot);
-int      CROCAPI(isInstance)     (CrocThread* t, word_t slot);
-int      CROCAPI(isThread)       (CrocThread* t, word_t slot);
 int      CROCAPI(isTrue)         (CrocThread* t, word_t slot);
+
+#define croc_isNull(t, slot)      (croc_type((t), (slot)) == CrocType_Null)
+#define croc_isBool(t, slot)      (croc_type((t), (slot)) == CrocType_Bool)
+#define croc_isInt(t, slot)       (croc_type((t), (slot)) == CrocType_Int)
+#define croc_isFloat(t, slot)     (croc_type((t), (slot)) == CrocType_Float)
+#define croc_isNum(t, slot)       (croc_type((t), (slot)) == CrocType_Num)
+#define croc_isNativeobj(t, slot) (croc_type((t), (slot)) == CrocType_Nativeobj)
+#define croc_isString(t, slot)    (croc_type((t), (slot)) == CrocType_String)
+#define croc_isChar(t, slot)      (croc_type((t), (slot)) == CrocType_Char)
+#define croc_isWeakRef(t, slot)   (croc_type((t), (slot)) == CrocType_WeakRef)
+#define croc_isTable(t, slot)     (croc_type((t), (slot)) == CrocType_Table)
+#define croc_isNamespace(t, slot) (croc_type((t), (slot)) == CrocType_Namespace)
+#define croc_isArray(t, slot)     (croc_type((t), (slot)) == CrocType_Array)
+#define croc_isMemblock(t, slot)  (croc_type((t), (slot)) == CrocType_Memblock)
+#define croc_isFunction(t, slot)  (croc_type((t), (slot)) == CrocType_Function)
+#define croc_isFuncDef(t, slot)   (croc_type((t), (slot)) == CrocType_FuncDef)
+#define croc_isClass(t, slot)     (croc_type((t), (slot)) == CrocType_Class)
+#define croc_isInstance(t, slot)  (croc_type((t), (slot)) == CrocType_Instance)
+#define croc_isThread(t, slot)    (croc_type((t), (slot)) == CrocType_Thread)
 
 // =====================================================================================================================
 // Variables

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 set(croc_SRC
 	croc/api/stack.cpp
+	croc/api/typequeries.cpp
 	croc/api/valuetypes.cpp
 	croc/api/vm.cpp
 	croc/base/darray.hpp
