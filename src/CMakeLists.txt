@@ -39,6 +39,8 @@ set(croc_SRC
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
 	croc/internal/apichecks.hpp
+	croc/internal/basic.cpp
+	croc/internal/basic.hpp
 	croc/internal/calls.cpp
 	croc/internal/calls.hpp
 	croc/internal/class.cpp

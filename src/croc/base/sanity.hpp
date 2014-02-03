@@ -22,4 +22,10 @@ A few little things that help me keep my sanity when developing in such a.. prim
 #define DBGPRINT(...)
 #endif
 
+#ifdef _WIN32
+#define CROC_INTEGER_FORMAT "I64d"
+#else
+#define CROC_INTEGER_FORMAT "lld"
+#endif
+
 #endif
