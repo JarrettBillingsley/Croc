@@ -356,7 +356,7 @@ namespace croc
 			// static assert((CrocFuncdef*).sizeof == NativeFunc.sizeof);
 		};
 
-		inline DArray<Value>  nativeUpvals() const
+		inline DArray<Value> nativeUpvals() const
 		{
 			return DArray<Value>::n(cast(Value*)(this + 1), numUpvals);
 		}

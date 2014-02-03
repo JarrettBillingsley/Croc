@@ -95,8 +95,8 @@ extern "C"
 		vm->registry = Namespace::create(vm->mem, String::create(vm, atoda("<registry>")));
 
 		// _G = _G._G = _G._G._G = _G._G._G._G = ...
-		// push(t, CrocValue(vm->globals));
-		// newGlobal(t, "_G");
+		push(t, Value::from(vm->globals));
+		croc_newGlobal(*t, "_G");
 
 #ifdef CROC_BUILTIN_DOCS
 		// TODO:docs

@@ -1,8 +1,8 @@
 
 #include "croc/api.h"
-#include "croc/types.hpp"
 #include "croc/internal/apichecks.hpp"
 #include "croc/internal/stack.hpp"
+#include "croc/types.hpp"
 
 namespace croc
 {

@@ -13,10 +13,10 @@
 			// 	(numParams),
 			// 	croc_getStackSize(*t) - 1);
 
-// template apiCheckParam(char[] newVar, char[] idx, char[] paramName, char[] expected, char[] t = "t")
-// {
-//
-// }
+#define API_CHECK_PARAM(name, idx, type, niceName)\
+	if(croc_type(*t, (idx)) != CrocType_##type)\
+		API_PARAM_TYPE_ERROR(idx, niceName, #type);\
+	auto name = getValue(t, (idx))->m##type;
 
 #define API_PARAM_TYPE_ERROR(idx, paramName, expected)\
 	do {\

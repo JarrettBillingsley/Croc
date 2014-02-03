@@ -5,6 +5,7 @@ set(croc_SRC
 	croc/api/stack.cpp
 	croc/api/typequeries.cpp
 	croc/api/valuetypes.cpp
+	croc/api/variables.cpp
 	croc/api/vm.cpp
 	croc/base/darray.hpp
 	croc/base/deque.cpp
@@ -26,8 +27,12 @@ set(croc_SRC
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
 	croc/internal/apichecks.hpp
+	croc/internal/calls.cpp
+	croc/internal/calls.hpp
 	croc/internal/stack.cpp
 	croc/internal/stack.hpp
+	croc/internal/variables.cpp
+	croc/internal/variables.hpp
 	croc/types.cpp
 	croc/types.hpp
 	croc/types/array.cpp
