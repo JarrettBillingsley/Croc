@@ -1,4 +1,3 @@
-#include <limits>
 
 #include "croc/base/writebarrier.hpp"
 #include "croc/types.hpp"
@@ -10,7 +9,7 @@ namespace croc
 {
 	namespace
 	{
-		const uint32_t MaxParams = std::numeric_limits<uint32_t>::max();
+		const uint32_t MaxParams = cast(uint32_t)MaxParams;
 	}
 
 	// Create a script function.
@@ -66,7 +65,7 @@ namespace croc
 	}
 
 	// Create a native function.
-	Function* Function::create(Memory& mem, Namespace* env, String* name, CrocNativeFunc func, uword numUpvals, uword numParams)
+	Function* Function::create(Memory& mem, Namespace* env, String* name, uword numParams, CrocNativeFunc func, uword numUpvals)
 	{
 		auto f = ALLOC_OBJSZ(mem, Function, NATIVE_CLOSURE_EXTRA_SIZE(numUpvals));
 		f->type = CrocType_Function;

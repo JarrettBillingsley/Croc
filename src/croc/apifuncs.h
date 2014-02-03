@@ -227,19 +227,23 @@ char*  CROCAPI(memblock_getDatan)          (CrocThread* t, word_t slot, uword_t*
 // =====================================================================================================================
 // Function
 
-word_t      CROCAPI(function_new)              (CrocThread* t, const char* name, word_t maxParams, CrocNativeFunc func, uword_t numUpvals);
 word_t      CROCAPI(function_newWithEnv)       (CrocThread* t, const char* name, word_t maxParams, CrocNativeFunc func, uword_t numUpvals);
-word_t      CROCAPI(function_newScript)        (CrocThread* t, word_t funcDef);
 word_t      CROCAPI(function_newScriptWithEnv) (CrocThread* t, word_t funcDef);
 word_t      CROCAPI(function_pushEnv)          (CrocThread* t, word_t func);
 void        CROCAPI(function_setEnv)           (CrocThread* t, word_t func);
-void        CROCAPI(function_def)              (CrocThread* t, word_t func);
+word_t      CROCAPI(function_pushDef)          (CrocThread* t, word_t func);
 const char* CROCAPI(function_getName)          (CrocThread* t, word_t func);
 const char* CROCAPI(function_getNamen)         (CrocThread* t, word_t func, uword_t* len);
 uword_t     CROCAPI(function_getNumParams)     (CrocThread* t, word_t func);
 uword_t     CROCAPI(function_getMaxParams)     (CrocThread* t, word_t func);
 int         CROCAPI(function_isVararg)         (CrocThread* t, word_t func);
 int         CROCAPI(function_isNative)         (CrocThread* t, word_t func);
+
+#define croc_function_new(t, name, maxParams, func, numUpvals)\
+	(croc_pushCurEnvironment(t), croc_function_newWithEnv((t), (name), (maxParams), (func), (numUpvals)))
+
+#define croc_function_newScript(t, funcDef)\
+	(croc_pushCurEnvironment(t), croc_function_newScriptWithEnv((t), (funcDef)))
 
 // =====================================================================================================================
 // Funcdef

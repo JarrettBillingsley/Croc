@@ -376,7 +376,7 @@ namespace croc
 		static Function* create(Memory& mem, Namespace* env, Funcdef* def);
 		static Function* createPartial(Memory& mem, uword numUpvals);
 		static void finishCreate(Memory& mem, Function* f, Namespace* env, Funcdef* def);
-		static Function* create(Memory& mem, Namespace* env, String* name, CrocNativeFunc func, uword numUpvals, uword numParams);
+		static Function* create(Memory& mem, Namespace* env, String* name, uword numParams, CrocNativeFunc func, uword numUpvals);
 		void setNativeUpval(Memory& mem, uword idx, Value* val);
 		void setEnvironment(Memory& mem, Namespace* ns);
 		bool isVararg();
