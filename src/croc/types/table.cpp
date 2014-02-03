@@ -60,7 +60,7 @@ namespace croc
 		return newTab;
 	}
 
-	void Table::idxa(Memory& mem, Value& key, Value& val)
+	void Table::idxa(Memory& mem, const Value& key, const Value& val)
 	{
 		auto node = this->data.lookupNode(key);
 

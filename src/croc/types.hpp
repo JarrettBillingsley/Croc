@@ -245,7 +245,7 @@ namespace croc
 		static Table* create(Memory& mem, uword size = 0);
 		static void free(Memory& mem, Table* t);
 		Table* dup(Memory& mem);
-		void idxa(Memory& mem, Value& key, Value& val);
+		void idxa(Memory& mem, const Value& key, const Value& val);
 		void clear(Memory& mem);
 	};
 

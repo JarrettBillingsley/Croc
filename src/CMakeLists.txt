@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 set(croc_SRC
 	croc/api/array.cpp
+	croc/api/basic.cpp
 	croc/api/class.cpp
 	croc/api/funcdef.cpp
 	croc/api/function.cpp
