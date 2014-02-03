@@ -34,7 +34,7 @@ namespace croc
 					assert(false); // TODO:ex
 					// throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or something's broken.");
 
-				// runFinalizers(vm->mainThread);
+				// runFinalizers(vm->mainThread); TODO:api
 				gcCycle(vm, GCCycleType_Full);
 				limit++;
 			} while(!vm->toFinalize.isEmpty());
@@ -146,8 +146,7 @@ extern "C"
 #endif
 		// Done, turn the GC back on and clear out any garbage we made.
 		vm->enableGC();
-		gcCycle(vm, GCCycleType_Full);
-		// croc_gc_collect(*t); TODO:api
+		croc_gc_collect(*t);
 
 		return *t;
 	}
