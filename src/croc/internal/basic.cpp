@@ -719,4 +719,78 @@ namespace croc
 				// throwStdException(t, "TypeError", "Attempting to assign field '{}' into a value of type '{}'", name.toString(), getString(t, -1));
 		}
 	}
+
+	void lenImpl(Thread* t, AbsStack dest, Value src)
+	{
+		switch(src.type)
+		{
+			case CrocType_String:    t->stack[dest] = Value::from(cast(crocint)src.mString->cpLength);      return;
+			case CrocType_Table:     t->stack[dest] = Value::from(cast(crocint)src.mTable->length());       return;
+			case CrocType_Array:     t->stack[dest] = Value::from(cast(crocint)src.mArray->length);         return;
+			case CrocType_Memblock:  t->stack[dest] = Value::from(cast(crocint)src.mMemblock->data.length); return;
+			case CrocType_Namespace: t->stack[dest] = Value::from(cast(crocint)src.mNamespace->length());   return;
+
+			default:
+				assert(false); // TODO:mm
+				// if(tryMM!(1, true)(t, MM.Length, &t.stack[dest], src))
+				// 	return;
+
+				// typeString(t, src);
+				// throwStdException(t, "TypeError", "Can't get the length of a '{}'", getString(t, -1));
+		}
+	}
+
+	void lenaImpl(Thread* t, Value dest, Value len)
+	{
+		switch(dest.type)
+		{
+			case CrocType_Array: {
+				if(len.type != CrocType_Int)
+				{
+					assert(false); // TODO:ex
+					// typeString(t, len);
+					// throwStdException(t, "TypeError", "Attempting to set the length of an array using a length of type '{}'", getString(t, -1));
+				}
+
+				auto l = len.mInt;
+
+				if(l < 0) // || l > uword.max) TODO:range
+					assert(false); // TODO:mm
+					// throwStdException(t, "RangeError", "Invalid length ({})", l);
+
+				dest.mArray->resize(t->vm->mem, cast(uword)l);
+				return;
+			}
+			case CrocType_Memblock: {
+				if(len.type != CrocType_Int)
+				{
+					assert(false); // TODO:ex
+					// typeString(t, len);
+					// throwStdException(t, "TypeError", "Attempting to set the length of a memblock using a length of type '{}'", getString(t, -1));
+				}
+
+				auto mb = dest.mMemblock;
+
+				if(!mb->ownData)
+					assert(false); // TODO:ex
+					// throwStdException(t, "ValueError", "Attempting to resize a memblock which does not own its data");
+
+				auto l = len.mInt;
+
+				if(l < 0) // || l > uword.max) TODO:range
+					assert(false); // TODO:ex
+					// throwStdException(t, "RangeError", "Invalid length ({})", l);
+
+				mb->resize(t->vm->mem, cast(uword)l);
+				return;
+			}
+			default:
+				assert(false); // TODO:mm
+				// if(tryMM!(2, false)(t, MM.LengthAssign, &dest, len))
+				// 	return;
+
+				// typeString(t, &dest);
+				// throwStdException(t, "TypeError", "Can't set the length of a '{}'", getString(t, -1));
+		}
+	}
 }

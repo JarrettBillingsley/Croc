@@ -488,30 +488,30 @@ namespace croc
 			return this->parent->getMethod(name);
 		}
 
-		inline bool nextField(Instance* i, uword& idx, String**& key, Value*& val)
+		inline bool nextField(uword& idx, String**& key, Value*& val)
 		{
-			return i->fields.next(idx, key, val);
+			return this->fields.next(idx, key, val);
 		}
 
-		inline Class::HashType::NodeType* getHiddenField(Instance* i, String* name)
+		inline Class::HashType::NodeType* getHiddenField(String* name)
 		{
-			if(i->hiddenFields)
-				return i->hiddenFields->lookupNode(name);
+			if(this->hiddenFields)
+				return this->hiddenFields->lookupNode(name);
 			else
 				return nullptr;
 		}
 
-		inline bool nextHiddenField(Instance* i, uword& idx, String**& key, Value*& val)
+		inline bool nextHiddenField(uword& idx, String**& key, Value*& val)
 		{
-			if(i->hiddenFields)
-				return i->hiddenFields->next(idx, key, val);
+			if(this->hiddenFields)
+				return this->hiddenFields->next(idx, key, val);
 			else
 				return false;
 		}
 
-		inline bool derivesFrom(Instance* i, Class* c)
+		inline bool derivesFrom(Class* c)
 		{
-			return i->parent == c;
+			return this->parent == c;
 		}
 
 		static Instance* create(Memory& mem, Class* parent);

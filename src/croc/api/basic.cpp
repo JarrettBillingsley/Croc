@@ -207,45 +207,142 @@ extern "C"
 		croc_pop(t_, 2);
 	}
 
-	// word_t croc_hfield(CrocThread* t_, word_t container, const char* name)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+	word_t croc_hfield(CrocThread* t, word_t container, const char* name)
+	{
+		container = croc_absIndex(t, container);
+		croc_pushString(t, name);
+		return croc_hfieldStk(t, container);
+	}
 
-	// word_t croc_hfieldStk(CrocThread* t_, word_t container)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+	word_t croc_hfieldStk(CrocThread* t_, word_t container)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
+		API_CHECK_PARAM(name, -1, String, "hidden field name");
 
-	// void croc_hfielda(CrocThread* t_, word_t container, const char* name)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+		auto obj = t->stack[fakeToAbs(t, container)];
 
-	// void croc_hfieldaStk(CrocThread* t_, word_t container)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+		switch(obj.type)
+		{
+			case CrocType_Class: {
+				auto c = obj.mClass;
+				auto v = c->getHiddenField(name);
 
-	// word_t croc_pushLen(CrocThread* t_, word_t slot)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+				if(v == nullptr)
+					assert(false); // TODO:ex
+					// throwStdException(t, "FieldError", "Attempting to access nonexistent hidden field '{}' from class '{}'", name.toString(), c.name.toString());
 
-	// crocint_t croc_len(CrocThread* t_, word_t slot)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+				t->stack[t->stackIndex - 1] = v->value;
+				break;
+			}
+			case CrocType_Instance: {
+				auto i = obj.mInstance;
+				auto v = i->getHiddenField(name);
 
-	// void croc_lena(CrocThread* t_, word_t slot)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+				if(v == nullptr)
+					assert(false); // TODO:ex
+					// throwStdException(t, "FieldError", "Attempting to access nonexistent hidden field '{}' from instance of class '{}'", name.toString(), i.parent.name.toString());
 
-	// void croc_lenai(CrocThread* t_, word_t slot, crocint_t length)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+				t->stack[t->stackIndex - 1] = v->value;
+				break;
+			}
+			default:
+				API_PARAM_TYPE_ERROR(container, "container", "class|instance");
+		}
+
+		return croc_getStackSize(t_) - 1;
+	}
+
+	void croc_hfielda(CrocThread* t_, word_t container, const char* name)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
+		container = croc_absIndex(t_, container);
+		croc_pushString(t_, name);
+		croc_swapTop(t_);
+		croc_hfieldaStk(t_, container);
+	}
+
+	void croc_hfieldaStk(CrocThread* t_, word_t container)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(2);
+		API_CHECK_PARAM(name, -2, String, "hidden field name");
+
+		auto obj = t->stack[fakeToAbs(t, container)];
+		auto value = t->stack[t->stackIndex - 1];
+
+		switch(obj.type)
+		{
+			case CrocType_Class: {
+				auto c = obj.mClass;
+
+				if(auto slot = c->getHiddenField(name))
+					c->setMember(t->vm->mem, slot, value);
+				else
+					assert(false); // TODO:ex
+					// throwStdException(t, "FieldError", "Attempting to assign to nonexistent hidden field '{}' in class '{}'", name.toString(), c.name.toString());
+				break;
+			}
+			case CrocType_Instance: {
+				auto i = obj.mInstance;
+
+				if(auto slot = i->getHiddenField(name))
+					i->setField(t->vm->mem, slot, value);
+				else
+					assert(false); // TODO:ex
+					// throwStdException(t, "FieldError", "Attempting to assign to nonexistent hidden field '{}' in instance of class '{}'", name.toString(), i.parent.name.toString());
+				break;
+			}
+			default:
+				API_PARAM_TYPE_ERROR(container, "container", "class|instance");
+		}
+
+		croc_pop(t_, 2);
+	}
+
+	word_t croc_pushLen(CrocThread* t_, word_t slot)
+	{
+		auto t = Thread::from(t_);
+		auto o = *getValue(t, slot);
+		croc_pushNull(t_);
+		lenImpl(t, t->stackIndex - 1, o);
+		return croc_getStackSize(t_) - 1;
+	}
+
+	crocint_t croc_len(CrocThread* t_, word_t slot)
+	{
+		auto t = Thread::from(t_);
+
+		croc_pushLen(t_, slot);
+		auto len = t->stack[t->stackIndex - 1];
+
+		if(len.type != CrocType_Int)
+		{
+			assert(false); // TODO:ex
+			// pushTypeString(t, -1);
+			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected length to be an int, but got '{}' instead", getString(t, -1));
+		}
+
+		auto ret = len.mInt;
+		croc_popTop(t_);
+		return ret;
+	}
+
+	void croc_lena(CrocThread* t_, word_t slot)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
+		lenaImpl(t, *getValue(t, slot), t->stack[t->stackIndex - 1]);
+		croc_popTop(t_);
+	}
+
+	void croc_lenai(CrocThread* t, word_t slot, crocint_t length)
+	{
+		slot = croc_absIndex(t, slot);
+		croc_pushInt(t, length);
+		croc_lena(t, slot);
+	}
 
 	// word_t croc_cat(CrocThread* t_, uword_t num)
 	// {

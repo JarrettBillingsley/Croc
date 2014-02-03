@@ -19,6 +19,8 @@ namespace croc
 	void sliceaImpl(Thread* t, Value container, Value lo, Value hi, Value value);
 	void fieldImpl(Thread* t, AbsStack dest, Value container, String* name, bool raw);
 	void fieldaImpl(Thread* t, AbsStack container, String* name, Value value, bool raw);
+	void lenImpl(Thread* t, AbsStack dest, Value src);
+	void lenaImpl(Thread* t, Value dest, Value len);
 }
 
 #endif
