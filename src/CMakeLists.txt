@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 set(croc_SRC
+	croc/api/vm.cpp
 	croc/base/darray.hpp
 	croc/base/deque.cpp
 	croc/base/deque.hpp
@@ -40,6 +41,7 @@ set(croc_SRC
 )
 
 set(croc_API
+	croc/api.h
 	croc/apifuncs.h
 	croc/apitypes.h
 	croc/apiex.h

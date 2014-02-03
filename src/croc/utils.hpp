@@ -15,6 +15,11 @@ namespace croc
 	{
 		return a < b ? -1 : a > b ? 1 : 0;
 	}
+
+	inline DArray<const char> atoda(const char* str)
+	{
+		return DArray<const char>::n(str, strlen(str));
+	}
 }
 
 #endif

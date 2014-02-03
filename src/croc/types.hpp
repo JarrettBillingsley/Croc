@@ -549,6 +549,10 @@ namespace croc
 
 	struct Thread : public GCObject
 	{
+		static inline Thread* from(CrocThread* t) { return cast(Thread*)t; }
+
+		inline operator CrocThread* () const { return cast(CrocThread*)this; }
+
 		// weak references used in the VM's allThreads list
 		Thread* next;
 		Thread* prev;
@@ -607,11 +611,6 @@ namespace croc
 		typedef Hash<uint64_t, GCObject*> RefTab;
 		typedef Hash<String*, Class*> ExTab;
 
-		VM()
-		{
-			memset(this, 0, sizeof(VM));
-		}
-
 		Memory mem;
 
 		// These are all GC roots -----------
@@ -645,6 +644,13 @@ namespace croc
 		String* finalizerString; // also stored in metaStrings, don't have to scan it as a root
 		Thread* curThread;
 		bool isThrowing;
+
+		inline void disableGC() { this->mem.gcDisabled++; }
+		inline void enableGC()
+		{
+			this->mem.gcDisabled--;
+			assert(this->mem.gcDisabled != cast(size_t)-1);
+		}
 	};
 }
 #endif
