@@ -199,13 +199,13 @@ void   CROCAPI(table_clear) (CrocThread* t, word_t tab);
 // =====================================================================================================================
 // Namespace
 
-word_t      CROCAPI(namespace_new)          (CrocThread* t, const char* name);
-word_t      CROCAPI(namespace_newParent)    (CrocThread* t, word_t parent, const char* name);
-word_t      CROCAPI(namespace_newNoParent)  (CrocThread* t, const char* name);
-void        CROCAPI(namespace_clear)        (CrocThread* t, word_t ns);
-const char* CROCAPI(namespace_getName)      (CrocThread* t, word_t ns);
-const char* CROCAPI(namespace_getNamen)     (CrocThread* t, word_t ns, uword_t* len);
-word_t      CROCAPI(namespace_pushFullName) (CrocThread* t, word_t ns);
+word_t      CROCAPI(namespace_new)           (CrocThread* t, const char* name);
+word_t      CROCAPI(namespace_newWithParent) (CrocThread* t, word_t parent, const char* name);
+word_t      CROCAPI(namespace_newNoParent)   (CrocThread* t, const char* name);
+void        CROCAPI(namespace_clear)         (CrocThread* t, word_t ns);
+const char* CROCAPI(namespace_getName)       (CrocThread* t, word_t ns);
+const char* CROCAPI(namespace_getNamen)      (CrocThread* t, word_t ns, uword_t* len);
+word_t      CROCAPI(namespace_pushFullName)  (CrocThread* t, word_t ns);
 
 // =====================================================================================================================
 // Array

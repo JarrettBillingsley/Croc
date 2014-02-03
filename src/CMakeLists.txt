@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 set(croc_SRC
 	croc/api/gc.cpp
+	croc/api/namespace.cpp
 	croc/api/stack.cpp
 	croc/api/table.cpp
 	croc/api/typequeries.cpp
