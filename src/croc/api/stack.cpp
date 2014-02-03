@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "croc/api.h"
+#include "croc/internal/apichecks.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
 
@@ -74,8 +75,8 @@ extern "C"
 
 	void croc_insert(CrocThread* t_, word_t slot)
 	{
-		// mixin(apiCheckNumParams!("1")); TODO:api
 		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
 		auto s = fakeToAbs(t, slot);
 
 		if(s == t->stackBase)
@@ -92,8 +93,8 @@ extern "C"
 
 	void croc_insertAndPop(CrocThread* t_, word_t slot)
 	{
-		// mixin(apiCheckNumParams!("1")); TODO:api
 		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
 		auto s = fakeToAbs(t, slot);
 
 		if(s == t->stackBase)
@@ -109,8 +110,8 @@ extern "C"
 
 	void croc_moveToTop(CrocThread* t_, word_t slot)
 	{
-		// mixin(apiCheckNumParams!("1")); TODO:api
 		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
 		auto s = fakeToAbs(t, slot);
 
 		if(s == t->stackBase)
@@ -208,22 +209,22 @@ extern "C"
 
 	void croc_transferVals(CrocThread* src_, CrocThread* dest_, uword_t num)
 	{
-		auto src = Thread::from(src_);
+		auto t = Thread::from(src_);
 		auto dest = Thread::from(dest_);
 
-		if(src->vm != dest->vm)
+		if(t->vm != dest->vm)
 			assert(false); // TODO:ex
-			// throwStdException(src, "ApiError", "transferVals - Source and destination threads belong to different VMs");
+			// throwStdException(t, "ApiError", "transferVals - Source and destination threads belong to different VMs");
 
-		if(num == 0 || dest == src)
+		if(num == 0 || dest == t)
 			return;
 
-		// mixin(apiCheckNumParams!("num", "src")); TODO:api
+		API_CHECK_NUM_PARAMS(num);
 		checkStack(dest, dest->stackIndex + num);
 
-		dest->stack.slicea(dest->stackIndex, dest->stackIndex + num, src->stack.slice(src->stackIndex - num, src->stackIndex));
+		dest->stack.slicea(dest->stackIndex, dest->stackIndex + num, t->stack.slice(t->stackIndex - num, t->stackIndex));
 		dest->stackIndex += num;
-		src->stackIndex -= num;
+		t->stackIndex -= num;
 	}
 } // extern "C"
 }

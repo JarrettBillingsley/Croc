@@ -22,6 +22,7 @@ set(croc_SRC
 	croc/base/sanity.hpp
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
+	croc/internal/apichecks.hpp
 	croc/internal/stack.cpp
 	croc/internal/stack.hpp
 	croc/types/array.cpp
