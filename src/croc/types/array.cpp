@@ -194,7 +194,7 @@ namespace croc
 	}
 
 	// Returns `true` if one of the values in the array is identical to ('is') the given value.
-	bool Array::contains(Value& v)
+	bool Array::contains(Value v)
 	{
 		for(auto &slot: this->toDArray())
 			if(slot.value == v)
@@ -214,19 +214,19 @@ namespace croc
 	}
 
 	// Returns a new array that is the concatenation of the source array and value.
-	Array* Array::cat(Memory& mem, Value* v)
+	Array* Array::cat(Memory& mem, Value v)
 	{
 		Array* ret = Array::create(mem, this->length + 1);
 		ret->data.slicea(0, ret->length - 1, this->toDArray());
-		ret->data[ret->length - 1].value = *v;
+		ret->data[ret->length - 1].value = v;
 		ADDREFS(ret->toDArray());
 		return ret;
 	}
 
 	// Append the value v to the end of array a.
-	void Array::append(Memory& mem, Value* v)
+	void Array::append(Memory& mem, Value v)
 	{
 		this->resize(mem, this->length + 1);
-		this->idxa(mem, this->length - 1, *v);
+		this->idxa(mem, this->length - 1, v);
 	}
 }

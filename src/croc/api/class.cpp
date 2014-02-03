@@ -26,8 +26,8 @@ namespace croc
 			}
 
 			auto okay = isMethod ?
-				c->addMethod(t->vm->mem, name, getValue(t, -1), isOverride) :
-				c->addField (t->vm->mem, name, getValue(t, -1), isOverride);
+				c->addMethod(t->vm->mem, name, *getValue(t, -1), isOverride) :
+				c->addField (t->vm->mem, name, *getValue(t, -1), isOverride);
 
 			if(!okay)
 			{
@@ -198,7 +198,7 @@ extern "C"
 			assert(false); // TODO:ex
 			// throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to add a hidden field to class '{}' which is frozen", c.name.toString());
 
-		if(!c->addHiddenField(t->vm->mem, name, getValue(t, -1)))
+		if(!c->addHiddenField(t->vm->mem, name, *getValue(t, -1)))
 			assert(false); // TODO:ex
 			// throwStdException(t, "FieldError", __FUNCTION__ ~ " - Attempting to add a hidden field '{}' which already exists to class '{}'", name.toString(), c.name.toString());
 

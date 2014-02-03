@@ -226,7 +226,7 @@ namespace croc
 		}
 
 		// Returns `true` if the key exists in the table.
-		inline bool contains(Value& key)
+		inline bool contains(Value key)
 		{
 			return this->data.lookup(key) != nullptr;
 		}
@@ -245,7 +245,7 @@ namespace croc
 		static Table* create(Memory& mem, uword size = 0);
 		static void free(Memory& mem, Table* t);
 		Table* dup(Memory& mem);
-		void idxa(Memory& mem, const Value& key, const Value& val);
+		void idxa(Memory& mem, Value key, Value val);
 		void clear(Memory& mem);
 	};
 
@@ -285,8 +285,8 @@ namespace croc
 		static Namespace* createPartial(Memory& mem);
 		static void finishCreate(Namespace* ns, String* name, Namespace* parent);
 		static void free(Memory& mem, Namespace* ns);
-		void set(Memory& mem, String* key, Value* value);
-		bool setIfExists(Memory& mem, String* key, Value* value);
+		void set(Memory& mem, String* key, Value value);
+		bool setIfExists(Memory& mem, String* key, Value value);
 		void remove(Memory& mem, String* key);
 		void clear(Memory& mem);
 	};
@@ -318,10 +318,10 @@ namespace croc
 		void setBlock(Memory& alloc, uword block, DArray<Value> data);
 		void fill(Memory& alloc, Value val);
 		void idxa(Memory& alloc, uword idx, Value val);
-		bool contains(Value& v);
+		bool contains(Value v);
 		Array* cat(Memory& alloc, Array* other);
-		Array* cat(Memory& alloc, Value* v);
-		void append(Memory& alloc, Value* v);
+		Array* cat(Memory& alloc, Value v);
+		void append(Memory& alloc, Value v);
 	};
 
 	struct Memblock : public GCObject
@@ -377,7 +377,7 @@ namespace croc
 		static Function* createPartial(Memory& mem, uword numUpvals);
 		static void finishCreate(Memory& mem, Function* f, Namespace* env, Funcdef* def);
 		static Function* create(Memory& mem, Namespace* env, String* name, uword numParams, CrocNativeFunc func, uword numUpvals);
-		void setNativeUpval(Memory& mem, uword idx, Value* val);
+		void setNativeUpval(Memory& mem, uword idx, Value val);
 		void setEnvironment(Memory& mem, Namespace* ns);
 		bool isVararg();
 	};
@@ -456,10 +456,10 @@ namespace croc
 		Class::HashType::NodeType* getField(String* name);
 		Class::HashType::NodeType* getMethod(String* name);
 		Class::HashType::NodeType* getHiddenField(String* name);
-		void setMember(Memory& mem, Class::HashType::NodeType* slot, Value* value);
-		bool addField(Memory& mem, String* name, Value* value, bool isOverride);
-		bool addMethod(Memory& mem, String* name, Value* value, bool isOverride);
-		bool addHiddenField(Memory& mem, String* name, Value* value);
+		void setMember(Memory& mem, Class::HashType::NodeType* slot, Value value);
+		bool addField(Memory& mem, String* name, Value value, bool isOverride);
+		bool addMethod(Memory& mem, String* name, Value value, bool isOverride);
+		bool addHiddenField(Memory& mem, String* name, Value value);
 		bool removeField(Memory& mem, String* name);
 		bool removeMethod(Memory& mem, String* name);
 		bool removeHiddenField(Memory& mem, String* name);
@@ -517,7 +517,7 @@ namespace croc
 		static Instance* create(Memory& mem, Class* parent);
 		static Instance* createPartial(Memory& mem, uword size, bool finalizable);
 		static bool finishCreate(Instance* i, Class* parent);
-		void setField(Memory& mem, Class::HashType::NodeType* slot, Value* value);
+		void setField(Memory& mem, Class::HashType::NodeType* slot, Value value);
 	};
 
 	typedef uword AbsStack;

@@ -33,7 +33,7 @@ namespace croc
 
 		for(auto node: parent->fields)
 		{
-			if(!c->addField(mem, node->key, &node->value, false))
+			if(!c->addField(mem, node->key, node->value, false))
 			{
 				which = "field";
 				return node;
@@ -42,7 +42,7 @@ namespace croc
 
 		for(auto node: parent->methods)
 		{
-			if(!c->addMethod(mem, node->key, &node->value, false))
+			if(!c->addMethod(mem, node->key, node->value, false))
 			{
 				which = "method";
 				return node;
@@ -51,7 +51,7 @@ namespace croc
 
 		for(auto node: parent->hiddenFields)
 		{
-			if(!c->addHiddenField(mem, node->key, &node->value))
+			if(!c->addHiddenField(mem, node->key, node->value))
 			{
 				which = "hidden field";
 				return node;
@@ -83,14 +83,14 @@ namespace croc
 		return this->memberName.lookupNode(name);\
 	}
 
-	void Class::setMember(Memory& mem, Class::HashType::NodeType* slot, Value* value)
+	void Class::setMember(Memory& mem, Class::HashType::NodeType* slot, Value value)
 	{
-		if(slot->value != *value)
+		if(slot->value != value)
 		{
 			REMOVEVALUEREF(mem, slot);
-			slot->value = *value;
+			slot->value = value;
 
-			if(value->isGCObject())
+			if(value.isGCObject())
 			{
 				CONTAINER_WRITE_BARRIER(mem, this);
 				SET_VAL_MODIFIED(slot);
@@ -103,15 +103,15 @@ namespace croc
 #define COMMON_ADD_MEMBER(memberName)\
 		CONTAINER_WRITE_BARRIER(mem, this);\
 		auto slot = this->memberName.insertNode(mem, name);\
-		slot->value = *value;\
-		if(value->isGCObject())\
+		slot->value = value;\
+		if(value.isGCObject())\
 			SET_BOTH_MODIFIED(slot);\
 		else\
 			SET_KEY_MODIFIED(slot);\
 \
 		return true;
 
-	bool Class::addHiddenField(Memory& mem, String* name, Value* value)
+	bool Class::addHiddenField(Memory& mem, String* name, Value value)
 	{
 		assert(!this->isFrozen);
 
@@ -122,7 +122,7 @@ namespace croc
 	}
 
 #define MAKE_ADD_MEMBER(funcName, memberName, wantedSlot, otherSlot)\
-	bool Class::funcName(Memory& mem, String* name, Value* value, bool isOverride)\
+	bool Class::funcName(Memory& mem, String* name, Value value, bool isOverride)\
 	{\
 		assert(!this->isFrozen);\
 \

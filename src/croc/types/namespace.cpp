@@ -54,34 +54,34 @@ namespace croc
 	}
 
 	// Sets a key-value pair.
-	void Namespace::set(Memory& mem, String* key, Value* value)
+	void Namespace::set(Memory& mem, String* key, Value value)
 	{
 		if(this->setIfExists(mem, key, value))
 			return;
 
 		CONTAINER_WRITE_BARRIER(mem, this);
 		auto node = this->data.insertNode(mem, key);
-		node->value = *value;
+		node->value = value;
 
-		if(value->isGCObject())
+		if(value.isGCObject())
 			SET_BOTH_MODIFIED(node);
 		else
 			SET_KEY_MODIFIED(node);
 	}
 
-	bool Namespace::setIfExists(Memory& mem, String* key, Value* value)
+	bool Namespace::setIfExists(Memory& mem, String* key, Value value)
 	{
 		auto node = this->data.lookupNode(key);
 
 		if(node == nullptr)
 			return false;
 
-		if(node->value != *value)
+		if(node->value != value)
 		{
 			REMOVEVALUEREF(mem, node);
-			node->value = *value;
+			node->value = value;
 
-			if(value->isGCObject())
+			if(value.isGCObject())
 			{
 				CONTAINER_WRITE_BARRIER(mem, this);
 				SET_VAL_MODIFIED(node);

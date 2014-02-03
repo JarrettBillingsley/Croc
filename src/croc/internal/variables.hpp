@@ -5,9 +5,9 @@
 
 namespace croc
 {
-	Value* getGlobalImpl(Thread* t, String* name, Namespace* env);
-	void setGlobalImpl(Thread* t, String* name, Namespace* env, Value* val);
-	void newGlobalImpl(Thread* t, String* name, Namespace* env, Value* val);
+	Value getGlobalImpl(Thread* t, String* name, Namespace* env);
+	void setGlobalImpl(Thread* t, String* name, Namespace* env, Value val);
+	void newGlobalImpl(Thread* t, String* name, Namespace* env, Value val);
 }
 
 #endif

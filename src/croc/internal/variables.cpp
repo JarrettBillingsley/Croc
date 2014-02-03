@@ -4,15 +4,15 @@
 
 namespace croc
 {
-	Value* getGlobalImpl(Thread* t, String* name, Namespace* env)
+	Value getGlobalImpl(Thread* t, String* name, Namespace* env)
 	{
 		if(auto glob = env->get(name))
-			return glob;
+			return *glob;
 
 		if(env->root)
 		{
 			if(auto glob = env->root->get(name))
-				return glob;
+				return *glob;
 		}
 
 		// TODO:ex
@@ -21,7 +21,7 @@ namespace croc
 		assert(false);
 	}
 
-	void setGlobalImpl(Thread* t, String* name, Namespace* env, Value* val)
+	void setGlobalImpl(Thread* t, String* name, Namespace* env, Value val)
 	{
 		if(env->setIfExists(t->vm->mem, name, val))
 			return;
@@ -34,7 +34,7 @@ namespace croc
 		assert(false);
 	}
 
-	void newGlobalImpl(Thread* t, String* name, Namespace* env, Value* val)
+	void newGlobalImpl(Thread* t, String* name, Namespace* env, Value val)
 	{
 		if(env->contains(name))
 			assert(false); // TODO:ex

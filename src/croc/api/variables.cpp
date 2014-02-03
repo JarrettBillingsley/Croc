@@ -32,7 +32,7 @@ extern "C"
 			assert(false); // TODO:ex
 			// throwStdException(t, "BoundsError", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, t->currentAR.func.nativeUpvals().length);
 
-		func->setNativeUpval(t->vm->mem, idx, getValue(t, -1));
+		func->setNativeUpval(t->vm->mem, idx, *getValue(t, -1));
 		croc_popTop(t_);
 	}
 
@@ -71,7 +71,7 @@ extern "C"
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(2);
 		API_CHECK_PARAM(name, -2, String, "global name");
-		newGlobalImpl(t, name, getEnv(t), &t->stack[t->stackIndex - 1]);
+		newGlobalImpl(t, name, getEnv(t), t->stack[t->stackIndex - 1]);
 		croc_pop(t_, 2);
 	}
 
@@ -86,7 +86,7 @@ extern "C"
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(1);
 		API_CHECK_PARAM(name, -1, String, "global name");
-		t->stack[t->stackIndex - 1] = *getGlobalImpl(t, name, getEnv(t));
+		t->stack[t->stackIndex - 1] = getGlobalImpl(t, name, getEnv(t));
 		return croc_getStackSize(t_) - 1;
 	}
 
@@ -104,7 +104,7 @@ extern "C"
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(2);
 		API_CHECK_PARAM(name, -2, String, "global name");
-		setGlobalImpl(t, name, getEnv(t), &t->stack[t->stackIndex - 1]);
+		setGlobalImpl(t, name, getEnv(t), t->stack[t->stackIndex - 1]);
 		croc_pop(t_, 2);
 	}
 }

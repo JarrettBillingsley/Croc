@@ -101,14 +101,14 @@ namespace croc
 		return true;
 	}
 
-	void Instance::setField(Memory& mem, Class::HashType::NodeType* slot, Value* value)
+	void Instance::setField(Memory& mem, Class::HashType::NodeType* slot, Value value)
 	{
-		if(slot->value != *value)
+		if(slot->value != value)
 		{
 			REMOVEVALUEREF(mem, slot);
-			slot->value = *value;
+			slot->value = value;
 
-			if(value->isGCObject())
+			if(value.isGCObject())
 			{
 				CONTAINER_WRITE_BARRIER(mem, this);
 				SET_VAL_MODIFIED(slot);

@@ -80,16 +80,16 @@ namespace croc
 		return f;
 	}
 
-	void Function::setNativeUpval(Memory& mem, uword idx, Value* val)
+	void Function::setNativeUpval(Memory& mem, uword idx, Value val)
 	{
 		auto slot = &this->nativeUpvals()[idx];
 
-		if(*slot != *val)
+		if(*slot != val)
 		{
-			if(slot->isGCObject() || val->isGCObject())
+			if(slot->isGCObject() || val.isGCObject())
 				WRITE_BARRIER(mem, this);
 
-			*slot = *val;
+			*slot = val;
 		}
 	}
 

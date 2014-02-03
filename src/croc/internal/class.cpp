@@ -4,13 +4,13 @@
 
 namespace croc
 {
-	Value superOfImpl(Thread* t, Value* v)
+	Value superOfImpl(Thread* t, Value v)
 	{
-		if(v->type == CrocType_Instance)
-			return Value::from(v->mInstance->parent);
-		else if(v->type == CrocType_Namespace)
+		if(v.type == CrocType_Instance)
+			return Value::from(v.mInstance->parent);
+		else if(v.type == CrocType_Namespace)
 		{
-			if(auto p = v->mNamespace->parent)
+			if(auto p = v.mNamespace->parent)
 				return Value::from(p);
 			else
 				return Value::nullValue;
