@@ -1,4 +1,6 @@
 
+#include <functional>
+
 #include "croc/types.hpp"
 #include "croc/utf.hpp"
 #include "croc/utils.hpp"
@@ -7,33 +9,45 @@
 
 namespace croc
 {
-	String* String::lookup(VM* vm, crocstr data, uword& h)
+	namespace
 	{
-		// We don't have to verify the string if it already exists in the string table,
-		// because if it does, it means it's a legal string.
-		// Neither hashing nor lookup require the string to be valid UTF-8.
-		h = data.toHash();
+		String* createInternal(VM* vm, crocstr data, std::function<uword()> getCPLen)
+		{
+			auto h = data.toHash();
 
-		auto s = vm->stringTab.lookup(data, h);
+			if(auto s = vm->stringTab.lookup(data, h))
+				return *s;
 
-		if(s)
-			return *s;
-
-		return nullptr;
+			auto cpLen = getCPLen();
+			auto ret = ALLOC_OBJSZ_ACYC(vm->mem, String, STRING_EXTRA_SIZE(data.length));
+			ret->type = CrocType_String;
+			ret->hash = h;
+			ret->length = data.length;
+			ret->cpLength = cpLen;
+			ret->setData(data);
+			*vm->stringTab.insert(vm->mem, ret->toDArray()) = ret;
+			return ret;
+		}
 	}
 
 	// Create a new string object. String objects with the same data are reused. Thus,
 	// if two string objects are identical, they are also equal.
-	String* String::create(VM* vm, crocstr data, uword h, uword cpLen)
+	String* String::create(VM* vm, crocstr data)
 	{
-		auto ret = ALLOC_OBJSZ_ACYC(vm->mem, String, STRING_EXTRA_SIZE(data.length));
-		ret->type = CrocType_String;
-		ret->hash = h;
-		ret->length = data.length;
-		ret->cpLength = cpLen;
-		ret->setData(data);
-		*vm->stringTab.insert(vm->mem, ret->toDArray()) = ret;
-		return ret;
+		return createInternal(vm, data, [&data]()
+		{
+			uword cpLen;
+
+			if(verifyUtf8(data, cpLen) != UtfError_OK)
+				assert(false); // TODO: throw exception
+
+			return cpLen;
+		});
+	}
+
+	String* String::createUnverified(VM* vm, crocstr data, uword cpLen)
+	{
+		return createInternal(vm, data, [&cpLen]() { return cpLen; });
 	}
 
 	// Free a string object.
@@ -65,13 +79,6 @@ namespace croc
 	// And these indices better be good.
 	String* String::slice(VM* vm, uword lo, uword hi)
 	{
-		auto str = utf8Slice(this->toDArray(), lo, hi);
-		uword h;
-
-		if(auto s = lookup(vm, str, h))
-			return s;
-
-		// don't have to verify since we're slicing from a string we know is good
-		return create(vm, str, h, hi - lo);
+		return createUnverified(vm, utf8Slice(this->toDArray(), lo, hi), hi - lo);
 	}
 }

@@ -8,21 +8,6 @@ namespace croc
 {
 	namespace
 	{
-		String* createString(Thread* t, DArray<const char> data)
-		{
-			uword h;
-
-			if(auto s = String::lookup(t->vm, data, h))
-				return s;
-
-			uword cpLen;
-
-			if(verifyUtf8(data, cpLen) != UtfError_OK)
-				assert(false); // TODO: throw exception
-
-			return String::create(t->vm, data, h, cpLen);
-		}
-
 		const size_t FinalizeLoopLimit = 1000;
 
 		void freeAll(VM* vm)
@@ -96,16 +81,16 @@ extern "C"
 		vm->metaStrings = DArray<String*>::alloc(vm->mem, MM_NUMMETAMETHODS + 2);
 
 		for(uword i = 0; i < MM_NUMMETAMETHODS; i++)
-			vm->metaStrings[i] = createString(t, atoda(MetaNames[i]));
+			vm->metaStrings[i] = String::create(vm, atoda(MetaNames[i]));
 
-		vm->ctorString = createString(t, atoda("constructor"));
-		vm->finalizerString = createString(t, atoda("finalizer"));
+		vm->ctorString = String::create(vm, atoda("constructor"));
+		vm->finalizerString = String::create(vm, atoda("finalizer"));
 		vm->metaStrings[vm->metaStrings.length - 2] = vm->ctorString;
 		vm->metaStrings[vm->metaStrings.length - 1] = vm->finalizerString;
 
 		vm->curThread = vm->mainThread;
-		vm->globals = Namespace::create(vm->mem, createString(t, atoda("")));
-		vm->registry = Namespace::create(vm->mem, createString(t, atoda("<registry>")));
+		vm->globals = Namespace::create(vm->mem, String::create(vm, atoda("")));
+		vm->registry = Namespace::create(vm->mem, String::create(vm, atoda("<registry>")));
 
 		// _G = _G._G = _G._G._G = _G._G._G._G = ...
 		// push(t, CrocValue(vm->globals));

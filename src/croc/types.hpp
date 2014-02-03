@@ -188,8 +188,8 @@ namespace croc
 			return utf8CharAt(this->toDArray(), idx);
 		}
 
-		static String* lookup(VM* vm, crocstr data, uword& h);
-		static String* create(VM* vm, crocstr data, uword h, uword cpLen);
+		static String* create(VM* vm, crocstr data);
+		static String* createUnverified(VM* vm, crocstr data, uword cpLen);
 		static void free(VM* vm, String* s);
 		crocint compare(String* other);
 		bool contains(crocstr sub);
