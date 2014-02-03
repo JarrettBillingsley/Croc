@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 set(croc_SRC
 	croc/api/array.cpp
+	croc/api/class.cpp
 	croc/api/funcdef.cpp
 	croc/api/function.cpp
 	croc/api/gc.cpp
@@ -38,6 +39,8 @@ set(croc_SRC
 	croc/internal/apichecks.hpp
 	croc/internal/calls.cpp
 	croc/internal/calls.hpp
+	croc/internal/class.cpp
+	croc/internal/class.hpp
 	croc/internal/stack.cpp
 	croc/internal/stack.hpp
 	croc/internal/variables.cpp

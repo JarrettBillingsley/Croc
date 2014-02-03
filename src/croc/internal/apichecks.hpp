@@ -23,6 +23,7 @@
 		assert(false);\
 	} while(false)
 	// TODO:ex
+	// TODO: make expected and paramname format params, so they can be more complex than strings
 	// croc_pushTypeString(*t, (idx));
 	// croc_eh_throwStd(*t, "TypeError",
 	// 	__FUNCTION__ " - Expected type '" expected "' for " paramName ", not '{}'", croc_getString(*t, -1));
