@@ -325,6 +325,39 @@ void      CROCAPI(lenai)           (CrocThread* t, word_t slot, crocint_t length
 word_t    CROCAPI(cat)             (CrocThread* t, uword_t num);
 void      CROCAPI(cateq)           (CrocThread* t, word_t dest, uword_t num);
 
+// =====================================================================================================================
+// Compiler interface
+
+void               CROCAPI(compiler_setFlags)      (CrocThread* t, uword_t flags);
+uword_t            CROCAPI(compiler_getFlags)      (CrocThread* t);
+CrocCompilerReturn CROCAPI(compiler_compileModule) (CrocThread* t, const char* name, const char** modName);
+CrocCompilerReturn CROCAPI(compiler_compileStmts)  (CrocThread* t, const char* name);
+CrocCompilerReturn CROCAPI(compiler_compileExpr)   (CrocThread* t, const char* name);
+
+#define croc_compiler_compileModuleEx(t, name, modName)\
+	do {\
+		CrocThread* _compilerThread_ = (t);\
+		CrocCompilerReturn _compilerReturn_ = croc_compiler_compileModule(_compilerThread_, (name), (modName));\
+		if(_compilerReturn_ != CrocCompilerReturn_OK)\
+			croc_eh_throw(_compilerThread_);\
+	} while(0)
+
+#define croc_compiler_compileStmtsEx(t, name)\
+	do {\
+		CrocThread* _compilerThread_ = (t);\
+		CrocCompilerReturn _compilerReturn_ = croc_compiler_compileStmts(_compilerThread_, (name));\
+		if(_compilerReturn_ != CrocCompilerReturn_OK)\
+			croc_eh_throw(_compilerThread_);\
+	} while(0)
+
+#define croc_compiler_compileExprEx(t, name)\
+	do {\
+		CrocThread* _compilerThread_ = (t);\
+		CrocCompilerReturn _compilerReturn_ = croc_compiler_compileExpr(_compilerThread_, (name));\
+		if(_compilerReturn_ != CrocCompilerReturn_OK)\
+			croc_eh_throw(_compilerThread_);\
+	} while(0)
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

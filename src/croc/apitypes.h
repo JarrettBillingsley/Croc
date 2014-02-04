@@ -177,6 +177,27 @@ typedef enum CrocAddons
 	CrocAddons_All = CrocAddons_Safe | CrocAddons_Unsafe
 } CrocAddons;
 
+typedef enum CrocCompilerFlags
+{
+	CrocCompilerFlags_None = 0,
+	CrocCompilerFlags_TypeConstraints = 1,
+	CrocCompilerFlags_Asserts = 2,
+	CrocCompilerFlags_Debug = 4,
+	CrocCompilerFlags_DocTable = 8,
+	CrocCompilerFlags_DocDecorators = 16,
+	CrocCompilerFlags_All = CrocCompilerFlags_TypeConstraints | CrocCompilerFlags_Asserts | CrocCompilerFlags_Debug,
+	CrocCompilerFlags_AllDocs = CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators
+} CrocCompilerFlags;
+
+typedef enum CrocCompilerReturn
+{
+	CrocCompilerReturn_OK = 0,
+	CrocCompilerReturn_UnexpectedEOF,
+	CrocCompilerReturn_LoneStatement,
+	CrocCompilerReturn_DanglingDoc,
+	CrocCompilerReturn_Error,
+} CrocCompilerReturn;
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
