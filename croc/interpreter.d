@@ -2083,14 +2083,14 @@ void continueTraceback(CrocThread* t, CrocValue ex)
 
 void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 {
+	if(ex.type != CrocValue.Type.Instance)
+	{
+		typeString(t, &ex);
+		throwStdException(t, "TypeError", "Only instances can be thrown, not '{}'", getString(t, -1));
+	}
+
 	if(!rethrowing)
 	{
-		if(ex.type != CrocValue.Type.Instance)
-		{
-			typeString(t, &ex);
-			throwStdException(t, "TypeError", "Only instances can be thrown, not '{}'", getString(t, -1));
-		}
-
 		push(t, CrocValue(ex));
 		field(t, -1, "location");
 		field(t, -1, "col");
