@@ -66,7 +66,7 @@ extern "C"
 
 		if(v->type != CrocType_Bool)
 		{
-			// croc_pushTypeString(t_, slot); TODO:api
+			croc_pushTypeString(t_, slot);
 			assert(false); // TODO:ex
 			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'bool' but got '{}'", getString(t, -1));
 		}
@@ -81,7 +81,7 @@ extern "C"
 
 		if(v->type != CrocType_Int)
 		{
-			// croc_pushTypeString(t_, slot); TODO:api
+			croc_pushTypeString(t_, slot);
 			assert(false); // TODO:ex
 			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'int' but got '{}'", getString(t, -1));
 		}
@@ -96,7 +96,7 @@ extern "C"
 
 		if(v->type != CrocType_Float)
 		{
-			// croc_pushTypeString(t_, slot); TODO:api
+			croc_pushTypeString(t_, slot);
 			assert(false); // TODO:ex
 			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'float' but got '{}'", getString(t, -1));
 		}
@@ -115,7 +115,7 @@ extern "C"
 			return v->mFloat;
 		else
 		{
-			// croc_pushTypeString(t_, slot); TODO:api
+			croc_pushTypeString(t_, slot);
 			assert(false); // TODO:ex
 			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'int' or 'float' but got '{}'", getString(t, -1));
 		}
@@ -128,7 +128,7 @@ extern "C"
 
 		if(v->type != CrocType_String)
 		{
-			// croc_pushTypeString(t_, slot); TODO:api
+			croc_pushTypeString(t_, slot);
 			assert(false); // TODO:ex
 			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
 		}
@@ -150,7 +150,7 @@ extern "C"
 
 		if(v->type != CrocType_String)
 		{
-			// croc_pushTypeString(t_, slot); TODO:api
+			croc_pushTypeString(t_, slot);
 			assert(false); // TODO:ex
 			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
 		}
@@ -165,7 +165,7 @@ extern "C"
 
 		if(v->type != CrocType_String)
 		{
-			// croc_pushTypeString(t_, slot); TODO:api
+			croc_pushTypeString(t_, slot);
 			assert(false); // TODO:ex
 			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
 		}
@@ -182,7 +182,7 @@ extern "C"
 
 		if(v->type != CrocType_Nativeobj)
 		{
-			// croc_pushTypeString(t_, slot); TODO:api
+			croc_pushTypeString(t_, slot);
 			assert(false); // TODO:ex
 			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'nativeobj' but got '{}'", getString(t, -1));
 		}
@@ -197,7 +197,7 @@ extern "C"
 
 		if(v->type != CrocType_Thread)
 		{
-			// croc_pushTypeString(t_, slot); TODO:api
+			croc_pushTypeString(t_, slot);
 			assert(false); // TODO:ex
 			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'thread' but got '{}'", getString(t, -1));
 		}

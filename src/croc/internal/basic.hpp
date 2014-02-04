@@ -8,6 +8,8 @@ namespace croc
 	bool validIndices(crocint lo, crocint hi, uword len);
 	bool correctIndices(crocint& loIndex, crocint& hiIndex, Value lo, Value hi, uword len);
 	word toStringImpl(Thread* t, Value v, bool raw);
+	word pushFullNamespaceName(Thread* t, Namespace* ns);
+	word pushTypeStringImpl(Thread* t, Value v);
 	bool inImpl(Thread* t, Value item, Value container);
 	crocint cmpImpl(Thread* t, Value a, Value b);
 	bool equalsImpl(Thread* t, Value a, Value b);

@@ -1,4 +1,6 @@
 
+#include <functional>
+
 #include "croc/api.h"
 #include "croc/internal/basic.hpp"
 #include "croc/internal/stack.hpp"
@@ -126,15 +128,14 @@ namespace croc
 				if(raw)
 					goto _default;
 
-				assert(false); // TODO:api
-				// pushString(t, typeToString(CrocType_Namespace));
-				// pushString(t, " ");
-				// pushNamespaceNamestring(t, v.mNamespace);
+				croc_pushString(*t, typeToString(CrocType_Namespace));
+				croc_pushString(*t, " ");
+				pushFullNamespaceName(t, v.mNamespace);
 
-				// auto slot = t.stackIndex - 3;
-				// catImpl(t, slot, slot, 3);
-				// pop(t, 2);
-				// return slot - t.stackBase;
+				auto slot = t->stackIndex - 3;
+				catImpl(t, slot, slot, 3);
+				croc_pop(*t, 2);
+				return slot - t->stackBase;
 			}
 			case CrocType_Funcdef: {
 				auto d = v.mFuncdef;
@@ -148,6 +149,81 @@ namespace croc
 			_default: {
 				return PUSHFMT("%s 0x%p", typeToString(v.type), cast(void*)v.mGCObj);
 			}
+		}
+	}
+
+	word pushFullNamespaceName(Thread* t, Namespace* ns)
+	{
+		std::function<uword(Namespace*)> namespaceName = [&t, &namespaceName](Namespace* ns) -> uword
+		{
+			if(ns->name->cpLength == 0)
+				return 0;
+
+			uword n = 0;
+
+			if(ns->parent)
+			{
+				auto ret = namespaceName(ns->parent);
+
+				if(ret > 0)
+				{
+					croc_pushString(*t, ".");
+					n = ret + 1;
+				}
+			}
+
+			push(t, Value::from(ns->name));
+			return n + 1;
+		};
+
+		auto x = namespaceName(ns);
+
+		if(x == 0)
+			return croc_pushString(*t, "");
+		else
+		{
+			auto slot = t->stackIndex - x;
+			catImpl(t, slot, slot, x);
+
+			if(x > 1)
+				croc_pop(*t, x - 1);
+
+			return slot - t->stackBase;
+		}
+	}
+
+	word pushTypeStringImpl(Thread* t, Value v)
+	{
+		char buffer[BUFFERLENGTH];
+
+		switch(v.type)
+		{
+			case CrocType_Null:
+			case CrocType_Bool:
+			case CrocType_Int:
+			case CrocType_Float:
+			case CrocType_Nativeobj:
+			case CrocType_String:
+			case CrocType_Weakref:
+			case CrocType_Table:
+			case CrocType_Namespace:
+			case CrocType_Array:
+			case CrocType_Memblock:
+			case CrocType_Function:
+			case CrocType_Funcdef:
+			case CrocType_Thread:
+				return croc_pushString(*t, typeToString(v.type));
+
+			// TODO:api the PUSHFMT calls in following should probably be changed to croc_pushFormat calls when that's implemented.
+			case CrocType_Class: {
+				auto n = v.mClass->name;
+				return PUSHFMT("%s %*s", typeToString(CrocType_Class), n->length, n->toCString());
+			}
+			case CrocType_Instance: {
+				auto n = v.mInstance->parent->name;
+				return PUSHFMT("%s of %*s", typeToString(CrocType_Instance), n->length, n->toCString());
+			}
+			default: assert(false);
 		}
 	}
 

@@ -1,6 +1,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/apichecks.hpp"
+#include "croc/internal/basic.hpp"
 #include "croc/internal/calls.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
@@ -64,10 +65,11 @@ extern "C"
 		return ns->name->toCString();
 	}
 
-	// TODO:api
-	// word_t croc_namespace_pushFullName(CrocThread* t_, word_t ns)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+	word_t croc_namespace_pushFullName(CrocThread* t_, word_t ns_)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_PARAM(ns, ns_, Namespace, "ns");
+		return pushFullNamespaceName(t, ns);
+	}
 }
 }

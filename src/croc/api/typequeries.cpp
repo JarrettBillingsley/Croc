@@ -1,6 +1,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/apichecks.hpp"
+#include "croc/internal/basic.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
 
@@ -30,7 +31,10 @@ extern "C"
 		return v->type == CrocType_String && v->mString->cpLength == 1;
 	}
 
-	// TODO:api
-	// word_t croc_pushTypeString(CrocThread* t, word_t slot)
+	word_t croc_pushTypeString(CrocThread* t_, word_t slot)
+	{
+		auto t = Thread::from(t_);
+		return pushTypeStringImpl(t, *getValue(t, slot));
+	}
 }
 }
