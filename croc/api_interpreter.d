@@ -3398,7 +3398,7 @@ word slice(CrocThread* t, word container)
 	mixin(apiCheckNumParams!("2"));
 	auto slot = t.stackIndex - 2;
 	sliceImpl(t, slot, getValue(t, container), &t.stack[slot], &t.stack[slot + 1]);
-	pop(t);
+	pop(t, 2);
 	return stackSize(t) - 1;
 }
 
