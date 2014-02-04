@@ -75,11 +75,29 @@ uword_t CROCAPI(gc_getLimit)     (CrocThread* t, const char* type);
 // Exceptions
 
 void   CROCAPI(eh_throw)      (CrocThread* t);
-void   CROCAPI(eh_throwStd)   (CrocThread* t, const char* exName, const char* fmt, ...);
-void   CROCAPI(eh_vthrowStd)  (CrocThread* t, const char* exName, const char* fmt, va_list args);
+void   CROCAPI(eh_rethrow)    (CrocThread* t);
 word_t CROCAPI(eh_pushStd)    (CrocThread* t, const char* exName);
-int    CROCAPI(eh_isThrowing) (CrocThread* t);
-word_t CROCAPI(eh_catch)      (CrocThread* t);
+int    CROCAPI(eh_tryCall)    (CrocThread* t, word_t slot, word_t numReturns);
+
+#define croc_eh_throwStd(t, exName, fmt, ...)\
+	do {\
+		CrocThread* _ehThread_ = (t);\
+		croc_eh_pushStd(_ehThread_, (exName));\
+		croc_pushNull(_ehThread_);\
+		croc_pushFormat(_ehThread_, (fmt), __VA_ARGS__);\
+		croc_call(_ehThread_, -3, 1);\
+		croc_eh_throw(_ehThread_);\
+	} while(0)
+
+#define croc_eh_vthrowStd(t, exName, fmt, args)\
+	do {\
+		CrocThread* _ehThread_ = (t);\
+		croc_eh_pushStd(_ehThread_, (exName));\
+		croc_pushNull(_ehThread_);\
+		croc_vpushFormat(_ehThread_, (fmt), (args));\
+		croc_call(_ehThread_, -3, 1);\
+		croc_eh_throw(_ehThread_);\
+	} while(0)
 
 // =====================================================================================================================
 // Stack manipulation
@@ -173,7 +191,7 @@ word_t      CROCAPI(pushString)    (CrocThread* t, const char* v);
 word_t      CROCAPI(pushStringn)   (CrocThread* t, const char* v, uword_t len);
 word_t      CROCAPI(pushChar)      (CrocThread* t, crocchar_t c);
 word_t      CROCAPI(pushFormat)    (CrocThread* t, const char* fmt, ...);
-word_t      CROCAPI(pushVFormat)   (CrocThread* t, const char* fmt, va_list args);
+word_t      CROCAPI(vpushFormat)   (CrocThread* t, const char* fmt, va_list args);
 word_t      CROCAPI(pushNativeobj) (CrocThread* t, void* o);
 word_t      CROCAPI(pushThread)    (CrocThread* t, CrocThread* o);
 int         CROCAPI(getBool)       (CrocThread* t, word_t slot);

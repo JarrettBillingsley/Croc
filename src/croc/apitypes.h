@@ -153,6 +153,12 @@ typedef enum CrocThreadHook
 } CrocThreadHook;
 
 /* */
+typedef enum CrocCallRet
+{
+	CrocCallRet_Error = -1,
+} CrocCallRet;
+
+/* */
 typedef enum CrocUnsafeLib
 {
 	CrocUnsafeLib_None =  0,
@@ -177,6 +183,7 @@ typedef enum CrocAddons
 	CrocAddons_All = CrocAddons_Safe | CrocAddons_Unsafe
 } CrocAddons;
 
+/* */
 typedef enum CrocCompilerFlags
 {
 	CrocCompilerFlags_None = 0,
@@ -189,6 +196,7 @@ typedef enum CrocCompilerFlags
 	CrocCompilerFlags_AllDocs = CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators
 } CrocCompilerFlags;
 
+/* */
 typedef enum CrocCompilerReturn
 {
 	CrocCompilerReturn_OK = 0,

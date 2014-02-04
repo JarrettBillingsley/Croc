@@ -40,7 +40,7 @@ extern "C"
 
 	// TODO:
 	// word_t croc_pushFormat(CrocThread* t, const char* fmt, ...)
-	// word_t croc_pushVFormat(CrocThread* t, const char* fmt, va_list args)
+	// word_t croc_vpushFormat(CrocThread* t, const char* fmt, va_list args)
 
 	word_t croc_pushNativeobj(CrocThread* t, void* o)
 	{
