@@ -174,9 +174,12 @@ namespace croc
 			return crocstr::n(toCString(), length);
 		}
 
-		inline void setData(crocstr src)
+		inline void setData(crocstr data)
 		{
-			DArray<char>::n(cast(char*)toCString(), length).slicea(DArray<char>::n(cast(char*)src.ptr, src.length));
+			auto dst = DArray<char>::n(cast(char*)toCString(), length);
+			auto src = DArray<char>::n(cast(char*)data.ptr, data.length);
+			dst.slicea(src);
+			(cast(char*)toCString())[length] = 0; // null terminate
 		}
 
 		inline hash_t toHash() const

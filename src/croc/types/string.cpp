@@ -5,7 +5,7 @@
 #include "croc/utf.hpp"
 #include "croc/utils.hpp"
 
-#define STRING_EXTRA_SIZE(len) (sizeof(char) * (len))
+#define STRING_EXTRA_SIZE(len) (1 + (sizeof(char) * (len)))
 
 namespace croc
 {
