@@ -793,4 +793,334 @@ namespace croc
 				// throwStdException(t, "TypeError", "Can't set the length of a '{}'", getString(t, -1));
 		}
 	}
+
+	void catImpl(Thread* t, AbsStack dest, AbsStack firstSlot, uword num)
+	{
+		auto slot = firstSlot;
+		auto endSlot = slot + num;
+		auto endSlotm1 = endSlot - 1;
+		auto stack = t->stack;
+
+		while(slot < endSlotm1)
+		{
+			Function* method = nullptr;
+			bool swap = false;
+
+			switch(stack[slot].type)
+			{
+				case CrocType_String: {
+					uword len = 0;
+					uword cpLen = 0;
+					uword idx = slot;
+
+					for(; idx < endSlot; idx++)
+					{
+						auto val = stack[idx];
+
+						if(val.type != CrocType_String)
+							break;
+
+						len += val.mString->length;
+						cpLen += val.mString->cpLength;
+					}
+
+					if(idx > (slot + 1))
+					{
+						stringConcat(t, stack[slot], stack.slice(slot + 1, idx), len, cpLen);
+						slot = idx - 1;
+					}
+
+					if(slot == endSlotm1)
+						break; // to exit function
+
+					if(stack[slot + 1].type == CrocType_Array)
+						goto _array;
+					else if(stack[slot + 1].type == CrocType_Instance)
+						goto _cat_r;
+					else
+					{
+						assert(false); // TODO:ex
+						// typeString(t, &stack[slot + 1]);
+						// throwStdException(t, "TypeError", "Can't concatenate 'string' and '{}'", getString(t, -1));
+					}
+				}
+				case CrocType_Array: {
+				_array:
+					uword idx = slot + 1;
+					uword len = stack[slot].type == CrocType_Array ? stack[slot].mArray->length : 1;
+
+					for(; idx < endSlot; idx++)
+					{
+						if(stack[idx].type == CrocType_Array)
+							len += stack[idx].mArray->length;
+						else if(stack[idx].type == CrocType_Instance)
+						{
+							// TODO: mm
+							// method = getMM(t, &stack[idx], MM.Cat_r);
+
+							if(method == nullptr)
+								len++;
+							else
+								break;
+						}
+						else
+							len++;
+					}
+
+					if(idx > (slot + 1))
+					{
+						arrayConcat(t, stack.slice(slot, idx), len);
+						slot = idx - 1;
+					}
+
+					if(slot == endSlotm1)
+						break; // to exit function
+
+					assert(method != nullptr);
+					goto _cat_r;
+				}
+				case CrocType_Instance: {
+					if(stack[slot + 1].type == CrocType_Array)
+					{
+						// TODO:mm
+						// method = getMM(t, &stack[slot], MM.Cat);
+
+						if(method == nullptr)
+							goto _array;
+					}
+
+					if(method == nullptr)
+					{
+						// TODO:mm
+						// method = getMM(t, &stack[slot], MM.Cat);
+
+						if(method == nullptr)
+							goto _cat_r;
+					}
+
+					goto _common_mm;
+				}
+				default:
+					// Basic
+					if(stack[slot + 1].type == CrocType_Array)
+						goto _array;
+					else
+					{
+						// TODO:mm
+						// method = getMM(t, &stack[slot], MM.Cat);
+
+						if(method == nullptr)
+							goto _cat_r;
+						else
+							goto _common_mm;
+					}
+
+				_cat_r:
+					if(method == nullptr)
+					{
+						// TODO:mm
+						// method = getMM(t, &stack[slot + 1], MM.Cat_r);
+
+						if(method == nullptr)
+							goto _error;
+					}
+
+					swap = true;
+					// fall through
+
+				_common_mm: {
+					assert(method != nullptr);
+
+					auto src1save = stack[slot];
+					auto src2save = stack[slot + 1];
+
+					auto funcSlot = push(t, Value::from(method));
+
+					if(swap)
+					{
+						push(t, src2save);
+						push(t, src1save);
+					}
+					else
+					{
+						push(t, src1save);
+						push(t, src2save);
+					}
+
+					// TODO:api
+					(void)funcSlot;
+					// commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2));
+
+					// stack might have changed.
+					stack = t->stack;
+
+					slot++;
+					stack[slot] = stack[t->stackIndex - 1];
+					croc_popTop(*t);
+					continue;
+				}
+				_error:
+					assert(false);// TODO:ex
+					// typeString(t, &t.stack[slot]);
+					// typeString(t, &stack[slot + 1]);
+					// throwStdException(t, "TypeError", "Can't concatenate '{}' and '{}'", getString(t, -2), getString(t, -1));
+			}
+
+			break;
+		}
+
+		t->stack[dest] = stack[slot];
+	}
+
+	void arrayConcat(Thread* t, DArray<Value> vals, uword len)
+	{
+		if(vals.length == 2 && vals[0].type == CrocType_Array)
+		{
+			if(vals[1].type == CrocType_Array)
+				vals[1] = Value::from(vals[0].mArray->cat(t->vm->mem, vals[1].mArray));
+			else
+				vals[1] = Value::from(vals[0].mArray->cat(t->vm->mem, vals[1]));
+
+			return;
+		}
+
+		auto ret = Array::create(t->vm->mem, len);
+
+		uword i = 0;
+
+		for(auto &v: vals)
+		{
+			if(v.type == CrocType_Array)
+			{
+				auto a = v.mArray;
+				ret->sliceAssign(t->vm->mem, i, i + a->length, a);
+				i += a->length;
+			}
+			else
+			{
+				ret->idxa(t->vm->mem, i, v);
+				i++;
+			}
+		}
+
+		vals[vals.length - 1] = Value::from(ret);
+	}
+
+	void stringConcat(Thread* t, Value first, DArray<Value> vals, uword len, uword cpLen)
+	{
+		auto tmpBuffer = DArray<char>::alloc(t->vm->mem, len);
+		uword i = 0;
+
+		auto add = [&tmpBuffer, &i](Value& v)
+		{
+			auto s = v.mString->toDArray();
+			tmpBuffer.slicea(i, i + s.length, DArray<char>::n(cast(char*)s.ptr, s.length));
+			i += s.length;
+		};
+
+		add(first);
+
+		for(auto &v: vals)
+			add(v);
+
+		vals[vals.length - 1] = Value::from(String::createUnverified(t->vm, tmpBuffer.toConst(), cpLen));
+		tmpBuffer.free(t->vm->mem);
+	}
+
+	void catEqImpl(Thread* t, AbsStack dest, AbsStack firstSlot, uword num)
+	{
+		assert(num >= 1);
+
+		auto endSlot = firstSlot + num;
+		auto stack = t->stack;
+		auto target = stack[dest];
+
+		switch(target.type)
+		{
+			case CrocType_String: {
+				uword len = target.mString->length;
+				uword cpLen = target.mString->cpLength;
+
+				for(uword idx = firstSlot; idx < endSlot; idx++)
+				{
+					if(stack[idx].type == CrocType_String)
+					{
+						auto s = stack[idx].mString;
+						len += s->length;
+						cpLen += s->cpLength;
+					}
+					else
+					{
+						assert(false); // TODO:ex
+						// typeString(t, &stack[idx]);
+						// throwStdException(t, "TypeError", "Can't append a '{}' to a 'string'", getString(t, -1));
+					}
+				}
+
+				stringConcat(t, target, stack.slice(firstSlot, endSlot), len, cpLen);
+				stack[dest] = stack[endSlot - 1];
+				return;
+			}
+			case CrocType_Array: {
+				arrayAppend(t, target.mArray, stack.slice(firstSlot, endSlot));
+				return;
+			}
+			default:
+				assert(false); // TODO:mm
+				// auto method = getMM(t, &target, MM.CatEq);
+
+				// if(method == nullptr)
+				// {
+				// 	assert(false); // TODO:ex
+				// 	// typeString(t, &target);
+				// 	// throwStdException(t, "TypeError", "Can't append to a value of type '{}'", getString(t, -1));
+				// }
+
+				// checkStack(t, stackIndex);
+
+				// for(auto i = stackIndex; i > firstSlot; i--)
+				// 	stack[i] = stack[i - 1];
+
+				// stack[firstSlot] = target;
+
+				// t->nativeCallDepth++;
+				// scope(exit) t->nativeCallDepth--;
+
+				// if(callPrologue2(t, method, firstSlot, 0, firstSlot, num + 1))
+				// 	execute(t);
+				// return;
+		}
+	}
+
+	void arrayAppend(Thread* t, Array* a, DArray<Value> vals)
+	{
+		uword len = a->length;
+
+		for(auto &val: vals)
+		{
+			if(val.type == CrocType_Array)
+				len += val.mArray->length;
+			else
+				len++;
+		}
+
+		uword i = a->length;
+		a->resize(t->vm->mem, len);
+
+		for(auto &v: vals)
+		{
+			if(v.type == CrocType_Array)
+			{
+				auto arr = v.mArray;
+				a->sliceAssign(t->vm->mem, i, i + arr->length, arr);
+				i += arr->length;
+			}
+			else
+			{
+				a->idxa(t->vm->mem, i, v);
+				i++;
+			}
+		}
+	}
+
 }

@@ -21,6 +21,11 @@ namespace croc
 	void fieldaImpl(Thread* t, AbsStack container, String* name, Value value, bool raw);
 	void lenImpl(Thread* t, AbsStack dest, Value src);
 	void lenaImpl(Thread* t, Value dest, Value len);
+	void catImpl(Thread* t, AbsStack dest, AbsStack firstSlot, uword num);
+	void arrayConcat(Thread* t, DArray<Value> vals, uword len);
+	void stringConcat(Thread* t, Value first, DArray<Value> vals, uword len, uword cpLen);
+	void catEqImpl(Thread* t, AbsStack dest, AbsStack firstSlot, uword num);
+	void arrayAppend(Thread* t, Array* a, DArray<Value> vals);
 }
 
 #endif

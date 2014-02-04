@@ -344,15 +344,39 @@ extern "C"
 		croc_lena(t, slot);
 	}
 
-	// word_t croc_cat(CrocThread* t_, uword_t num)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+	word_t croc_cat(CrocThread* t_, uword_t num)
+	{
+		auto t = Thread::from(t_);
 
-	// void croc_cateq(CrocThread* t_, word_t dest, uword_t num)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+		if(num == 0)
+			assert(false); // TODO:ex
+			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot concatenate 0 things");
+
+		API_CHECK_NUM_PARAMS(num);
+
+		auto slot = t->stackIndex - num;
+
+		if(num > 1)
+		{
+			catImpl(t, slot, slot, num);
+			croc_pop(t_, num - 1);
+		}
+
+		return slot - t->stackBase;
+	}
+
+	void croc_cateq(CrocThread* t_, word_t dest, uword_t num)
+	{
+		auto t = Thread::from(t_);
+
+		if(num == 0)
+			assert(false); // TODO:ex
+			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot append 0 things");
+
+		API_CHECK_NUM_PARAMS(num);
+		catEqImpl(t, fakeToAbs(t, dest), t->stackIndex - num, num);
+		croc_pop(t_, num);
+	}
 
 	// int croc_instanceOf(CrocThread* t_, word_t obj, word_t base)
 	// {
