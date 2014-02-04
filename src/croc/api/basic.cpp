@@ -9,6 +9,11 @@ namespace croc
 {
 extern "C"
 {
+	// TODO:api
+	// void      CROCAPI(foreachBegin)    (CrocThread* t, uword_t numContainerVals);
+	// int       CROCAPI(foreachNext)     (CrocThread* t, uword_t numIndices);
+	// void      CROCAPI(foreachEnd)      (CrocThread* t);
+
 	void croc_removeKey(CrocThread* t_, word_t obj)
 	{
 		auto t = Thread::from(t_);
