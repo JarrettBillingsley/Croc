@@ -9,6 +9,7 @@ set(croc_SRC
 	croc/api/gc.cpp
 	croc/api/memblock.cpp
 	croc/api/namespace.cpp
+	croc/api/reflection.cpp
 	croc/api/stack.cpp
 	croc/api/table.cpp
 	croc/api/thread.cpp

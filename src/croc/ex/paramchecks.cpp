@@ -99,7 +99,7 @@ extern "C"
 
 		croc_ex_lookup(t, name);
 
-		if(!croc_instanceOf(t, index, -1))
+		if(!croc_isInstanceOf(t, index, -1))
 		{
 			// TODO:ex
 			assert(false);
@@ -118,7 +118,7 @@ extern "C"
 	{
 		croc_ex_checkParam(t, index, CrocType_Instance);
 
-		if(!croc_instanceOf(t, index, classIndex))
+		if(!croc_isInstanceOf(t, index, classIndex))
 		{
 			// TODO:ex
 			assert(false);

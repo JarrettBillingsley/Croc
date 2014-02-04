@@ -26,6 +26,7 @@ namespace croc
 	void stringConcat(Thread* t, Value first, DArray<Value> vals, uword len, uword cpLen);
 	void catEqImpl(Thread* t, AbsStack dest, AbsStack firstSlot, uword num);
 	void arrayAppend(Thread* t, Array* a, DArray<Value> vals);
+	Value superOfImpl(Thread* t, Value v);
 }
 
 #endif

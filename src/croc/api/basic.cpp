@@ -377,15 +377,5 @@ extern "C"
 		catEqImpl(t, fakeToAbs(t, dest), t->stackIndex - num, num);
 		croc_pop(t_, num);
 	}
-
-	// int croc_instanceOf(CrocThread* t_, word_t obj, word_t base)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
-
-	// word_t croc_superOf(CrocThread* t_, word_t slot)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
 }
 }

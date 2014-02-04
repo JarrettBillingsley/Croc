@@ -1123,4 +1123,25 @@ namespace croc
 		}
 	}
 
+	Value superOfImpl(Thread* t, Value v)
+	{
+		if(v.type == CrocType_Instance)
+			return Value::from(v.mInstance->parent);
+		else if(v.type == CrocType_Namespace)
+		{
+			if(auto p = v.mNamespace->parent)
+				return Value::from(p);
+			else
+				return Value::nullValue;
+		}
+		else
+		{
+			assert(false); // TODO:ex
+			(void)t;
+			// typeString(t, v);
+			// throwStdException(t, "TypeError", "Can only get super of classes, instances, and namespaces, not values of type '{}'", getString(t, -1));
+		}
+
+		// assert(false);
+	}
 }

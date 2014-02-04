@@ -159,6 +159,8 @@ int         CROCAPI(hasField)     (CrocThread* t, word_t obj, const char* fieldN
 int         CROCAPI(hasFieldStk)  (CrocThread* t, word_t obj, word_t name);
 int         CROCAPI(hasMethod)    (CrocThread* t, word_t obj, const char* methodName);
 int         CROCAPI(hasMethodStk) (CrocThread* t, word_t obj, word_t name);
+int         CROCAPI(isInstanceOf) (CrocThread* t, word_t obj, word_t base);
+word_t      CROCAPI(superOf)      (CrocThread* t, word_t slot);
 
 // =====================================================================================================================
 // Value types
@@ -322,8 +324,6 @@ void      CROCAPI(lena)            (CrocThread* t, word_t slot);
 void      CROCAPI(lenai)           (CrocThread* t, word_t slot, crocint_t length);
 word_t    CROCAPI(cat)             (CrocThread* t, uword_t num);
 void      CROCAPI(cateq)           (CrocThread* t, word_t dest, uword_t num);
-int       CROCAPI(instanceOf)      (CrocThread* t, word_t obj, word_t base);
-word_t    CROCAPI(superOf)         (CrocThread* t, word_t slot);
 
 #ifdef __cplusplus
 } /* extern "C" */
