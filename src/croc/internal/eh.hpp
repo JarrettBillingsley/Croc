@@ -18,6 +18,7 @@ namespace croc
 	void continueTraceback(Thread* t, Value ex);
 	void addLocationInfo(Thread* t, Value ex);
 	void throwImpl(Thread* t, Value ex, bool rethrowing);
+	void unwind(Thread* t);
 }
 
 #endif

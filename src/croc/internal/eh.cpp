@@ -195,27 +195,27 @@ namespace croc
 		}
 	}
 
-	// void unwindEH(Thread* t)
-	// {
-	// 	while(t.currentAR.unwindCounter > 0)
-	// 	{
-	// 		assert(t.trIndex > 0);
-	// 		assert(t.currentTR.actRecord is t.arIndex);
+	void unwind(Thread* t)
+	{
+		while(t->currentAR->unwindCounter > 0)
+		{
+			assert(t->ehIndex > 0);
+			assert(t->currentEH->actRecord == t->arIndex);
 
-	// 		auto tr = *t.currentTR;
-	// 		popTR(t);
-	// 		close(t, t.stackBase + tr.slot);
-	// 		t.currentAR.unwindCounter--;
+			auto frame = *t->currentEH;
+			popEHFrame(t);
+			closeUpvals(t, t->stackBase + frame.slot);
+			t->currentAR->unwindCounter--;
 
-	// 		if(!tr.isCatch)
-	// 		{
-	// 			// finally in the middle of an unwind
-	// 			(*pc) = tr.pc;
-	// 			continue _interpreterLoop;
-	// 		}
-	// 	}
+			if(!frame.isCatch)
+			{
+				// finally in the middle of an unwind
+				t->currentAR->pc = frame.pc;
+				return;
+			}
+		}
 
-	// 	(*pc) = t.currentAR.unwindReturn;
-	// 	t.currentAR.unwindReturn = null;
-	// }
+		t->currentAR->pc = t->currentAR->unwindReturn;
+		t->currentAR->unwindReturn = nullptr;
+	}
 }
