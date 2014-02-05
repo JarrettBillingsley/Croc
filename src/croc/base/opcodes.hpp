@@ -27,8 +27,7 @@ Note that -32,768 is not a valid value for signed immediates -- this value is re
 ONE SHORT:
 
 (__)
-	popcatch:    pop EH frame
-	popfinal:    pop EH frame, set currentException to null
+	popeh:       pop EH frame
 	endfinal:    rethrow any in-flight exception, or continue unwinding if doing so
 	ret:         return
 	checkparams: check params against param masks
@@ -178,8 +177,7 @@ FIVE SHORTS:
 	X(ForeachLoop),\
 	X(PushCatch),\
 	X(PushFinally),\
-	X(PopCatch),\
-	X(PopFinally),\
+	X(PopEH),\
 	X(EndFinal),\
 	X(Throw),\
 	X(Method),\

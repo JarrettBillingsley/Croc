@@ -104,7 +104,7 @@ extern "C"
 		Compiler.setDefaultFlags(t, Compiler.AllDocs);
 #endif
 		// Core libs
-		initModulesLib(*t);
+		// initModulesLib(*t);
 		// initExceptionsLib(*t);
 		// initGCLib(*t);
 
@@ -148,6 +148,8 @@ extern "C"
 		// Done, turn the GC back on and clear out any garbage we made.
 		vm->enableGC();
 		croc_gc_collect(*t);
+
+		assert(t->stackIndex == 1);
 
 		return *t;
 	}

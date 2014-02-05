@@ -46,6 +46,10 @@ set(croc_SRC
 	croc/internal/calls.hpp
 	croc/internal/class.cpp
 	croc/internal/class.hpp
+	croc/internal/debug.cpp
+	croc/internal/debug.hpp
+	croc/internal/eh.cpp
+	croc/internal/eh.hpp
 	croc/internal/stack.cpp
 	croc/internal/stack.hpp
 	croc/internal/variables.cpp

@@ -1,6 +1,7 @@
 #ifndef CROC_TYPES_HPP
 #define CROC_TYPES_HPP
 
+#include <setjmp.h>
 #include <stddef.h>
 
 #include "croc/apitypes.h"
@@ -24,7 +25,7 @@ namespace croc
 	typedef crocfloat_t crocfloat;
 	typedef DArray<const char> crocstr;
 
-	enum CrocLocation
+	enum CrocLocation : int
 	{
 		CrocLocation_Unknown = 0,
 		CrocLocation_Native = -1,
@@ -534,7 +535,7 @@ namespace croc
 		AbsStack returnSlot;
 		Function* func;
 		Instruction* pc;
-		word numReturns;
+		word expectedResults;
 		uword numTailcalls;
 		AbsStack firstResult;
 		uword numResults;
@@ -542,12 +543,13 @@ namespace croc
 		Instruction* unwindReturn;
 	};
 
-	struct TryRecord
+	struct EHFrame
 	{
 		bool isCatch;
 		RelStack slot;
 		uword actRecord;
 		Instruction* pc;
+		jmp_buf* native;
 	};
 
 	extern const char* ThreadStateStrings[5];
@@ -562,9 +564,9 @@ namespace croc
 		Thread* next;
 		Thread* prev;
 
-		DArray<TryRecord> tryRecs;
-		TryRecord* currentTR;
-		uword trIndex;
+		DArray<EHFrame> ehFrames;
+		EHFrame* currentEH;
+		uword ehIndex;
 
 		DArray<ActRecord> actRecs;
 		ActRecord* currentAR;
@@ -582,18 +584,17 @@ namespace croc
 		VM* vm;
 		bool shouldHalt;
 
+		Thread* threadThatResumedThis;
 		Function* coroFunc;
 		CrocThreadState state;
 		uword numYields;
+		uword nativeCallDepth;
 
 		uint8_t hooks;
 		bool hooksEnabled;
 		uint32_t hookDelay;
 		uint32_t hookCounter;
 		Function* hookFunc;
-
-		uword savedCallDepth;
-		uword nativeCallDepth;
 
 		static Thread* create(VM* vm);
 		static Thread* createPartial(VM* vm);
@@ -644,10 +645,10 @@ namespace croc
 		Hash<crocstr, String*, MethodHasher, HashNodeWithHash<crocstr, String*> > stringTab;
 		Hash<GCObject*, Weakref*> weakrefTab;
 		Thread* allThreads;
+		Thread* curThread;
 		uint64_t currentRef;
 		String* ctorString; // also stored in metaStrings, don't have to scan it as a root
 		String* finalizerString; // also stored in metaStrings, don't have to scan it as a root
-		Thread* curThread;
 		bool isThrowing;
 
 		inline void disableGC() { this->mem.gcDisabled++; }

@@ -146,8 +146,8 @@ typedef enum CrocThreadState
 typedef enum CrocThreadHook
 {
 	CrocThreadHook_Call = 1,
-	CrocThreadHook_Ret = 2,
-	CrocThreadHook_TailRet = 4,
+	CrocThreadHook_TailCall = 2,
+	CrocThreadHook_Ret = 4,
 	CrocThreadHook_Delay = 8,
 	CrocThreadHook_Line = 16
 } CrocThreadHook;

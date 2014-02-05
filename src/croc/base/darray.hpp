@@ -85,6 +85,30 @@ namespace croc
 			return ptr + length;
 		}
 
+		struct ReverseIteration
+		{
+		private:
+			DArray<T>& arr;
+
+		public:
+			ReverseIteration(DArray<T>& a) : arr(a) {}
+
+			inline T* begin()
+			{
+				return arr.ptr + (arr.length - 1);
+			}
+
+			inline T* end()
+			{
+				return arr.ptr - 1;
+			}
+		};
+
+		inline ReverseIteration reverse()
+		{
+			return ReverseIteration(*this);
+		}
+
 		inline uint32_t toHash() const
 		{
 			return hashlittle(ptr, ARRAY_BYTE_SIZE(length), 0xFACEDAB5); // face dabs!
