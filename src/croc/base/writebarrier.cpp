@@ -317,15 +317,14 @@ namespace croc
 		for(auto ms: vm->metaStrings)
 			callback(ms);
 
-		if(vm->isThrowing)
-			callback(vm->exception);
-
+		COND_CALLBACK(vm->exception);
 		callback(vm->registry);
+		callback(vm->unhandledEx);
 
 		for(auto n: vm->refTab)
 			callback(n->value);
 
-		// callback(vm->location);
+		callback(vm->location);
 
 		for(auto n: vm->stdExceptions)
 		{

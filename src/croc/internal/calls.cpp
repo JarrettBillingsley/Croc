@@ -224,6 +224,8 @@ namespace croc
 			t->stackIndex = slotAfterRets;
 		else
 			t->stackIndex = t->currentAR->savedTop;
+
+		assert(t->stackIndex > 0);
 	}
 
 	void saveResults(Thread* t, Thread* from, AbsStack first, uword num)

@@ -1,4 +1,6 @@
 
+#include <stdlib.h>
+
 #include "croc/api.h"
 #include "croc/internal/calls.hpp"
 #include "croc/internal/debug.hpp"
@@ -8,6 +10,13 @@
 
 namespace croc
 {
+	word defaultUnhandledEx(CrocThread* t)
+	{
+		// TODO:
+		(void)t;
+		assert(false);
+	}
+
 	EHFrame* pushEHFrame(Thread* t)
 	{
 		if(t->ehIndex >= t->ehFrames.length)
@@ -153,28 +162,37 @@ namespace croc
 
 		if(frame == nullptr)
 		{
-			assert(false); // TODO:ex
-			// PANIC!??!!??
-		}
-
-		t = curThread;
-
-		auto base = t->stackBase + frame->slot;
-
-		popARTo(curThread, frame->actRecord + 1);
-		closeUpvals(t, base);
-		t->stack.slice(base + 1, t->stackIndex).fill(Value::nullValue);
-
-		if(frame->isCatch)
-		{
-			t->stack[base] = ex;
+			// Uh oh, no handler; call the unhandled handler. At this point, there are no running threads, so let's use
+			// the main thread.
+			t = t->vm->mainThread;
+			push(t, Value::from(t->vm->unhandledEx));
+			push(t, Value::nullValue);
+			push(t, Value::from(t->vm->exception));
 			t->vm->exception = nullptr;
+			croc_call(*t, -3, 0);
+			abort();
 		}
-
-		if(frame->native)
-			longjmp(*frame->native, 1);
 		else
-			t->currentAR->pc = frame->pc;
+		{
+			t = curThread;
+
+			auto base = t->stackBase + frame->slot;
+
+			popARTo(curThread, frame->actRecord + 1);
+			closeUpvals(t, base);
+			t->stack.slice(base + 1, t->stackIndex).fill(Value::nullValue);
+
+			if(frame->isCatch)
+			{
+				t->stack[base] = ex;
+				t->vm->exception = nullptr;
+			}
+
+			if(frame->native)
+				longjmp(*frame->native, 1);
+			else
+				t->currentAR->pc = frame->pc;
+		}
 	}
 
 	// void unwindEH(Thread* t)

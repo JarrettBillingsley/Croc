@@ -20,6 +20,7 @@ void        CROCAPI(vm_close)                     (CrocThread* t);
 void        CROCAPI(vm_loadUnsafeLibs)            (CrocThread* t, CrocUnsafeLib libs);
 void        CROCAPI(vm_loadAddons)                (CrocThread* t, CrocAddons libs);
 void        CROCAPI(vm_loadAvailableAddonsExcept) (CrocThread* t, CrocAddons exclude);
+void        CROCAPI(vm_setUnhandledExHandler)     (CrocThread* t);
 
 #define croc_vm_loadAllUnsafeLibs(t) (croc_vm_loadUnsafeLibs((t), CrocUnsafeLib_All))
 #define croc_vm_loadAllAvailableAddons(t) (croc_vm_loadAllAvailableAddonsExcept((t), CrocAddons_None))

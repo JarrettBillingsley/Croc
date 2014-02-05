@@ -627,6 +627,7 @@ namespace croc
 		Instance* exception;
 		Namespace* registry;
 		RefTab refTab;
+		Function* unhandledEx;
 
 		// These point to "special" runtime classes
 		Class* location;
@@ -649,7 +650,6 @@ namespace croc
 		uint64_t currentRef;
 		String* ctorString; // also stored in metaStrings, don't have to scan it as a root
 		String* finalizerString; // also stored in metaStrings, don't have to scan it as a root
-		bool isThrowing;
 
 		inline void disableGC() { this->mem.gcDisabled++; }
 		inline void enableGC()

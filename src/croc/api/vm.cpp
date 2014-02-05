@@ -4,6 +4,7 @@
 #include "croc/types.hpp"
 #include "croc/base/gc.hpp"
 #include "croc/internal/apichecks.hpp"
+#include "croc/internal/eh.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/all.hpp"
 
@@ -94,6 +95,7 @@ extern "C"
 		vm->curThread = vm->mainThread;
 		vm->globals = Namespace::create(vm->mem, String::create(vm, atoda("")));
 		vm->registry = Namespace::create(vm->mem, String::create(vm, atoda("<registry>")));
+		vm->unhandledEx = Function::create(vm->mem, vm->globals, String::create(vm, atoda("defaultUnhandledEx")), 1, defaultUnhandledEx, 0);
 
 		// _G = _G._G = _G._G._G = _G._G._G._G = ...
 		push(t, Value::from(vm->globals));
@@ -299,5 +301,15 @@ extern "C"
 
 	// TODO:api
 	// word_t croc_vm_pushLocationObject(CrocThread* t_, const char* file, int line, int col)
+
+	void croc_vm_setUnhandledExHandler(CrocThread* t_)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
+		API_CHECK_PARAM(func, -1, Function, "handler");
+		auto old = t->vm->unhandledEx;
+		t->vm->unhandledEx = func;
+		t->stack[t->stackIndex - 1] = Value::from(old);
+	}
 } // extern "C"
 }
