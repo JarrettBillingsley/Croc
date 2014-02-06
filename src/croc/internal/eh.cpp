@@ -28,11 +28,11 @@ namespace croc
 		return t->currentEH;
 	}
 
-	void pushNativeEHFrame(Thread* t, jmp_buf& buf)
+	void pushNativeEHFrame(Thread* t, RelStack slot, jmp_buf& buf)
 	{
 		auto eh = pushEHFrame(t);
 		eh->isCatch = true;
-		eh->slot = t->stackIndex - 1 - t->stackBase;
+		eh->slot = slot;
 		eh->native = &buf;
 		eh->pc = nullptr;
 	}
@@ -62,11 +62,11 @@ namespace croc
 			popEHFrame(t);
 	}
 
-	bool tryCode(Thread* t, std::function<void()> dg)
+	bool tryCode(Thread* t, RelStack slot, std::function<void()> dg)
 	{
 		jmp_buf buf;
 		bool ret;
-		pushNativeEHFrame(t, buf);
+		pushNativeEHFrame(t, slot, buf);
 
 		if(setjmp(buf) == 0)
 		{

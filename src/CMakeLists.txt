@@ -4,6 +4,7 @@ set(croc_SRC
 	croc/api/array.cpp
 	croc/api/basic.cpp
 	croc/api/class.cpp
+	croc/api/eh.cpp
 	croc/api/funcdef.cpp
 	croc/api/function.cpp
 	croc/api/gc.cpp
