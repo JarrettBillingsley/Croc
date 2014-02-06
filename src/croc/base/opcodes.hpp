@@ -227,7 +227,7 @@ FIVE SHORTS:
 	};
 #undef POOP
 
-	// TODO:
+	// TODO:staticassert
 	// Make sure we don't add too many instructions!
 	// static assert(Op.max <= Instruction.opcodeMax, "Too many opcodes");
 
@@ -284,7 +284,7 @@ FIVE SHORTS:
 		uint16_t uimm;
 	};
 
-	// TODO:
+	// TODO:staticassert
 	// static assert(Instruction.sizeof == 2);
 }
 #endif

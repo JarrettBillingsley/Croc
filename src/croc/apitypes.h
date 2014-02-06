@@ -13,7 +13,7 @@ The underlying C type used to store the Croc 'int' type, which is equivalent to 
 */
 typedef int64_t crocint_t;
 
-/* TODO: */
+/* TODO:staticassert */
 /* static assert((cast(crocint)-1) < (cast(crocint)0), "crocint must be signed"); */
 
 /**

@@ -358,7 +358,7 @@ namespace croc
 			Funcdef* scriptFunc;
 			CrocNativeFunc nativeFunc;
 
-			// TODO:
+			// TODO:staticassert
 			// static assert((CrocFuncdef*).sizeof == NativeFunc.sizeof);
 		};
 
