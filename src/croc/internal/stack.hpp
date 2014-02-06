@@ -10,7 +10,7 @@ namespace croc
 	AbsStack   fakeToAbs    (Thread* t, word fake);
 	word       push         (Thread* t, Value val);
 	Value*     getValue     (Thread* t, word slot);
-	String*    getString    (Thread* t, word slot);
+	String*    getStringObj (Thread* t, word slot);
 	Weakref*   getWeakref   (Thread* t, word slot);
 	Table*     getTable     (Thread* t, word slot);
 	Namespace* getNamespace (Thread* t, word slot);

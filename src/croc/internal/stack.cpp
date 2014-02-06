@@ -54,6 +54,16 @@ namespace croc
 		return &t->stack[fakeToAbs(t, slot)];
 	}
 
+	String* getStringObj(Thread* t, word slot)
+	{
+		auto v = &t->stack[fakeToAbs(t, slot)];
+
+		if(v->type == CrocType_String)
+			return v->mString;
+		else
+			return nullptr;
+	}
+
 #define MAKE_GET(Type)\
 	Type* get##Type(Thread* t, word slot)\
 	{\
@@ -65,7 +75,6 @@ namespace croc
 			return nullptr;\
 	}
 
-	MAKE_GET(String)
 	MAKE_GET(Weakref)
 	MAKE_GET(Table)
 	MAKE_GET(Namespace)
@@ -76,4 +85,5 @@ namespace croc
 	MAKE_GET(Class)
 	MAKE_GET(Instance)
 	MAKE_GET(Thread)
+
 }
