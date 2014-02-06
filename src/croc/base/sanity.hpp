@@ -21,8 +21,10 @@
 // TODO: make a config header file, like Lua
 #ifdef _WIN32
 #define CROC_INTEGER_FORMAT "I64d"
+#define CROC_UINTEGER_FORMAT "I64u"
 #else
 #define CROC_INTEGER_FORMAT "lld"
+#define CROC_INTEGER_FORMAT "llu"
 #endif
 
 #define CROC_FORMAT_BUF_SIZE 256

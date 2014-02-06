@@ -11,6 +11,7 @@ set(croc_SRC
 	croc/api/gc.cpp
 	croc/api/mem.cpp
 	croc/api/memblock.cpp
+	croc/api/nativeref.cpp
 	croc/api/namespace.cpp
 	croc/api/reflection.cpp
 	croc/api/stack.cpp
