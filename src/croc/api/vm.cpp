@@ -5,6 +5,7 @@
 #include "croc/base/gc.hpp"
 #include "croc/internal/apichecks.hpp"
 #include "croc/internal/eh.hpp"
+#include "croc/internal/gc.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/all.hpp"
 
@@ -14,7 +15,6 @@ namespace croc
 	{
 		const size_t FinalizeLoopLimit = 1000;
 
-		// TODO: move this somewhere sane
 		void freeAll(VM* vm)
 		{
 			vm->globals->clear(vm->mem);
@@ -37,7 +37,7 @@ namespace croc
 					assert(false); // TODO:
 					// throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or something's broken.");
 
-				// runFinalizers(vm->mainThread); TODO:api
+				runFinalizers(vm->mainThread);
 				gcCycle(vm, GCCycleType_Full);
 				limit++;
 			} while(!vm->toFinalize.isEmpty());

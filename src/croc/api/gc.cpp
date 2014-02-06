@@ -4,6 +4,7 @@
 #include "croc/api.h"
 #include "croc/base/gc.hpp"
 #include "croc/internal/apichecks.hpp"
+#include "croc/internal/gc.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
 
@@ -20,7 +21,7 @@ namespace croc
 
 			auto beforeSize = vm->mem.totalBytes;
 			gcCycle(vm, fullCollect ? GCCycleType_Full : GCCycleType_Normal);
-			// runFinalizers(t); TODO:api
+			runFinalizers(t);
 
 			vm->stringTab.minimize(vm->mem);
 			vm->weakrefTab.minimize(vm->mem);
