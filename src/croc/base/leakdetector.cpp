@@ -148,7 +148,7 @@ namespace croc
 		else
 		{
 			rawBlocks.erase(oldPtr);
-			newRC(newPtr, newSize, ti);
+			newRaw(newPtr, newSize, ti);
 		}
 	}
 
