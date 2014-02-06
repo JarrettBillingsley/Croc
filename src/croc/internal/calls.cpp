@@ -1,7 +1,12 @@
 
 #include "croc/api.h"
 #include "croc/base/metamethods.hpp"
+#include "croc/internal/basic.hpp"
 #include "croc/internal/calls.hpp"
+#include "croc/internal/class.hpp"
+#include "croc/internal/debug.hpp"
+#include "croc/internal/stack.hpp"
+#include "croc/internal/thread.hpp"
 #include "croc/internal/eh.hpp"
 
 namespace croc
@@ -261,5 +266,290 @@ namespace croc
 		t->currentAR->numResults = 0;
 		t->resultIndex -= num;
 		return ret;
+	}
+
+	bool callPrologue(Thread* t, AbsStack slot, word expectedResults, uword numParams)
+	{
+		assert(numParams > 0);
+		auto func = t->stack[slot];
+
+		switch(func.type)
+		{
+			case CrocType_Function:
+				return funcCallPrologue(t, func.mFunction, slot, expectedResults, slot + 1, numParams);
+
+			case CrocType_Class: {
+				auto cls = func.mClass;
+
+				if(!cls->isFrozen)
+					freezeImpl(t, cls);
+
+				if(cls->constructor == nullptr && numParams > 1)
+					croc_eh_throwStd(*t, "ParamError",
+						"Class '%s' has no constructor but was called with %u parameters",
+						cls->name->toCString(), numParams - 1);
+
+				auto inst = Instance::create(t->vm->mem, cls);
+
+				// call any constructor
+				if(cls->constructor)
+				{
+					t->stack[slot] = Value::from(cls->constructor->mFunction);
+					t->stack[slot + 1] = Value::from(inst);
+
+					// TODO: remove the native call from class ctor calls
+
+					t->nativeCallDepth++;
+
+					auto failed = tryCode(t, slot, [&t, &slot, &numParams]()
+					{
+						if(callPrologue(t, slot, 0, numParams))
+							{} //execute(t);
+					});
+
+					t->nativeCallDepth--;
+
+					if(failed)
+						croc_eh_rethrow(*t);
+				}
+
+				// TODO: my god stop fucking duplicating code, me
+				t->stack[slot] = Value::from(inst);
+
+				if(expectedResults == -1)
+					t->stackIndex = slot + 1;
+				else
+				{
+					if(expectedResults > 1)
+						t->stack.slice(slot + 1, slot + expectedResults).fill(Value::nullValue);
+
+					if(t->arIndex == 0)
+					{
+						t->state = CrocThreadState_Dead;
+						t->shouldHalt = false;
+						t->stackIndex = slot + expectedResults;
+
+						if(t == t->vm->mainThread)
+							t->vm->curThread = t;
+					}
+					else if(t->currentAR->savedTop < slot + expectedResults)
+						t->stackIndex = slot + expectedResults;
+					else
+						t->stackIndex = t->currentAR->savedTop;
+				}
+
+				return false;
+			}
+			case CrocType_Thread: {
+				auto thread = func.mThread;
+
+				if(thread == t)
+					croc_eh_throwStd(*t, "RuntimeError", "Thread attempting to resume itself");
+
+				if(thread == t->vm->mainThread)
+					croc_eh_throwStd(*t, "RuntimeError", "Attempting to resume VM's main thread");
+
+				if(thread->state != CrocThreadState_Initial && thread->state != CrocThreadState_Suspended)
+					croc_eh_throwStd(*t, "StateError", "Attempting to resume a %s thread",
+						ThreadStateStrings[thread->state]);
+
+				resume(thread, t, slot, expectedResults, numParams);
+				return false;
+			}
+			default:
+				if(auto method = getMM(t, func, MM_Call))
+				{
+					t->stack[slot] = Value::from(method);
+					t->stack[slot + 1] = func;
+					return funcCallPrologue(t, method, slot, expectedResults, slot + 1, numParams);
+				}
+				else
+				{
+					pushTypeStringImpl(t, func);
+					croc_eh_throwStd(*t, "TypeError", "No implementation of %s for type '%s'", MetaNames[MM_Call],
+						croc_getString(*t, -1));
+					assert(false);
+				}
+		}
+	}
+
+	bool funcCallPrologue(Thread* t, Function* func, AbsStack returnSlot, word expectedResults, AbsStack paramSlot, uword numParams)
+	{
+		// const char[] wrapEH =
+		// 	"catch(CrocException e)
+		// 	{
+		// 		callEpilogue(t, false);
+		// 		throw e;
+		// 	}
+		// 	catch(CrocHaltException e)
+		// 	{
+		// 		unwindEH(t);
+		// 		callEpilogue(t, false);
+		// 		throw e;
+		// 	}";
+
+		if(numParams > func->maxParams)
+			croc_eh_throwStd(*t, "ParamError", "Function %s expected at most %u parameters but was given %u",
+				func->name->toCString(), func->maxParams - 1, numParams - 1);
+
+		if(!func->isNative)
+		{
+			// Script function
+			auto funcDef = func->scriptFunc;
+			auto ar = pushAR(t);
+
+			if(funcDef->isVararg && numParams > func->numParams)
+			{
+				// In this case, we move the formal parameters after the varargs and null out where the formal
+				// params used to be.
+				ar->base = paramSlot + numParams;
+				ar->vargBase = paramSlot + func->numParams;
+				checkStack(t, ar->base + funcDef->stackSize - 1);
+				auto oldParams = t->stack.slice(paramSlot, paramSlot + func->numParams);
+				t->stack.slicea(ar->base, ar->base + func->numParams, oldParams);
+				oldParams.fill(Value::nullValue);
+
+				// For nulling out the stack.
+				numParams = func->numParams;
+			}
+			else
+			{
+				// In this case, everything is where it needs to be already.
+				ar->base = paramSlot;
+				ar->vargBase = paramSlot;
+				checkStack(t, ar->base + funcDef->stackSize - 1);
+				// If we have too few params, the extra param slots will be nulled out.
+			}
+
+			// Null out the stack frame after the parameters.
+			t->stack.slice(ar->base + numParams, ar->base + funcDef->stackSize).fill(Value::nullValue);
+
+			// Fill in the rest of the activation record.
+			ar->returnSlot = returnSlot;
+			ar->func = func;
+			ar->pc = funcDef->code.ptr;
+			ar->expectedResults = expectedResults;
+			ar->firstResult = 0;
+			ar->numResults = 0;
+			ar->numTailcalls = 0;
+			ar->savedTop = ar->base + funcDef->stackSize;
+			ar->unwindCounter = 0;
+			ar->unwindReturn = nullptr;
+
+			// Set the stack indices.
+			t->stackBase = ar->base;
+			t->stackIndex = ar->savedTop;
+
+			// Call any hook.
+			if(t->hooks & CrocThreadHook_Call)
+				callHook(t, CrocThreadHook_Call);
+
+			return true;
+		}
+		else
+		{
+			// Native function
+			t->stackIndex = paramSlot + numParams;
+			checkStack(t, t->stackIndex);
+
+			auto ar = pushAR(t);
+
+			ar->base = paramSlot;
+			ar->vargBase = paramSlot;
+			ar->returnSlot = returnSlot;
+			ar->func = func;
+			ar->expectedResults = expectedResults;
+			ar->firstResult = 0;
+			ar->numResults = 0;
+			ar->savedTop = t->stackIndex;
+			ar->numTailcalls = 0;
+			ar->unwindCounter = 0;
+			ar->unwindReturn = nullptr;
+
+			t->stackBase = ar->base;
+
+			if(t->hooks & CrocThreadHook_Call)
+				callHook(t, CrocThreadHook_Call);
+
+			t->nativeCallDepth++;
+			auto savedState = t->state;
+			t->state = CrocThreadState_Running;
+			t->vm->curThread = t;
+
+			uword actualReturns;
+
+			auto failed = tryCode(t, paramSlot, [&t, &func, &actualReturns]()
+			{
+				actualReturns = func->nativeFunc(*t);
+			});
+
+			t->nativeCallDepth--;
+			t->state = savedState;
+
+			if(failed)
+				croc_eh_rethrow(*t);
+
+			saveResults(t, t, t->stackIndex - actualReturns, actualReturns);
+			callEpilogue(t);
+			return false;
+		}
+	}
+
+	uword commonCall(Thread* t, AbsStack slot, word numReturns, bool isScript)
+	{
+		// TODO:
+		// t.nativeCallDepth++;
+		// scope(exit) t.nativeCallDepth--;
+
+		if(isScript)
+			{} //execute(t);
+
+		uword ret;
+
+		if(numReturns == -1)
+			ret = t->stackIndex - slot;
+		else
+		{
+			t->stackIndex = slot + numReturns;
+			ret = numReturns;
+		}
+
+		croc_gc_maybeCollect(*t);
+		return ret;
+	}
+
+	bool commonMethodCall(Thread* t, AbsStack slot, Value self, Value lookup, String* methodName, word numReturns, uword numParams)
+	{
+		auto method = lookupMethod(t, lookup, methodName);
+
+		// Idea is like this:
+
+		// If we're calling the real method, the object is moved to the 'this' slot and the method takes its place.
+
+		// If we're calling opMethod, the object is left where it is (or the custom context is moved to its place),
+		// the method name goes where the context was, and we use callPrologue2 with a closure that's not on the stack.
+
+		if(method.type != CrocType_Null)
+		{
+			t->stack[slot] = method;
+			t->stack[slot + 1] = self;
+			return callPrologue(t, slot, numReturns, numParams);
+		}
+		else
+		{
+			if(auto mm = getMM(t, lookup, MM_Method))
+			{
+				t->stack[slot] = self;
+				t->stack[slot + 1] = Value::from(methodName);
+				return funcCallPrologue(t, mm, slot, numReturns, slot, numParams + 1);
+			}
+			else
+			{
+				pushTypeStringImpl(t, lookup);
+				croc_eh_throwStd(*t, "MethodError", "No implementation of method '%s' or %s for type '%s'",
+					methodName->toCString(), MetaNames[MM_Method], croc_getString(*t, -1));
+				assert(false);
+			}
+		}
 	}
 }

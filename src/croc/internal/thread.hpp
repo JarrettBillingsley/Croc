@@ -6,7 +6,7 @@
 namespace croc
 {
 	void yieldImpl(Thread* t, AbsStack firstValue, word numValues, word expectedResults);
-	void resume(Thread* t, Thread* from, uword numParams);
+	void resume(Thread* t, Thread* from, AbsStack slot, uword expectedResults, uword numParams);
 }
 
 #endif

@@ -20,6 +20,10 @@ namespace croc
 	void callEpilogue(Thread* t);
 	void saveResults(Thread* t, Thread* from, AbsStack first, uword num);
 	DArray<Value> loadResults(Thread* t);
+	bool callPrologue(Thread* t, AbsStack slot, word expectedResults, uword numParams);
+	bool funcCallPrologue(Thread* t, Function* func, AbsStack returnSlot, word expectedResults, AbsStack paramSlot, uword numParams);
+	uword commonCall(Thread* t, AbsStack slot, word numReturns, bool isScript);
+	bool commonMethodCall(Thread* t, AbsStack slot, Value self, Value lookup, String* methodName, word numReturns, uword numParams);
 }
 
 #endif

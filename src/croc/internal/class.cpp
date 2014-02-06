@@ -6,28 +6,6 @@
 
 namespace croc
 {
-	Value superOfImpl(Thread* t, Value v)
-	{
-		if(v.type == CrocType_Instance)
-			return Value::from(v.mInstance->parent);
-		else if(v.type == CrocType_Namespace)
-		{
-			if(auto p = v.mNamespace->parent)
-				return Value::from(p);
-			else
-				return Value::nullValue;
-		}
-		else
-		{
-			pushTypeStringImpl(t, v);
-			croc_eh_throwStd(*t, "TypeError",
-				"Can only get super of classes, instances, and namespaces, not values of type '%s'",
-				croc_getString(*t, -1));
-		}
-
-		assert(false);
-	}
-
 	void classDeriveImpl(Thread* t, Class* c, Class* base)
 	{
 		freezeImpl(t, base);
