@@ -1010,6 +1010,11 @@ Returns:
 */
 word pushThread(CrocThread* t, CrocThread* o)
 {
+	mixin(FuncNameMix);
+
+	if(t.vm !is o.vm)
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Threads belong to different VMs");
+
 	return push(t, CrocValue(o));
 }
 
@@ -2100,7 +2105,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed function definition.
 */
-void funcDef(CrocThread* t, word func)
+word funcDef(CrocThread* t, word func)
 {
 	mixin(FuncNameMix);
 
@@ -3393,7 +3398,7 @@ word slice(CrocThread* t, word container)
 	mixin(apiCheckNumParams!("2"));
 	auto slot = t.stackIndex - 2;
 	sliceImpl(t, slot, getValue(t, container), &t.stack[slot], &t.stack[slot + 1]);
-	pop(t);
+	pop(t, 2);
 	return stackSize(t) - 1;
 }
 
