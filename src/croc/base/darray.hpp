@@ -57,7 +57,12 @@ namespace croc
 			auto byteLength = ARRAY_BYTE_SIZE(length);
 			auto newByteLength = ARRAY_BYTE_SIZE(newLength);
 			void* tmp = ptr;
-			mem.resizeRaw(tmp, byteLength, newByteLength MEMBERTYPEID);
+
+			if(byteLength == 0)
+				tmp = cast(T*)mem.allocRaw(newByteLength MEMBERTYPEID);
+			else
+				mem.resizeRaw(tmp, byteLength, newByteLength MEMBERTYPEID);
+
 			ptr = cast(T*)tmp;
 
 			size_t oldLength = length;
