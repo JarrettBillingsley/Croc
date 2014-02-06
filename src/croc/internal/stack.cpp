@@ -31,8 +31,7 @@ namespace croc
 			fake += size;
 
 		if(fake < 0 || fake >= cast(word)size)
-			assert(false); // TODO:
-			// throwStdException(t, "ApiError", "Invalid stack index {} (stack size = {})", fake, size);
+			croc_eh_throwStd(*t, "ApiError", "Invalid stack index {} (stack size = {})", fake, size);
 
 		return cast(RelStack)fake;
 	}

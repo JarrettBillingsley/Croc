@@ -1,4 +1,5 @@
 
+#include "croc/api.h"
 #include "croc/internal/variables.hpp"
 #include "croc/types.hpp"
 
@@ -15,9 +16,7 @@ namespace croc
 				return *glob;
 		}
 
-		// TODO:ex
-		(void)t;
-		// throwStdException(t, "NameError", "Attempting to get a nonexistent global '{}'", name.toString());
+		croc_eh_throwStd(*t, "NameError", "Attempting to get a nonexistent global '{}'", name->toCString());
 		assert(false);
 	}
 
@@ -29,16 +28,14 @@ namespace croc
 		if(env->root && env->root->setIfExists(t->vm->mem, name, val))
 			return;
 
-		// TODO:ex
-		// throwStdException(t, "NameError", "Attempting to set a nonexistent global '{}'", name.toString());
+		croc_eh_throwStd(*t, "NameError", "Attempting to set a nonexistent global '{}'", name->toCString());
 		assert(false);
 	}
 
 	void newGlobalImpl(Thread* t, String* name, Namespace* env, Value val)
 	{
 		if(env->contains(name))
-			assert(false); // TODO:ex
-			// throwStdException(t, "NameError", "Attempting to create global '{}' that already exists", name.toString());
+			croc_eh_throwStd(*t, "NameError", "Attempting to create global '{}' that already exists", name->toCString());
 
 		env->set(t->vm->mem, name, val);
 	}

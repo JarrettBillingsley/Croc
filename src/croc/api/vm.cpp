@@ -14,6 +14,7 @@ namespace croc
 	{
 		const size_t FinalizeLoopLimit = 1000;
 
+		// TODO: move this somewhere sane
 		void freeAll(VM* vm)
 		{
 			vm->globals->clear(vm->mem);
@@ -33,7 +34,7 @@ namespace croc
 			do
 			{
 				if(limit > FinalizeLoopLimit)
-					assert(false); // TODO:ex
+					assert(false); // TODO:
 					// throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or something's broken.");
 
 				// runFinalizers(vm->mainThread); TODO:api
@@ -44,7 +45,7 @@ namespace croc
 			gcCycle(vm, GCCycleType_NoRoots);
 
 			if(!vm->toFinalize.isEmpty())
-				assert(false); // TODO:ex
+				assert(false); // TODO:
 				// throw new Exception("Did you stick a finalizable object in a global metatable or something? I think you did. Stop doing that.");
 		}
 	}
@@ -244,13 +245,11 @@ extern "C"
 		// ORDER CROCTYPE
 		if(!(type >= CrocType_FirstUserType && type <= CrocType_LastUserType))
 		{
-			// TODO:ex
 			if(type >= 0 && type < CrocType_NUMTYPES)
-				{} // throwStdException(t, "TypeError", __FUNCTION__ " - Cannot get metatable for type '{}'", CrocValue.typeStrings[type]);
+				croc_eh_throwStd(t, "TypeError", "{} - Cannot get metatable for type '{}'",
+					__FUNCTION__, typeToString(type));
 			else
-				{} // throwStdException(t, "ApiError", __FUNCTION__ " - Invalid type '{}'", type);
-
-			assert(false);
+				croc_eh_throwStd(t, "ApiError", "{} - Invalid type '{}'", __FUNCTION__, type);
 		}
 
 		if(auto ns = Thread::from(t)->vm->metaTabs[cast(uword)type])
@@ -267,12 +266,11 @@ extern "C"
 		// ORDER CROCTYPE
 		if(!(type >= CrocType_FirstUserType && type <= CrocType_LastUserType))
 		{
-			// TODO:ex
 			if(type >= 0 && type < CrocType_NUMTYPES)
-				{} // throwStdException(t, "TypeError", __FUNCTION__ ~ " - Cannot set metatable for type '{}'", CrocValue.typeStrings[type]);
+				croc_eh_throwStd(t_, "TypeError", "{} - Cannot set metatable for type '{}'",
+					__FUNCTION__, typeToString(type));
 			else
-				{} // throwStdException(t, "ApiError", __FUNCTION__ ~ " - Invalid type '{}'", type);
-			assert(false);
+				croc_eh_throwStd(t_, "ApiError", "{} - Invalid type '{}'", __FUNCTION__, type);
 		}
 
 		auto v = getValue(t, -1);

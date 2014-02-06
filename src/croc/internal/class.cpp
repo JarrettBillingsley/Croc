@@ -1,4 +1,6 @@
 
+#include "croc/api.h"
+#include "croc/internal/basic.hpp"
 #include "croc/internal/class.hpp"
 #include "croc/types.hpp"
 
@@ -17,10 +19,10 @@ namespace croc
 		}
 		else
 		{
-			// TODO:ex
-			(void)t;
-			// typeString(t, v);
-			// throwStdException(t, "TypeError", "Can only get super of classes, instances, and namespaces, not values of type '{}'", getString(t, -1));
+			pushTypeStringImpl(t, v);
+			croc_eh_throwStd(*t, "TypeError",
+				"Can only get super of classes, instances, and namespaces, not values of type '{}'",
+				croc_getString(*t, -1));
 		}
 
 		assert(false);
@@ -31,17 +33,16 @@ namespace croc
 		freezeImpl(t, base);
 
 		if(base->finalizer)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ValueError", "Attempting to derive from class '{}' which has a finalizer", base.name.toString());
+			croc_eh_throwStd(*t, "ValueError", "Attempting to derive from class '{}' which has a finalizer",
+				base->name->toCString());
 
 		const char* which;
 
 		if(auto conflict = Class::derive(t->vm->mem, c, base, which))
 		{
-			(void)conflict;
-			assert(false); // TODO:ex
-			// throwStdException(t, "ValueError", "Attempting to derive {} '{}' from class '{}', but it already exists in the new class '{}'",
-			// 	which, conflict.key.toString(), base.name.toString(), c.name.toString());
+			croc_eh_throwStd(*t, "ValueError",
+				"Attempting to derive {} '{}' from class '{}', but it already exists in the new class '{}'",
+				which, conflict->key->toCString(), base->name->toCString(), c->name->toCString());
 		}
 	}
 
@@ -54,9 +55,9 @@ namespace croc
 		{
 			if(ctor->value.type != CrocType_Function)
 			{
-				assert(false); // TODO:ex
-				// typeString(t, &ctor.value);
-				// throwStdException(t, "TypeError", "Class constructor must be of type 'function', not '{}'", getString(t, -1));
+				pushTypeStringImpl(t, ctor->value);
+				croc_eh_throwStd(*t, "TypeError", "Class constructor must be of type 'function', not '{}'",
+					croc_getString(*t, -1));
 			}
 
 			c->constructor = &ctor->value;
@@ -66,9 +67,9 @@ namespace croc
 		{
 			if(finalizer->value.type != CrocType_Function)
 			{
-				assert(false); // TODO:ex
-				// typeString(t, &finalizer.value);
-				// throwStdException(t, "TypeError", "Class finalizer must be of type 'function', not '{}'", getString(t, -1));
+				pushTypeStringImpl(t, finalizer->value);
+				croc_eh_throwStd(*t, "TypeError", "Class finalizer must be of type 'function', not '{}'",
+					croc_getString(*t, -1));
 			}
 
 			c->finalizer = &finalizer->value;

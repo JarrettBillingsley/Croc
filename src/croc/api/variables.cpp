@@ -21,16 +21,16 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(t->arIndex == 0)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - No function to set upvalue (can't call this function at top level)");
+			croc_eh_throwStd(t_, "ApiError", "{} - No function to set upvalue (can't call this function at top level)",
+				__FUNCTION__);
 
 		API_CHECK_NUM_PARAMS(1);
 
 		auto func = t->currentAR->func;
 
 		if(idx >= func->nativeUpvals().length)
-			assert(false); // TODO:ex
-			// throwStdException(t, "BoundsError", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, t->currentAR.func.nativeUpvals().length);
+			croc_eh_throwStd(t_, "BoundsError", "{} - Invalid upvalue index ({}, only have {})",
+				__FUNCTION__, idx, func->nativeUpvals().length);
 
 		func->setNativeUpval(t->vm->mem, idx, *getValue(t, -1));
 		croc_popTop(t_);
@@ -41,8 +41,8 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(t->arIndex == 0)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - No function to get upvalue (can't call this function at top level)");
+			croc_eh_throwStd(t_, "ApiError", "{} - No function to get upvalue (can't call this function at top level)",
+				__FUNCTION__);
 
 		// It is impossible for this function to be called from script code, because the only way that could happen is
 		// if the interpreter itself called it.
@@ -51,8 +51,8 @@ extern "C"
 		auto upvals = t->currentAR->func->nativeUpvals();
 
 		if(idx >= upvals.length)
-			assert(false); // TODO:ex
-			// throwStdException(t, "BoundsError", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
+			croc_eh_throwStd(t_, "BoundsError", "{} - Invalid upvalue index ({}, only have {})",
+				__FUNCTION__, idx, upvals.length);
 
 		return push(t, upvals[idx]);
 	}

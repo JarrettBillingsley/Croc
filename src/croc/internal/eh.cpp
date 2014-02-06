@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "croc/api.h"
+#include "croc/internal/basic.hpp"
 #include "croc/internal/calls.hpp"
 #include "croc/internal/debug.hpp"
 #include "croc/internal/eh.hpp"
@@ -12,7 +13,7 @@ namespace croc
 {
 	word defaultUnhandledEx(CrocThread* t)
 	{
-		// TODO:
+		// TODO: implement this!
 		(void)t;
 		assert(false);
 	}
@@ -137,8 +138,10 @@ namespace croc
 	void throwImpl(Thread* t, Value ex, bool rethrowing)
 	{
 		if(ex.type != CrocType_Instance)
-			assert(false); // TODO:ex
-			// bitch and moan;
+		{
+			pushTypeStringImpl(t, ex);
+			croc_eh_throwStd(*t, "TypeError", "Only instances can be thrown, not '{}'", croc_getString(*t, -1));
+		}
 
 		if(!rethrowing)
 			addLocationInfo(t, ex);

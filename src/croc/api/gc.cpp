@@ -80,8 +80,7 @@ extern "C"
 		if(strncmp(type, "nurserySizeCutoff",    30) == 0) p = &t->vm->mem.nurserySizeCutoff;  else
 		if(strncmp(type, "cycleCollectInterval", 30) == 0) p = &t->vm->mem.nextCycleCollect;   else
 		if(strncmp(type, "cycleMetadataLimit",   30) == 0) p = &t->vm->mem.cycleMetadataLimit; else
-		assert(false); // TODO:ex
-		// throwStdException(t, "ValueError", "Invalid limit type '{}'", type);
+		croc_eh_throwStd(t_, "ValueError", "Invalid limit type '{}'", type);
 
 		auto ret = *p;
 		*p = lim;
@@ -97,8 +96,9 @@ extern "C"
 		if(strncmp(type, "nurserySizeCutoff",    30) == 0) return t->vm->mem.nurserySizeCutoff;  else
 		if(strncmp(type, "cycleCollectInterval", 30) == 0) return t->vm->mem.nextCycleCollect;   else
 		if(strncmp(type, "cycleMetadataLimit",   30) == 0) return t->vm->mem.cycleMetadataLimit; else
-		assert(false); // TODO:ex
-		// throwStdException(t, "ValueError", "Invalid limit type '{}'", type);
+		croc_eh_throwStd(t_, "ValueError", "Invalid limit type '{}'", type);
+
+		assert(false);
 	}
 }
 }

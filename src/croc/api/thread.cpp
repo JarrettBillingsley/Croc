@@ -14,8 +14,8 @@ extern "C"
 		API_CHECK_PARAM(f, func, Function, "thread function");
 
 		if(f->isNative)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ValueError", __FUNCTION__ ~ " - Native functions may not be used as the body of a thread");
+			croc_eh_throwStd(t_, "ValueError", "{} - Native functions may not be used as the body of a thread",
+				__FUNCTION__);
 
 		croc_gc_maybeCollect(t_);
 		auto nt = Thread::create(t->vm, f);
@@ -55,12 +55,12 @@ extern "C"
 
 		// This shouldn't be possible, but it can't hurt to check
 		if(t->vm != other->vm)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ValueError", __FUNCTION__ ~ " - Attempting to reset a thread that belongs to a different VM");
+			croc_eh_throwStd(t_, "ValueError", "{} - Attempting to reset a thread that belongs to a different VM",
+				__FUNCTION__);
 
 		if(other->state != CrocThreadState_Dead)
-			assert(false); // TODO:ex
-			// throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to reset a {} thread (must be dead)", stateString(other));
+			croc_eh_throwStd(t_, "StateError", "{} - Attempting to reset a {} thread (must be dead)",
+				__FUNCTION__, ThreadStateStrings[other->state]);
 
 		other->reset();
 	}
@@ -74,16 +74,16 @@ extern "C"
 
 		// This shouldn't be possible, but it can't hurt to check
 		if(t->vm != other->vm)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ValueError", __FUNCTION__ ~ " - Attempting to reset a thread that belongs to a different VM");
+			croc_eh_throwStd(t_, "ValueError", "{} - Attempting to reset a thread that belongs to a different VM",
+				__FUNCTION__);
 
 		if(other->state != CrocThreadState_Dead)
-			assert(false); // TODO:ex
-			// throwStdException(t, "StateError", __FUNCTION__ ~ " - Attempting to reset a {} thread (must be dead)", stateString(other));
+			croc_eh_throwStd(t_, "StateError", "{} - Attempting to reset a {} thread (must be dead)",
+				__FUNCTION__, ThreadStateStrings[other->state]);
 
 		if(f->isNative)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ValueError", __FUNCTION__ ~ " - Native functions may not be used as the body of a thread");
+			croc_eh_throwStd(t_, "ValueError", "{} - Native functions may not be used as the body of a thread",
+				__FUNCTION__);
 
 		other->setCoroFunc(t->vm->mem, f);
 		croc_popTop(t_);
@@ -95,7 +95,7 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(t->state == CrocThreadState_Running)
-			assert(false); // TODO:ex
+			assert(false); // TODO:halt
 			// throw new CrocHaltException();
 		else
 			croc_thread_pendingHalt(t_);

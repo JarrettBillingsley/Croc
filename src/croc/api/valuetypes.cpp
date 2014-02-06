@@ -1,6 +1,7 @@
 
 #include "croc/api.h"
 #include "croc/types.hpp"
+#include "croc/internal/apichecks.hpp"
 #include "croc/internal/stack.hpp"
 
 namespace croc
@@ -32,8 +33,7 @@ extern "C"
 		DArray<char> s;
 
 		if(encodeUtf8Char(buf, c, s) != UtfError_OK)
-			assert(false); // TODO:ex
-			// throwStdException(t, "UnicodeError", "Invalid Unicode codepoint U+{:X6}", cast(uint)c);
+			croc_eh_throwStd(t_, "UnicodeError", "Invalid Unicode codepoint U+{:X6}", cast(uint32_t)c);
 
 		return push(t, Value::from(String::createUnverified(t->vm, s.toConst(), 1)));
 	}
@@ -53,8 +53,7 @@ extern "C"
 		auto o = Thread::from(o_);
 
 		if(t->vm != o->vm)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ " - Threads belong to different VMs");
+			croc_eh_throwStd(t_, "ApiError", "{} - Threads belong to different VMs", __FUNCTION__);
 
 		return push(t, Value::from(o));
 	}
@@ -62,46 +61,22 @@ extern "C"
 	int croc_getBool(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
-		auto v = getValue(t, slot);
-
-		if(v->type != CrocType_Bool)
-		{
-			croc_pushTypeString(t_, slot);
-			assert(false); // TODO:ex
-			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'bool' but got '{}'", getString(t, -1));
-		}
-
-		return v->mBool;
+		API_CHECK_PARAM(ret, slot, Bool, "slot");
+		return ret;
 	}
 
 	crocint_t croc_getInt(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
-		auto v = getValue(t, slot);
-
-		if(v->type != CrocType_Int)
-		{
-			croc_pushTypeString(t_, slot);
-			assert(false); // TODO:ex
-			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'int' but got '{}'", getString(t, -1));
-		}
-
-		return v->mInt;
+		API_CHECK_PARAM(ret, slot, Int, "slot");
+		return ret;
 	}
 
 	crocfloat_t croc_getFloat(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
-		auto v = getValue(t, slot);
-
-		if(v->type != CrocType_Float)
-		{
-			croc_pushTypeString(t_, slot);
-			assert(false); // TODO:ex
-			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'float' but got '{}'", getString(t, -1));
-		}
-
-		return v->mFloat;
+		API_CHECK_PARAM(ret, slot, Float, "slot");
+		return ret;
 	}
 
 	crocfloat_t croc_getNum(CrocThread* t_, word_t slot)
@@ -116,28 +91,18 @@ extern "C"
 		else
 		{
 			croc_pushTypeString(t_, slot);
-			assert(false); // TODO:ex
-			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'int' or 'float' but got '{}'", getString(t, -1));
+			croc_eh_throwStd(t_, "TypeError", "{} - expected 'int' or 'float' but got '{}'", __FUNCTION__, croc_getString(t_, -1));
+			assert(false);
 		}
 	}
 
 	crocchar_t croc_getChar(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
-		auto v = getValue(t, slot);
-
-		if(v->type != CrocType_String)
-		{
-			croc_pushTypeString(t_, slot);
-			assert(false); // TODO:ex
-			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
-		}
-
-		auto str = v->mString;
+		API_CHECK_PARAM(str, slot, String, "slot");
 
 		if(str->cpLength != 1)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ValueError", __FUNCTION__ ~ " - string must be one character long");
+			croc_eh_throwStd(t_, "ValueError", "{} - string must be one codepoint long", __FUNCTION__);
 
 		auto ptr = str->toCString();
 		return fastDecodeUtf8Char(ptr);
@@ -146,31 +111,15 @@ extern "C"
 	const char* croc_getString(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
-		auto v = getValue(t, slot);
-
-		if(v->type != CrocType_String)
-		{
-			croc_pushTypeString(t_, slot);
-			assert(false); // TODO:ex
-			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
-		}
-
-		return v->mString->toCString();
+		API_CHECK_PARAM(ret, slot, String, "slot");
+		return ret->toCString();
 	}
 
 	const char* croc_getStringn(CrocThread* t_, word_t slot, uword_t* len)
 	{
 		auto t = Thread::from(t_);
-		auto v = getValue(t, slot);
-
-		if(v->type != CrocType_String)
-		{
-			croc_pushTypeString(t_, slot);
-			assert(false); // TODO:ex
-			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
-		}
-
-		auto str = v->mString->toDArray();
+		API_CHECK_PARAM(ret, slot, String, "slot");
+		auto str = ret->toDArray();
 		*len = str.length;
 		return str.ptr;
 	}
@@ -178,31 +127,15 @@ extern "C"
 	void* croc_getNativeobj(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
-		auto v = getValue(t, slot);
-
-		if(v->type != CrocType_Nativeobj)
-		{
-			croc_pushTypeString(t_, slot);
-			assert(false); // TODO:ex
-			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'nativeobj' but got '{}'", getString(t, -1));
-		}
-
-		return v->mNativeobj;
+		API_CHECK_PARAM(ret, slot, Nativeobj, "slot");
+		return ret;
 	}
 
 	CrocThread* croc_getThread(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
-		auto v = getValue(t, slot);
-
-		if(v->type != CrocType_Thread)
-		{
-			croc_pushTypeString(t_, slot);
-			assert(false); // TODO:ex
-			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - expected 'thread' but got '{}'", getString(t, -1));
-		}
-
-		return *v->mThread;
+		API_CHECK_PARAM(ret, slot, Thread, "slot");
+		return *ret;
 	}
 } // extern "C"
 }

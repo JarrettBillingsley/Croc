@@ -22,6 +22,7 @@ extern "C"
 			case CrocType_Namespace: return v.mNamespace->name->toCString();
 			case CrocType_Funcdef:   return v.mFuncdef->name->toCString();
 			default: API_PARAM_TYPE_ERROR(obj, "obj", "namespace|function|funcdef|class");
+			assert(false);
 		}
 	}
 

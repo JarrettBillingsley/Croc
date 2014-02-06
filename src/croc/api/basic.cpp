@@ -30,9 +30,9 @@ extern "C"
 
 			if(!ns->contains(key))
 			{
-				assert(false); // TODO:ex
-				// pushToString(t, obj);
-				// throwStdException(t, "FieldError", __FUNCTION__ ~ " - key '{}' does not exist in namespace '{}'", getString(t, -2), getString(t, -1));
+				croc_pushToString(t_, obj);
+				croc_eh_throwStd(t_, "FieldError",
+					"{} - key '{}' does not exist in namespace '{}'", __FUNCTION__, getString(t, -2), getString(t, -1));
 			}
 
 			ns->remove(t->vm->mem, key);
@@ -234,8 +234,9 @@ extern "C"
 				auto v = c->getHiddenField(name);
 
 				if(v == nullptr)
-					assert(false); // TODO:ex
-					// throwStdException(t, "FieldError", "Attempting to access nonexistent hidden field '{}' from class '{}'", name.toString(), c.name.toString());
+					croc_eh_throwStd(t_, "FieldError",
+						"{} - Attempting to access nonexistent hidden field '{}' from class '{}'",
+						__FUNCTION__, name->toCString(), c->name->toCString());
 
 				t->stack[t->stackIndex - 1] = v->value;
 				break;
@@ -245,8 +246,9 @@ extern "C"
 				auto v = i->getHiddenField(name);
 
 				if(v == nullptr)
-					assert(false); // TODO:ex
-					// throwStdException(t, "FieldError", "Attempting to access nonexistent hidden field '{}' from instance of class '{}'", name.toString(), i.parent.name.toString());
+					croc_eh_throwStd(t_, "FieldError",
+						"{} - Attempting to access nonexistent hidden field '{}' from instance of class '{}'",
+						__FUNCTION__, name->toCString(), i->parent->name->toCString());
 
 				t->stack[t->stackIndex - 1] = v->value;
 				break;
@@ -285,8 +287,9 @@ extern "C"
 				if(auto slot = c->getHiddenField(name))
 					c->setMember(t->vm->mem, slot, value);
 				else
-					assert(false); // TODO:ex
-					// throwStdException(t, "FieldError", "Attempting to assign to nonexistent hidden field '{}' in class '{}'", name.toString(), c.name.toString());
+					croc_eh_throwStd(t_, "FieldError",
+						"{} - Attempting to assign to nonexistent hidden field '{}' in class '{}'",
+						__FUNCTION__, name->toCString(), c->name->toCString());
 				break;
 			}
 			case CrocType_Instance: {
@@ -295,8 +298,9 @@ extern "C"
 				if(auto slot = i->getHiddenField(name))
 					i->setField(t->vm->mem, slot, value);
 				else
-					assert(false); // TODO:ex
-					// throwStdException(t, "FieldError", "Attempting to assign to nonexistent hidden field '{}' in instance of class '{}'", name.toString(), i.parent.name.toString());
+					croc_eh_throwStd(t_, "FieldError",
+						"{} - Attempting to assign to nonexistent hidden field '{}' in instance of class '{}'",
+						__FUNCTION__, name->toCString(), i->parent->name->toCString());
 				break;
 			}
 			default:
@@ -324,9 +328,9 @@ extern "C"
 
 		if(len.type != CrocType_Int)
 		{
-			assert(false); // TODO:ex
-			// pushTypeString(t, -1);
-			// throwStdException(t, "TypeError", __FUNCTION__ ~ " - Expected length to be an int, but got '{}' instead", getString(t, -1));
+			croc_pushTypeString(t_, -1);
+			croc_eh_throwStd(t_, "TypeError", "{} - Expected length to be an int, but got '{}' instead",
+				__FUNCTION__, croc_getString(t_, -1));
 		}
 
 		auto ret = len.mInt;
@@ -354,8 +358,7 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(num == 0)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot concatenate 0 things");
+			croc_eh_throwStd(t_, "ApiError", "{} - Cannot concatenate 0 things", __FUNCTION__);
 
 		API_CHECK_NUM_PARAMS(num);
 
@@ -375,8 +378,7 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(num == 0)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot append 0 things");
+			croc_eh_throwStd(t_, "ApiError", "{} - Cannot append 0 things", __FUNCTION__);
 
 		API_CHECK_NUM_PARAMS(num);
 		catEqImpl(t, fakeToAbs(t, dest), t->stackIndex - num, num);

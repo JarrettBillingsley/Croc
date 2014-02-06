@@ -1,4 +1,5 @@
 
+#include "croc/api.h"
 #include "croc/base/metamethods.hpp"
 #include "croc/internal/calls.hpp"
 #include "croc/internal/eh.hpp"
@@ -17,8 +18,8 @@ namespace croc
 			if(depth == 0)
 				return t->actRecs[cast(uword)idx].func->environment;
 			else if(depth <= t->actRecs[cast(uword)idx].numTailcalls)
-				assert(false); // TODO:ex
-				// throwStdException(t, "RuntimeError", "Attempting to get environment of function whose activation record was overwritten by a tail call");
+				croc_eh_throwStd(*t, "RuntimeError",
+					"Attempting to get environment of function whose activation record was overwritten by a tail call");
 
 			depth -= (t->actRecs[cast(uword)idx].numTailcalls + 1);
 		}

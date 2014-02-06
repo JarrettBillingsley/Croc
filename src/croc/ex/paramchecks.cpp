@@ -8,24 +8,22 @@ extern "C"
 {
 	void croc_ex_paramTypeError(CrocThread* t, word_t index, const char* expected)
 	{
-		(void)t;
-		(void)index;
-		(void)expected;
-		assert(false);
-		// TODO:ex
-		// croc_pushTypeString(t, index);
+		index = croc_absIndex(t, index);
+		croc_pushTypeString(t, index);
 
-		// if(index == 0)
-		// 	croc_eh_throwStd(t, "TypeError", "Expected type '{}' for 'this', not '{}'", expected, croc_getString(t, -1));
-		// else
-		// 	croc_eh_throwStd(t, "TypeError", "Expected type '{}' for parameter {}, not '{}'", expected, croc_absIndex(t, index), croc_getString(t, -1));
+		if(index == 0)
+			croc_eh_throwStd(t, "TypeError", "Expected type '{}' for 'this', not '{}'",
+				expected, croc_getString(t, -1));
+		else
+			croc_eh_throwStd(t, "TypeError", "Expected type '{}' for parameter {}, not '{}'",
+				expected, index, croc_getString(t, -1));
 	}
 
 	void croc_ex_checkAnyParam(CrocThread* t, word_t index)
 	{
 		if(!croc_isValidIndex(t, index))
-			assert(false); // TODO:ex
-			// croc_eh_throwStd(t, "ParamError", "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
+			croc_eh_throwStd(t, "ParamError", "Too few parameters (expected at least {}, got {})",
+				index, croc_getStackSize(t) - 1);
 	}
 
 	void croc_ex_checkParam(CrocThread* t, word_t index, CrocType type)
@@ -101,14 +99,14 @@ extern "C"
 
 		if(!croc_isInstanceOf(t, index, -1))
 		{
-			// TODO:ex
-			assert(false);
-			// croc_pushTypeString(t, index);
+			croc_pushTypeString(t, index);
 
-			// if(index == 0)
-			// 	croc_eh_throwStd(t, "TypeError", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
-			// else
-			// 	croc_eh_throwStd(t, "TypeError", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			if(index == 0)
+				croc_eh_throwStd(t, "TypeError", "Expected instance of class {} for 'this', not {}",
+					name, croc_getString(t, -1));
+			else
+				croc_eh_throwStd(t, "TypeError", "Expected instance of class {} for parameter {}, not {}",
+					name, index, croc_getString(t, -1));
 		}
 
 		croc_popTop(t);
@@ -120,15 +118,15 @@ extern "C"
 
 		if(!croc_isInstanceOf(t, index, classIndex))
 		{
-			// TODO:ex
-			assert(false);
-			// auto name = croc_class_getName(t, classIndex);
-			// croc_pushTypeString(t, index);
+			auto name = croc_class_getName(t, classIndex);
+			croc_pushTypeString(t, index);
 
-			// if(index == 0)
-			// 	croc_eh_throwStd(t, "TypeError", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
-			// else
-			// 	croc_eh_throwStd(t, "TypeError", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			if(index == 0)
+				croc_eh_throwStd(t, "TypeError", "Expected instance of class {} for 'this', not {}",
+					name, croc_getString(t, -1));
+			else
+				croc_eh_throwStd(t, "TypeError", "Expected instance of class {} for parameter {}, not {}",
+					name, index, croc_getString(t, -1));
 		}
 	}
 

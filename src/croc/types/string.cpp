@@ -1,6 +1,7 @@
 
 #include <functional>
 
+#include "croc/api.h"
 #include "croc/types.hpp"
 #include "croc/utf.hpp"
 #include "croc/utils.hpp"
@@ -34,13 +35,12 @@ namespace croc
 	// if two string objects are identical, they are also equal.
 	String* String::create(VM* vm, crocstr data)
 	{
-		return createInternal(vm, data, [&data]()
+		return createInternal(vm, data, [&vm, &data]()
 		{
 			uword cpLen;
 
 			if(verifyUtf8(data, cpLen) != UtfError_OK)
-				assert(false); // TODO:ex
-				// throwStdException(t, "UnicodeError", "Invalid UTF-8 sequence");
+				croc_eh_throwStd(*vm->curThread, "UnicodeError", "Invalid UTF-8 sequence");
 
 			return cpLen;
 		});
@@ -71,7 +71,7 @@ namespace croc
 		if(this->length < sub.length)
 			return false;
 
-		// TODO:
+		// TODO: implement this!
 		// return this->toDArray().locatePattern(sub) != this->length;
 		return false;
 	}

@@ -35,6 +35,8 @@ extern "C"
 			return newNamespaceInternal(t, name, getNamespace(t, parent));
 		else
 			API_PARAM_TYPE_ERROR(parent, "parent", "null|namespace");
+
+		assert(false);
 	}
 
 	word_t croc_namespace_newNoParent(CrocThread* t_, const char* name)

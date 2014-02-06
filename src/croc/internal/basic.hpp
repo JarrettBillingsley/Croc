@@ -12,6 +12,7 @@ namespace croc
 	word pushTypeStringImpl(Thread* t, Value v);
 	bool inImpl(Thread* t, Value item, Value container);
 	crocint cmpImpl(Thread* t, Value a, Value b);
+	bool switchCmpImpl(Thread* t, Value a, Value b);
 	bool equalsImpl(Thread* t, Value a, Value b);
 	void idxImpl(Thread* t, AbsStack dest, Value container, Value key);
 	void tableIdxImpl(Thread* t, AbsStack dest, Table* container, Value key);

@@ -21,8 +21,7 @@ extern "C"
 	void croc_setStackSize(CrocThread* t_, uword_t newSize)
 	{
 		if(newSize == 0)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - newSize must be nonzero");
+			croc_eh_throwStd(t_, "ApiError", "{} - newSize must be nonzero", __FUNCTION__);
 
 		auto curSize = croc_getStackSize(t_);
 
@@ -80,8 +79,7 @@ extern "C"
 		auto s = fakeToAbs(t, slot);
 
 		if(s == t->stackBase)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot use 'this' as the destination");
+			croc_eh_throwStd(t_, "ApiError", "{} - Cannot use 'this' as the destination", __FUNCTION__);
 
 		if(s == t->stackIndex - 1)
 			return;
@@ -98,8 +96,7 @@ extern "C"
 		auto s = fakeToAbs(t, slot);
 
 		if(s == t->stackBase)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot use 'this' as the destination");
+			croc_eh_throwStd(t_, "ApiError", "{} - Cannot use 'this' as the destination", __FUNCTION__);
 
 		if(s == t->stackIndex - 1)
 			return;
@@ -115,8 +112,7 @@ extern "C"
 		auto s = fakeToAbs(t, slot);
 
 		if(s == t->stackBase)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot move 'this' to the top of the stack");
+			croc_eh_throwStd(t_, "ApiError", "{} - Cannot move 'this' to the top of the stack", __FUNCTION__);
 
 		if(s == t->stackIndex - 1)
 			return;
@@ -131,8 +127,8 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(numSlots > (croc_getStackSize(t_) - 1))
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Trying to rotate more values ({}) than can be rotated ({})", numSlots, stackSize(t) - 1);
+			croc_eh_throwStd(t_, "ApiError", "{} - Trying to rotate more values ({}) than can be rotated ({})",
+				__FUNCTION__, numSlots, croc_getStackSize(t_) - 1);
 
 		if(numSlots == 0)
 			return;
@@ -197,12 +193,10 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(n == 0)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Trying to pop zero items");
+			croc_eh_throwStd(t_, "ApiError", "{} - Trying to pop zero items", __FUNCTION__);
 
 		if(n > (t->stackIndex - (t->stackBase + 1)))
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", __FUNCTION__ ~ " - Stack underflow");
+			croc_eh_throwStd(t_, "ApiError", "{} - Stack underflow", __FUNCTION__);
 
 		t->stackIndex -= n;
 	}
@@ -213,8 +207,7 @@ extern "C"
 		auto dest = Thread::from(dest_);
 
 		if(t->vm != dest->vm)
-			assert(false); // TODO:ex
-			// throwStdException(t, "ApiError", "transferVals - Source and destination threads belong to different VMs");
+			croc_eh_throwStd(src_, "ApiError", "transferVals - Source and destination threads belong to different VMs");
 
 		if(num == 0 || dest == t)
 			return;

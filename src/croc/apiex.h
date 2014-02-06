@@ -109,7 +109,7 @@ void   CROCAPI(buffer_start)      (CrocStrBuffer* b);
 void CROCAPI(throwNamedException)  (CrocThread* t, const char* exName, const char* fmt, ...);
 void CROCAPI(vthrowNamedException) (CrocThread* t, const char* exName, const char* fmt, va_list args);
 
-// TODO:
+// TODO: come up with something for this? macros?
 // void croctry(CrocThread* t, void delegate() try_, void delegate(CrocException, word_t) catch_, void delegate() finally_ = null)
 // {
 // 	auto size = stackSize(t);
@@ -123,7 +123,7 @@ void CROCAPI(vthrowNamedException) (CrocThread* t, const char* exName, const cha
 // 		catch_(e, crocEx);
 
 // 		if(crocEx != stackSize(t) - 1)
-// 			throwStdException(t, "ApiError", "croctry - catch block is supposed to leave stack as it was before it was entered");
+// 			croc_eh_throwStd(t, "ApiError", "croctry - catch block is supposed to leave stack as it was before it was entered");
 
 // 		pop(t);
 // 	}
