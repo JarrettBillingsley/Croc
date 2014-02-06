@@ -61,7 +61,7 @@ namespace croc
 			ar = t->currentAR;
 
 		if(ar == nullptr || ar->func == nullptr)
-			return croc_vm_pushLocationObject(*t, "<no location available>", 0, CrocLocation_Unknown);
+			return croc_eh_pushLocationObject(*t, "<no location available>", 0, CrocLocation_Unknown);
 		else
 		{
 			pushFullNamespaceName(t, ar->func->environment);
@@ -79,9 +79,9 @@ namespace croc
 			croc_pop(*t, 3);
 
 			if(ar->func->isNative)
-				return croc_vm_pushLocationObject(*t, s, 0, CrocLocation_Native);
+				return croc_eh_pushLocationObject(*t, s, 0, CrocLocation_Native);
 			else
-				return croc_vm_pushLocationObject(*t, s, pcToLine(ar, ar->pc), CrocLocation_Script);
+				return croc_eh_pushLocationObject(*t, s, pcToLine(ar, ar->pc), CrocLocation_Script);
 		}
 	}
 }

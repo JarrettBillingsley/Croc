@@ -88,5 +88,33 @@ extern "C"
 		else
 			return results;
 	}
+
+	word_t croc_eh_pushLocationClass(CrocThread* t_)
+	{
+		auto t = Thread::from(t_);
+		return push(t, Value::from(t->vm->location));
+	}
+
+	word_t croc_eh_pushLocationObject(CrocThread* t_, const char* file, int line, int col)
+	{
+		auto t = Thread::from(t_);
+		auto ret = push(t, Value::from(t->vm->location));
+		croc_pushNull(t_);
+		croc_pushString(t_, file);
+		croc_pushInt(t_, line);
+		croc_pushInt(t_, col);
+		croc_call(t_, ret, 1);
+		return ret;
+	}
+
+	void croc_eh_setUnhandledExHandler(CrocThread* t_)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
+		API_CHECK_PARAM(func, -1, Function, "handler");
+		auto old = t->vm->unhandledEx;
+		t->vm->unhandledEx = func;
+		t->stack[t->stackIndex - 1] = Value::from(old);
+	}
 }
 }

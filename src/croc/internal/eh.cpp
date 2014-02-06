@@ -93,7 +93,7 @@ namespace croc
 			if(ar.numTailcalls > 0)
 			{
 				croc_pushFormat(*t, "<%u tailcall%s>", ar.numTailcalls, ar.numTailcalls == 1 ? "" : "s");
-				croc_vm_pushLocationObject(*t, croc_getString(*t, -1), -1, CrocLocation_Script);
+				croc_eh_pushLocationObject(*t, croc_getString(*t, -1), -1, CrocLocation_Script);
 				croc_cateq(*t, ret, 1);
 				croc_popTop(*t);
 			}

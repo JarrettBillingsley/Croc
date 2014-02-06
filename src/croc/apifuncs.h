@@ -21,7 +21,6 @@ void        CROCAPI(vm_close)                     (CrocThread* t);
 void        CROCAPI(vm_loadUnsafeLibs)            (CrocThread* t, CrocUnsafeLib libs);
 void        CROCAPI(vm_loadAddons)                (CrocThread* t, CrocAddons libs);
 void        CROCAPI(vm_loadAvailableAddonsExcept) (CrocThread* t, CrocAddons exclude);
-void        CROCAPI(vm_setUnhandledExHandler)     (CrocThread* t);
 
 #define croc_vm_loadAllUnsafeLibs(t) (croc_vm_loadUnsafeLibs((t), CrocUnsafeLib_All))
 #define croc_vm_loadAllAvailableAddons(t) (croc_vm_loadAllAvailableAddonsExcept((t), CrocAddons_None))
@@ -35,8 +34,6 @@ uword_t     CROCAPI(vm_bytesAllocated)     (CrocThread* t);
 word_t      CROCAPI(vm_pushTypeMT)         (CrocThread* t, CrocType type);
 void        CROCAPI(vm_setTypeMT)          (CrocThread* t, CrocType type);
 word_t      CROCAPI(vm_pushRegistry)       (CrocThread* t);
-word_t      CROCAPI(vm_pushLocationClass)  (CrocThread* t);
-word_t      CROCAPI(vm_pushLocationObject) (CrocThread* t, const char* file, int line, int col);
 
 // =====================================================================================================================
 // Raw memory management
@@ -76,12 +73,15 @@ uword_t CROCAPI(gc_getLimit)     (CrocThread* t, const char* type);
 // =====================================================================================================================
 // Exceptions
 
-void   CROCAPI(eh_throw)      (CrocThread* t);
-void   CROCAPI(eh_rethrow)    (CrocThread* t);
-word_t CROCAPI(eh_pushStd)    (CrocThread* t, const char* exName);
-void   CROCAPI(eh_throwStd)   (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
-void   CROCAPI(eh_vthrowStd)  (CrocThread* t, const char* exName, const char* fmt, va_list args);
-int    CROCAPI(eh_tryCall)    (CrocThread* t, word_t slot, word_t numReturns);
+void   CROCAPI(eh_throw)                 (CrocThread* t);
+void   CROCAPI(eh_rethrow)               (CrocThread* t);
+word_t CROCAPI(eh_pushStd)               (CrocThread* t, const char* exName);
+void   CROCAPI(eh_throwStd)              (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
+void   CROCAPI(eh_vthrowStd)             (CrocThread* t, const char* exName, const char* fmt, va_list args);
+int    CROCAPI(eh_tryCall)               (CrocThread* t, word_t slot, word_t numReturns);
+word_t CROCAPI(eh_pushLocationClass)     (CrocThread* t);
+word_t CROCAPI(eh_pushLocationObject)    (CrocThread* t, const char* file, int line, int col);
+void   CROCAPI(eh_setUnhandledExHandler) (CrocThread* t);
 
 // =====================================================================================================================
 // Stack manipulation
