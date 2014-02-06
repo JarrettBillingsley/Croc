@@ -17,14 +17,23 @@ extern "C"
 		assert(false);
 	}
 
-	// uword_t croc_methodCall(CrocThread* t_, word_t slot, const char* name, word_t numReturns)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+	uword_t croc_methodCall(CrocThread* t_, word_t slot, const char* name, word_t numReturns)
+	{
+		// auto t = Thread::from(t_);
+		(void)t_;
+		(void)slot;
+		(void)name;
+		(void)numReturns;
+		assert(false);
+	}
 
-	// uword_t croc_methodCallStk(CrocThread* t_, word_t slot, word_t numReturns)
-	// {
-	// 	auto t = Thread::from(t_);
-	// }
+	uword_t croc_methodCallStk(CrocThread* t_, word_t slot, word_t numReturns)
+	{
+		// auto t = Thread::from(t_);
+		(void)t_;
+		(void)slot;
+		(void)numReturns;
+		assert(false);
+	}
 }
 }

@@ -9,6 +9,7 @@ namespace croc
 	word pcToLine(ActRecord* ar, Instruction* pc);
 	word getDebugLine(Thread* t, uword depth = 0);
 	word pushDebugLoc(Thread* t, ActRecord* ar = nullptr);
+	void callHook(Thread* t, CrocThreadHook hook);
 }
 
 #endif

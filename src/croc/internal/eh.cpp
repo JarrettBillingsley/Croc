@@ -13,9 +13,15 @@ namespace croc
 {
 	word defaultUnhandledEx(CrocThread* t)
 	{
-		// TODO: implement this!
-		(void)t;
-		assert(false);
+		fprintf(stderr, "-------- UNHANDLED CROC EXCEPTION --------");
+		croc_pushToString(t, -1);
+		fprintf(stderr, "%s\n", croc_getString(t, -1));
+		croc_popTop(t);
+		croc_dup(t, -2);
+		croc_pushNull(t);
+		croc_methodCall(t, -2, "tracebackString", 1);
+		fprintf(stderr, "%s\n", croc_getString(t, -1));
+		return 0;
 	}
 
 	EHFrame* pushEHFrame(Thread* t)
@@ -192,7 +198,10 @@ namespace croc
 			}
 
 			if(frame->native)
+			{
+				t->stackIndex = base + 1;
 				longjmp(*frame->native, 1);
+			}
 			else
 				t->currentAR->pc = frame->pc;
 		}

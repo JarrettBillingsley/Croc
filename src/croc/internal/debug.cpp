@@ -2,6 +2,7 @@
 #include "croc/api.h"
 #include "croc/internal/basic.hpp"
 #include "croc/internal/debug.hpp"
+#include "croc/internal/eh.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
 
@@ -83,5 +84,39 @@ namespace croc
 			else
 				return croc_eh_pushLocationObject(*t, s, pcToLine(ar, ar->pc), CrocLocation_Script);
 		}
+	}
+
+	void callHook(Thread* t, CrocThreadHook hook)
+	{
+		if(!t->hooksEnabled || !t->hookFunc)
+			return;
+
+		auto savedTop = t->stackIndex;
+		t->hooksEnabled = false;
+
+		auto slot = push(t, Value::from(t->hookFunc));
+		push(t, Value::from(t));
+
+		switch(hook)
+		{
+			case CrocThreadHook_Call:     croc_pushString(*t, "call"); break;
+			case CrocThreadHook_TailCall: croc_pushString(*t, "tailcall"); break;
+			case CrocThreadHook_Ret:      croc_pushString(*t, "ret"); break;
+			case CrocThreadHook_Delay:    croc_pushString(*t, "delay"); break;
+			case CrocThreadHook_Line:     croc_pushString(*t, "line"); break;
+			default: assert(false);
+		}
+
+		auto failed = tryCode(t, slot, []
+		{
+			// TODO:api
+			// commonCall(t, t->stackBase + slot, 0, callPrologue(t, t->stackBase + slot, 0, 1));
+		});
+
+		t->hooksEnabled = true;
+		t->stackIndex = savedTop;
+
+		if(failed)
+			croc_eh_rethrow(*t);
 	}
 }
