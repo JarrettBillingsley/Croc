@@ -375,19 +375,6 @@ namespace croc
 
 	bool funcCallPrologue(Thread* t, Function* func, AbsStack returnSlot, word expectedResults, AbsStack paramSlot, uword numParams)
 	{
-		// const char[] wrapEH =
-		// 	"catch(CrocException e)
-		// 	{
-		// 		callEpilogue(t, false);
-		// 		throw e;
-		// 	}
-		// 	catch(CrocHaltException e)
-		// 	{
-		// 		unwindEH(t);
-		// 		callEpilogue(t, false);
-		// 		throw e;
-		// 	}";
-
 		if(numParams > func->maxParams)
 			croc_eh_throwStd(*t, "ParamError", "Function %s expected at most %u parameters but was given %u",
 				func->name->toCString(), func->maxParams - 1, numParams - 1);

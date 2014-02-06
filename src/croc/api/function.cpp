@@ -14,6 +14,10 @@ extern "C"
 		API_CHECK_NUM_PARAMS(numUpvals + 1);
 		API_CHECK_PARAM(env, -1, Namespace, "environment");
 		croc_gc_maybeCollect(t_);
+
+		if(maxParams < 0)
+			maxParams = -2;
+
 		auto f = Function::create(t->vm->mem, env, String::create(t->vm, atoda(name)), maxParams, func, numUpvals);
 		f->nativeUpvals().slicea(t->stack.slice(t->stackIndex - 1 - numUpvals, t->stackIndex - 1));
 		croc_pop(t_, numUpvals + 1); // upvals and env.
