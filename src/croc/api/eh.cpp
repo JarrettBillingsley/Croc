@@ -41,7 +41,7 @@ extern "C"
 				abort();
 			}
 
-			croc_eh_throwStd(*t, "ApiError", "Unknown standard exception type '{}'", exName);
+			croc_eh_throwStd(*t, "ApiError", "Unknown standard exception type '%s'", exName);
 		}
 
 		return push(t, Value::from(*ex));
@@ -71,10 +71,10 @@ extern "C"
 		auto numParams = t->stackIndex - (absSlot + 1);
 
 		if(numParams < 1)
-			croc_eh_throwStd(*t, "ApiError", "{} - too few parameters (must have at least 1 for the context)", __FUNCTION__);
+			croc_eh_throwStd(*t, "ApiError", "%s - too few parameters (must have at least 1 for the context)", __FUNCTION__);
 
 		if(numReturns < -1)
-			croc_eh_throwStd(*t, "ApiError", "{} - invalid number of returns (must be >= -1)", __FUNCTION__);
+			croc_eh_throwStd(*t, "ApiError", "%s - invalid number of returns (must be >= -1)", __FUNCTION__);
 
 		int results = 0;
 

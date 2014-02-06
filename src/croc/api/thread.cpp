@@ -14,7 +14,7 @@ extern "C"
 		API_CHECK_PARAM(f, func, Function, "thread function");
 
 		if(f->isNative)
-			croc_eh_throwStd(t_, "ValueError", "{} - Native functions may not be used as the body of a thread",
+			croc_eh_throwStd(t_, "ValueError", "%s - Native functions may not be used as the body of a thread",
 				__FUNCTION__);
 
 		croc_gc_maybeCollect(t_);
@@ -55,11 +55,11 @@ extern "C"
 
 		// This shouldn't be possible, but it can't hurt to check
 		if(t->vm != other->vm)
-			croc_eh_throwStd(t_, "ValueError", "{} - Attempting to reset a thread that belongs to a different VM",
+			croc_eh_throwStd(t_, "ValueError", "%s - Attempting to reset a thread that belongs to a different VM",
 				__FUNCTION__);
 
 		if(other->state != CrocThreadState_Dead)
-			croc_eh_throwStd(t_, "StateError", "{} - Attempting to reset a {} thread (must be dead)",
+			croc_eh_throwStd(t_, "StateError", "%s - Attempting to reset a %s thread (must be dead)",
 				__FUNCTION__, ThreadStateStrings[other->state]);
 
 		other->reset();
@@ -74,15 +74,15 @@ extern "C"
 
 		// This shouldn't be possible, but it can't hurt to check
 		if(t->vm != other->vm)
-			croc_eh_throwStd(t_, "ValueError", "{} - Attempting to reset a thread that belongs to a different VM",
+			croc_eh_throwStd(t_, "ValueError", "%s - Attempting to reset a thread that belongs to a different VM",
 				__FUNCTION__);
 
 		if(other->state != CrocThreadState_Dead)
-			croc_eh_throwStd(t_, "StateError", "{} - Attempting to reset a {} thread (must be dead)",
+			croc_eh_throwStd(t_, "StateError", "%s - Attempting to reset a %s thread (must be dead)",
 				__FUNCTION__, ThreadStateStrings[other->state]);
 
 		if(f->isNative)
-			croc_eh_throwStd(t_, "ValueError", "{} - Native functions may not be used as the body of a thread",
+			croc_eh_throwStd(t_, "ValueError", "%s - Native functions may not be used as the body of a thread",
 				__FUNCTION__);
 
 		other->setCoroFunc(t->vm->mem, f);

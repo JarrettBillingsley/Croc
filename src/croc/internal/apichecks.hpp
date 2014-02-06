@@ -6,7 +6,7 @@
 		assert(t->stackIndex > t->stackBase);\
 		if((croc_getStackSize(*t) - 1) < (numParams))\
 			croc_eh_throwStd(*t, "ApiError",\
-				"{} - not enough parameters (expected {}, only have {} stack slots)",\
+				"%s - not enough parameters (expected %u, only have %u stack slots)",\
 				__FUNCTION__,\
 				(numParams),\
 				croc_getStackSize(*t) - 1);\
@@ -20,7 +20,7 @@
 #define API_PARAM_TYPE_ERROR(idx, paramName, expected)\
 	do {\
 		croc_pushTypeString(*t, (idx));\
-		croc_eh_throwStd(*t, "TypeError", "{} - Expected type '{}' for {}, not '{}'",\
+		croc_eh_throwStd(*t, "TypeError", "%s - Expected type '%s' for %s, not '%s'",\
 			__FUNCTION__, (expected), (paramName), croc_getString(*t, -1));\
 	} while(false)
 

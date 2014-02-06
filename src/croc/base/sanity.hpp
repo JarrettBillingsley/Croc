@@ -1,7 +1,3 @@
-/**
-A few little things that help me keep my sanity when developing in such a.. primitive language.
-*/
-
 #ifndef CROC_BASE_SANITY_HPP
 #define CROC_BASE_SANITY_HPP
 
@@ -22,10 +18,13 @@ A few little things that help me keep my sanity when developing in such a.. prim
 #define DBGPRINT(...)
 #endif
 
+// TODO: make a config header file, like Lua
 #ifdef _WIN32
 #define CROC_INTEGER_FORMAT "I64d"
 #else
 #define CROC_INTEGER_FORMAT "lld"
 #endif
+
+#define CROC_FORMAT_BUF_SIZE 256
 
 #endif

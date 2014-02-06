@@ -6,6 +6,7 @@
 #include "croc/apitypes.h"
 
 #define CROCAPI(f) croc_ex_##f
+#define CROCPRINT(a, b) __attribute__((format(printf, a, b)))
 
 #ifdef __cplusplus
 extern "C" {
@@ -106,7 +107,7 @@ void   CROCAPI(buffer_start)      (CrocStrBuffer* b);
 // =====================================================================================================================
 // Exception handling
 
-void CROCAPI(throwNamedException)  (CrocThread* t, const char* exName, const char* fmt, ...);
+void CROCAPI(throwNamedException)  (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
 void CROCAPI(vthrowNamedException) (CrocThread* t, const char* exName, const char* fmt, va_list args);
 
 // TODO: come up with something for this? macros?

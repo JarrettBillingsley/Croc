@@ -28,7 +28,7 @@ extern "C"
 		API_CHECK_PARAM(def, funcDef, Funcdef, "funcDef");
 
 		if(def->upvals.length > 0)
-			croc_eh_throwStd(t_, "ValueError", "{} - Function definition may not have any upvalues", __FUNCTION__);
+			croc_eh_throwStd(t_, "ValueError", "%s - Function definition may not have any upvalues", __FUNCTION__);
 
 		API_CHECK_PARAM(env, -1, Namespace, "environment");
 		croc_gc_maybeCollect(t_);
@@ -42,7 +42,7 @@ extern "C"
 		{
 			croc_pushToString(t_, funcDef);
 			croc_eh_throwStd(t_, "RuntimeError",
-				"{} - Attempting to instantiate {} with a different namespace than was associated with it",
+				"%s - Attempting to instantiate %s with a different namespace than was associated with it",
 				__FUNCTION__, croc_getString(t_, -1));
 			assert(false);
 		}
@@ -63,7 +63,7 @@ extern "C"
 		API_CHECK_PARAM(f, func, Function, "func");
 
 		if(!f->isNative)
-			croc_eh_throwStd(t_, "ValueError", "{} - Cannot change the environment of a script function", __FUNCTION__);
+			croc_eh_throwStd(t_, "ValueError", "%s - Cannot change the environment of a script function", __FUNCTION__);
 
 		f->setEnvironment(t->vm->mem, ns);
 		croc_popTop(t_);

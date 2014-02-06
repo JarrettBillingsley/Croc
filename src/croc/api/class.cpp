@@ -18,12 +18,11 @@ namespace croc
 			if(c->isFrozen)
 			{
 				if(isMethod)
-					croc_eh_throwStd(*t, "StateError", "{} - Attempting to add a method to class '{}' which is frozen",
+					croc_eh_throwStd(*t, "StateError", "%s - Attempting to add a method to class '%s' which is frozen",
 						__FUNCTION__, c->name->toCString());
 				else
-					croc_eh_throwStd(*t, "StateError", "{} - Attempting to add a field to class '{}' which is frozen",
+					croc_eh_throwStd(*t, "StateError", "%s - Attempting to add a field to class '%s' which is frozen",
 						__FUNCTION__, c->name->toCString());
-				assert(false);
 			}
 
 			auto okay = isMethod ?
@@ -35,16 +34,15 @@ namespace croc
 				if(isOverride)
 				{
 					croc_eh_throwStd(*t, "FieldError",
-						"{} - Attempting to override {} '{}' in class '{}', but no such member already exists",
+						"%s - Attempting to override %s '%s' in class '%s', but no such member already exists",
 						__FUNCTION__, isMethod ? "method" : "field", name->toCString(), c->name->toCString());
 				}
 				else
 				{
 					croc_eh_throwStd(*t, "FieldError",
-						"{} - Attempting to add a {} '{}' which already exists to class '{}'",
+						"%s - Attempting to add a %s '%s' which already exists to class '%s'",
 						__FUNCTION__, isMethod ? "method" : "field", name->toCString(), c->name->toCString());
 				}
-				assert(false);
 			}
 
 			croc_pop(*t, 2);
@@ -168,11 +166,11 @@ extern "C"
 		API_CHECK_PARAM(name, -1, String, "member name");
 
 		if(c->isFrozen)
-			croc_eh_throwStd(t_, "StateError", "{} - Attempting to remove a member from class '{}' which is frozen",
+			croc_eh_throwStd(t_, "StateError", "%s - Attempting to remove a member from class '%s' which is frozen",
 				__FUNCTION__, c->name->toCString());
 
 		if(!c->removeMember(t->vm->mem, name))
-			croc_eh_throwStd(t_, "FieldError", "{} - No member named '{}' exists in class '{}'",
+			croc_eh_throwStd(t_, "FieldError", "%s - No member named '%s' exists in class '%s'",
 				__FUNCTION__, name->toCString(), c->name->toCString());
 
 		croc_popTop(t_);
@@ -196,12 +194,12 @@ extern "C"
 		API_CHECK_PARAM(name, -1, String, "hidden field name");
 
 		if(c->isFrozen)
-			croc_eh_throwStd(t_, "StateError", "{} - Attempting to add a hidden field to class '{}' which is frozen",
+			croc_eh_throwStd(t_, "StateError", "%s - Attempting to add a hidden field to class '%s' which is frozen",
 				__FUNCTION__, c->name->toCString());
 
 		if(!c->addHiddenField(t->vm->mem, name, *getValue(t, -1)))
 			croc_eh_throwStd(t_, "FieldError",
-				"{} - Attempting to add a hidden field '{}' which already exists to class '{}'",
+				"%s - Attempting to add a hidden field '%s' which already exists to class '%s'",
 				__FUNCTION__, name->toCString(), c->name->toCString());
 
 		croc_pop(t_, 2);
@@ -223,11 +221,11 @@ extern "C"
 
 		if(c->isFrozen)
 			croc_eh_throwStd(t_, "StateError",
-				"{} - Attempting to remove a hidden field from class '{}' which is frozen",
+				"%s - Attempting to remove a hidden field from class '%s' which is frozen",
 				__FUNCTION__, c->name->toCString());
 
 		if(!c->removeHiddenField(t->vm->mem, name))
-			croc_eh_throwStd(t_, "FieldError", "{} - No hidden field named '{}' exists in class '{}'",
+			croc_eh_throwStd(t_, "FieldError", "%s - No hidden field named '%s' exists in class '%s'",
 				__FUNCTION__, name->toCString(), c->name->toCString());
 
 		croc_popTop(t_);

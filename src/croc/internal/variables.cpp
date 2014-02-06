@@ -16,7 +16,7 @@ namespace croc
 				return *glob;
 		}
 
-		croc_eh_throwStd(*t, "NameError", "Attempting to get a nonexistent global '{}'", name->toCString());
+		croc_eh_throwStd(*t, "NameError", "Attempting to get a nonexistent global '%s'", name->toCString());
 		assert(false);
 	}
 
@@ -28,14 +28,14 @@ namespace croc
 		if(env->root && env->root->setIfExists(t->vm->mem, name, val))
 			return;
 
-		croc_eh_throwStd(*t, "NameError", "Attempting to set a nonexistent global '{}'", name->toCString());
+		croc_eh_throwStd(*t, "NameError", "Attempting to set a nonexistent global '%s'", name->toCString());
 		assert(false);
 	}
 
 	void newGlobalImpl(Thread* t, String* name, Namespace* env, Value val)
 	{
 		if(env->contains(name))
-			croc_eh_throwStd(*t, "NameError", "Attempting to create global '{}' that already exists", name->toCString());
+			croc_eh_throwStd(*t, "NameError", "Attempting to create global '%s' that already exists", name->toCString());
 
 		env->set(t->vm->mem, name, val);
 	}

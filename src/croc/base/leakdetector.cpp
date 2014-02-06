@@ -60,10 +60,10 @@ namespace croc
 			if(!raw)
 			{
 				GCObject* obj = cast(GCObject*)ptr;
-				fprintf(stderr, "refcount %d, flags %03x, ", obj->refCount, obj->gcflags);
+				fprintf(stderr, "refcount %u, flags %03x, ", obj->refCount, obj->gcflags);
 			}
 
-			fprintf(stderr, "length %d bytes, type ", block.len);
+			fprintf(stderr, "length %u bytes, type ", block.len);
 			dumpTypeName(block.ti);
 			fprintf(stderr, "\n");
 		}

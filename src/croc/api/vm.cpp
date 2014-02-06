@@ -178,7 +178,7 @@ extern "C"
 		if(vm->mem.totalBytes != 0)
 		{
 			LEAK_DETECT(vm->mem.leaks.dumpBlocks());
-			printf("There are %d total unfreed bytes!\n", vm->mem.totalBytes);
+			printf("There are %u total unfreed bytes!\n", vm->mem.totalBytes);
 		}
 
 		LEAK_DETECT(vm->mem.leaks.cleanup());
@@ -246,10 +246,10 @@ extern "C"
 		if(!(type >= CrocType_FirstUserType && type <= CrocType_LastUserType))
 		{
 			if(type >= 0 && type < CrocType_NUMTYPES)
-				croc_eh_throwStd(t, "TypeError", "{} - Cannot get metatable for type '{}'",
+				croc_eh_throwStd(t, "TypeError", "%s - Cannot get metatable for type '%s'",
 					__FUNCTION__, typeToString(type));
 			else
-				croc_eh_throwStd(t, "ApiError", "{} - Invalid type '{}'", __FUNCTION__, type);
+				croc_eh_throwStd(t, "ApiError", "%s - Invalid type '%u'", __FUNCTION__, type);
 		}
 
 		if(auto ns = Thread::from(t)->vm->metaTabs[cast(uword)type])
@@ -267,10 +267,10 @@ extern "C"
 		if(!(type >= CrocType_FirstUserType && type <= CrocType_LastUserType))
 		{
 			if(type >= 0 && type < CrocType_NUMTYPES)
-				croc_eh_throwStd(t_, "TypeError", "{} - Cannot set metatable for type '{}'",
+				croc_eh_throwStd(t_, "TypeError", "%s - Cannot set metatable for type '%s'",
 					__FUNCTION__, typeToString(type));
 			else
-				croc_eh_throwStd(t_, "ApiError", "{} - Invalid type '{}'", __FUNCTION__, type);
+				croc_eh_throwStd(t_, "ApiError", "%s - Invalid type '%u'", __FUNCTION__, type);
 		}
 
 		auto v = getValue(t, -1);
@@ -297,8 +297,17 @@ extern "C"
 		return push(t, Value::from(t->vm->location));
 	}
 
-	// TODO:api
-	// word_t croc_vm_pushLocationObject(CrocThread* t_, const char* file, int line, int col)
+	word_t croc_vm_pushLocationObject(CrocThread* t_, const char* file, int line, int col)
+	{
+		auto t = Thread::from(t_);
+		auto ret = push(t, Value::from(t->vm->location));
+		croc_pushNull(t_);
+		croc_pushString(t_, file);
+		croc_pushInt(t_, line);
+		croc_pushInt(t_, col);
+		croc_call(t_, ret, 1);
+		return ret;
+	}
 
 	void croc_vm_setUnhandledExHandler(CrocThread* t_)
 	{

@@ -324,7 +324,7 @@ namespace croc
 		for(auto n: vm->refTab)
 			callback(n->value);
 
-		callback(vm->location);
+		// callback(vm->location);
 
 		for(auto n: vm->stdExceptions)
 		{
@@ -352,7 +352,7 @@ namespace croc
 			case CrocType_Thread:    visitThread   (cast(Thread*)o,    callback, false);         return;
 			case CrocType_Upval:     visitUpval    (cast(Upval*)o,     callback);                return;
 			default:
-				DBGPRINT("%p %d %03x %d\n", cast(void*)o, o->type, GCOBJ_COLOR(o), o->refCount);
+				DBGPRINT("%p %u %03x %u\n", cast(void*)o, o->type, GCOBJ_COLOR(o), o->refCount);
 				assert(false);
 		}
 	}

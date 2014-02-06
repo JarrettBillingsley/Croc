@@ -59,10 +59,7 @@ namespace croc
 			{
 				case CrocType_Null:      return croc_pushString(*t, "null");
 				case CrocType_Bool:      return croc_pushString(*t, v.mBool ? "true" : "false");
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat"
 				case CrocType_Int:       return PUSHFMT("%" CROC_INTEGER_FORMAT, v.mInt);
-#pragma GCC diagnostic pop
 				case CrocType_Float:     return PUSHFMT("%f", v.mFloat);
 				case CrocType_String:    return push(t, v);
 				case CrocType_Nativeobj:
@@ -85,14 +82,13 @@ namespace croc
 				{
 					pushTypeStringImpl(t, t->stack[t->stackIndex - 1]);
 					croc_eh_throwStd(*t, "TypeError",
-						"toString was supposed to return a string, but returned a '{}'", croc_getString(*t, -1));
+						"toString was supposed to return a string, but returned a '%s'", croc_getString(*t, -1));
 				}
 
 				return croc_getStackSize(*t) - 1;
 			}
 		}
 
-		// TODO:api the PUSHFMT calls in following should probably be changed to croc_pushFormat calls when that's implemented.
 		switch(v.type)
 		{
 			case CrocType_Function: {
@@ -100,31 +96,29 @@ namespace croc
 
 				if(f->isNative)
 				{
-					return PUSHFMT("native %s %*s",
-						typeToString(CrocType_Function),
-						f->name->length, f->name->toCString());
+					return croc_pushFormat(*t, "native %s %s", typeToString(CrocType_Function), f->name->toCString());
 				}
 				else
 				{
 					auto sf = f->scriptFunc;
-					return PUSHFMT("script %s %*s(%*s(%d:%d))",
+					return croc_pushFormat(*t, "script %s %s(%s(%u:%u))",
 						typeToString(CrocType_Function),
-						f->name->length, f->name->toCString(),
-						sf->locFile->length, sf->locFile->toCString(),
+						f->name->toCString(),
+						sf->locFile->toCString(),
 						sf->locLine, sf->locCol);
 				}
 			}
 			case CrocType_Class: {
-				return PUSHFMT("%s %*s (0x%p)",
+				return croc_pushFormat(*t, "%s %s (0x%p)",
 					typeToString(CrocType_Class),
-					v.mClass->name->length, v.mClass->name->toCString(),
+					v.mClass->name->toCString(),
 					cast(void*)v.mClass);
 			}
 			case CrocType_Instance: {
 				auto pname = v.mInstance->parent->name;
-				return PUSHFMT("%s of %*s (0x%p)",
+				return croc_pushFormat(*t, "%s of %s (0x%p)",
 					typeToString(CrocType_Instance),
-					pname->length, pname->toCString(),
+					pname->toCString(),
 					cast(void*)v.mInstance);
 			}
 			case CrocType_Namespace: {
@@ -142,15 +136,15 @@ namespace croc
 			}
 			case CrocType_Funcdef: {
 				auto d = v.mFuncdef;
-				return PUSHFMT("%s %*s(%*s(%d:%d))",
+				return croc_pushFormat(*t, "%s %s(%s(%u:%u))",
 					typeToString(CrocType_Funcdef),
-					d->name->length, d->name->toCString(),
-					d->locFile->length, d->locFile->toCString(),
+					d->name->toCString(),
+					d->locFile->toCString(),
 					d->locLine, d->locCol);
 			}
 			default:
 			_default: {
-				return PUSHFMT("%s 0x%p", typeToString(v.type), cast(void*)v.mGCObj);
+				return croc_pushFormat(*t, "%s 0x%p", typeToString(v.type), cast(void*)v.mGCObj);
 			}
 		}
 	}
@@ -197,8 +191,6 @@ namespace croc
 
 	word pushTypeStringImpl(Thread* t, Value v)
 	{
-		char buffer[BUFFERLENGTH];
-
 		switch(v.type)
 		{
 			case CrocType_Null:
@@ -217,14 +209,13 @@ namespace croc
 			case CrocType_Thread:
 				return croc_pushString(*t, typeToString(v.type));
 
-			// TODO:api the PUSHFMT calls in following should probably be changed to croc_pushFormat calls when that's implemented.
 			case CrocType_Class: {
 				auto n = v.mClass->name;
-				return PUSHFMT("%s %*s", typeToString(CrocType_Class), n->length, n->toCString());
+				return croc_pushFormat(*t, "%s %s", typeToString(CrocType_Class), n->toCString());
 			}
 			case CrocType_Instance: {
 				auto n = v.mInstance->parent->name;
-				return PUSHFMT("%s of %*s", typeToString(CrocType_Instance), n->length, n->toCString());
+				return croc_pushFormat(*t, "%s of %s", typeToString(CrocType_Instance), n->toCString());
 			}
 			default: assert(false);
 		}
@@ -240,7 +231,7 @@ namespace croc
 				else
 				{
 					pushTypeStringImpl(t, item);
-					croc_eh_throwStd(*t, "TypeError", "Can only use strings to look in strings, not '{}'",
+					croc_eh_throwStd(*t, "TypeError", "Can only use strings to look in strings, not '%s'",
 						croc_getString(*t, -1));
 				}
 
@@ -254,7 +245,7 @@ namespace croc
 				if(item.type != CrocType_String)
 				{
 					pushTypeStringImpl(t, item);
-					croc_eh_throwStd(*t, "TypeError", "Can only use strings to look in namespaces, not '{}'",
+					croc_eh_throwStd(*t, "TypeError", "Can only use strings to look in namespaces, not '%s'",
 						croc_getString(*t, -1));
 				}
 
@@ -266,7 +257,7 @@ namespace croc
 				if(method == nullptr)
 				{
 					pushTypeStringImpl(t, container);
-					croc_eh_throwStd(*t, "TypeError", "No implementation of {} for type '{}'",
+					croc_eh_throwStd(*t, "TypeError", "No implementation of %s for type '%s'",
 						MetaNames[MM_In], croc_getString(*t, -1));
 				}
 
@@ -300,7 +291,7 @@ namespace croc
 			if(ret.type != CrocType_Int)
 			{
 				pushTypeStringImpl(t, ret);
-				croc_eh_throwStd(*t, "TypeError", "{} is expected to return an int, but '{}' was returned instead",
+				croc_eh_throwStd(*t, "TypeError", "%s is expected to return an int, but '%s' was returned instead",
 					MetaNames[MM_Cmp], croc_getString(*t, -1));
 			}
 
@@ -353,7 +344,7 @@ namespace croc
 
 		pushTypeStringImpl(t, a);
 		pushTypeStringImpl(t, b);
-		croc_eh_throwStd(*t, "TypeError", "Can't compare types '{}' and '{}'",
+		croc_eh_throwStd(*t, "TypeError", "Can't compare types '%s' and '%s'",
 			croc_getString(*t, -2), croc_getString(*t, -1));
 		assert(false);
 	}
@@ -394,7 +385,7 @@ namespace croc
 			if(ret.type != CrocType_Bool)
 			{
 				pushTypeStringImpl(t, ret);
-				croc_eh_throwStd(*t, "TypeError", "{} is expected to return a bool, but '{}' was returned instead",
+				croc_eh_throwStd(*t, "TypeError", "%s is expected to return a bool, but '%s' was returned instead",
 					MetaNames[MM_Equals], croc_getString(*t, -1));
 			}
 
@@ -447,7 +438,7 @@ namespace croc
 
 		pushTypeStringImpl(t, a);
 		pushTypeStringImpl(t, b);
-		croc_eh_throwStd(*t, "TypeError", "Can't compare types '{}' and '{}' for equality",
+		croc_eh_throwStd(*t, "TypeError", "Can't compare types '%s' and '%s' for equality",
 			croc_getString(*t, -2), croc_getString(*t, -1));
 		assert(false);
 	}
@@ -460,7 +451,7 @@ namespace croc
 				if(key.type != CrocType_Int)
 				{
 					pushTypeStringImpl(t, key);
-					croc_eh_throwStd(*t, "TypeError", "Attempting to index an array with a '{}'",
+					croc_eh_throwStd(*t, "TypeError", "Attempting to index an array with a '%s'",
 						croc_getString(*t, -1));
 				}
 
@@ -471,7 +462,7 @@ namespace croc
 					index += arr->length;
 
 				if(index < 0 || index >= arr->length)
-					croc_eh_throwStd(*t, "BoundsError", "Invalid array index {} (length is {})", key.mInt, arr->length);
+					croc_eh_throwStd(*t, "BoundsError", "Invalid array index %" CROC_INTEGER_FORMAT " (length is %u)", key.mInt, arr->length);
 
 				t->stack[dest] = arr->toDArray()[cast(uword)index].value;
 				return;
@@ -480,7 +471,7 @@ namespace croc
 				if(key.type != CrocType_Int)
 				{
 					pushTypeStringImpl(t, key);
-					croc_eh_throwStd(*t, "TypeError", "Attempting to index a memblock with a '{}'",
+					croc_eh_throwStd(*t, "TypeError", "Attempting to index a memblock with a '%s'",
 						croc_getString(*t, -1));
 				}
 
@@ -491,7 +482,8 @@ namespace croc
 					index += mb->data.length;
 
 				if(index < 0 || index >= mb->data.length)
-					croc_eh_throwStd(*t, "BoundsError", "Invalid memblock index {} (length is {})",
+					croc_eh_throwStd(*t, "BoundsError",
+						"Invalid memblock index %" CROC_INTEGER_FORMAT " (length is %u)",
 						key.mInt, mb->data.length);
 
 				t->stack[dest] = Value::from(cast(crocint)mb->data[cast(uword)index]);
@@ -501,7 +493,7 @@ namespace croc
 				if(key.type != CrocType_Int)
 				{
 					pushTypeStringImpl(t, key);
-					croc_eh_throwStd(*t, "TypeError", "Attempting to index a string with a '{}'",
+					croc_eh_throwStd(*t, "TypeError", "Attempting to index a string with a '%s'",
 						croc_getString(*t, -1));
 				}
 
@@ -512,7 +504,7 @@ namespace croc
 					index += str->cpLength;
 
 				if(index < 0 || index >= str->cpLength)
-					croc_eh_throwStd(*t, "BoundsError", "Invalid string index {} (length is {})",
+					croc_eh_throwStd(*t, "BoundsError", "Invalid string index %" CROC_INTEGER_FORMAT " (length is %u)",
 						key.mInt, str->cpLength);
 
 				auto s = str->toDArray();
@@ -530,7 +522,7 @@ namespace croc
 				// 	return;
 
 				pushTypeStringImpl(t, container);
-				croc_eh_throwStd(*t, "TypeError", "Attempting to index a value of type '{}'", croc_getString(*t, -1));
+				croc_eh_throwStd(*t, "TypeError", "Attempting to index a value of type '%s'", croc_getString(*t, -1));
 			}
 		}
 	}
@@ -553,7 +545,7 @@ namespace croc
 				if(key.type != CrocType_Int)
 				{
 					pushTypeStringImpl(t, key);
-					croc_eh_throwStd(*t, "TypeError", "Attempting to index-assign an array with a '{}'",
+					croc_eh_throwStd(*t, "TypeError", "Attempting to index-assign an array with a '%s'",
 						croc_getString(*t, -1));
 				}
 
@@ -564,7 +556,7 @@ namespace croc
 					index += arr->length;
 
 				if(index < 0 || index >= arr->length)
-					croc_eh_throwStd(*t, "BoundsError", "Invalid array index {} (length is {})", key.mInt, arr->length);
+					croc_eh_throwStd(*t, "BoundsError", "Invalid array index %" CROC_INTEGER_FORMAT " (length is %u)", key.mInt, arr->length);
 
 				arr->idxa(t->vm->mem, cast(uword)index, value);
 				return;
@@ -573,7 +565,7 @@ namespace croc
 				if(key.type != CrocType_Int)
 				{
 					pushTypeStringImpl(t, key);
-					croc_eh_throwStd(*t, "TypeError", "Attempting to index-assign a memblock with a '{}'",
+					croc_eh_throwStd(*t, "TypeError", "Attempting to index-assign a memblock with a '%s'",
 						croc_getString(*t, -1));
 				}
 
@@ -584,13 +576,13 @@ namespace croc
 					index += mb->data.length;
 
 				if(index < 0 || index >= mb->data.length)
-					croc_eh_throwStd(*t, "BoundsError", "Invalid memblock index {} (length is {})",
+					croc_eh_throwStd(*t, "BoundsError", "Invalid memblock index %" CROC_INTEGER_FORMAT " (length is %u)",
 						key.mInt, mb->data.length);
 
 				if(value.type != CrocType_Int)
 				{
 					pushTypeStringImpl(t, value);
-					croc_eh_throwStd(*t, "TypeError", "Attempting to index-assign a value of type '{}' into a memblock",
+					croc_eh_throwStd(*t, "TypeError", "Attempting to index-assign a value of type '%s' into a memblock",
 						croc_getString(*t, -1));
 				}
 
@@ -606,7 +598,7 @@ namespace croc
 				// 	return;
 
 				pushTypeStringImpl(t, t->stack[container]);
-				croc_eh_throwStd(*t, "TypeError", "Attempting to index-assign a value of type '{}'",
+				croc_eh_throwStd(*t, "TypeError", "Attempting to index-assign a value of type '%s'",
 					croc_getString(*t, -1));
 		}
 	}
@@ -630,12 +622,13 @@ namespace croc
 			{
 				pushTypeStringImpl(t, lo);
 				pushTypeStringImpl(t, hi);
-				croc_eh_throwStd(*t, "TypeError", "Attempting to slice '{}' with indices of type '{}' and '{}'",
+				croc_eh_throwStd(*t, "TypeError", "Attempting to slice '%s' with indices of type '%s' and '%s'",
 					typeToString(type), croc_getString(*t, -2), croc_getString(*t, -1));
 			}
 
 			if(!validIndices(loIndex, hiIndex, len))
-				croc_eh_throwStd(*t, "BoundsError", "Invalid slice indices [{} .. {}] ({} length = {})",
+				croc_eh_throwStd(*t, "BoundsError",
+					"Invalid slice indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT "] (%s length = %u)",
 					loIndex, hiIndex, typeToString(type), len);
 
 			return true;
@@ -681,7 +674,7 @@ namespace croc
 				// 	return;
 
 				pushTypeStringImpl(t, src);
-				croc_eh_throwStd(*t, "TypeError", "Attempting to slice a value of type '{}'", croc_getString(*t, -1));
+				croc_eh_throwStd(*t, "TypeError", "Attempting to slice a value of type '%s'", croc_getString(*t, -1));
 		}
 	}
 
@@ -698,19 +691,20 @@ namespace croc
 					pushTypeStringImpl(t, lo);
 					pushTypeStringImpl(t, hi);
 					croc_eh_throwStd(*t, "TypeError",
-						"Attempting to slice-assign an array with indices of type '{}' and '{}'",
+						"Attempting to slice-assign an array with indices of type '%s' and '%s'",
 						croc_getString(*t, -2), croc_getString(*t, -1));
 				}
 
 				if(!validIndices(loIndex, hiIndex, arr->length))
-					croc_eh_throwStd(*t, "BoundsError", "Invalid slice-assign indices [{} .. {}] (array length = {})",
+					croc_eh_throwStd(*t, "BoundsError",
+						"Invalid slice-assign indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT "] (array length = %u)",
 						loIndex, hiIndex, arr->length);
 
 				if(value.type == CrocType_Array)
 				{
 					if((hiIndex - loIndex) != value.mArray->length)
 						croc_eh_throwStd(*t, "RangeError",
-							"Array slice-assign lengths do not match (destination is {}, source is {})",
+							"Array slice-assign lengths do not match (destination is % " CROC_INTEGER_FORMAT ", source is %u)",
 							hiIndex - loIndex, value.mArray->length);
 
 					return arr->sliceAssign(t->vm->mem, cast(uword)loIndex, cast(uword)hiIndex, value.mArray);
@@ -718,7 +712,7 @@ namespace croc
 				else
 				{
 					pushTypeStringImpl(t, value);
-					croc_eh_throwStd(*t, "TypeError", "Attempting to slice-assign a value of type '{}' into an array",
+					croc_eh_throwStd(*t, "TypeError", "Attempting to slice-assign a value of type '%s' into an array",
 						croc_getString(*t, -1));
 				}
 			}
@@ -728,7 +722,7 @@ namespace croc
 				// 	return;
 
 				pushTypeStringImpl(t, container);
-				croc_eh_throwStd(*t, "TypeError", "Attempting to slice-assign a value of type '{}'",
+				croc_eh_throwStd(*t, "TypeError", "Attempting to slice-assign a value of type '%s'",
 					croc_getString(*t, -1));
 		}
 	}
@@ -752,7 +746,7 @@ namespace croc
 
 					if(v == nullptr)
 						croc_eh_throwStd(*t, "FieldError",
-							"Attempting to access nonexistent field '{}' from class '{}'",
+							"Attempting to access nonexistent field '%s' from class '%s'",
 							name->toCString(), c->name->toCString());
 				}
 
@@ -774,7 +768,7 @@ namespace croc
 						// 	return;
 
 						croc_eh_throwStd(*t, "FieldError",
-							"Attempting to access nonexistent field '{}' from instance of class '{}'",
+							"Attempting to access nonexistent field '%s' from instance of class '%s'",
 							name->toCString(), i->parent->name->toCString());
 					}
 				}
@@ -788,7 +782,7 @@ namespace croc
 				if(v == nullptr)
 				{
 					toStringImpl(t, container, false);
-					croc_eh_throwStd(*t, "FieldError", "Attempting to access nonexistent field '{}' from '{}'",
+					croc_eh_throwStd(*t, "FieldError", "Attempting to access nonexistent field '%s' from '%s'",
 						name->toCString(), croc_getString(*t, -1));
 				}
 
@@ -802,7 +796,7 @@ namespace croc
 				// 	return;
 
 				pushTypeStringImpl(t, container);
-				croc_eh_throwStd(*t, "TypeError", "Attempting to access field '{}' from a value of type '{}'",
+				croc_eh_throwStd(*t, "TypeError", "Attempting to access field '%s' from a value of type '%s'",
 					name->toCString(), croc_getString(*t, -1));
 		}
 	}
@@ -827,13 +821,13 @@ namespace croc
 				{
 					if(c->isFrozen)
 						croc_eh_throwStd(*t, "FieldError",
-							"Attempting to change method '{}' in class '{}' after it has been frozen",
+							"Attempting to change method '%s' in class '%s' after it has been frozen",
 							name->toCString(), c->name->toCString());
 
 					c->setMember(t->vm->mem, slot, value);
 				}
 				else
-					croc_eh_throwStd(*t, "FieldError", "Attempting to assign to nonexistent field '{}' in class '{}'",
+					croc_eh_throwStd(*t, "FieldError", "Attempting to assign to nonexistent field '%s' in class '%s'",
 						name->toCString(), c->name->toCString());
 
 				return;
@@ -848,7 +842,7 @@ namespace croc
 				// 	return;
 				else
 					croc_eh_throwStd(*t, "FieldError",
-						"Attempting to assign to nonexistent field '{}' in instance of class '{}'",
+						"Attempting to assign to nonexistent field '%s' in instance of class '%s'",
 						name->toCString(), i->parent->name->toCString());
 				return;
 			}
@@ -863,7 +857,7 @@ namespace croc
 				// 	return;
 
 				pushTypeStringImpl(t, t->stack[container]);
-				croc_eh_throwStd(*t, "TypeError", "Attempting to assign field '{}' into a value of type '{}'",
+				croc_eh_throwStd(*t, "TypeError", "Attempting to assign field '%s' into a value of type '%s'",
 					name->toCString(), croc_getString(*t, -1));
 		}
 	}
@@ -884,7 +878,7 @@ namespace croc
 				// 	return;
 
 				pushTypeStringImpl(t, src);
-				croc_eh_throwStd(*t, "TypeError", "Can't get the length of a '{}'", croc_getString(*t, -1));
+				croc_eh_throwStd(*t, "TypeError", "Can't get the length of a '%s'", croc_getString(*t, -1));
 		}
 	}
 
@@ -897,13 +891,13 @@ namespace croc
 				{
 					pushTypeStringImpl(t, len);
 					croc_eh_throwStd(*t, "TypeError",
-						"Attempting to set the length of an array using a length of type '{}'", croc_getString(*t, -1));
+						"Attempting to set the length of an array using a length of type '%s'", croc_getString(*t, -1));
 				}
 
 				auto l = len.mInt;
 
 				if(l < 0) // || l > uword.max) TODO:range
-					croc_eh_throwStd(*t, "RangeError", "Invalid length ({})", l);
+					croc_eh_throwStd(*t, "RangeError", "Invalid length (%" CROC_INTEGER_FORMAT ")", l);
 
 				dest.mArray->resize(t->vm->mem, cast(uword)l);
 				return;
@@ -913,7 +907,7 @@ namespace croc
 				{
 					pushTypeStringImpl(t, len);
 					croc_eh_throwStd(*t, "TypeError",
-						"Attempting to set the length of a memblock using a length of type '{}'",
+						"Attempting to set the length of a memblock using a length of type '%s'",
 						croc_getString(*t, -1));
 				}
 
@@ -925,7 +919,7 @@ namespace croc
 				auto l = len.mInt;
 
 				if(l < 0) // || l > uword.max) TODO:range
-					croc_eh_throwStd(*t, "RangeError", "Invalid length ({})", l);
+					croc_eh_throwStd(*t, "RangeError", "Invalid length (%" CROC_INTEGER_FORMAT ")", l);
 
 				mb->resize(t->vm->mem, cast(uword)l);
 				return;
@@ -936,7 +930,7 @@ namespace croc
 				// 	return;
 
 				pushTypeStringImpl(t, dest);
-				croc_eh_throwStd(*t, "TypeError", "Can't set the length of a '{}'", croc_getString(*t, -1));
+				croc_eh_throwStd(*t, "TypeError", "Can't set the length of a '%s'", croc_getString(*t, -1));
 		}
 	}
 
@@ -986,7 +980,7 @@ namespace croc
 					else
 					{
 						pushTypeStringImpl(t, stack[slot + 1]);
-						croc_eh_throwStd(*t, "TypeError", "Can't concatenate 'string' and '{}'",
+						croc_eh_throwStd(*t, "TypeError", "Can't concatenate 'string' and '%s'",
 							croc_getString(*t, -1));
 					}
 				}
@@ -1104,7 +1098,7 @@ namespace croc
 				_error:
 					pushTypeStringImpl(t, stack[slot]);
 					pushTypeStringImpl(t, stack[slot + 1]);
-					croc_eh_throwStd(*t, "TypeError", "Can't concatenate '{}' and '{}'",
+					croc_eh_throwStd(*t, "TypeError", "Can't concatenate '%s' and '%s'",
 						croc_getString(*t, -2), croc_getString(*t, -1));
 			}
 
@@ -1194,7 +1188,7 @@ namespace croc
 					else
 					{
 						pushTypeStringImpl(t, stack[idx]);
-						croc_eh_throwStd(*t, "TypeError", "Can't append a '{}' to a 'string'", croc_getString(*t, -1));
+						croc_eh_throwStd(*t, "TypeError", "Can't append a '%s' to a 'string'", croc_getString(*t, -1));
 					}
 				}
 
@@ -1212,7 +1206,7 @@ namespace croc
 				if(method == nullptr)
 				{
 					pushTypeStringImpl(t, target);
-					croc_eh_throwStd(*t, "TypeError", "Can't append to a value of type '{}'", croc_getString(*t, -1));
+					croc_eh_throwStd(*t, "TypeError", "Can't append to a value of type '%s'", croc_getString(*t, -1));
 				}
 
 				checkStack(t, t->stackIndex);
@@ -1278,7 +1272,7 @@ namespace croc
 		{
 			pushTypeStringImpl(t, v);
 			croc_eh_throwStd(*t, "TypeError",
-				"Can only get super of classes, instances, and namespaces, not values of type '{}'",
+				"Can only get super of classes, instances, and namespaces, not values of type '%s'",
 				croc_getString(*t, -1));
 		}
 

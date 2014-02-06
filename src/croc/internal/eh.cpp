@@ -92,7 +92,7 @@ namespace croc
 
 			if(ar.numTailcalls > 0)
 			{
-				croc_pushFormat(*t, "<{} tailcall{}>", ar.numTailcalls, ar.numTailcalls == 1 ? "" : "s");
+				croc_pushFormat(*t, "<%u tailcall%s>", ar.numTailcalls, ar.numTailcalls == 1 ? "" : "s");
 				croc_vm_pushLocationObject(*t, croc_getString(*t, -1), -1, CrocLocation_Script);
 				croc_cateq(*t, ret, 1);
 				croc_popTop(*t);
@@ -140,7 +140,7 @@ namespace croc
 		if(ex.type != CrocType_Instance)
 		{
 			pushTypeStringImpl(t, ex);
-			croc_eh_throwStd(*t, "TypeError", "Only instances can be thrown, not '{}'", croc_getString(*t, -1));
+			croc_eh_throwStd(*t, "TypeError", "Only instances can be thrown, not '%s'", croc_getString(*t, -1));
 		}
 
 		if(!rethrowing)

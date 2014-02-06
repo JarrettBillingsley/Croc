@@ -21,7 +21,7 @@ extern "C"
 	void croc_setStackSize(CrocThread* t_, uword_t newSize)
 	{
 		if(newSize == 0)
-			croc_eh_throwStd(t_, "ApiError", "{} - newSize must be nonzero", __FUNCTION__);
+			croc_eh_throwStd(t_, "ApiError", "%s - newSize must be nonzero", __FUNCTION__);
 
 		auto curSize = croc_getStackSize(t_);
 
@@ -79,7 +79,7 @@ extern "C"
 		auto s = fakeToAbs(t, slot);
 
 		if(s == t->stackBase)
-			croc_eh_throwStd(t_, "ApiError", "{} - Cannot use 'this' as the destination", __FUNCTION__);
+			croc_eh_throwStd(t_, "ApiError", "%s - Cannot use 'this' as the destination", __FUNCTION__);
 
 		if(s == t->stackIndex - 1)
 			return;
@@ -96,7 +96,7 @@ extern "C"
 		auto s = fakeToAbs(t, slot);
 
 		if(s == t->stackBase)
-			croc_eh_throwStd(t_, "ApiError", "{} - Cannot use 'this' as the destination", __FUNCTION__);
+			croc_eh_throwStd(t_, "ApiError", "%s - Cannot use 'this' as the destination", __FUNCTION__);
 
 		if(s == t->stackIndex - 1)
 			return;
@@ -112,7 +112,7 @@ extern "C"
 		auto s = fakeToAbs(t, slot);
 
 		if(s == t->stackBase)
-			croc_eh_throwStd(t_, "ApiError", "{} - Cannot move 'this' to the top of the stack", __FUNCTION__);
+			croc_eh_throwStd(t_, "ApiError", "%s - Cannot move 'this' to the top of the stack", __FUNCTION__);
 
 		if(s == t->stackIndex - 1)
 			return;
@@ -127,7 +127,7 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(numSlots > (croc_getStackSize(t_) - 1))
-			croc_eh_throwStd(t_, "ApiError", "{} - Trying to rotate more values ({}) than can be rotated ({})",
+			croc_eh_throwStd(t_, "ApiError", "%s - Trying to rotate more values (%u) than can be rotated (%u)",
 				__FUNCTION__, numSlots, croc_getStackSize(t_) - 1);
 
 		if(numSlots == 0)
@@ -193,10 +193,10 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(n == 0)
-			croc_eh_throwStd(t_, "ApiError", "{} - Trying to pop zero items", __FUNCTION__);
+			croc_eh_throwStd(t_, "ApiError", "%s - Trying to pop zero items", __FUNCTION__);
 
 		if(n > (t->stackIndex - (t->stackBase + 1)))
-			croc_eh_throwStd(t_, "ApiError", "{} - Stack underflow", __FUNCTION__);
+			croc_eh_throwStd(t_, "ApiError", "%s - Stack underflow", __FUNCTION__);
 
 		t->stackIndex -= n;
 	}

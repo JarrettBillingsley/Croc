@@ -21,7 +21,7 @@ namespace croc
 		{
 			pushTypeStringImpl(t, v);
 			croc_eh_throwStd(*t, "TypeError",
-				"Can only get super of classes, instances, and namespaces, not values of type '{}'",
+				"Can only get super of classes, instances, and namespaces, not values of type '%s'",
 				croc_getString(*t, -1));
 		}
 
@@ -33,7 +33,7 @@ namespace croc
 		freezeImpl(t, base);
 
 		if(base->finalizer)
-			croc_eh_throwStd(*t, "ValueError", "Attempting to derive from class '{}' which has a finalizer",
+			croc_eh_throwStd(*t, "ValueError", "Attempting to derive from class '%s' which has a finalizer",
 				base->name->toCString());
 
 		const char* which;
@@ -41,7 +41,7 @@ namespace croc
 		if(auto conflict = Class::derive(t->vm->mem, c, base, which))
 		{
 			croc_eh_throwStd(*t, "ValueError",
-				"Attempting to derive {} '{}' from class '{}', but it already exists in the new class '{}'",
+				"Attempting to derive %s '%s' from class '%s', but it already exists in the new class '%s'",
 				which, conflict->key->toCString(), base->name->toCString(), c->name->toCString());
 		}
 	}
@@ -56,7 +56,7 @@ namespace croc
 			if(ctor->value.type != CrocType_Function)
 			{
 				pushTypeStringImpl(t, ctor->value);
-				croc_eh_throwStd(*t, "TypeError", "Class constructor must be of type 'function', not '{}'",
+				croc_eh_throwStd(*t, "TypeError", "Class constructor must be of type 'function', not '%s'",
 					croc_getString(*t, -1));
 			}
 
@@ -68,7 +68,7 @@ namespace croc
 			if(finalizer->value.type != CrocType_Function)
 			{
 				pushTypeStringImpl(t, finalizer->value);
-				croc_eh_throwStd(*t, "TypeError", "Class finalizer must be of type 'function', not '{}'",
+				croc_eh_throwStd(*t, "TypeError", "Class finalizer must be of type 'function', not '%s'",
 					croc_getString(*t, -1));
 			}
 

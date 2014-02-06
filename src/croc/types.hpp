@@ -650,6 +650,7 @@ namespace croc
 		uint64_t currentRef;
 		String* ctorString; // also stored in metaStrings, don't have to scan it as a root
 		String* finalizerString; // also stored in metaStrings, don't have to scan it as a root
+		char formatBuf[CROC_FORMAT_BUF_SIZE];
 
 		inline void disableGC() { this->mem.gcDisabled++; }
 		inline void enableGC()

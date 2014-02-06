@@ -32,7 +32,8 @@ extern "C"
 			{
 				croc_pushToString(t_, obj);
 				croc_eh_throwStd(t_, "FieldError",
-					"{} - key '{}' does not exist in namespace '{}'", __FUNCTION__, getString(t, -2), getString(t, -1));
+					"%s - key '%s' does not exist in namespace '%s'",
+					__FUNCTION__, croc_getString(*t, -2), croc_getString(*t, -1));
 			}
 
 			ns->remove(t->vm->mem, key);
@@ -235,7 +236,7 @@ extern "C"
 
 				if(v == nullptr)
 					croc_eh_throwStd(t_, "FieldError",
-						"{} - Attempting to access nonexistent hidden field '{}' from class '{}'",
+						"%s - Attempting to access nonexistent hidden field '%s' from class '%s'",
 						__FUNCTION__, name->toCString(), c->name->toCString());
 
 				t->stack[t->stackIndex - 1] = v->value;
@@ -247,7 +248,7 @@ extern "C"
 
 				if(v == nullptr)
 					croc_eh_throwStd(t_, "FieldError",
-						"{} - Attempting to access nonexistent hidden field '{}' from instance of class '{}'",
+						"%s - Attempting to access nonexistent hidden field '%s' from instance of class '%s'",
 						__FUNCTION__, name->toCString(), i->parent->name->toCString());
 
 				t->stack[t->stackIndex - 1] = v->value;
@@ -288,7 +289,7 @@ extern "C"
 					c->setMember(t->vm->mem, slot, value);
 				else
 					croc_eh_throwStd(t_, "FieldError",
-						"{} - Attempting to assign to nonexistent hidden field '{}' in class '{}'",
+						"%s - Attempting to assign to nonexistent hidden field '%s' in class '%s'",
 						__FUNCTION__, name->toCString(), c->name->toCString());
 				break;
 			}
@@ -299,7 +300,7 @@ extern "C"
 					i->setField(t->vm->mem, slot, value);
 				else
 					croc_eh_throwStd(t_, "FieldError",
-						"{} - Attempting to assign to nonexistent hidden field '{}' in instance of class '{}'",
+						"%s - Attempting to assign to nonexistent hidden field '%s' in instance of class '%s'",
 						__FUNCTION__, name->toCString(), i->parent->name->toCString());
 				break;
 			}
@@ -329,7 +330,7 @@ extern "C"
 		if(len.type != CrocType_Int)
 		{
 			croc_pushTypeString(t_, -1);
-			croc_eh_throwStd(t_, "TypeError", "{} - Expected length to be an int, but got '{}' instead",
+			croc_eh_throwStd(t_, "TypeError", "%s - Expected length to be an int, but got '%s' instead",
 				__FUNCTION__, croc_getString(t_, -1));
 		}
 
@@ -358,7 +359,7 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(num == 0)
-			croc_eh_throwStd(t_, "ApiError", "{} - Cannot concatenate 0 things", __FUNCTION__);
+			croc_eh_throwStd(t_, "ApiError", "%s - Cannot concatenate 0 things", __FUNCTION__);
 
 		API_CHECK_NUM_PARAMS(num);
 
@@ -378,7 +379,7 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(num == 0)
-			croc_eh_throwStd(t_, "ApiError", "{} - Cannot append 0 things", __FUNCTION__);
+			croc_eh_throwStd(t_, "ApiError", "%s - Cannot append 0 things", __FUNCTION__);
 
 		API_CHECK_NUM_PARAMS(num);
 		catEqImpl(t, fakeToAbs(t, dest), t->stackIndex - num, num);

@@ -6,6 +6,7 @@
 #include "croc/apitypes.h"
 
 #define CROCAPI(f) croc_##f
+#define CROCPRINT(a, b) __attribute__((format(printf, a, b)))
 
 #ifdef __cplusplus
 extern "C" {
@@ -78,7 +79,7 @@ uword_t CROCAPI(gc_getLimit)     (CrocThread* t, const char* type);
 void   CROCAPI(eh_throw)      (CrocThread* t);
 void   CROCAPI(eh_rethrow)    (CrocThread* t);
 word_t CROCAPI(eh_pushStd)    (CrocThread* t, const char* exName);
-void   CROCAPI(eh_throwStd)   (CrocThread* t, const char* exName, const char* fmt, ...);
+void   CROCAPI(eh_throwStd)   (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
 void   CROCAPI(eh_vthrowStd)  (CrocThread* t, const char* exName, const char* fmt, va_list args);
 int    CROCAPI(eh_tryCall)    (CrocThread* t, word_t slot, word_t numReturns);
 
@@ -173,7 +174,7 @@ word_t      CROCAPI(pushFloat)     (CrocThread* t, crocfloat_t v);
 word_t      CROCAPI(pushString)    (CrocThread* t, const char* v);
 word_t      CROCAPI(pushStringn)   (CrocThread* t, const char* v, uword_t len);
 word_t      CROCAPI(pushChar)      (CrocThread* t, crocchar_t c);
-word_t      CROCAPI(pushFormat)    (CrocThread* t, const char* fmt, ...);
+word_t      CROCAPI(pushFormat)    (CrocThread* t, const char* fmt, ...) CROCPRINT(2, 3);
 word_t      CROCAPI(vpushFormat)   (CrocThread* t, const char* fmt, va_list args);
 word_t      CROCAPI(pushNativeobj) (CrocThread* t, void* o);
 word_t      CROCAPI(pushThread)    (CrocThread* t, CrocThread* o);

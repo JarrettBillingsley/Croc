@@ -1,4 +1,6 @@
 
+#include <stdarg.h>
+
 #include "croc/api.h"
 #include "croc/types.hpp"
 #include "croc/internal/apichecks.hpp"
@@ -33,14 +35,45 @@ extern "C"
 		DArray<char> s;
 
 		if(encodeUtf8Char(buf, c, s) != UtfError_OK)
-			croc_eh_throwStd(t_, "UnicodeError", "Invalid Unicode codepoint U+{:X6}", cast(uint32_t)c);
+			croc_eh_throwStd(t_, "UnicodeError", "Invalid Unicode codepoint U+%.6x", cast(uint32_t)c);
 
 		return push(t, Value::from(String::createUnverified(t->vm, s.toConst(), 1)));
 	}
 
-	// TODO:
-	// word_t croc_pushFormat(CrocThread* t, const char* fmt, ...)
-	// word_t croc_vpushFormat(CrocThread* t, const char* fmt, va_list args)
+	word_t croc_pushFormat(CrocThread* t, const char* fmt, ...)
+	{
+		va_list args;
+		va_start(args, fmt);
+		auto ret = croc_vpushFormat(t, fmt, args);
+		va_end(args);
+		return ret;
+	}
+
+	word_t croc_vpushFormat(CrocThread* t_, const char* fmt, va_list args)
+	{
+		auto t = Thread::from(t_);
+		va_list argsDup;
+		va_copy(argsDup, args);
+		auto len = 1 + vsnprintf(t->vm->formatBuf, 1, fmt, argsDup);
+		char* buf = t->vm->formatBuf;
+		auto arr = DArray<char>();
+
+		if(len > CROC_FORMAT_BUF_SIZE)
+		{
+			arr = DArray<char>::alloc(t->vm->mem, len);
+			buf = arr.ptr;
+		}
+
+		vsnprintf(buf, len, fmt, args);
+
+		auto ret = croc_pushStringn(t_, buf, len - 1);
+
+		if(arr.length > 0)
+			arr.free(t->vm->mem);
+
+		croc_gc_maybeCollect(t_);
+		return ret;
+	}
 
 	word_t croc_pushNativeobj(CrocThread* t, void* o)
 	{
@@ -53,7 +86,7 @@ extern "C"
 		auto o = Thread::from(o_);
 
 		if(t->vm != o->vm)
-			croc_eh_throwStd(t_, "ApiError", "{} - Threads belong to different VMs", __FUNCTION__);
+			croc_eh_throwStd(t_, "ApiError", "%s - Threads belong to different VMs", __FUNCTION__);
 
 		return push(t, Value::from(o));
 	}
@@ -91,7 +124,7 @@ extern "C"
 		else
 		{
 			croc_pushTypeString(t_, slot);
-			croc_eh_throwStd(t_, "TypeError", "{} - expected 'int' or 'float' but got '{}'", __FUNCTION__, croc_getString(t_, -1));
+			croc_eh_throwStd(t_, "TypeError", "%s - expected 'int' or 'float' but got '%s'", __FUNCTION__, croc_getString(t_, -1));
 			assert(false);
 		}
 	}
@@ -102,7 +135,7 @@ extern "C"
 		API_CHECK_PARAM(str, slot, String, "slot");
 
 		if(str->cpLength != 1)
-			croc_eh_throwStd(t_, "ValueError", "{} - string must be one codepoint long", __FUNCTION__);
+			croc_eh_throwStd(t_, "ValueError", "%s - string must be one codepoint long", __FUNCTION__);
 
 		auto ptr = str->toCString();
 		return fastDecodeUtf8Char(ptr);

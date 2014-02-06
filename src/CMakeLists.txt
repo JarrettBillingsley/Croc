@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 set(croc_SRC
 	croc/api/array.cpp
 	croc/api/basic.cpp
+	croc/api/calls.cpp
 	croc/api/class.cpp
 	croc/api/eh.cpp
 	croc/api/funcdef.cpp
@@ -89,7 +90,7 @@ set(croc_ALLSRC
 )
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "-std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions")
+	set(CMAKE_CXX_FLAGS "-std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions -Wno-pedantic-ms-format")
 	set(CMAKE_CXX_FLAGS_DEBUG "-g -DCROC_STOMP_MEMORY -DCROC_LEAK_DETECTOR")
 	set(CMAKE_CXX_FLAGS_RELEASE "-fno-rtti")
 elseif(MSVC)
