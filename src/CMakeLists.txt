@@ -5,6 +5,7 @@ set(croc_SRC
 	croc/api/basic.cpp
 	croc/api/calls.cpp
 	croc/api/class.cpp
+	croc/api/debug.cpp
 	croc/api/eh.cpp
 	croc/api/funcdef.cpp
 	croc/api/function.cpp

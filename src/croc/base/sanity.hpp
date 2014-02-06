@@ -22,9 +22,11 @@
 #ifdef _WIN32
 #define CROC_INTEGER_FORMAT "I64d"
 #define CROC_UINTEGER_FORMAT "I64u"
+#define CROC_HEX64_FORMAT "I64x"
 #else
 #define CROC_INTEGER_FORMAT "lld"
 #define CROC_INTEGER_FORMAT "llu"
+#define CROC_HEX64_FORMAT "llx"
 #endif
 
 #define CROC_FORMAT_BUF_SIZE 256
