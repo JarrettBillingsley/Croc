@@ -5,6 +5,7 @@
 #include "croc/internal/calls.hpp"
 #include "croc/internal/class.hpp"
 #include "croc/internal/debug.hpp"
+#include "croc/internal/interpreter.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/internal/thread.hpp"
 #include "croc/internal/eh.hpp"
@@ -304,7 +305,7 @@ namespace croc
 					auto failed = tryCode(t, slot, [&t, &slot, &numParams]()
 					{
 						if(callPrologue(t, slot, 0, numParams))
-							{} //execute(t);
+							execute(t);
 					});
 
 					t->nativeCallDepth--;
@@ -489,7 +490,7 @@ namespace croc
 		// scope(exit) t.nativeCallDepth--;
 
 		if(isScript)
-			{} //execute(t);
+			execute(t);
 
 		uword ret;
 

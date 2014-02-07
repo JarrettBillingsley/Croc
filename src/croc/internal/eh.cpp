@@ -152,6 +152,12 @@ namespace croc
 		if(!rethrowing)
 			addLocationInfo(t, ex);
 
+		if(t->currentAR)
+		{
+			t->currentAR->unwindCounter = 0;
+			t->currentAR->unwindReturn = nullptr;
+		}
+
 		t->vm->exception = ex.mInstance;
 
 		EHFrame* frame = nullptr;

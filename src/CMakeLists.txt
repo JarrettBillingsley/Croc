@@ -57,6 +57,8 @@ set(croc_SRC
 	croc/internal/eh.hpp
 	croc/internal/gc.cpp
 	croc/internal/gc.hpp
+	croc/internal/interpreter.cpp
+	croc/internal/interpreter.hpp
 	croc/internal/stack.cpp
 	croc/internal/stack.hpp
 	croc/internal/thread.cpp
@@ -97,7 +99,7 @@ set(croc_ALLSRC
 )
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "-std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions -Wno-pedantic-ms-format")
+	set(CMAKE_CXX_FLAGS "-std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions -Wno-pedantic-ms-format -fmax-errors=5")
 	set(CMAKE_CXX_FLAGS_DEBUG "-g -DCROC_STOMP_MEMORY -DCROC_LEAK_DETECTOR")
 	set(CMAKE_CXX_FLAGS_RELEASE "-fno-rtti")
 elseif(MSVC)

@@ -2,6 +2,7 @@
 #include "croc/api.h"
 #include "croc/internal/calls.hpp"
 #include "croc/internal/eh.hpp"
+#include "croc/internal/interpreter.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/internal/thread.hpp"
 #include "croc/types.hpp"
@@ -66,9 +67,8 @@ namespace croc
 				t->stack.slicea(2, 2 + numParams, from->stack.slice(slot + 1, slot + 1 + numParams));
 				t->stackIndex += numParams;
 
-				// TODO:api
-				// auto result = callPrologue(t, cast(AbsStack)1, -1, numParams);
-				// assert(result == true, "resume callPrologue must return true");
+				auto result = callPrologue(t, cast(AbsStack)1, -1, numParams);
+				assert(result);
 			}
 			else
 			{
@@ -78,8 +78,7 @@ namespace croc
 				callEpilogue(t);
 			}
 
-			// TODO:api
-			// execute(t);
+			execute(t);
 		});
 
 		// TODO:halt

@@ -1,3 +1,11 @@
+
+#include <functional>
+#include <iostream>
+#include <fstream>
+
+
+
+
 #include <stdlib.h>
 
 #include "croc/api.h"
@@ -68,6 +76,105 @@ extern "C"
 			assert(ret != nullptr);
 			return ret;
 		}
+	}
+
+	void LOAD_FUNCDEF_FROM_FILE(CrocThread* t_, const char* filename)
+	{
+		auto t = Thread::from(t_);
+		std::ifstream ifs;
+		ifs.open(filename, std::ifstream::in);
+
+		auto readval = [&t, &ifs]() -> Value
+		{
+			Value v;
+			char buf[256];
+
+			switch(ifs.get())
+			{
+				case '0': v.type = CrocType_Null;   ifs.getline(buf, 256); break;
+				case '1': v.type = CrocType_Bool;   ifs.get(); ifs >> v.mBool; ifs.getline(buf, 256);break;
+				case '2': v.type = CrocType_Int;    ifs.get(); ifs >> v.mInt; ifs.getline(buf, 256); break;
+				case '3': v.type = CrocType_Float;  ifs.get(); ifs >> v.mFloat; ifs.getline(buf, 256); break;
+				case '5': v.type = CrocType_String; ifs.get(); ifs.getline(buf, 256); v.mString = String::create(t->vm, atoda(buf)); break;
+				default: assert(false);
+			}
+
+			return v;
+		};
+
+		std::function<Funcdef*()> readit = [&readit, &t, &readval, &ifs]() -> Funcdef*
+		{
+			auto v = Funcdef::create(t->vm->mem);
+			char buf[256];
+			int tmpInt;
+
+			ifs.getline(buf, 256); v->locFile = String::create(t->vm, atoda(buf));
+			ifs >> v->locLine; ifs.getline(buf, 256);
+			ifs >> v->locCol; ifs.getline(buf, 256);
+			ifs >> tmpInt; v->isVararg = cast(bool)tmpInt; ifs.getline(buf, 256);
+			ifs.getline(buf, 256); v->name = String::create(t->vm, atoda(buf));
+
+			ifs >> v->numParams;
+
+			ifs >> tmpInt; ifs.getline(buf, 256); v->paramMasks.resize(t->vm->mem, tmpInt);
+			for(auto &mask: v->paramMasks) { ifs >> mask; ifs.getline(buf, 256); }
+
+			ifs >> tmpInt; ifs.getline(buf, 256); v->upvals.resize(t->vm->mem, tmpInt);
+
+			for(auto &uv: v->upvals)
+			{
+				ifs >> tmpInt; ifs.getline(buf, 256); uv.isUpval = cast(bool)tmpInt;
+				ifs >> uv.index; ifs.getline(buf, 256);
+			}
+
+			ifs >> v->stackSize; ifs.getline(buf, 256);
+			ifs >> tmpInt; ifs.getline(buf, 256); v->innerFuncs.resize(t->vm->mem, tmpInt);
+			for(auto &inner: v->innerFuncs) { inner = readit(); }
+			ifs >> tmpInt; ifs.getline(buf, 256); v->constants.resize(t->vm->mem, tmpInt);
+			for(auto &c: v->constants) c = readval();
+
+			ifs >> tmpInt; ifs.getline(buf, 256); v->code.resize(t->vm->mem, tmpInt);
+
+			for(auto &ins: v->code) { ifs >> tmpInt; ifs.getline(buf, 256); *cast(uint16_t*)&ins = tmpInt; }
+			v->environment = t->vm->globals;
+
+			ifs >> tmpInt; ifs.getline(buf, 256); v->switchTables.resize(t->vm->mem, tmpInt);
+
+			for(auto &st: v->switchTables)
+			{
+				int size;
+				ifs >> size; ifs.getline(buf, 256);
+
+				for(int i = 0; i < size; i++)
+				{
+					auto key = readval();
+					ifs >> tmpInt; ifs.getline(buf, 256);
+					*st.offsets.insert(t->vm->mem, key) = tmpInt;
+				}
+
+				ifs >> st.defaultOffset; ifs.getline(buf, 256);
+			}
+
+			ifs >> tmpInt; ifs.getline(buf, 256); v->lineInfo.resize(t->vm->mem, tmpInt);
+			for(auto &l: v->lineInfo) { ifs >> l; ifs.getline(buf, 256); }
+			ifs >> tmpInt; ifs.getline(buf, 256); v->upvalNames.resize(t->vm->mem, tmpInt);
+			for(auto &n: v->upvalNames) { ifs.getline(buf, 256); n = String::create(t->vm, atoda(buf)); }
+
+			ifs >> tmpInt; ifs.getline(buf, 256); v->locVarDescs.resize(t->vm->mem, tmpInt);
+
+			for(auto &desc: v->locVarDescs)
+			{
+				ifs.getline(buf, 256); desc.name = String::create(t->vm, atoda(buf));
+				ifs >> desc.pcStart; ifs.getline(buf, 256);
+				ifs >> desc.pcEnd; ifs.getline(buf, 256);
+				ifs >> desc.reg; ifs.getline(buf, 256);
+			}
+
+			return v;
+		};
+
+		push(t, Value::from(readit()));
+		ifs.close();
 	}
 
 	CrocThread* croc_vm_open(CrocMemFunc memFunc, void* ctx)

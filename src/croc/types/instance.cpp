@@ -32,7 +32,8 @@ namespace croc
 	{
 		assert(parent->isFrozen);
 		auto i = createPartial(mem, InstanceExtraSize(parent), parent->finalizer != nullptr);
-		finishCreate(i, parent);
+		auto b = finishCreate(i, parent);
+		assert(b);
 		return i;
 	}
 
@@ -52,7 +53,7 @@ namespace croc
 	{
 		assert(parent->isFrozen);
 
-		if(i->memSize != InstanceExtraSize(parent))
+		if(i->memSize != sizeof(Instance) + InstanceExtraSize(parent))
 			return false;
 
 		i->parent = parent;

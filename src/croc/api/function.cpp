@@ -24,6 +24,13 @@ extern "C"
 		return push(t, Value::from(f));
 	}
 
+	word_t croc_function_newScript(CrocThread* t_, word_t funcDef)
+	{
+		funcDef = croc_absIndex(t_, funcDef);
+		croc_pushCurEnvironment(t_);
+		return croc_function_newScriptWithEnv(t_, funcDef);
+	}
+
 	word_t croc_function_newScriptWithEnv(CrocThread* t_, word_t funcDef)
 	{
 		auto t = Thread::from(t_);

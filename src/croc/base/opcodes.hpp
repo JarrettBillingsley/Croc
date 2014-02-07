@@ -178,6 +178,7 @@ FIVE SHORTS:
 	X(PushCatch),\
 	X(PushFinally),\
 	X(PopEH),\
+	X(PopEH2),\
 	X(EndFinal),\
 	X(Throw),\
 	X(Method),\
@@ -275,8 +276,8 @@ FIVE SHORTS:
 #define INST_ARRAY_SET_FIELDS 30
 #define INST_MAX_ARRAY_FIELDS (INST_ARRAY_SET_FIELDS * INST_UIMM_MAX)
 
-#define INST_GET_OPCODE(n) ((n.uimm & INST_OPCODE_MASK) >> INST_OPCODE_SHIFT)
-#define INST_GET_RD(n) ((n.uimm & INST_RD_MASK) >> INST_RD_SHIFT)
+#define INST_GET_OPCODE(n) (((n).uimm & INST_OPCODE_MASK) >> INST_OPCODE_SHIFT)
+#define INST_GET_RD(n) (((n).uimm & INST_RD_MASK) >> INST_RD_SHIFT)
 
 	union Instruction
 	{
