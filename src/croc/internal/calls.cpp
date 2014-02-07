@@ -142,23 +142,6 @@ namespace croc
 		return t->currentAR;
 	}
 
-	// void popAR(Thread* t)
-	// {
-	// 	t->arIndex--;
-	// 	t->currentAR->func = nullptr;
-
-	// 	if(t->arIndex > 0)
-	// 	{
-	// 		t->currentAR = &t->actRecs[t->arIndex - 1];
-	// 		t->stackBase = t->currentAR->base;
-	// 	}
-	// 	else
-	// 	{
-	// 		t->currentAR = nullptr;
-	// 		t->stackBase = 0;
-	// 	}
-	// }
-
 	// TODO: move this somewhere else
 	void makeDead(Thread* t)
 	{
@@ -311,9 +294,10 @@ namespace croc
 					t->nativeCallDepth--;
 				}
 
-				// TODO: my god stop fucking duplicating code, me
 				t->stack[slot] = Value::from(inst);
 
+				// TODO: my god stop fucking duplicating code, me
+				// besides, shouldn't this all have been handled by callEpilogue...?
 				if(expectedResults == -1)
 					t->stackIndex = slot + 1;
 				else
@@ -529,5 +513,75 @@ namespace croc
 				assert(false);
 			}
 		}
+	}
+
+	// I *could* come up with some way to get rid of all the boilerplate but eh, I don't feel like dealing with C++
+	// template "magic" or whatever
+#define TRYMM_BEGIN()\
+	auto method = getMM(t, src1, mm);\
+\
+	if(method == nullptr)\
+		return false;\
+\
+	auto funcSlot = push(t, Value::from(method)) + t->stackBase;
+
+	bool tryMMDest(Thread* t, Metamethod mm, AbsStack dest, Value src1)
+	{
+		TRYMM_BEGIN();
+		push(t, src1);
+		commonCall(t, funcSlot, 1, callPrologue(t, funcSlot, 1, 1));
+		t->stack[dest] = t->stack[--t->stackIndex];
+		return true;
+	}
+
+	bool tryMMDest(Thread* t, Metamethod mm, AbsStack dest, Value src1, Value src2)
+	{
+		TRYMM_BEGIN();
+		push(t, src1);
+		push(t, src2);
+		commonCall(t, funcSlot, 1, callPrologue(t, funcSlot, 1, 2));
+		t->stack[dest] = t->stack[--t->stackIndex];
+		return true;
+	}
+
+	bool tryMMDest(Thread* t, Metamethod mm, AbsStack dest, Value src1, Value src2, Value src3)
+	{
+		TRYMM_BEGIN();
+		push(t, src1);
+		push(t, src2);
+		push(t, src3);
+		commonCall(t, funcSlot, 1, callPrologue(t, funcSlot, 1, 3));
+		t->stack[dest] = t->stack[--t->stackIndex];
+		return true;
+	}
+
+	bool tryMM(Thread* t, Metamethod mm, Value src1, Value src2)
+	{
+		TRYMM_BEGIN();
+		push(t, src1);
+		push(t, src2);
+		commonCall(t, funcSlot, 0, callPrologue(t, funcSlot, 0, 2));
+		return true;
+	}
+
+	bool tryMM(Thread* t, Metamethod mm, Value src1, Value src2, Value src3)
+	{
+		TRYMM_BEGIN();
+		push(t, src1);
+		push(t, src2);
+		push(t, src3);
+		commonCall(t, funcSlot, 0, callPrologue(t, funcSlot, 0, 3));
+		return true;
+	}
+
+	bool tryMM(Thread* t, Metamethod mm, Value src1, Value src2, Value src3, Value src4)
+	{
+		TRYMM_BEGIN();
+		push(t, src1);
+		push(t, src2);
+		push(t, src3);
+		push(t, src4);
+		commonCall(t, funcSlot, 0, callPrologue(t, funcSlot, 0, 4));
+		return true;
 	}
 }

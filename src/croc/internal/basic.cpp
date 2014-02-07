@@ -518,9 +518,8 @@ namespace croc
 				return tableIdxImpl(t, dest, container.mTable, key);
 
 			default: {
-				// TODO:mm
-				// if(tryMM!(2, true)(t, MM_Index, &t->stack[dest], container, key))
-				// 	return;
+				if(tryMMDest(t, MM_Index, dest, container, key))
+					return;
 
 				pushTypeStringImpl(t, container);
 				croc_eh_throwStd(*t, "TypeError", "Attempting to index a value of type '%s'", croc_getString(*t, -1));
@@ -594,9 +593,8 @@ namespace croc
 				return tableIdxaImpl(t, cont.mTable, key, value);
 
 			default:
-				assert(false); // TODO:mm
-				// if(tryMM!(3, false)(t, MM_IndexAssign, &t->stack[container], key, value))
-				// 	return;
+				if(tryMM(t, MM_IndexAssign, t->stack[container], key, value))
+					return;
 
 				pushTypeStringImpl(t, t->stack[container]);
 				croc_eh_throwStd(*t, "TypeError", "Attempting to index-assign a value of type '%s'",
@@ -670,9 +668,8 @@ namespace croc
 				return;
 			}
 			default:
-				assert(false); // TODO:mm
-				// if(tryMM!(3, true)(t, MM_Slice, &t.stack[dest], src, lo, hi))
-				// 	return;
+				if(tryMMDest(t, MM_Slice, dest, src, lo, hi))
+					return;
 
 				pushTypeStringImpl(t, src);
 				croc_eh_throwStd(*t, "TypeError", "Attempting to slice a value of type '%s'", croc_getString(*t, -1));
@@ -718,9 +715,8 @@ namespace croc
 				}
 			}
 			default:
-				assert(false); // TODO:mm
-				// if(tryMM!(4, false)(t, MM_SliceAssign, container, lo, hi, value))
-				// 	return;
+				if(tryMM(t, MM_SliceAssign, container, lo, hi, value))
+					return;
 
 				pushTypeStringImpl(t, container);
 				croc_eh_throwStd(*t, "TypeError", "Attempting to slice-assign a value of type '%s'",
@@ -764,9 +760,8 @@ namespace croc
 
 					if(v == nullptr)
 					{
-						assert(false); // TODO:mm
-						// if(!raw && tryMM!(2, true)(t, MM_Field, &t.stack[dest], container, &Value(name)))
-						// 	return;
+						if(!raw && tryMMDest(t, MM_Field, dest, container, Value::from(name)))
+							return;
 
 						croc_eh_throwStd(*t, "FieldError",
 							"Attempting to access nonexistent field '%s' from instance of class '%s'",
@@ -791,10 +786,8 @@ namespace croc
 				return;
 			}
 			default:
-				assert(false); // TODO:mm
-				(void)raw;
-				// if(!raw && tryMM!(2, true)(t, MM_Field, &t.stack[dest], container, &Value(name)))
-				// 	return;
+				if(!raw && tryMMDest(t, MM_Field, dest, container, Value::from(name)))
+					return;
 
 				pushTypeStringImpl(t, container);
 				croc_eh_throwStd(*t, "TypeError", "Attempting to access field '%s' from a value of type '%s'",
@@ -838,9 +831,8 @@ namespace croc
 
 				if(auto slot = i->getField(name))
 					i->setField(t->vm->mem, slot, value);
-				// TODO:mm
-				// else if(!raw && tryMM!(3, false)(t, MM_FieldAssign, &t.stack[container], &Value(name), value))
-				// 	return;
+				else if(!raw && tryMM(t, MM_FieldAssign, t->stack[container], Value::from(name), value))
+					return;
 				else
 					croc_eh_throwStd(*t, "FieldError",
 						"Attempting to assign to nonexistent field '%s' in instance of class '%s'",
@@ -852,10 +844,8 @@ namespace croc
 				return;
 			}
 			default:
-				assert(false); // TODO:mm
-				(void)raw;
-				// if(!raw && tryMM!(3, false)(t, MM_FieldAssign, &t.stack[container], &Value(name), value))
-				// 	return;
+				if(!raw && tryMM(t, MM_FieldAssign, t->stack[container], Value::from(name), value))
+					return;
 
 				pushTypeStringImpl(t, t->stack[container]);
 				croc_eh_throwStd(*t, "TypeError", "Attempting to assign field '%s' into a value of type '%s'",
@@ -874,9 +864,8 @@ namespace croc
 			case CrocType_Namespace: t->stack[dest] = Value::from(cast(crocint)src.mNamespace->length());   return;
 
 			default:
-				assert(false); // TODO:mm
-				// if(tryMM!(1, true)(t, MM_Length, &t.stack[dest], src))
-				// 	return;
+				if(tryMMDest(t, MM_Length, dest, src))
+					return;
 
 				pushTypeStringImpl(t, src);
 				croc_eh_throwStd(*t, "TypeError", "Can't get the length of a '%s'", croc_getString(*t, -1));
@@ -926,9 +915,8 @@ namespace croc
 				return;
 			}
 			default:
-				assert(false); // TODO:mm
-				// if(tryMM!(2, false)(t, MM_LengthAssign, &dest, len))
-				// 	return;
+				if(tryMM(t, MM_LengthAssign, dest, len))
+					return;
 
 				pushTypeStringImpl(t, dest);
 				croc_eh_throwStd(*t, "TypeError", "Can't set the length of a '%s'", croc_getString(*t, -1));
@@ -996,8 +984,7 @@ namespace croc
 							len += stack[idx].mArray->length;
 						else if(stack[idx].type == CrocType_Instance)
 						{
-							// TODO: mm
-							// method = getMM(t, &stack[idx], MM_Cat_r);
+							method = getMM(t, stack[idx], MM_Cat_r);
 
 							if(method == nullptr)
 								len++;

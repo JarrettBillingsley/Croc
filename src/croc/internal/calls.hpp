@@ -24,6 +24,12 @@ namespace croc
 	bool funcCallPrologue(Thread* t, Function* func, AbsStack returnSlot, word expectedResults, AbsStack paramSlot, uword numParams);
 	uword commonCall(Thread* t, AbsStack slot, word numReturns, bool isScript);
 	bool methodCallPrologue(Thread* t, AbsStack slot, Value self, String* methodName, word numReturns, uword numParams);
+	bool tryMMDest(Thread* t, Metamethod mm, AbsStack dest, Value src1);
+	bool tryMMDest(Thread* t, Metamethod mm, AbsStack dest, Value src1, Value src2);
+	bool tryMMDest(Thread* t, Metamethod mm, AbsStack dest, Value src1, Value src2, Value src3);
+	bool tryMM(Thread* t, Metamethod mm, Value src1, Value src2);
+	bool tryMM(Thread* t, Metamethod mm, Value src1, Value src2, Value src3);
+	bool tryMM(Thread* t, Metamethod mm, Value src1, Value src2, Value src3, Value src4);
 }
 
 #endif
