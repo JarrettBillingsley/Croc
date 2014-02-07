@@ -18,14 +18,14 @@
 	if(numReturns < -1)\
 		croc_eh_throwStd(t_, "ApiError", "%s - invalid number of returns (must be >= -1)", __FUNCTION__);
 
-#define TRYCALL_BEGIN()\
+#define TRYCALL_BEGIN\
 	COMMON_CALL_GUNK();\
 	int results = 0;\
 	auto savedNativeDepth = t->nativeCallDepth;\
 	auto failed = tryCode(t, slot, [&]\
 	{
 
-#define TRYCALL_END()\
+#define TRYCALL_END\
 	});\
 \
 	t->nativeCallDepth = savedNativeDepth;\
@@ -48,25 +48,25 @@ extern "C"
 	uword_t croc_methodCall(CrocThread* t_, word_t slot, const char* name, word_t numReturns)
 	{
 		COMMON_CALL_GUNK();
-		auto self = t->stack[absSlot];
 		auto mname = String::create(t->vm, atoda(name));
-		return commonCall(t, absSlot, numReturns, methodCallPrologue(t, absSlot, self, mname, numReturns, numParams));
+		return commonCall(t, absSlot, numReturns,
+			methodCallPrologue(t, absSlot, t->stack[absSlot], mname, numReturns, numParams));
 	}
 
 	int croc_tryCall(CrocThread* t_, word_t slot, word_t numReturns)
 	{
-		TRYCALL_BEGIN();
+		TRYCALL_BEGIN
 			results = commonCall(t, absSlot, numReturns, callPrologue(t, absSlot, numReturns, numParams));
-		TRYCALL_END();
+		TRYCALL_END
 	}
 
 	int croc_tryMethodCall(CrocThread* t_, word_t slot, const char* name, word_t numReturns)
 	{
-		TRYCALL_BEGIN();
+		TRYCALL_BEGIN
 			auto mname = String::create(t->vm, atoda(name));
 			results = commonCall(t, absSlot, numReturns,
 				methodCallPrologue(t, absSlot, t->stack[absSlot], mname, numReturns, numParams));
-		TRYCALL_END();
+		TRYCALL_END
 	}
 }
 }
