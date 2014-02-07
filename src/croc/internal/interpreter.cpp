@@ -312,7 +312,7 @@ namespace croc
 		Value* RS;
 		Value* RT;
 
-	// _exceptionRetry:
+	_exceptionRetry:
 		t->state = CrocThreadState_Running;
 		t->vm->curThread = t;
 
@@ -705,7 +705,19 @@ namespace croc
 
 					break;
 
-				case Op_Throw: GetRS(); throwImpl(t, *RS, cast(bool)rd); break;
+				case Op_Throw:
+					GetRS();
+					throwImpl(t, *RS, cast(bool)rd);
+
+					// Thread can change in throw -- if we threw past a thread resume into another thread, and the
+					// exception was caught by a script handler.
+					if(t != t->vm->curThread)
+					{
+						t = t->vm->curThread;
+						goto _exceptionRetry;
+					}
+					else
+						goto _reentry;
 
 				// Function Calling
 			{
@@ -816,7 +828,7 @@ namespace croc
 				case Op_Ret:
 					callEpilogue(t);
 
-					if(t->arIndex == 0 || t->currentAR->func->isNative)
+					if(t->arIndex == 0 || t->currentAR->incdNativeDepth)
 						return;
 
 					goto _reentry;

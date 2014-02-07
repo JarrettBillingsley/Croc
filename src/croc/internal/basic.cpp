@@ -4,6 +4,7 @@
 #include "croc/api.h"
 #include "croc/internal/basic.hpp"
 #include "croc/internal/calls.hpp"
+#include "croc/internal/interpreter.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
 
@@ -1216,12 +1217,15 @@ namespace croc
 
 				stack[firstSlot] = target;
 
-				// TODO: api
-				// t->nativeCallDepth++;
-				// scope(exit) t->nativeCallDepth--;
+				t->nativeCallDepth++;
 
-				// if(callPrologue2(t, method, firstSlot, 0, firstSlot, num + 1))
-				// 	execute(t);
+				if(funcCallPrologue(t, method, firstSlot, 0, firstSlot, num + 1))
+				{
+					t->currentAR->incdNativeDepth = true;
+					execute(t);
+				}
+
+				t->nativeCallDepth--;
 				return;
 		}
 	}

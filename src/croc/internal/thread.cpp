@@ -49,6 +49,7 @@ namespace croc
 		ar->numResults = 0;
 		ar->unwindCounter = 0;
 		ar->unwindReturn = nullptr;
+		ar->incdNativeDepth = false;
 		from->stackIndex = slot;
 
 		auto savedState = from->state;

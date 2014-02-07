@@ -302,16 +302,13 @@ namespace croc
 
 					t->nativeCallDepth++;
 
-					auto failed = tryCode(t, slot, [&t, &slot, &numParams]()
+					if(callPrologue(t, slot, 0, numParams))
 					{
-						if(callPrologue(t, slot, 0, numParams))
-							execute(t);
-					});
+						t->currentAR->incdNativeDepth = true;
+						execute(t);
+					}
 
 					t->nativeCallDepth--;
-
-					if(failed)
-						croc_eh_rethrow(*t);
 				}
 
 				// TODO: my god stop fucking duplicating code, me
@@ -423,6 +420,7 @@ namespace croc
 			ar->savedTop = ar->base + funcDef->stackSize;
 			ar->unwindCounter = 0;
 			ar->unwindReturn = nullptr;
+			ar->incdNativeDepth = false;
 
 			// Set the stack indices.
 			t->stackBase = ar->base;
@@ -453,29 +451,20 @@ namespace croc
 			ar->numTailcalls = 0;
 			ar->unwindCounter = 0;
 			ar->unwindReturn = nullptr;
+			ar->incdNativeDepth = true;
 
 			t->stackBase = ar->base;
 
 			if(t->hooks & CrocThreadHook_Call)
 				callHook(t, CrocThreadHook_Call);
 
+			t->vm->curThread = t;
 			t->nativeCallDepth++;
 			auto savedState = t->state;
 			t->state = CrocThreadState_Running;
-			t->vm->curThread = t;
-
-			uword actualReturns;
-
-			auto failed = tryCode(t, paramSlot, [&t, &func, &actualReturns]()
-			{
-				actualReturns = func->nativeFunc(*t);
-			});
-
-			t->nativeCallDepth--;
+			uword actualReturns = func->nativeFunc(*t);
 			t->state = savedState;
-
-			if(failed)
-				croc_eh_rethrow(*t);
+			t->nativeCallDepth--;
 
 			saveResults(t, t, t->stackIndex - actualReturns, actualReturns);
 			callEpilogue(t);
@@ -485,12 +474,13 @@ namespace croc
 
 	uword commonCall(Thread* t, AbsStack slot, word numReturns, bool isScript)
 	{
-		// TODO:
-		// t.nativeCallDepth++;
-		// scope(exit) t.nativeCallDepth--;
-
 		if(isScript)
+		{
+			t->nativeCallDepth++;
+			t->currentAR->incdNativeDepth = true;
 			execute(t);
+			t->nativeCallDepth--;
+		}
 
 		uword ret;
 

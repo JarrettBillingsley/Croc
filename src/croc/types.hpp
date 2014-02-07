@@ -541,6 +541,7 @@ namespace croc
 		uword numResults;
 		uword unwindCounter;
 		Instruction* unwindReturn;
+		bool incdNativeDepth;
 	};
 
 	struct EHFrame
