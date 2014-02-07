@@ -80,7 +80,6 @@ void   CROCAPI(eh_rethrow)               (CrocThread* t);
 word_t CROCAPI(eh_pushStd)               (CrocThread* t, const char* exName);
 void   CROCAPI(eh_throwStd)              (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
 void   CROCAPI(eh_vthrowStd)             (CrocThread* t, const char* exName, const char* fmt, va_list args);
-int    CROCAPI(eh_tryCall)               (CrocThread* t, word_t slot, word_t numReturns);
 word_t CROCAPI(eh_pushLocationClass)     (CrocThread* t);
 word_t CROCAPI(eh_pushLocationObject)    (CrocThread* t, const char* file, int line, int col);
 void   CROCAPI(eh_setUnhandledExHandler) (CrocThread* t);
@@ -153,7 +152,8 @@ void   CROCAPI(setGlobalStk)    (CrocThread* t);
 
 uword_t CROCAPI(call)          (CrocThread* t, word_t slot, word_t numReturns);
 uword_t CROCAPI(methodCall)    (CrocThread* t, word_t slot, const char* name, word_t numReturns);
-uword_t CROCAPI(methodCallStk) (CrocThread* t, word_t slot, word_t numReturns);
+int     CROCAPI(tryCall)       (CrocThread* t, word_t slot, word_t numReturns);
+int     CROCAPI(tryMethodCall) (CrocThread* t, word_t slot, const char* name, word_t numReturns);
 
 // =====================================================================================================================
 // Reflection

@@ -496,9 +496,9 @@ namespace croc
 		return ret;
 	}
 
-	bool commonMethodCall(Thread* t, AbsStack slot, Value self, Value lookup, String* methodName, word numReturns, uword numParams)
+	bool methodCallPrologue(Thread* t, AbsStack slot, Value self, String* methodName, word numReturns, uword numParams)
 	{
-		auto method = lookupMethod(t, lookup, methodName);
+		auto method = lookupMethod(t, self, methodName);
 
 		// Idea is like this:
 
@@ -515,7 +515,7 @@ namespace croc
 		}
 		else
 		{
-			if(auto mm = getMM(t, lookup, MM_Method))
+			if(auto mm = getMM(t, self, MM_Method))
 			{
 				t->stack[slot] = self;
 				t->stack[slot + 1] = Value::from(methodName);
@@ -523,7 +523,7 @@ namespace croc
 			}
 			else
 			{
-				pushTypeStringImpl(t, lookup);
+				pushTypeStringImpl(t, self);
 				croc_eh_throwStd(*t, "MethodError", "No implementation of method '%s' or %s for type '%s'",
 					methodName->toCString(), MetaNames[MM_Method], croc_getString(*t, -1));
 				assert(false);

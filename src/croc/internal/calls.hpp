@@ -23,7 +23,7 @@ namespace croc
 	bool callPrologue(Thread* t, AbsStack slot, word expectedResults, uword numParams);
 	bool funcCallPrologue(Thread* t, Function* func, AbsStack returnSlot, word expectedResults, AbsStack paramSlot, uword numParams);
 	uword commonCall(Thread* t, AbsStack slot, word numReturns, bool isScript);
-	bool commonMethodCall(Thread* t, AbsStack slot, Value self, Value lookup, String* methodName, word numReturns, uword numParams);
+	bool methodCallPrologue(Thread* t, AbsStack slot, Value self, String* methodName, word numReturns, uword numParams);
 }
 
 #endif

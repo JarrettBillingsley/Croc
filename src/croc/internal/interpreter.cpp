@@ -744,7 +744,7 @@ namespace croc
 					}
 
 					AdjustParams();
-					isScript = commonMethodCall(t, stackBase + rd, *RS, *RS, RT->mString, numResults, numParams);
+					isScript = methodCallPrologue(t, stackBase + rd, *RS, RT->mString, numResults, numParams);
 
 					if(opcode == Op_Method)
 						goto _commonCall;

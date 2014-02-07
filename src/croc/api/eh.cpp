@@ -64,35 +64,6 @@ extern "C"
 		croc_eh_throw(t);
 	}
 
-	int croc_eh_tryCall(CrocThread* t_, word_t slot, word_t numReturns)
-	{
-		auto t = Thread::from(t_);
-		auto absSlot = fakeToAbs(t, slot);
-		auto numParams = t->stackIndex - (absSlot + 1);
-
-		if(numParams < 1)
-			croc_eh_throwStd(*t, "ApiError", "%s - too few parameters (must have at least 1 for the context)",
-				__FUNCTION__);
-
-		if(numReturns < -1)
-			croc_eh_throwStd(*t, "ApiError", "%s - invalid number of returns (must be >= -1)", __FUNCTION__);
-
-		int results = 0;
-		auto savedNativeDepth = t->nativeCallDepth;
-
-		auto failed = tryCode(t, slot, [&results, &t, &slot, &numReturns]
-		{
-			results = croc_call(*t, slot, numReturns);
-		});
-
-		t->nativeCallDepth = savedNativeDepth;
-
-		if(failed)
-			return CrocCallRet_Error;
-		else
-			return results;
-	}
-
 	word_t croc_eh_pushLocationClass(CrocThread* t_)
 	{
 		auto t = Thread::from(t_);
