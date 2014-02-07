@@ -199,11 +199,10 @@ typedef enum CrocCompilerFlags
 /* */
 typedef enum CrocCompilerReturn
 {
-	CrocCompilerReturn_OK = 0,
-	CrocCompilerReturn_UnexpectedEOF,
-	CrocCompilerReturn_LoneStatement,
-	CrocCompilerReturn_DanglingDoc,
-	CrocCompilerReturn_Error,
+	CrocCompilerReturn_UnexpectedEOF = -1,
+	CrocCompilerReturn_LoneStatement = -2,
+	CrocCompilerReturn_DanglingDoc = -3,
+	CrocCompilerReturn_Error = -4,
 } CrocCompilerReturn;
 
 #ifdef __cplusplus
