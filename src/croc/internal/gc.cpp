@@ -1,6 +1,7 @@
 
 #include "croc/api.h"
 #include "croc/base/gc.hpp"
+#include "croc/internal/calls.hpp"
 #include "croc/internal/eh.hpp"
 #include "croc/internal/gc.hpp"
 #include "croc/internal/stack.hpp"
@@ -28,10 +29,9 @@ namespace croc
 			auto slot = push(t, *i->parent->finalizer);
 			push(t, Value::from(i));
 
-			auto failed = tryCode(t, slot, []
+			auto failed = tryCode(t, slot, [&]
 			{
-				// TODO:api
-				// commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1));
+				commonCall(t, t->stackIndex - 2, 0, callPrologue(t, t->stackIndex - 2, 0, 1));
 			});
 
 			if(failed)

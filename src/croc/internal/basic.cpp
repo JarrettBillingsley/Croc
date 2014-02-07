@@ -75,9 +75,7 @@ namespace croc
 			{
 				auto funcSlot = push(t, Value::from(method));
 				push(t, v);
-				// TODO:api
-				(void)funcSlot;
-				// commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 1));
+				commonCall(t, funcSlot + t->stackBase, 1, callPrologue(t, funcSlot + t->stackBase, 1, 1));
 
 				if(t->stack[t->stackIndex - 1].type != CrocType_String)
 				{
@@ -265,9 +263,7 @@ namespace croc
 				auto funcSlot = push(t, Value::from(method));
 				push(t, container);
 				push(t, item);
-				// TODO:api
-				(void)funcSlot;
-				// commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2));
+				commonCall(t, funcSlot + t->stackBase, 1, callPrologue(t, funcSlot + t->stackBase, 1, 2));
 
 				auto ret = !t->stack[t->stackIndex - 1].isFalse();
 				croc_popTop(*t);
@@ -282,9 +278,7 @@ namespace croc
 			auto funcReg = push(t, Value::from(method));
 			push(t, a);
 			push(t, b);
-			// TODO:api
-			(void)funcReg;
-			// commonCall(t, funcReg + t.stackBase, 1, callPrologue(t, funcReg + t.stackBase, 1, 2));
+			commonCall(t, funcReg + t->stackBase, 1, callPrologue(t, funcReg + t->stackBase, 1, 2));
 
 			auto ret = *getValue(t, -1);
 			croc_popTop(*t);
@@ -376,9 +370,7 @@ namespace croc
 			auto funcReg = push(t, Value::from(method));
 			push(t, a);
 			push(t, b);
-			// TODO:api
-			(void)funcReg;
-			// commonCall(t, funcReg + t.stackBase, 1, callPrologue(t, funcReg + t.stackBase, 1, 2));
+			commonCall(t, funcReg + t->stackBase, 1, callPrologue(t, funcReg + t->stackBase, 1, 2));
 
 			auto ret = *getValue(t, -1);
 			croc_popTop(*t);
@@ -1071,9 +1063,7 @@ namespace croc
 						push(t, src2save);
 					}
 
-					// TODO:api
-					(void)funcSlot;
-					// commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2));
+					commonCall(t, funcSlot + t->stackBase, 1, callPrologue(t, funcSlot + t->stackBase, 1, 2));
 
 					// stack might have changed.
 					stack = t->stack;

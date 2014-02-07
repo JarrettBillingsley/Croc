@@ -1,6 +1,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/basic.hpp"
+#include "croc/internal/calls.hpp"
 #include "croc/internal/debug.hpp"
 #include "croc/internal/eh.hpp"
 #include "croc/internal/stack.hpp"
@@ -107,10 +108,9 @@ namespace croc
 			default: assert(false);
 		}
 
-		auto failed = tryCode(t, slot, []
+		auto failed = tryCode(t, slot, [&]
 		{
-			// TODO:api
-			// commonCall(t, t->stackBase + slot, 0, callPrologue(t, t->stackBase + slot, 0, 1));
+			commonCall(t, t->stackBase + slot, 0, callPrologue(t, t->stackBase + slot, 0, 1));
 		});
 
 		t->hooksEnabled = true;
