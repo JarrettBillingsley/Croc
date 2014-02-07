@@ -30,15 +30,17 @@ namespace croc
 
 			croc_vm_pushRegistry(*t);
 
-			// TODO:api
-			// field(t, -1, "gc.postGCCallbacks");
+			// TODO:stdlib
+			// croc_field(*t, -1, "gc.postGCCallbacks");
 
-			// foreach(word v; foreachLoop(t, 1))
+			// word_t state;
+			// for(croc_foreachBegin(*t, &state, 1); croc_foreachNext(*t, &state, 1); )
 			// {
-			// 	dup(t, v);
-			// 	pushNull(t);
-			// 	call(t, -2, 0);
+			// 	croc_dup(*t, -1);
+			// 	croc_pushNull(*t);
+			// 	croc_call(*t, -2, 0);
 			// }
+			// croc_foreachEnd(*t, &state);
 
 			croc_popTop(*t);
 

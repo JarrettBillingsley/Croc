@@ -2,6 +2,7 @@
 #include "croc/api.h"
 #include "croc/internal/apichecks.hpp"
 #include "croc/internal/basic.hpp"
+#include "croc/internal/calls.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
 
@@ -9,10 +10,114 @@ namespace croc
 {
 extern "C"
 {
-	// TODO:api
-	// void      CROCAPI(foreachBegin)    (CrocThread* t, uword_t numContainerVals);
-	// int       CROCAPI(foreachNext)     (CrocThread* t, uword_t numIndices);
-	// void      CROCAPI(foreachEnd)      (CrocThread* t);
+	void croc_foreachBegin(CrocThread* t_, word_t* state, uword_t numContainerVals)
+	{
+		auto t = Thread::from(t_);
+
+		if(numContainerVals < 1 || numContainerVals > 3)
+			croc_eh_throwStd(t_, "RangeError", "%s - numSlots may only be 1, 2, or 3, not %u",
+				__FUNCTION__, numContainerVals);
+
+		API_CHECK_NUM_PARAMS(numContainerVals);
+
+		// Make sure we have 3 stack slots for our temp data area
+		if(numContainerVals < 3)
+			croc_setStackSize(t_, croc_getStackSize(t_) + (3 - numContainerVals));
+
+		// Call opApply if needed
+		auto src = getValue(t, -3);
+
+		if(src->type != CrocType_Function && src->type != CrocType_Thread)
+		{
+			auto method = getMM(t, *src, MM_Apply);
+
+			if(method == nullptr)
+			{
+				pushTypeStringImpl(t, *src);
+				croc_eh_throwStd(t_, "TypeError", "No implementation of %s for type '%s'",
+					MetaNames[MM_Apply], croc_getString(t_, -1));
+			}
+
+			push(t, Value::from(method));
+			croc_insert(t_, -4);
+			croc_popTop(t_);
+			auto reg = t->stackIndex - 3;
+			commonCall(t, reg, 3, callPrologue(t, reg, 3, 2));
+			src = getValue(t, -3);
+
+			if(src->type != CrocType_Function && src->type != CrocType_Thread)
+			{
+				pushTypeStringImpl(t, *src);
+				croc_eh_throwStd(t_, "TypeError", "Invalid iterable type '%s' returned from opApply",
+					croc_getString(t_, -1));
+			}
+		}
+
+		if(src->type == CrocType_Thread && src->mThread->state != CrocThreadState_Initial)
+			croc_eh_throwStd(t_, "StateError",
+				"Attempting to iterate over a thread that is not in the 'initial' state");
+
+		*state = croc_getStackSize(t_);
+	}
+
+	int croc_foreachNext(CrocThread* t_, word_t* state, uword_t numIndices)
+	{
+		auto t = Thread::from(t_);
+
+		if(numIndices == 0)
+			croc_eh_throwStd(t_, "ApiError", "%s - Cannot have 0 indices", __FUNCTION__);
+
+		// Get rid of any gunk left on the stack after previous loop
+		auto size = croc_getStackSize(t_);
+
+		if(cast(word_t)size > *state)
+			croc_pop(t_, size - *state);
+
+		// Neeeext
+		auto src = *state - 3;
+		auto funcReg = croc_dup(t_, src);
+		croc_dup(t_, src + 1);
+		croc_dup(t_, src + 2);
+		croc_call(t_, funcReg, numIndices == 1 ? 2 : numIndices);
+
+		if(croc_isFunction(t_, src))
+		{
+			if(croc_isNull(t_, funcReg))
+			{
+				croc_pop(t_, numIndices);
+				return false;
+			}
+		}
+		else
+		{
+			if(getThread(t, src)->state == CrocThreadState_Dead)
+			{
+				croc_pop(t_, numIndices);
+				return false;
+			}
+		}
+
+		croc_dup(t_, funcReg);
+		croc_swapTopWith(t_, src + 2);
+		croc_popTop(t_);
+
+		if(numIndices == 1)
+			croc_insertAndPop(t_, -2);
+
+		return true;
+	}
+
+	void croc_foreachEnd(CrocThread* t_, word_t* state)
+	{
+		// auto t = Thread::from(t_);
+		auto diff = cast(word_t)croc_getStackSize(t_) - *state;
+
+		if(diff != 0)
+			croc_eh_throwStd(t_, "ApiError", "%s - stack size changed by %d slots between begin and end of foreach",
+				__FUNCTION__, diff);
+
+		croc_pop(t_, 3);
+	}
 
 	void croc_removeKey(CrocThread* t_, word_t obj)
 	{
@@ -33,7 +138,7 @@ extern "C"
 				croc_pushToString(t_, obj);
 				croc_eh_throwStd(t_, "FieldError",
 					"%s - key '%s' does not exist in namespace '%s'",
-					__FUNCTION__, croc_getString(*t, -2), croc_getString(*t, -1));
+					__FUNCTION__, croc_getString(t_, -2), croc_getString(t_, -1));
 			}
 
 			ns->remove(t->vm->mem, key);

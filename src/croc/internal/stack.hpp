@@ -20,6 +20,7 @@ namespace croc
 	Funcdef*   getFuncdef   (Thread* t, word slot);
 	Class*     getClass     (Thread* t, word slot);
 	Instance*  getInstance  (Thread* t, word slot);
+	Thread*    getThread    (Thread* t, word slot);
 }
 
 #endif
