@@ -310,7 +310,9 @@ namespace croc
 			{
 				for(this->mIdx++; this->mIdx < mNodes.length; this->mIdx++)
 				{
-					if(IS_EITHER_MODIFIED(&mNodes[this->mIdx]))
+					auto n = &mNodes[this->mIdx];
+
+					if(IS_USED(n) && IS_EITHER_MODIFIED(n))
 						return;
 				}
 			}

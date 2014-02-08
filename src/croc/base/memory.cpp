@@ -173,6 +173,8 @@ namespace croc
 		 // RC space objects start off logged since we put them on the mod buffer (or they're green and don't need to be)
 		GCObject* ret = allocateGCObject(size, acyclic, GCFlags_InRC);
 
+		ret->refCount = 1;
+
 		if(!acyclic)
 			modBuffer.add(*this, ret);
 
@@ -188,7 +190,6 @@ namespace croc
 	{
 		GCObject* ret = cast(GCObject*)realloc(nullptr, 0, size);
 		memset(ret, 0, size);
-		ret->refCount = 1;
 		ret->memSize = size;
 		ret->gcflags = gcflags | (acyclic ? GCFlags_Green : 0);
 		return ret;
