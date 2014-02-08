@@ -31,7 +31,7 @@ namespace croc
 
 		t->currentEH = &t->ehFrames[t->ehIndex];
 		t->ehIndex++;
-		t->currentEH->actRecord = t->arIndex;
+		t->currentEH->actRecord = t->arIndex - 1;
 		return t->currentEH;
 	}
 
@@ -55,6 +55,8 @@ namespace croc
 
 	void popEHFrame(Thread* t)
 	{
+		assert(t->ehIndex > 0);
+
 		t->ehIndex--;
 
 		if(t->ehIndex > 0)

@@ -423,7 +423,7 @@ extern "C"
 #endif
 		// Core libs
 		initModulesLib(*t);
-		// initExceptionsLib(*t);
+		initExceptionsLib(*t);
 		// initGCLib(*t);
 
 		// Safe libs

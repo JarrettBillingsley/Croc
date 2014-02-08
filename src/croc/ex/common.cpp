@@ -29,14 +29,14 @@ extern "C"
 				croc_eh_throwStd(t, "ApiError", "The name '%s' is not formatted correctly", origName);
 
 			croc_pushStringn(t, name, dot - name);
-			croc_fieldStk(t, -1);
+			croc_fieldStk(t, -2);
 		}
 
 		if(name == end)
 			croc_eh_throwStd(t, "ApiError", "The name '%s' is not formatted correctly", origName);
 
 		croc_pushStringn(t, name, end - name);
-		croc_fieldStk(t, -1);
+		croc_fieldStk(t, -2);
 
 		if(croc_getStackSize(t) > cast(uword)idx + 1)
 			croc_insertAndPop(t, idx);

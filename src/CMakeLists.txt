@@ -44,6 +44,8 @@ set(croc_SRC
 	croc/compiler/types.hpp
 	croc/compiler/types.cpp
 	croc/ex/common.cpp
+	croc/ex/imports.cpp
+	croc/ex/library.cpp
 	croc/ex/paramchecks.cpp
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
@@ -69,6 +71,7 @@ set(croc_SRC
 	croc/internal/variables.cpp
 	croc/internal/variables.hpp
 	croc/stdlib/all.hpp
+	croc/stdlib/exceptions.cpp
 	croc/stdlib/modules.cpp
 	croc/types.cpp
 	croc/types.hpp

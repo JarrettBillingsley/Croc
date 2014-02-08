@@ -159,9 +159,8 @@ namespace croc
 		assert(numResultsToPop <= t->resultIndex);
 		t->resultIndex -= numResultsToPop;
 
-		auto ar = &t->actRecs[removeTo];
+		closeUpvals(t, t->actRecs[removeTo].base);
 		t->arIndex = removeTo;
-		closeUpvals(t, ar->base);
 		unwindThisFramesEH(t);
 
 		if(removeTo == 0)

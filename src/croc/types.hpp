@@ -85,9 +85,17 @@ namespace croc
 
 		bool operator==(const Value& other) const
 		{
-			return this->type == other.type &&
-				(this->type == CrocType_Null ||
-					this->mInt == other.mInt); // NONPORTABLE
+			if(this->type != other.type)
+				return false;
+
+			switch(this->type)
+			{
+				case CrocType_Null: return true;
+				case CrocType_Bool: return this->mBool == other.mBool;
+				case CrocType_Int: return this->mInt == other.mInt;
+				case CrocType_Float: return this->mFloat == other.mFloat;
+				default: return (this->mGCObj == other.mGCObj);
+			}
 		}
 
 		inline bool operator!=(const Value& other) const
@@ -97,8 +105,11 @@ namespace croc
 
 		inline bool isFalse() const
 		{
-			// ORDER CROCTYPE
-			return type == CrocType_Null || (type <= CrocType_Float && mInt == 0); // NONPORTABLE
+			return
+				(type == CrocType_Bool && mBool == false) ||
+				(type == CrocType_Null) ||
+				(type == CrocType_Int && mInt == 0) ||
+				(type == CrocType_Float && mFloat == 0.0);
 		}
 
 		hash_t toHash() const;
