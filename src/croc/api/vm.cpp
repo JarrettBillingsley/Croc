@@ -422,7 +422,7 @@ extern "C"
 		Compiler.setDefaultFlags(t, Compiler.AllDocs);
 #endif
 		// Core libs
-		// initModulesLib(*t);
+		initModulesLib(*t);
 		// initExceptionsLib(*t);
 		// initGCLib(*t);
 

@@ -43,6 +43,7 @@ set(croc_SRC
 	croc/base/writebarrier.hpp
 	croc/compiler/types.hpp
 	croc/compiler/types.cpp
+	croc/ex/common.cpp
 	croc/ex/paramchecks.cpp
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
