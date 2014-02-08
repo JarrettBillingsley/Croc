@@ -156,6 +156,29 @@ namespace croc
 		(void)name;
 		(void)modName;
 		return 0;
+		// return commonCompile([&]()
+		// {
+		// 	Lexer lexer(this);
+		// 	lexer.begin(name, source);
+		// 	Parser parser(this, lexer);
+		// 	auto mod = parser.parseModule();
+		// 	moduleName = mod.names.join(".");
+		// 	mDanglingDoc = parser.danglingDoc();
+
+		// 	if(docComments)
+		// 	{
+		// 		DocGen doc(this);
+		// 		mod = doc.visit(mod);
+
+		// 		if(!docTable)
+		// 			croc_popTop(*t);
+		// 	}
+
+		// 	Semantic sem(this);
+		// 	mod = sem.visit(mod);
+		// 	Codegen cg(this);
+		// 	cg.visit(mod);
+		// });
 	}
 
 	int Compiler::compileStmts(const char* src, const char* name)
@@ -163,6 +186,28 @@ namespace croc
 		(void)src;
 		(void)name;
 		return 0;
+		// return commonCompile([&]()
+		// {
+		// 	Lexer lexer(this);
+		// 	lexer.begin(name, source);
+		// 	Parser parser(this, lexer);
+		// 	auto stmts = parser.parseStatements();
+		// 	mDanglingDoc = parser.danglingDoc();
+
+		// 	if(docComments)
+		// 	{
+		// 		DocGen doc(this);
+		// 		stmts = doc.visitStatements(stmts);
+
+		// 		if(!docTable)
+		// 			croc_popTop(*t);
+		// 	}
+
+		// 	Semantic sem(this);
+		// 	stmts = sem.visitStatements(stmts);
+		// 	Codegen cg(this);
+		// 	cg.codegenStatements(stmts);
+		// });
 	}
 
 	int Compiler::compileExpr(const char* src, const char* name)
@@ -170,6 +215,17 @@ namespace croc
 		(void)src;
 		(void)name;
 		return 0;
+		// return commonCompile([&]()
+		// {
+		// 	Lexer lexer(this);
+		// 	lexer.begin(name, source);
+		// 	Parser parser(this, lexer);
+		// 	auto exp = parser.parseExpressionFunc();
+		// 	Semantic sem(this);
+		// 	exp = sem.visit(exp);
+		// 	Codegen cg(this);
+		// 	cg.codegenStatements(exp);
+		// });
 	}
 
 	void Compiler::vexception(CompileLoc loc, const char* exType, const char* msg, va_list args)
