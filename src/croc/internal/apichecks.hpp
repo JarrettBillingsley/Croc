@@ -1,6 +1,8 @@
 #ifndef CROC_INTERNAL_APICHECKS_HPP
 #define CROC_INTERNAL_APICHECKS_HPP
 
+#include "croc/internal/stack.hpp"
+
 #define API_CHECK_NUM_PARAMS(numParams)\
 	do {\
 		assert(t->stackIndex > t->stackBase);\

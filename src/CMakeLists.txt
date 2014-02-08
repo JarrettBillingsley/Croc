@@ -47,6 +47,7 @@ set(croc_SRC
 	croc/ex/imports.cpp
 	croc/ex/library.cpp
 	croc/ex/paramchecks.cpp
+	croc/ex/strbuffer.cpp
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
 	croc/internal/apichecks.hpp

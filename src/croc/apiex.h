@@ -88,12 +88,14 @@ void        CROCAPI(paramTypeError)       (CrocThread* t, word_t index, const ch
 // =====================================================================================================================
 // StrBuffer
 
+#define CROC_STR_BUFFER_DATA_LENGTH 1024
+
 typedef struct CrocStrBuffer
 {
 	CrocThread* t;
 	word_t slot;
 	uword_t pos;
-	char data[1024];
+	char data[CROC_STR_BUFFER_DATA_LENGTH];
 } CrocStrBuffer;
 
 void   CROCAPI(buffer_init)       (CrocThread* t, CrocStrBuffer* b);
@@ -159,8 +161,8 @@ void   CROCAPI(toJSON)    (CrocThread* t, word_t root, int pretty, void(*output)
 typedef struct CrocRegisterFunc
 {
 	const char* name;
-	CrocNativeFunc func;
 	uword_t maxParams;
+	CrocNativeFunc func;
 	uword_t numUpvals;
 } CrocRegisterFunc;
 
@@ -200,8 +202,10 @@ typedef struct CrocDoc
 void CROCAPI(makeModule)      (CrocThread* t, const char* name, CrocNativeFunc loader);
 void CROCAPI(registerGlobal)  (CrocThread* t, CrocRegisterFunc f);
 void CROCAPI(registerField)   (CrocThread* t, CrocRegisterFunc f);
-void CROCAPI(registerGlobals) (CrocThread* t, CrocRegisterFunc* funcs);
-void CROCAPI(registerFields)  (CrocThread* t, CrocRegisterFunc* funcs);
+void CROCAPI(registerMethod)  (CrocThread* t, CrocRegisterFunc f);
+void CROCAPI(registerGlobals) (CrocThread* t, const CrocRegisterFunc* funcs);
+void CROCAPI(registerFields)  (CrocThread* t, const CrocRegisterFunc* funcs);
+void CROCAPI(registerMethods) (CrocThread* t, const CrocRegisterFunc* funcs);
 
 void CROCAPI(doc_init)            (CrocThread* t, CrocDoc* d, const char* file);
 void CROCAPI(doc_push)            (CrocDoc* d, CrocDocTable* docs);

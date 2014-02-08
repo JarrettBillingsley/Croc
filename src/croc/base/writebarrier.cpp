@@ -324,7 +324,7 @@ namespace croc
 		for(auto n: vm->refTab)
 			callback(n->value);
 
-		// callback(vm->location);
+		callback(vm->location);
 
 		for(auto n: vm->stdExceptions)
 		{

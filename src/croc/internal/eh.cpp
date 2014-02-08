@@ -13,11 +13,11 @@ namespace croc
 {
 	word defaultUnhandledEx(CrocThread* t)
 	{
-		fprintf(stderr, "-------- UNHANDLED CROC EXCEPTION --------");
-		croc_pushToString(t, -1);
+		fprintf(stderr, "-------- UNHANDLED CROC EXCEPTION --------\n");
+		croc_pushToString(t, 1);
 		fprintf(stderr, "%s\n", croc_getString(t, -1));
 		croc_popTop(t);
-		croc_dup(t, -2);
+		croc_dup(t, 1);
 		croc_pushNull(t);
 		croc_methodCall(t, -2, "tracebackString", 1);
 		fprintf(stderr, "%s\n", croc_getString(t, -1));
@@ -39,7 +39,7 @@ namespace croc
 	{
 		auto eh = pushEHFrame(t);
 		eh->isCatch = true;
-		eh->slot = slot;
+		eh->slot = croc_absIndex(*t, slot);
 		eh->native = &buf;
 		eh->pc = nullptr;
 	}
@@ -67,7 +67,7 @@ namespace croc
 
 	void unwindThisFramesEH(Thread* t)
 	{
-		while(t->ehIndex > 0 && t->currentEH->actRecord >= t->arIndex)
+		while(t->ehIndex > 0 && cast(word)t->currentEH->actRecord >= cast(word)t->arIndex)
 			popEHFrame(t);
 	}
 
@@ -182,6 +182,7 @@ namespace croc
 			// Uh oh, no handler; call the unhandled handler. At this point, there are no running threads, so let's use
 			// the main thread.
 			t = t->vm->mainThread;
+
 			push(t, Value::from(t->vm->unhandledEx));
 			push(t, Value::nullValue);
 			push(t, Value::from(t->vm->exception));
@@ -193,10 +194,14 @@ namespace croc
 		{
 			t = curThread;
 
-			auto base = t->stackBase + frame->slot;
-
 			popARTo(curThread, frame->actRecord + 1);
+			auto base = t->stackBase + frame->slot;
 			closeUpvals(t, base);
+
+			// This can happen at top-level, when popARTo sets the stack index to 1.
+			if(t->stackIndex <= base)
+				t->stackIndex = base + 1;
+
 			t->stack.slice(base + 1, t->stackIndex).fill(Value::nullValue);
 
 			if(frame->isCatch)
