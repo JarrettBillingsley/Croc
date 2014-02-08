@@ -144,7 +144,7 @@ namespace croc
 		}
 	}
 
-	void visitFuncDef(Funcdef* o, WBCallback callback)
+	void visitFuncdef(Funcdef* o, WBCallback callback)
 	{
 		COND_CALLBACK(o->locFile);
 		COND_CALLBACK(o->name);
@@ -346,7 +346,7 @@ namespace croc
 			case CrocType_Namespace: visitNamespace(cast(Namespace*)o, callback, isModifyPhase); return;
 			case CrocType_Array:     visitArray    (cast(Array*)o,     callback, isModifyPhase); return;
 			case CrocType_Function:  visitFunction (cast(Function*)o,  callback);                return;
-			case CrocType_Funcdef:   visitFuncDef  (cast(Funcdef*)o,   callback);                return;
+			case CrocType_Funcdef:   visitFuncdef  (cast(Funcdef*)o,   callback);                return;
 			case CrocType_Class:     visitClass    (cast(Class*)o,     callback, isModifyPhase); return;
 			case CrocType_Instance:  visitInstance (cast(Instance*)o,  callback, isModifyPhase); return;
 			case CrocType_Thread:    visitThread   (cast(Thread*)o,    callback, false);         return;

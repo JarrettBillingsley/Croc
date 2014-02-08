@@ -121,13 +121,13 @@ int      CROCAPI(isChar)         (CrocThread* t, word_t slot);
 #define croc_isFloat(t, slot)     (croc_type((t), (slot)) == CrocType_Float)
 #define croc_isNativeobj(t, slot) (croc_type((t), (slot)) == CrocType_Nativeobj)
 #define croc_isString(t, slot)    (croc_type((t), (slot)) == CrocType_String)
-#define croc_isWeakRef(t, slot)   (croc_type((t), (slot)) == CrocType_WeakRef)
+#define croc_isWeakref(t, slot)   (croc_type((t), (slot)) == CrocType_Weakref)
 #define croc_isTable(t, slot)     (croc_type((t), (slot)) == CrocType_Table)
 #define croc_isNamespace(t, slot) (croc_type((t), (slot)) == CrocType_Namespace)
 #define croc_isArray(t, slot)     (croc_type((t), (slot)) == CrocType_Array)
 #define croc_isMemblock(t, slot)  (croc_type((t), (slot)) == CrocType_Memblock)
 #define croc_isFunction(t, slot)  (croc_type((t), (slot)) == CrocType_Function)
-#define croc_isFuncDef(t, slot)   (croc_type((t), (slot)) == CrocType_FuncDef)
+#define croc_isFuncdef(t, slot)   (croc_type((t), (slot)) == CrocType_Funcdef)
 #define croc_isClass(t, slot)     (croc_type((t), (slot)) == CrocType_Class)
 #define croc_isInstance(t, slot)  (croc_type((t), (slot)) == CrocType_Instance)
 #define croc_isThread(t, slot)    (croc_type((t), (slot)) == CrocType_Thread)
@@ -234,8 +234,8 @@ char*  CROCAPI(memblock_getDatan)          (CrocThread* t, word_t slot, uword_t*
 // Function
 
 word_t      CROCAPI(function_newWithEnv)       (CrocThread* t, const char* name, word_t maxParams, CrocNativeFunc func, uword_t numUpvals);
-word_t      CROCAPI(function_newScript)        (CrocThread* t, word_t funcDef);
-word_t      CROCAPI(function_newScriptWithEnv) (CrocThread* t, word_t funcDef);
+word_t      CROCAPI(function_newScript)        (CrocThread* t, word_t funcdef);
+word_t      CROCAPI(function_newScriptWithEnv) (CrocThread* t, word_t funcdef);
 word_t      CROCAPI(function_pushEnv)          (CrocThread* t, word_t func);
 void        CROCAPI(function_setEnv)           (CrocThread* t, word_t func);
 word_t      CROCAPI(function_pushDef)          (CrocThread* t, word_t func);

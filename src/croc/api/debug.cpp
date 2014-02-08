@@ -132,6 +132,7 @@ extern "C"
 			printf("\tVararg Base: %u\n", ar.vargBase);
 			printf("\tReturns Slot: %u\n", ar.returnSlot);
 			printf("\tExpected results: %u\n", ar.expectedResults);
+			printf("\tNative call depth incd: %s\n", ar.incdNativeDepth ? "true" : "false");
 		}
 
 		printf("\n");

@@ -24,19 +24,19 @@ extern "C"
 		return push(t, Value::from(f));
 	}
 
-	word_t croc_function_newScript(CrocThread* t_, word_t funcDef)
+	word_t croc_function_newScript(CrocThread* t_, word_t funcdef)
 	{
-		funcDef = croc_absIndex(t_, funcDef);
+		funcdef = croc_absIndex(t_, funcdef);
 		croc_pushCurEnvironment(t_);
-		return croc_function_newScriptWithEnv(t_, funcDef);
+		return croc_function_newScriptWithEnv(t_, funcdef);
 	}
 
-	word_t croc_function_newScriptWithEnv(CrocThread* t_, word_t funcDef)
+	word_t croc_function_newScriptWithEnv(CrocThread* t_, word_t funcdef)
 	{
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(1);
-		funcDef = croc_absIndex(t_, funcDef);
-		API_CHECK_PARAM(def, funcDef, Funcdef, "funcDef");
+		funcdef = croc_absIndex(t_, funcdef);
+		API_CHECK_PARAM(def, funcdef, Funcdef, "funcdef");
 
 		if(def->upvals.length > 0)
 			croc_eh_throwStd(t_, "ValueError", "%s - Function definition may not have any upvalues", __FUNCTION__);
@@ -51,7 +51,7 @@ extern "C"
 		}
 		else
 		{
-			croc_pushToString(t_, funcDef);
+			croc_pushToString(t_, funcdef);
 			croc_eh_throwStd(t_, "RuntimeError",
 				"%s - Attempting to instantiate %s with a different namespace than was associated with it",
 				__FUNCTION__, croc_getString(t_, -1));

@@ -20,6 +20,36 @@ namespace croc
 	{
 		return DArray<const char>::n(str, strlen(str));
 	}
+
+	struct delimiters
+	{
+	private:
+		DArray<const char> mStr;
+		int mChar;
+
+	public:
+		delimiters(const char* str, int ch);
+
+		struct iter
+		{
+		private:
+			DArray<const char> mSlice;
+			const char* mEnd;
+			int mChar;
+
+		public:
+			iter(const char* str, int ch);
+			iter(const iter& other);
+			iter& operator++();
+			iter operator++(int);
+			bool operator==(const iter& rhs);
+			bool operator!=(const iter& rhs);
+			DArray<const char> operator*();
+		};
+
+		iter begin();
+		iter end();
+	};
 }
 
 #endif

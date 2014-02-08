@@ -93,14 +93,29 @@ namespace croc
 		public:
 			ReverseIteration(DArray<T>& a) : arr(a) {}
 
-			inline T* begin()
+			struct iter
 			{
-				return arr.ptr + (arr.length - 1);
+			private:
+				T* p;
+
+			public:
+				iter(T* arr) : p(arr) {}
+				iter(const iter& other) : p(other.p) {}
+				iter& operator++() { p--; return *this; }
+				iter operator++(int) { iter tmp(*this); operator++(); return tmp; }
+				bool operator==(const iter& rhs) { return p == rhs.p; }
+				bool operator!=(const iter& rhs) { return !operator==(rhs); }
+				T& operator*() { return *p; }
+			};
+
+			inline iter begin()
+			{
+				return iter(arr.ptr + (arr.length - 1));
 			}
 
-			inline T* end()
+			inline iter end()
 			{
-				return arr.ptr - 1;
+				return iter(arr.ptr - 1);
 			}
 		};
 

@@ -364,16 +364,16 @@ namespace croc
 		if(!func->isNative)
 		{
 			// Script function
-			auto funcDef = func->scriptFunc;
+			auto funcdef = func->scriptFunc;
 			auto ar = pushAR(t);
 
-			if(funcDef->isVararg && numParams > func->numParams)
+			if(funcdef->isVararg && numParams > func->numParams)
 			{
 				// In this case, we move the formal parameters after the varargs and null out where the formal
 				// params used to be.
 				ar->base = paramSlot + numParams;
 				ar->vargBase = paramSlot + func->numParams;
-				checkStack(t, ar->base + funcDef->stackSize - 1);
+				checkStack(t, ar->base + funcdef->stackSize - 1);
 				auto oldParams = t->stack.slice(paramSlot, paramSlot + func->numParams);
 				t->stack.slicea(ar->base, ar->base + func->numParams, oldParams);
 				oldParams.fill(Value::nullValue);
@@ -386,22 +386,22 @@ namespace croc
 				// In this case, everything is where it needs to be already.
 				ar->base = paramSlot;
 				ar->vargBase = paramSlot;
-				checkStack(t, ar->base + funcDef->stackSize - 1);
+				checkStack(t, ar->base + funcdef->stackSize - 1);
 				// If we have too few params, the extra param slots will be nulled out.
 			}
 
 			// Null out the stack frame after the parameters.
-			t->stack.slice(ar->base + numParams, ar->base + funcDef->stackSize).fill(Value::nullValue);
+			t->stack.slice(ar->base + numParams, ar->base + funcdef->stackSize).fill(Value::nullValue);
 
 			// Fill in the rest of the activation record.
 			ar->returnSlot = returnSlot;
 			ar->func = func;
-			ar->pc = funcDef->code.ptr;
+			ar->pc = funcdef->code.ptr;
 			ar->expectedResults = expectedResults;
 			ar->firstResult = 0;
 			ar->numResults = 0;
 			ar->numTailcalls = 0;
-			ar->savedTop = ar->base + funcDef->stackSize;
+			ar->savedTop = ar->base + funcdef->stackSize;
 			ar->unwindCounter = 0;
 			ar->unwindReturn = nullptr;
 			ar->incdNativeDepth = false;

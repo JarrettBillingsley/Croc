@@ -825,14 +825,16 @@ namespace croc
 						saveResults(t, t, firstResult, numResults - 1);
 					break;
 				}
-				case Op_Ret:
+				case Op_Ret: {
+					auto didInc = t->currentAR->incdNativeDepth;
+
 					callEpilogue(t);
 
-					if(t->arIndex == 0 || t->currentAR->incdNativeDepth)
+					if(t->arIndex == 0 || didInc)
 						return;
 
 					goto _reentry;
-
+				}
 				case Op_Unwind:
 					t->currentAR->unwindReturn = (*pc);
 					t->currentAR->unwindCounter = rd;
