@@ -19,6 +19,19 @@ word_t println(CrocThread* t)
 	return 0;
 }
 
+word_t nasty(CrocThread* t)
+{
+	croc_eh_throwStd(t, "StateError", "YOU'RE MEAN!");
+	return 0;
+}
+
+const CrocRegisterFunc _stupidFuncs[] =
+{
+	{"println", -1, &println, 0},
+	{"nasty",    0, &nasty,   0},
+	{nullptr, 0, nullptr, 0}
+};
+
 int main()
 {
 	auto t = croc_vm_open(&croc_DefaultMemFunc, nullptr);
@@ -27,8 +40,7 @@ int main()
 	// croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
 	// runModule(t, "samples.simple");
 
-	croc_function_new(t, "println", -1, &println, 0);
-	croc_newGlobal(t, "println");
+	croc_ex_registerGlobals(t, _stupidFuncs);
 
 	system("..\\croctest.exe > foo.txt");
 	LOAD_FUNCDEF_FROM_FILE(t, "foo.txt");

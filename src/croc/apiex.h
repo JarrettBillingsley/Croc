@@ -161,7 +161,7 @@ void   CROCAPI(toJSON)    (CrocThread* t, word_t root, int pretty, void(*output)
 typedef struct CrocRegisterFunc
 {
 	const char* name;
-	uword_t maxParams;
+	word_t maxParams;
 	CrocNativeFunc func;
 	uword_t numUpvals;
 } CrocRegisterFunc;

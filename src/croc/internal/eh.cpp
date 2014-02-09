@@ -75,6 +75,7 @@ namespace croc
 	{
 		jmp_buf buf;
 		bool ret;
+		auto savedNativeDepth = t->nativeCallDepth;
 		pushNativeEHFrame(t, slot, buf);
 
 		if(setjmp(buf) == 0)
@@ -86,6 +87,7 @@ namespace croc
 			ret = true;
 
 		popEHFrame(t);
+		t->nativeCallDepth = savedNativeDepth;
 		return ret;
 	}
 

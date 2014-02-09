@@ -21,14 +21,11 @@
 #define TRYCALL_BEGIN\
 	COMMON_CALL_GUNK();\
 	int results = 0;\
-	auto savedNativeDepth = t->nativeCallDepth;\
 	auto failed = tryCode(t, slot, [&]\
 	{
 
 #define TRYCALL_END\
 	});\
-\
-	t->nativeCallDepth = savedNativeDepth;\
 \
 	if(failed)\
 		return CrocCallRet_Error;\
