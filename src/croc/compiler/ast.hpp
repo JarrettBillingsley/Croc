@@ -8,120 +8,120 @@
 namespace croc
 {
 #define AST_LIST(X)\
-	X(Identifier,           "identifier")\
+	X(Identifier,           "identifier",                      AstNode)\
 \
-	X(FuncDef,              "function definition")\
+	X(FuncDef,              "function definition",             AstNode)\
 \
-	X(Module,               "module")\
-	X(Decorator,            "decorator")\
+	X(Module,               "module",                          AstNode)\
+	X(Decorator,            "decorator",                       AstNode)\
 \
-	X(VarDecl,              "variable declaration")\
-	X(FuncDecl,             "function declaration")\
-	X(ClassDecl,            "class declaration")\
-	X(NamespaceDecl,        "namespace declaration")\
+	X(VarDecl,              "variable declaration",            Statement)\
+	X(FuncDecl,             "function declaration",            Statement)\
+	X(ClassDecl,            "class declaration",               Statement)\
+	X(NamespaceDecl,        "namespace declaration",           Statement)\
 \
-	X(AssertStmt,           "assert statement")\
-	X(ImportStmt,           "import statement")\
-	X(BlockStmt,            "block statement")\
-	X(ScopeStmt,            "scope statement")\
-	X(ExpressionStmt,       "expression statement")\
-	X(IfStmt,               "'if' statement")\
-	X(WhileStmt,            "'while' statement")\
-	X(DoWhileStmt,          "'do-while' statement")\
-	X(ForStmt,              "'for' statement")\
-	X(ForNumStmt,           "numeric 'for' statement")\
-	X(ForeachStmt,          "'foreach' statement")\
-	X(SwitchStmt,           "'switch' statement")\
-	X(CaseStmt,             "'case' statement")\
-	X(DefaultStmt,          "'default' statement")\
-	X(ContinueStmt,         "'continue' statement")\
-	X(BreakStmt,            "'break' statement")\
-	X(ReturnStmt,           "'return' statement")\
-	X(TryCatchStmt,         "'try-catch' statement")\
-	X(TryFinallyStmt,       "'try-finally' statement")\
-	X(ThrowStmt,            "'throw' statement")\
-	X(ScopeActionStmt,      "'scope(...)' statement")\
+	X(AssertStmt,           "assert statement",                Statement)\
+	X(ImportStmt,           "import statement",                Statement)\
+	X(BlockStmt,            "block statement",                 Statement)\
+	X(ScopeStmt,            "scope statement",                 Statement)\
+	X(ExpressionStmt,       "expression statement",            Statement)\
+	X(IfStmt,               "'if' statement",                  Statement)\
+	X(WhileStmt,            "'while' statement",               Statement)\
+	X(DoWhileStmt,          "'do-while' statement",            Statement)\
+	X(ForStmt,              "'for' statement",                 Statement)\
+	X(ForNumStmt,           "numeric 'for' statement",         Statement)\
+	X(ForeachStmt,          "'foreach' statement",             Statement)\
+	X(SwitchStmt,           "'switch' statement",              Statement)\
+	X(CaseStmt,             "'case' statement",                Statement)\
+	X(DefaultStmt,          "'default' statement",             Statement)\
+	X(ContinueStmt,         "'continue' statement",            Statement)\
+	X(BreakStmt,            "'break' statement",               Statement)\
+	X(ReturnStmt,           "'return' statement",              Statement)\
+	X(TryCatchStmt,         "'try-catch' statement",           Statement)\
+	X(TryFinallyStmt,       "'try-finally' statement",         Statement)\
+	X(ThrowStmt,            "'throw' statement",               Statement)\
+	X(ScopeActionStmt,      "'scope(...)' statement",          Statement)\
 \
-	X(AssignStmt,           "assignment")\
-	X(AddAssignStmt,        "addition assignment")\
-	X(SubAssignStmt,        "subtraction assignment")\
-	X(CatAssignStmt,        "concatenation assignment")\
-	X(MulAssignStmt,        "multiplication assignment")\
-	X(DivAssignStmt,        "division assignment")\
-	X(ModAssignStmt,        "modulo assignment")\
-	X(OrAssignStmt,         "bitwise 'or' assignment")\
-	X(XorAssignStmt,        "bitwise 'xor' assignment")\
-	X(AndAssignStmt,        "bitwise 'and' assignment")\
-	X(ShlAssignStmt,        "left-shift assignment")\
-	X(ShrAssignStmt,        "right-shift assignment")\
-	X(UShrAssignStmt,       "unsigned right-shift assignment")\
-	X(CondAssignStmt,       "conditional assignment")\
-	X(IncStmt,              "increment")\
-	X(DecStmt,              "decrement")\
-	X(TypecheckStmt,        "typecheck statement")\
+	X(AssignStmt,           "assignment",                      Statement)\
+	X(AddAssignStmt,        "addition assignment",             Statement)\
+	X(SubAssignStmt,        "subtraction assignment",          Statement)\
+	X(CatAssignStmt,        "concatenation assignment",        Statement)\
+	X(MulAssignStmt,        "multiplication assignment",       Statement)\
+	X(DivAssignStmt,        "division assignment",             Statement)\
+	X(ModAssignStmt,        "modulo assignment",               Statement)\
+	X(OrAssignStmt,         "bitwise 'or' assignment",         Statement)\
+	X(XorAssignStmt,        "bitwise 'xor' assignment",        Statement)\
+	X(AndAssignStmt,        "bitwise 'and' assignment",        Statement)\
+	X(ShlAssignStmt,        "left-shift assignment",           Statement)\
+	X(ShrAssignStmt,        "right-shift assignment",          Statement)\
+	X(UShrAssignStmt,       "unsigned right-shift assignment", Statement)\
+	X(CondAssignStmt,       "conditional assignment",          Statement)\
+	X(IncStmt,              "increment",                       Statement)\
+	X(DecStmt,              "decrement",                       Statement)\
+	X(TypecheckStmt,        "typecheck statement",             Statement)\
 \
-	X(CondExp,              "conditional expression")\
-	X(OrOrExp,              "logical 'or' expression")\
-	X(AndAndExp,            "logical 'and' expression")\
-	X(OrExp,                "bitwise 'or' expression")\
-	X(XorExp,               "bitwise 'xor' expression")\
-	X(AndExp,               "bitwise 'and' expression")\
-	X(EqualExp,             "equality expression")\
-	X(NotEqualExp,          "inequality expression")\
-	X(IsExp,                "identity expression")\
-	X(NotIsExp,             "non-identity expression")\
-	X(LTExp,                "less-than expression")\
-	X(LEExp,                "less-or-equals expression")\
-	X(GTExp,                "greater-than expression")\
-	X(GEExp,                "greater-or-equals expression")\
-	X(Cmp3Exp,              "three-way comparison expression")\
-	X(InExp,                "'in' expression")\
-	X(NotInExp,             "'!in' expression")\
-	X(ShlExp,               "left-shift expression")\
-	X(ShrExp,               "right-shift expression")\
-	X(UShrExp,              "unsigned right-shift expression")\
-	X(AddExp,               "addition expression")\
-	X(SubExp,               "subtraction expression")\
-	X(CatExp,               "concatenation expression")\
-	X(MulExp,               "multiplication expression")\
-	X(DivExp,               "division expression")\
-	X(ModExp,               "modulo expression")\
-	X(NegExp,               "negation expression")\
-	X(NotExp,               "logical 'not' expression")\
-	X(ComExp,               "bitwise complement expression")\
-	X(LenExp,               "length expression")\
-	X(VargLenExp,           "vararg length expression")\
-	X(DotExp,               "dot expression")\
-	X(DotSuperExp,          "dot-super expression")\
-	X(IndexExp,             "index expression")\
-	X(VargIndexExp,         "vararg index expression")\
-	X(SliceExp,             "slice expression")\
-	X(VargSliceExp,         "vararg slice expression")\
-	X(CallExp,              "call expression")\
-	X(MethodCallExp,        "method call expression")\
-	X(IdentExp,             "identifier expression")\
-	X(ThisExp,              "'this' expression")\
-	X(NullExp,              "'null' expression")\
-	X(BoolExp,              "boolean constant expression")\
-	X(VarargExp,            "'vararg' expression")\
-	X(IntExp,               "integer constant expression")\
-	X(FloatExp,             "float constant expression")\
-	X(StringExp,            "string constant expression")\
-	X(FuncLiteralExp,       "function literal expression")\
-	X(ParenExp,             "parenthesized expression")\
-	X(TableCtorExp,         "table constructor expression")\
-	X(ArrayCtorExp,         "array constructor expression")\
-	X(YieldExp,             "yield expression")\
+	X(CondExp,              "conditional expression",          Expression)\
+	X(OrOrExp,              "logical 'or' expression",         Expression)\
+	X(AndAndExp,            "logical 'and' expression",        Expression)\
+	X(OrExp,                "bitwise 'or' expression",         Expression)\
+	X(XorExp,               "bitwise 'xor' expression",        Expression)\
+	X(AndExp,               "bitwise 'and' expression",        Expression)\
+	X(EqualExp,             "equality expression",             Expression)\
+	X(NotEqualExp,          "inequality expression",           Expression)\
+	X(IsExp,                "identity expression",             Expression)\
+	X(NotIsExp,             "non-identity expression",         Expression)\
+	X(LTExp,                "less-than expression",            Expression)\
+	X(LEExp,                "less-or-equals expression",       Expression)\
+	X(GTExp,                "greater-than expression",         Expression)\
+	X(GEExp,                "greater-or-equals expression",    Expression)\
+	X(Cmp3Exp,              "three-way comparison expression", Expression)\
+	X(InExp,                "'in' expression",                 Expression)\
+	X(NotInExp,             "'!in' expression",                Expression)\
+	X(ShlExp,               "left-shift expression",           Expression)\
+	X(ShrExp,               "right-shift expression",          Expression)\
+	X(UShrExp,              "unsigned right-shift expression", Expression)\
+	X(AddExp,               "addition expression",             Expression)\
+	X(SubExp,               "subtraction expression",          Expression)\
+	X(CatExp,               "concatenation expression",        Expression)\
+	X(MulExp,               "multiplication expression",       Expression)\
+	X(DivExp,               "division expression",             Expression)\
+	X(ModExp,               "modulo expression",               Expression)\
+	X(NegExp,               "negation expression",             Expression)\
+	X(NotExp,               "logical 'not' expression",        Expression)\
+	X(ComExp,               "bitwise complement expression",   Expression)\
+	X(LenExp,               "length expression",               Expression)\
+	X(VargLenExp,           "vararg length expression",        Expression)\
+	X(DotExp,               "dot expression",                  Expression)\
+	X(DotSuperExp,          "dot-super expression",            Expression)\
+	X(IndexExp,             "index expression",                Expression)\
+	X(VargIndexExp,         "vararg index expression",         Expression)\
+	X(SliceExp,             "slice expression",                Expression)\
+	X(VargSliceExp,         "vararg slice expression",         Expression)\
+	X(CallExp,              "call expression",                 Expression)\
+	X(MethodCallExp,        "method call expression",          Expression)\
+	X(IdentExp,             "identifier expression",           Expression)\
+	X(ThisExp,              "'this' expression",               Expression)\
+	X(NullExp,              "'null' expression",               Expression)\
+	X(BoolExp,              "boolean constant expression",     Expression)\
+	X(VarargExp,            "'vararg' expression",             Expression)\
+	X(IntExp,               "integer constant expression",     Expression)\
+	X(FloatExp,             "float constant expression",       Expression)\
+	X(StringExp,            "string constant expression",      Expression)\
+	X(FuncLiteralExp,       "function literal expression",     Expression)\
+	X(ParenExp,             "parenthesized expression",        Expression)\
+	X(TableCtorExp,         "table constructor expression",    Expression)\
+	X(ArrayCtorExp,         "array constructor expression",    Expression)\
+	X(YieldExp,             "yield expression",                Expression)\
 \
-	X(ForeachComprehension, "'foreach' comprehension")\
-	X(ForNumComprehension,  "numeric 'for' comprehension")\
-	X(IfComprehension,      "'if' comprehension")\
-	X(ArrayComprehension,   "array comprehension")\
-	X(TableComprehension,   "table comprehension")
+	X(ForeachComprehension, "'foreach' comprehension",         AstNode)\
+	X(ForNumComprehension,  "numeric 'for' comprehension",     AstNode)\
+	X(IfComprehension,      "'if' comprehension",              AstNode)\
+	X(ArrayComprehension,   "array comprehension",             Expression)\
+	X(TableComprehension,   "table comprehension",             Expression)
 
 	enum AstTag
 	{
-#define POOP(Tag, _) AstTag_##Tag,
+#define POOP(Tag, _, __) AstTag_##Tag,
 		AST_LIST(POOP)
 		AstTag_NUMBER
 #undef POOP
@@ -1254,13 +1254,11 @@ namespace croc
 		ForeachComprehension(CompileLoc location, DArray<Identifier*> indices, DArray<Expression*> container,
 			IfComprehension* ifComp, ForComprehension* forComp) :
 			ForComprehension(location,
-				ifComp ?
-					(forComp ?
-						forComp->endLocation :
-						ifComp->endLocation) :
-				(forComp ?
+				forComp ?
 					forComp->endLocation :
-					container[container.length - 1]->endLocation),
+				ifComp ?
+					ifComp->endLocation :
+				container[container.length - 1]->endLocation,
 				AstTag_ForeachComprehension, ifComp, forComp),
 			indices(indices),
 			container(container)
@@ -1277,15 +1275,11 @@ namespace croc
 		ForNumComprehension(CompileLoc location, Identifier* index, Expression* lo, Expression* hi, Expression* step,
 			IfComprehension* ifComp, ForComprehension* forComp) :
 			ForComprehension(location,
-				ifComp ?
-					(forComp ?
-						forComp->endLocation :
-						ifComp->endLocation) :
-				(forComp ?
+				forComp ?
 					forComp->endLocation :
-					(step ?
-						step->endLocation :
-						location)), // technically never happens
+				ifComp ?
+					ifComp->endLocation :
+				step->endLocation,
 				AstTag_ForNumComprehension, ifComp, forComp),
 			index(index),
 			lo(lo),
@@ -1312,7 +1306,8 @@ namespace croc
 		Expression* value;
 		ForComprehension* forComp;
 
-		TableComprehension(CompileLoc location, CompileLoc endLocation, Expression* key, Expression* value, ForComprehension* forComp) :
+		TableComprehension(CompileLoc location, CompileLoc endLocation, Expression* key, Expression* value,
+			ForComprehension* forComp) :
 			PrimaryExp(location, endLocation, AstTag_TableComprehension),
 			key(key),
 			value(value),
