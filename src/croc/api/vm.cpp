@@ -412,6 +412,7 @@ extern "C"
 		vm->globals = Namespace::create(vm->mem, String::create(vm, atoda("")));
 		vm->registry = Namespace::create(vm->mem, String::create(vm, atoda("<registry>")));
 		vm->unhandledEx = Function::create(vm->mem, vm->globals, String::create(vm, atoda("defaultUnhandledEx")), 1, defaultUnhandledEx, 0);
+		vm->ehFrames = DArray<EHFrame>::alloc(vm->mem, 10);
 
 		// _G = _G._G = _G._G._G = _G._G._G._G = ...
 		push(t, Value::from(vm->globals));
@@ -488,6 +489,7 @@ extern "C"
 		vm->cycleRoots.clear(vm->mem);
 		vm->toFree.clear(vm->mem);
 		vm->toFinalize.clear(vm->mem);
+		vm->ehFrames.free(vm->mem);
 		vm->mem.cleanup();
 
 		if(vm->mem.totalBytes != 0)

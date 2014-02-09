@@ -309,14 +309,20 @@ namespace croc
 
 	void execute(Thread* t)
 	{
-		Value* RS;
-		Value* RT;
+		assert(t->stackIndex > 1); // for the exec EH frame
+		jmp_buf buf;
+		pushExecEHFrame(t, buf);
+		auto savedNativeDepth = t->nativeCallDepth; // doesn't need to be volatile since it never changes value
 
 	_exceptionRetry:
+		if(setjmp(buf) == 0)
+		{
 		t->state = CrocThreadState_Running;
 		t->vm->curThread = t;
 
 	_reentry:
+		Value* RS;
+		Value* RT;
 		auto stackBase = t->stackBase;
 		auto constTable = t->currentAR->func->scriptFunc->constants;
 		auto env = t->currentAR->func->environment;
@@ -708,16 +714,7 @@ namespace croc
 				case Op_Throw:
 					GetRS();
 					throwImpl(t, *RS, cast(bool)rd);
-
-					// Thread can change in throw -- if we threw past a thread resume into another thread, and the
-					// exception was caught by a script handler.
-					if(t != t->vm->curThread)
-					{
-						t = t->vm->curThread;
-						goto _exceptionRetry;
-					}
-					else
-						goto _reentry;
+					assert(false); // should never get here
 
 				// Function Calling
 			{
@@ -831,7 +828,7 @@ namespace croc
 					callEpilogue(t);
 
 					if(t->arIndex == 0 || didInc)
-						return;
+						goto _return;
 
 					goto _reentry;
 				}
@@ -977,7 +974,7 @@ namespace croc
 							"Attempting to yield across native / metamethod call boundary");
 
 					yieldImpl(t, stackBase + rd, numParams, numResults);
-					return;
+					goto _return;
 				}
 				case Op_CheckParams: {
 					auto val = &t->stack[stackBase];
@@ -1276,5 +1273,25 @@ namespace croc
 					croc_eh_throwStd(*t, "VMError", "Unimplemented opcode %s", OpNames[cast(uword)opcode]);
 			}
 		}
+		}
+		else // catch!
+		{
+			assert(t->vm->curThread == t);
+			auto frame = t->vm->currentEH;
+
+			t->nativeCallDepth = savedNativeDepth;
+
+			if(frame && frame->t == t && !EH_IS_NATIVE(frame))
+				goto _exceptionRetry;
+			else
+			{
+				popEHFrame(t); // get rid of our exec frame
+				throwImpl(t, t->stack[t->stackIndex - 1], true);
+			}
+		}
+
+	_return:
+		t->nativeCallDepth = savedNativeDepth;
+		popEHFrame(t);
 	}
 }

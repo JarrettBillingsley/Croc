@@ -9,7 +9,6 @@ namespace croc
 		auto t = createPartial(vm);
 		auto &mem = vm->mem;
 
-		t->ehFrames = DArray<EHFrame>::alloc(mem, 10);
 		t->actRecs =  DArray<ActRecord>::alloc(mem, 10);
 		t->stack =    DArray<Value>::alloc(mem, 20);
 		t->results =  DArray<Value>::alloc(mem, 8);
@@ -61,15 +60,12 @@ namespace croc
 		t->results.free(mem);
 		t->stack.free(mem);
 		t->actRecs.free(mem);
-		t->ehFrames.free(mem);
 		FREE_OBJ(mem, Thread, t);
 	}
 
 	void Thread::reset()
 	{
 		assert(this->upvalHead == nullptr); // should be..?
-		this->currentEH = nullptr;
-		this->ehIndex = 0;
 		this->currentAR = nullptr;
 		this->arIndex = 0;
 		this->stackIndex = cast(AbsStack)1;

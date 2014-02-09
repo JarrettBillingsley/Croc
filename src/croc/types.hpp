@@ -555,15 +555,6 @@ namespace croc
 		bool incdNativeDepth;
 	};
 
-	struct EHFrame
-	{
-		bool isCatch;
-		RelStack slot;
-		uword actRecord;
-		Instruction* pc;
-		jmp_buf* native;
-	};
-
 	extern const char* ThreadStateStrings[5];
 
 	struct Thread : public GCObject
@@ -575,10 +566,6 @@ namespace croc
 		// weak references used in the VM's allThreads list
 		Thread* next;
 		Thread* prev;
-
-		DArray<EHFrame> ehFrames;
-		EHFrame* currentEH;
-		uword ehIndex;
 
 		DArray<ActRecord> actRecs;
 		ActRecord* currentAR;
@@ -624,11 +611,31 @@ namespace croc
 		Upval* nextuv;
 	};
 
+	enum EHFlags
+	{
+		EHFlags_Catch =  (1 << 0),
+		EHFlags_Native = (1 << 1),
+	};
+
+#define EH_IS_CATCH(eh) TEST_FLAG((eh)->flags, EHFlags_Catch)
+#define EH_IS_NATIVE(eh) TEST_FLAG((eh)->flags, EHFlags_Native)
+
+	struct EHFrame
+	{
+		Thread* t;
+		uword flags;
+		AbsStack slot;
+		uword actRecord;
+
+		union
+		{
+			Instruction* scriptPC;
+			jmp_buf* nativePC;
+		};
+	};
+
 	struct VM
 	{
-		typedef Hash<uint64_t, GCObject*> RefTab;
-		typedef Hash<String*, Class*> ExTab;
-
 		Memory mem;
 
 		// These are all GC roots -----------
@@ -638,12 +645,12 @@ namespace croc
 		DArray<String*> metaStrings;
 		Instance* exception;
 		Namespace* registry;
-		RefTab refTab;
+		Hash<uint64_t, GCObject*> refTab;
 		Function* unhandledEx;
 
 		// These point to "special" runtime classes
 		Class* location;
-		ExTab stdExceptions;
+		Hash<String*, Class*> stdExceptions;
 		// ----------------------------------
 
 		// GC stuff
@@ -653,6 +660,12 @@ namespace croc
 		Deque toFree;
 		Deque toFinalize;
 		bool inGCCycle;
+
+		// EH stuff
+		DArray<EHFrame> ehFrames;
+		EHFrame* currentEH;
+		uword ehIndex;
+		uword lastNativeEHPlusOne;
 
 		// Others
 		Hash<crocstr, String*, MethodHasher, HashNodeWithHash<crocstr, String*> > stringTab;

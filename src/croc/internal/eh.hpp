@@ -10,6 +10,7 @@ namespace croc
 	word defaultUnhandledEx(CrocThread* t);
 	EHFrame* pushEHFrame(Thread* t);
 	void pushNativeEHFrame(Thread* t, RelStack slot, jmp_buf& buf);
+	void pushExecEHFrame(Thread* t, jmp_buf& buf);
 	void pushScriptEHFrame(Thread* t, bool isCatch, RelStack slot, word pcOffset);
 	void popEHFrame(Thread* t);
 	void unwindThisFramesEH(Thread* t);

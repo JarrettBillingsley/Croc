@@ -26,48 +26,76 @@ namespace croc
 
 	EHFrame* pushEHFrame(Thread* t)
 	{
-		if(t->ehIndex >= t->ehFrames.length)
-			t->ehFrames.resize(t->vm->mem, t->ehFrames.length * 2);
+		auto vm = t->vm;
 
-		t->currentEH = &t->ehFrames[t->ehIndex];
-		t->ehIndex++;
-		t->currentEH->actRecord = t->arIndex - 1;
-		return t->currentEH;
+		if(vm->ehIndex >= vm->ehFrames.length)
+			vm->ehFrames.resize(vm->mem, vm->ehFrames.length * 2);
+
+		vm->currentEH = &vm->ehFrames[vm->ehIndex];
+		vm->ehIndex++;
+		vm->currentEH->t = t;
+		vm->currentEH->actRecord = t->arIndex - 1;
+		return vm->currentEH;
 	}
 
 	void pushNativeEHFrame(Thread* t, RelStack slot, jmp_buf& buf)
 	{
 		auto eh = pushEHFrame(t);
-		eh->isCatch = true;
-		eh->slot = croc_absIndex(*t, slot);
-		eh->native = &buf;
-		eh->pc = nullptr;
+		eh->flags = EHFlags_Catch | EHFlags_Native;
+		eh->slot = fakeToAbs(t, slot);
+		eh->nativePC = &buf;
+		t->vm->lastNativeEHPlusOne = t->vm->ehIndex;
+	}
+
+	void pushExecEHFrame(Thread* t, jmp_buf& buf)
+	{
+		pushNativeEHFrame(t, t->stackIndex - 1 - t->stackBase, buf);
+		t->vm->currentEH->actRecord--;
 	}
 
 	void pushScriptEHFrame(Thread* t, bool isCatch, RelStack slot, word pcOffset)
 	{
 		auto eh = pushEHFrame(t);
-		eh->isCatch = isCatch;
-		eh->slot = slot;
-		eh->native = nullptr;
-		eh->pc = t->currentAR->pc + pcOffset;
+		eh->flags = isCatch ? EHFlags_Catch : 0;
+		eh->slot = fakeToAbs(t, slot);
+		eh->scriptPC = t->currentAR->pc + pcOffset;
 	}
 
 	void popEHFrame(Thread* t)
 	{
-		assert(t->ehIndex > 0);
+		auto vm = t->vm;
+		assert(vm->ehIndex > 0);
+		assert(vm->currentEH->t == t);
 
-		t->ehIndex--;
+		if(EH_IS_NATIVE(vm->currentEH))
+		{
+			for(uword i = vm->ehIndex - 2; cast(word)i >= 0; i--)
+			{
+				if(EH_IS_NATIVE(&vm->ehFrames[i]))
+				{
+					vm->lastNativeEHPlusOne = i + 1;
+					goto _found;
+				}
+			}
 
-		if(t->ehIndex > 0)
-			t->currentEH = &t->ehFrames[t->ehIndex - 1];
+			vm->lastNativeEHPlusOne = 0;
+		_found:;
+		}
+
+		vm->ehIndex--;
+
+		if(vm->ehIndex > 0)
+			vm->currentEH = &vm->ehFrames[vm->ehIndex - 1];
 		else
-			t->currentEH = nullptr;
+			vm->currentEH = nullptr;
 	}
 
 	void unwindThisFramesEH(Thread* t)
 	{
-		while(t->ehIndex > 0 && cast(word)t->currentEH->actRecord >= cast(word)t->arIndex)
+		auto vm = t->vm;
+		// This uses signed comparison because the EH actRecord index can be -1, which indicates there IS no
+		// corresponding AR; this is the case when a native EH frame is installed on the main thread.
+		while(vm->ehIndex > 0 && vm->currentEH->t == t && cast(word)vm->currentEH->actRecord >= cast(word)t->arIndex)
 			popEHFrame(t);
 	}
 
@@ -76,6 +104,9 @@ namespace croc
 		jmp_buf buf;
 		bool ret;
 		auto savedNativeDepth = t->nativeCallDepth;
+#ifndef NDEBUG
+		auto ehCheck = t->vm->ehIndex;
+#endif
 		pushNativeEHFrame(t, slot, buf);
 
 		if(setjmp(buf) == 0)
@@ -87,6 +118,7 @@ namespace croc
 			ret = true;
 
 		popEHFrame(t);
+		assert(t->vm->ehIndex == ehCheck);
 		t->nativeCallDepth = savedNativeDepth;
 		return ret;
 	}
@@ -162,82 +194,81 @@ namespace croc
 			t->currentAR->unwindReturn = nullptr;
 		}
 
-		t->vm->exception = ex.mInstance;
+		auto vm = t->vm;
+		vm->exception = ex.mInstance;
+		auto jumpFrame = (vm->lastNativeEHPlusOne == 0) ? nullptr : &vm->ehFrames[vm->lastNativeEHPlusOne - 1];
+		assert(!jumpFrame || EH_IS_NATIVE(jumpFrame));
+		auto destThread = jumpFrame ? jumpFrame->t : nullptr;
 
-		EHFrame* frame = nullptr;
-		Thread* curThread = t;
-
-		for( ; curThread != nullptr; curThread = curThread->threadThatResumedThis)
+		// Kill any threads between here and where the exception is being caught
+		for(auto curThread = t; curThread != destThread; curThread = curThread->threadThatResumedThis)
 		{
-			if(curThread->ehIndex > 0)
-			{
-				frame = curThread->currentEH;
-				break;
-			}
-
 			popARTo(curThread, 0);
-			t->vm->curThread = curThread->threadThatResumedThis;
+			vm->curThread = curThread->threadThatResumedThis;
 		}
 
-		if(frame == nullptr)
+		if(jumpFrame == nullptr)
 		{
 			// Uh oh, no handler; call the unhandled handler. At this point, there are no running threads, so let's use
 			// the main thread.
-			t = t->vm->mainThread;
+			t = vm->mainThread;
 
-			push(t, Value::from(t->vm->unhandledEx));
+			push(t, Value::from(vm->unhandledEx));
 			push(t, Value::nullValue);
-			push(t, Value::from(t->vm->exception));
-			t->vm->exception = nullptr;
+			push(t, Value::from(vm->exception));
+			vm->exception = nullptr;
 			croc_call(*t, -3, 0);
 			abort();
 		}
 		else
 		{
-			t = curThread;
-
-			popARTo(curThread, frame->actRecord + 1);
-			auto base = t->stackBase + frame->slot;
-			closeUpvals(t, base);
+			t = vm->curThread;
+			auto destFrame = vm->currentEH;
+			assert(destFrame->t == t);
+			popARTo(t, destFrame->actRecord + 1);
+			auto slot = destFrame->slot;
+			closeUpvals(t, slot);
 
 			// This can happen at top-level, when popARTo sets the stack index to 1.
-			if(t->stackIndex <= base)
-				t->stackIndex = base + 1;
+			if(t->stackIndex <= slot)
+				t->stackIndex = slot + 1;
 
-			t->stack.slice(base + 1, t->stackIndex).fill(Value::nullValue);
+			t->stack.slice(slot + 1, t->stackIndex).fill(Value::nullValue);
 
-			if(frame->isCatch)
+			if(EH_IS_CATCH(destFrame))
 			{
-				t->stack[base] = ex;
+				t->stack[slot] = ex;
 				t->vm->exception = nullptr;
 			}
 
-			if(frame->native)
-			{
-				t->stackIndex = base + 1;
-				longjmp(*frame->native, 1);
-			}
+			if(EH_IS_NATIVE(destFrame))
+				t->stackIndex = slot + 1;
 			else
-				t->currentAR->pc = frame->pc;
+				t->currentAR->pc = destFrame->scriptPC;
+
+			longjmp(*jumpFrame->nativePC, 1);
 		}
 	}
 
 	void unwind(Thread* t)
 	{
+		auto vm = t->vm;
+
 		while(t->currentAR->unwindCounter > 0)
 		{
-			assert(t->ehIndex > 0);
-			assert(t->currentEH->actRecord == t->arIndex);
+			assert(vm->ehIndex > 0);
+			assert(vm->currentEH->t == t);
+			assert(vm->currentEH->actRecord == t->arIndex);
 
-			auto frame = *t->currentEH;
+			auto frame = *vm->currentEH;
 			popEHFrame(t);
-			closeUpvals(t, t->stackBase + frame.slot);
+			closeUpvals(t, frame.slot);
 			t->currentAR->unwindCounter--;
 
-			if(!frame.isCatch)
+			if(!EH_IS_CATCH(&frame))
 			{
 				// finally in the middle of an unwind
-				t->currentAR->pc = frame.pc;
+				t->currentAR->pc = frame.scriptPC;
 				return;
 			}
 		}
