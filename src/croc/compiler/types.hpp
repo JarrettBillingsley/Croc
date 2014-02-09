@@ -101,11 +101,11 @@ namespace croc
 		bool docComments();
 		bool docTable();
 		bool docDecorators();
-		void lexException(CompileLoc loc, const char* msg, ...);
-		void synException(CompileLoc loc, const char* msg, ...);
-		void semException(CompileLoc loc, const char* msg, ...);
-		void eofException(CompileLoc loc, const char* msg, ...);
-		void loneStmtException(CompileLoc loc, const char* msg, ...);
+		void lexException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
+		void synException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
+		void semException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
+		void eofException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
+		void loneStmtException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
 		Thread* thread();
 		Memory& mem();
 		const char* newString(crocstr s);

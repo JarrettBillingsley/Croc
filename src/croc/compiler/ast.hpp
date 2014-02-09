@@ -257,8 +257,8 @@ namespace croc
 			type(type)
 		{}
 
-		const char* toString();
-		const char* niceString();
+		inline const char* toString()   { return AstTagNames[type];     }
+		inline const char* niceString() { return NiceAstTagNames[type]; }
 	};
 
 	struct Statement : public AstNode
@@ -288,23 +288,38 @@ namespace croc
 			AstNode(location, endLocation, type)
 		{}
 
-		void checkToNothing(Compiler* c);
-		void checkMultRet(Compiler* c);
-		void checkLHS(Compiler* c);
-		virtual bool hasSideEffects();
-		virtual bool isMultRet();
-		virtual bool isLHS();
-		virtual bool isConstant();
-		virtual bool isNull();
-		virtual bool isBool();
-		virtual bool isInt();
-		virtual bool isFloat();
-		virtual bool isString();
-		virtual bool isTrue();
-		virtual bool asBool();
-		virtual crocint asInt();
-		virtual crocfloat asFloat();
-		virtual const char* asString();
+		inline void checkToNothing(Compiler* c)
+		{
+			if(!hasSideEffects())
+				c->loneStmtException(location, "%s cannot exist on its own", niceString());
+		}
+
+		inline void checkMultRet(Compiler* c)
+		{
+			if(!isMultRet())
+				c->semException(location, "%s cannot be the source of a multi-target assignment", niceString());
+		}
+
+		inline void checkLHS(Compiler* c)
+		{
+			if(!isLHS())
+				c->semException(location, "%s cannot be the target of an assignment", niceString());
+		}
+
+		virtual bool hasSideEffects()  { return false;  }
+		virtual bool isMultRet()       { return false;  }
+		virtual bool isLHS()           { return false;  }
+		virtual bool isConstant()      { return false;  }
+		virtual bool isNull()          { return false;  }
+		virtual bool isBool()          { return false;  }
+		virtual bool isInt()           { return false;  }
+		virtual bool isFloat()         { return false;  }
+		virtual bool isString()        { return false;  }
+		virtual bool isTrue()          { return false;  }
+		virtual bool asBool()          { assert(false); }
+		virtual crocint asInt()        { assert(false); }
+		virtual crocfloat asFloat()    { assert(false); }
+		virtual const char* asString() { assert(false); }
 	};
 
 	struct BinaryExp : public Expression
