@@ -43,9 +43,9 @@ const CrocRegisterFunc _stupidFuncs[] =
 int main()
 {
 	auto t = croc_vm_open(&croc_DefaultMemFunc, nullptr);
-	// croc_vm_loadUnsafeLibs(t, CrocUnsafeLib_ReallyAll);
-	// croc_vm_loadAvailableAddons(t);
-	// croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
+	croc_vm_loadUnsafeLibs(t, CrocUnsafeLib_ReallyAll);
+	croc_vm_loadAllAvailableAddons(t);
+	croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
 	// runModule(t, "samples.simple");
 
 	croc_ex_registerGlobals(t, _stupidFuncs);

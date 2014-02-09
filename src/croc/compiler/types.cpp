@@ -5,6 +5,8 @@
 
 namespace croc
 {
+	const char* CompilerRegistryFlags = "compiler.defaultFlags";
+
 	Compiler::Compiler(Thread* t):
 		t(t),
 		mIsEof(false),
@@ -16,7 +18,7 @@ namespace croc
 		this->t = t;
 
 		auto reg = croc_vm_pushRegistry(*t);
-		croc_pushString(*t, "compiler.defaultFlags");
+		croc_pushString(*t, CompilerRegistryFlags);
 
 		if(croc_in(*t, -1, reg))
 		{

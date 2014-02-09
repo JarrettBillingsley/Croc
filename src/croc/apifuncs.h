@@ -25,7 +25,7 @@ void        CROCAPI(vm_loadAddons)                (CrocThread* t, CrocAddons lib
 void        CROCAPI(vm_loadAvailableAddonsExcept) (CrocThread* t, CrocAddons exclude);
 
 #define croc_vm_loadAllUnsafeLibs(t) (croc_vm_loadUnsafeLibs((t), CrocUnsafeLib_All))
-#define croc_vm_loadAllAvailableAddons(t) (croc_vm_loadAllAvailableAddonsExcept((t), CrocAddons_None))
+#define croc_vm_loadAllAvailableAddons(t) (croc_vm_loadAvailableAddonsExcept((t), CrocAddons_None))
 
 // =====================================================================================================================
 // VM other
@@ -332,33 +332,30 @@ void      CROCAPI(cateq)           (CrocThread* t, word_t dest, uword_t num);
 // =====================================================================================================================
 // Compiler interface
 
-void               CROCAPI(compiler_setFlags)      (CrocThread* t, uword_t flags);
-uword_t            CROCAPI(compiler_getFlags)      (CrocThread* t);
-CrocCompilerReturn CROCAPI(compiler_compileModule) (CrocThread* t, const char* name, const char** modName);
-CrocCompilerReturn CROCAPI(compiler_compileStmts)  (CrocThread* t, const char* name);
-CrocCompilerReturn CROCAPI(compiler_compileExpr)   (CrocThread* t, const char* name);
+uword_t CROCAPI(compiler_setFlags)      (CrocThread* t, uword_t flags);
+uword_t CROCAPI(compiler_getFlags)      (CrocThread* t);
+int     CROCAPI(compiler_compileModule) (CrocThread* t, const char* name, const char** modName);
+int     CROCAPI(compiler_compileStmts)  (CrocThread* t, const char* name);
+int     CROCAPI(compiler_compileExpr)   (CrocThread* t, const char* name);
 
 #define croc_compiler_compileModuleEx(t, name, modName)\
 	do {\
 		CrocThread* _compilerThread_ = (t);\
-		CrocCompilerReturn _compilerReturn_ = croc_compiler_compileModule(_compilerThread_, (name), (modName));\
-		if(_compilerReturn_ != CrocCompilerReturn_OK)\
+		if(croc_compiler_compileModule(_compilerThread_, (name), (modName)) < 0)\
 			croc_eh_throw(_compilerThread_);\
 	} while(0)
 
 #define croc_compiler_compileStmtsEx(t, name)\
 	do {\
 		CrocThread* _compilerThread_ = (t);\
-		CrocCompilerReturn _compilerReturn_ = croc_compiler_compileStmts(_compilerThread_, (name));\
-		if(_compilerReturn_ != CrocCompilerReturn_OK)\
+		if(croc_compiler_compileStmts(_compilerThread_, (name)) < 0)\
 			croc_eh_throw(_compilerThread_);\
 	} while(0)
 
 #define croc_compiler_compileExprEx(t, name)\
 	do {\
 		CrocThread* _compilerThread_ = (t);\
-		CrocCompilerReturn _compilerReturn_ = croc_compiler_compileExpr(_compilerThread_, (name));\
-		if(_compilerReturn_ != CrocCompilerReturn_OK)\
+		if(croc_compiler_compileExpr(_compilerThread_, (name)) < 0)\
 			croc_eh_throw(_compilerThread_);\
 	} while(0)
 

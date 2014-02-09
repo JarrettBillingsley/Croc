@@ -11,6 +11,8 @@
 
 namespace croc
 {
+	extern const char* CompilerRegistryFlags;
+
 	struct CompileLoc
 	{
 		DArray<const char> file;
