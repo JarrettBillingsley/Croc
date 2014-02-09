@@ -42,6 +42,8 @@ set(croc_SRC
 	croc/base/sanity.hpp
 	croc/base/writebarrier.cpp
 	croc/base/writebarrier.hpp
+	croc/compiler/ast.cpp
+	croc/compiler/ast.hpp
 	croc/compiler/types.hpp
 	croc/compiler/types.cpp
 	croc/ex/common.cpp

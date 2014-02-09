@@ -123,13 +123,13 @@ namespace croc
 		return t->vm->mem;
 	}
 
-	crocstr Compiler::newString(crocstr data)
+	const char* Compiler::newString(crocstr data)
 	{
 		auto s = String::create(t->vm, data);
 		push(t, Value::from(s));
 		croc_pushBool(*t, true);
 		croc_idxa(*t, mStringTab);
-		return s->toDArray();
+		return s->toCString();
 	}
 
 	void* Compiler::allocNode(uword size)

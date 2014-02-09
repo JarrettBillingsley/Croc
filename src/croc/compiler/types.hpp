@@ -108,7 +108,7 @@ namespace croc
 		void loneStmtException(CompileLoc loc, const char* msg, ...);
 		Thread* thread();
 		Memory& mem();
-		crocstr newString(crocstr s);
+		const char* newString(crocstr s);
 		void* allocNode(uword size);
 		void addArray(DArray<uint8_t> arr);
 		DArray<uint8_t> copyArray(DArray<uint8_t> arr);
@@ -121,7 +121,7 @@ namespace croc
 		word commonCompile(std::function<void()> dg);
 	};
 
-		// Dynamically-sized list.
+	// Dynamically-sized list.
 	template<typename T, uword Len = 8>
 	class List
 	{
@@ -212,23 +212,15 @@ namespace croc
 			return mData.slice(0, mIndex);
 		}
 
-		// int opApply(int delegate(ref T) dg)
-		// {
-		// 	foreach(ref v; mData[0 .. mIndex])
-		// 		if(auto result = dg(v))
-		// 			return result;
+		T* begin()
+		{
+			return mData.ptr;
+		}
 
-		// 	return 0;
-		// }
-
-		// int opApply(int delegate(uword, ref T) dg)
-		// {
-		// 	foreach(i, ref v; mData[0 .. mIndex])
-		// 		if(auto result = dg(i, v))
-		// 			return result;
-
-		// 	return 0;
-		// }
+		T* end()
+		{
+			return mData.ptr + mIndex;
+		}
 
 	private:
 		void resize(uword newSize)
