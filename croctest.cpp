@@ -25,10 +25,18 @@ word_t nasty(CrocThread* t)
 	return 0;
 }
 
+word_t newThread(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Function);
+	croc_thread_new(t, 1);
+	return 1;
+}
+
 const CrocRegisterFunc _stupidFuncs[] =
 {
-	{"println", -1, &println, 0},
-	{"nasty",    0, &nasty,   0},
+	{"println",   -1, &println,   0},
+	{"nasty",      0, &nasty,     0},
+	{"newThread",  1, &newThread, 0},
 	{nullptr, 0, nullptr, 0}
 };
 

@@ -50,16 +50,14 @@ namespace croc
 		ar->unwindCounter = 0;
 		ar->unwindReturn = nullptr;
 		ar->incdNativeDepth = false;
-		from->stackIndex = slot;
+		from->stackBase = slot;
+		from->stackIndex = slot + 1;
 
 		auto savedState = from->state;
 		from->state = CrocThreadState_Waiting;
 		t->threadThatResumedThis = from;
 
-		auto ehSlot = from->stackIndex - 1;
-		assert(ehSlot > 0);
-
-		auto failed = tryCode(from, ehSlot, [&t, &from, &slot, &numParams]
+		auto failed = tryCode(from, 0, [&t, &from, &slot, &numParams]
 		{
 			if(t->state == CrocThreadState_Initial)
 			{
@@ -97,7 +95,11 @@ namespace croc
 
 		if(failed)
 		{
-			continueTraceback(from, *getValue(from, ehSlot));
+			assert(t->state == CrocThreadState_Dead);
+			saveResults(from, from, from->stackIndex - 1, 1);
+			callEpilogue(from); // get rid of the resume AR
+			from->stackIndex = slot + 1;
+			continueTraceback(from, *getValue(from, -1));
 			croc_eh_rethrow(*from);
 		}
 
