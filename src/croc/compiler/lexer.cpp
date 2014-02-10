@@ -111,9 +111,9 @@ namespace croc
 	void Lexer::expected(const char* message)
 	{
 		if(mTok.type == Token::EOF_)
-			mCompiler->eofException(mTok.loc, "'%s' expected; found '%s' instead", message, Token::Strings[mTok.type]);
+			mCompiler.eofException(mTok.loc, "'%s' expected; found '%s' instead", message, Token::Strings[mTok.type]);
 		else
-			mCompiler->synException(mTok.loc, "'%s' expected; found '%s' instead", message, Token::Strings[mTok.type]);
+			mCompiler.synException(mTok.loc, "'%s' expected; found '%s' instead", message, Token::Strings[mTok.type]);
 	}
 
 	bool Lexer::isStatementTerm()
@@ -144,7 +144,7 @@ namespace croc
 		    	return;
 
 		    default:
-				mCompiler->synException(mLoc, "Statement terminator expected, not '%s'", Token::Strings[mTok.type]);
+				mCompiler.synException(mLoc, "Statement terminator expected, not '%s'", Token::Strings[mTok.type]);
 		}
 	}
 
@@ -182,7 +182,7 @@ namespace croc
 	const char* Lexer::endCapture(const char* captureStart)
 	{
 		// TODO: trim whitespace off the captured string
-		return mCompiler->newString(crocstr::n(captureStart, mCaptureEnd - captureStart));
+		return mCompiler.newString(crocstr::n(captureStart, mCaptureEnd - captureStart));
 	}
 
 	// =================================================================================================================
@@ -355,7 +355,7 @@ namespace croc
 		auto add = [&](crocchar c)
 		{
 			if(i >= 128)
-				mCompiler->lexException(beginning, "Number literal too long");
+				mCompiler.lexException(beginning, "Number literal too long");
 
 			assert(c < 128);
 
@@ -382,7 +382,7 @@ namespace croc
 						nextChar();
 
 						if(!IS_BINARYDIGIT() && mCharacter != '_')
-							mCompiler->lexException(mLoc, "Binary digit expected, not '%c'", mCharacter);
+							mCompiler.lexException(mLoc, "Binary digit expected, not '%c'", mCharacter);
 
 						while(IS_BINARYDIGIT() || mCharacter == '_')
 						{
@@ -393,7 +393,7 @@ namespace croc
 						}
 
 						if(!convertUInt(crocstr::n(buf, i), iret, 2))
-							mCompiler->lexException(beginning, "Binary integer literal overflow");
+							mCompiler.lexException(beginning, "Binary integer literal overflow");
 
 						return true;
 					}
@@ -402,7 +402,7 @@ namespace croc
 						nextChar();
 
 						if(!IS_HEXDIGIT() && mCharacter != '_')
-							mCompiler->lexException(mLoc, "Hexadecimal digit expected, not '%c'", mCharacter);
+							mCompiler.lexException(mLoc, "Hexadecimal digit expected, not '%c'", mCharacter);
 
 						while(IS_HEXDIGIT() || mCharacter == '_')
 						{
@@ -413,7 +413,7 @@ namespace croc
 						}
 
 						if(!convertUInt(crocstr::n(buf, i), iret, 16))
-							mCompiler->lexException(beginning, "Hexadecimal integer literal overflow");
+							mCompiler.lexException(beginning, "Hexadecimal integer literal overflow");
 
 						return true;
 					}
@@ -489,7 +489,7 @@ namespace croc
 				if(!IS_DECIMALDIGIT() && mCharacter != '_')
 				{
 					add(0);
-					mCompiler->lexException(mLoc, "Exponent value expected in float literal '%s'", buf);
+					mCompiler.lexException(mLoc, "Exponent value expected in float literal '%s'", buf);
 				}
 
 				while(IS_DECIMALDIGIT() || mCharacter == '_')
@@ -514,7 +514,7 @@ namespace croc
 		if(!hasPoint && !hasExponent)
 		{
 			if(!convertInt(crocstr::n(buf, i), iret, 10))
-				mCompiler->lexException(beginning, "Decimal integer literal overflow");
+				mCompiler.lexException(beginning, "Decimal integer literal overflow");
 
 			return true;
 		}
@@ -525,7 +525,7 @@ namespace croc
 			fret = strtod(buf, &check);
 
 			if(check != (buf + i))
-				mCompiler->lexException(beginning, "Invalid floating point literal");
+				mCompiler.lexException(beginning, "Invalid floating point literal");
 
 			return false;
 		}
@@ -538,7 +538,7 @@ namespace croc
 		for(uword i = 0; i < num; i++)
 		{
 			if(!IS_HEXDIGIT())
-				mCompiler->lexException(mLoc, "Hexadecimal escape digits expected");
+				mCompiler.lexException(mLoc, "Hexadecimal escape digits expected");
 
 			ret <<= 4;
 			ret |= HEXDIGIT_TO_INT(mCharacter);
@@ -557,7 +557,7 @@ namespace croc
 		nextChar();
 
 		if(IS_EOF())
-			mCompiler->eofException(beginning, "Unterminated string literal");
+			mCompiler.eofException(beginning, "Unterminated string literal");
 
 		switch(mCharacter)
 		{
@@ -574,7 +574,7 @@ namespace croc
 				auto x = readHexDigits(2);
 
 				if(x > 0x7F)
-					mCompiler->lexException(mLoc, "Hexadecimal escape sequence too large");
+					mCompiler.lexException(mLoc, "Hexadecimal escape sequence too large");
 
 				ret = cast(crocchar)x;
 				break;
@@ -585,7 +585,7 @@ namespace croc
 				auto x = readHexDigits(4);
 
 				if(x == 0xFFFE || x == 0xFFFF)
-					mCompiler->lexException(mLoc, "Unicode escape '\\u%.4x' is illegal", x);
+					mCompiler.lexException(mLoc, "Unicode escape '\\u%.4x' is illegal", x);
 
 				ret = cast(crocchar)x;
 				break;
@@ -596,17 +596,17 @@ namespace croc
 				auto x = readHexDigits(8);
 
 				if(x == 0xFFFE || x == 0xFFFF)
-					mCompiler->lexException(mLoc, "Unicode escape '\\U%.8x' is illegal", x);
+					mCompiler.lexException(mLoc, "Unicode escape '\\U%.8x' is illegal", x);
 
 				if(!isValidChar(cast(crocchar)x))
-					mCompiler->lexException(mLoc, "Unicode escape '\\U%.8x' too large", x);
+					mCompiler.lexException(mLoc, "Unicode escape '\\U%.8x' too large", x);
 
 				ret = cast(crocchar)x;
 				break;
 			}
 			default:
 				if(!IS_DECIMALDIGIT())
-					mCompiler->lexException(mLoc, "Invalid string escape sequence '\\%c'", mCharacter);
+					mCompiler.lexException(mLoc, "Invalid string escape sequence '\\%c'", mCharacter);
 
 				// Decimal char
 				int numch = 0;
@@ -619,7 +619,7 @@ namespace croc
 				} while(++numch < 3 && IS_DECIMALDIGIT());
 
 				if(c > 0x7F)
-					mCompiler->lexException(mLoc, "Numeric escape sequence too large");
+					mCompiler.lexException(mLoc, "Numeric escape sequence too large");
 
 				ret = cast(crocchar)c;
 				break;
@@ -644,7 +644,7 @@ namespace croc
 		while(true)
 		{
 			if(IS_EOF())
-				mCompiler->eofException(beginning, "Unterminated string literal");
+				mCompiler.eofException(beginning, "Unterminated string literal");
 
 			switch(mCharacter)
 			{
@@ -661,7 +661,7 @@ namespace croc
 					auto loc = mLoc;
 
 					if(encodeUtf8Char(DArray<char>::n(utfbuf, 4), readEscapeSequence(beginning), tmp) != UtfError_OK)
-						mCompiler->lexException(loc, "Invalid escape sequence");
+						mCompiler.lexException(loc, "Invalid escape sequence");
 
 					buf.add(tmp);
 					continue;
@@ -687,7 +687,7 @@ namespace croc
 						auto loc = mLoc;
 
 						if(encodeUtf8Char(DArray<char>::n(utfbuf, 4), mCharacter, tmp) != UtfError_OK)
-							mCompiler->lexException(loc, "Invalid character");
+							mCompiler.lexException(loc, "Invalid character");
 
 						buf.add(tmp);
 						nextChar();
@@ -700,7 +700,7 @@ namespace croc
 
 		// Skip end quote
 		nextChar();
-		return mCompiler->newString(buf.toArrayView().toConst());
+		return mCompiler.newString(buf.toArrayView().toConst());
 	}
 
 	void Lexer::addComment(const char* str, CompileLoc location)
@@ -710,7 +710,7 @@ namespace croc
 			if(existing == nullptr)
 				existing = str;
 			else
-				mCompiler->lexException(location,
+				mCompiler.lexException(location,
 					"Cannot have multiple doc comments in a row; merge them into one comment");
 		};
 
@@ -728,7 +728,7 @@ namespace croc
 
 	void Lexer::readLineComment()
 	{
-		if(mCompiler->docComments() && mCharacter == '/')
+		if(mCompiler.docComments() && mCharacter == '/')
 		{
 			nextChar();
 
@@ -751,7 +751,7 @@ namespace croc
 			}
 
 			buf.add('\n');
-			addComment(mCompiler->newString(buf.toArrayView().toConst()), loc);
+			addComment(mCompiler.newString(buf.toArrayView().toConst()), loc);
 		}
 		else if(mCharacter == '#')
 		{
@@ -768,7 +768,7 @@ namespace croc
 				nextChar();
 
 			if(!IS_DECIMALDIGIT())
-				mCompiler->lexException(mLoc, "Line number expected");
+				mCompiler.lexException(mLoc, "Line number expected");
 
 			List<char, 16> lineBuf(mCompiler);
 			auto lineNumLoc = mLoc;
@@ -783,23 +783,23 @@ namespace croc
 
 			crocint lineNum;
 			if(!convertInt(lineBuf.toArrayView().toConst(), lineNum, 10))
-				mCompiler->lexException(lineNumLoc, "Line number overflow");
+				mCompiler.lexException(lineNumLoc, "Line number overflow");
 
 			if(lineNum < 1) // TODO:range
-				mCompiler->lexException(lineNumLoc, "Invalid line number");
+				mCompiler.lexException(lineNumLoc, "Invalid line number");
 
 			mLinePragmaLine = cast(uword)lineNum;
 
 			if(!IS_EOL())
 			{
 				if(mCharacter != ' ' && mCharacter != '\t')
-					mCompiler->lexException(mLoc, "Filename expected");
+					mCompiler.lexException(mLoc, "Filename expected");
 
 				while(mCharacter == ' ' || mCharacter == '\t')
 					nextChar();
 
 				if(mCharacter != '"')
-					mCompiler->lexException(mLoc, "Filename expected");
+					mCompiler.lexException(mLoc, "Filename expected");
 
 				auto fileNameLoc = mLoc;
 				nextChar();
@@ -809,21 +809,21 @@ namespace croc
 				while(mCharacter != '"')
 				{
 					if(IS_EOL())
-						mCompiler->lexException(mLoc, "Unterminated line pragma filename");
+						mCompiler.lexException(mLoc, "Unterminated line pragma filename");
 
 					fileBuf.add(mCharacter);
 					nextChar();
 				}
 
 				if(fileBuf.length() == 0)
-					mCompiler->lexException(fileNameLoc, "Filename cannot be empty");
+					mCompiler.lexException(fileNameLoc, "Filename cannot be empty");
 
 				nextChar(); // skip closing quote
 
 				if(!IS_EOL())
-					mCompiler->lexException(mLoc, "End-of-line expected immediately after line pragma");
+					mCompiler.lexException(mLoc, "End-of-line expected immediately after line pragma");
 
-				mLinePragmaFile = mCompiler->newString(fileBuf.toArrayView().toConst());
+				mLinePragmaFile = mCompiler.newString(fileBuf.toArrayView().toConst());
 			}
 
 			mHadLinePragma = true;
@@ -838,7 +838,7 @@ namespace croc
 
 	void Lexer::readBlockComment()
 	{
-		if(mCompiler->docComments() && mCharacter == '*')
+		if(mCompiler.docComments() && mCharacter == '*')
 		{
 			nextChar();
 
@@ -905,7 +905,7 @@ namespace croc
 
 					case '\0':
 					case 0xFFFF:
-						mCompiler->eofException(mTok.loc, "Unterminated /* */ comment");
+						mCompiler.eofException(mTok.loc, "Unterminated /* */ comment");
 
 					default:
 						buf.add(mCharacter);
@@ -923,7 +923,7 @@ namespace croc
 			if(buf.length() > 0 && buf[buf.length() - 1] != '\n')
 				buf.add('\n');
 
-			addComment(mCompiler->newString(buf.toArrayView().toConst()), loc);
+			addComment(mCompiler.newString(buf.toArrayView().toConst()), loc);
 		}
 		else
 		{
@@ -964,7 +964,7 @@ namespace croc
 
 					case '\0':
 					case 0xFFFF:
-						mCompiler->eofException(mTok.loc, "Unterminated /* */ comment");
+						mCompiler.eofException(mTok.loc, "Unterminated /* */ comment");
 
 					default:
 						break;
@@ -1224,7 +1224,7 @@ namespace croc
 						else
 						{
 							// Have to slice the \0 off the end of arr
-							mTok.stringValue = mCompiler->newString(arr.slice(0, arr.length - 1).toConst());
+							mTok.stringValue = mCompiler.newString(arr.slice(0, arr.length - 1).toConst());
 							TOK(Token::Ident);
 						}
 						RETURN;
@@ -1232,9 +1232,9 @@ namespace croc
 					else
 					{
 						if(mCharacter < ' ' || mCharacter >= 0x7f)
-							mCompiler->lexException(mTok.loc, "Invalid character 0x%x", mCharacter);
+							mCompiler.lexException(mTok.loc, "Invalid character 0x%x", mCharacter);
 						else
-							mCompiler->lexException(mTok.loc, "Invalid character '%c'", mCharacter);
+							mCompiler.lexException(mTok.loc, "Invalid character '%c'", mCharacter);
 					}
 			}
 		}

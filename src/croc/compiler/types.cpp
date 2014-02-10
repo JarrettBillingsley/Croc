@@ -161,7 +161,7 @@ namespace croc
 		(void)modName;
 		return commonCompile([&]()
 		{
-			Lexer lexer(this);
+			Lexer lexer(*this);
 			lexer.begin(name, src);
 
 			while(lexer.type() != Token::EOF_)

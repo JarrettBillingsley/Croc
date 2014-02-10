@@ -126,13 +126,13 @@ namespace croc
 	class List
 	{
 	private:
-		Compiler* c;
+		Compiler& c;
 		T mOwnData[Len];
 		DArray<T> mData;
 		uword mIndex;
 
 	public:
-		List(Compiler* co) : c(co), mIndex(0)
+		List(Compiler& co) : c(co), mIndex(0)
 		{
 			mData = DArray<T>::n(mOwnData, Len);
 		}
@@ -140,7 +140,7 @@ namespace croc
 		~List()
 		{
 			if(mData.length && mData.ptr != mOwnData)
-				mData.free(c->mem());
+				mData.free(c.mem());
 		}
 
 		void add(T item)
@@ -191,14 +191,14 @@ namespace croc
 			if(mData.ptr == mOwnData)
 			{
 				auto tmp = DArray<uint8_t>::n(cast(uint8_t*)mData.ptr, mData.length * sizeof(T));
-				tmp = c->copyArray(tmp);
+				tmp = c.copyArray(tmp);
 				ret = DArray<T>::n(cast(T*)tmp.ptr, tmp.length / sizeof(T));
 			}
 			else
 			{
-				mData.resize(c->mem(), mIndex);
+				mData.resize(c.mem(), mIndex);
 				auto tmp = DArray<uint8_t>::n(cast(uint8_t*)mData.ptr, mData.length * sizeof(T));
-				c->addArray(tmp);
+				c.addArray(tmp);
 				ret = mData;
 			}
 
@@ -227,12 +227,12 @@ namespace croc
 		{
 			if(mData.ptr == mOwnData)
 			{
-				auto newData = DArray<T>::alloc(c->mem(), newSize);
+				auto newData = DArray<T>::alloc(c.mem(), newSize);
 				newData.slicea(0, mData.length, mData);
 				mData = newData;
 			}
 			else
-				mData.resize(c->mem(), newSize);
+				mData.resize(c.mem(), newSize);
 		}
 	};
 }

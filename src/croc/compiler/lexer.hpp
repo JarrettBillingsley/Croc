@@ -181,7 +181,7 @@ namespace croc
 	struct Lexer
 	{
 	private:
-		Compiler* mCompiler;
+		Compiler& mCompiler;
 		CompileLoc mLoc;
 		crocstr mSource;
 		const char* mSourcePtr;
@@ -205,7 +205,7 @@ namespace croc
 		bool mHavePeekTok;
 
 	public:
-		Lexer(Compiler* compiler) :
+		Lexer(Compiler& compiler) :
 			mCompiler(compiler),
 			mLoc(),
 			mSource(),
