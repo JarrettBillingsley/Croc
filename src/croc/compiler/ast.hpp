@@ -5,6 +5,11 @@
 #include "croc/compiler/types.hpp"
 #include "croc/types.hpp"
 
+inline void* operator new(croc::uword size, croc::Compiler& c)
+{
+	return c.allocNode(size);
+}
+
 namespace croc
 {
 #define AST_LIST(X)\
@@ -248,9 +253,6 @@ namespace croc
 		CompileLoc endLocation;
 		AstTag type;
 
-		// static void* operator new(uword size);
-		static void* operator new(uword size, Compiler* c);
-
 		AstNode(CompileLoc location, CompileLoc endLocation, AstTag type) :
 			location(location),
 			endLocation(endLocation),
@@ -421,16 +423,16 @@ namespace croc
 
 	struct Module : public AstNode
 	{
-		DArray<const char*> names;
+		const char* name;
 		Statement* statements;
 		Decorator* decorator;
 		const char* docs;
 		CompileLoc docsLoc;
 
-		Module(CompileLoc location, CompileLoc endLocation, DArray<const char*> names, Statement* statements,
+		Module(CompileLoc location, CompileLoc endLocation, const char* name, Statement* statements,
 			Decorator* decorator) :
 			AstNode(location, endLocation, AstTag_Module),
-			names(names),
+			name(name),
 			statements(statements),
 			decorator(decorator)
 		{}
