@@ -218,17 +218,6 @@ namespace croc
 			typeString(),
 			valueString()
 		{}
-
-		FuncParam(Identifier* name, uint32_t typeMask, DArray<Expression*> classTypes, Expression* customConstraint,
-			Expression* defValue, const char* typeString, const char* valueString) :
-			name(name),
-			typeMask(typeMask),
-			classTypes(classTypes),
-			customConstraint(customConstraint),
-			defValue(defValue),
-			typeString(typeString),
-			valueString(valueString)
-		{}
 	};
 
 	struct ClassField
@@ -321,12 +310,6 @@ namespace croc
 			catchVar(),
 			exTypes(),
 			catchBody()
-		{}
-
-		CatchClause(Identifier* catchVar, DArray<Expression*> exTypes, Statement* catchBody) :
-			catchVar(catchVar),
-			exTypes(exTypes),
-			catchBody(catchBody)
 		{}
 	};
 

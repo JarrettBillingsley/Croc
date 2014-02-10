@@ -19,7 +19,9 @@ namespace croc
 		mNodes(),
 		mArrays(),
 		mHeapArrays(),
-		mHeapArrayIdx(0)
+		mHeapArrayIdx(0),
+		mTempArrays(),
+		mTempArrayIdx(0)
 	{
 		this->t = t;
 
@@ -39,6 +41,7 @@ namespace croc
 		mNodes.init(t->vm->mem);
 		mArrays.init(t->vm->mem);
 		mHeapArrays = DArray<DArray<uint8_t> >::alloc(t->vm->mem, 32);
+		mTempArrays = DArray<DArray<uint8_t> >::alloc(t->vm->mem, 8);
 	}
 
 	Compiler::~Compiler()
@@ -50,31 +53,11 @@ namespace croc
 			arr.free(t->vm->mem);
 
 		mHeapArrays.free(t->vm->mem);
-	}
 
-	bool Compiler::asserts()
-	{
-		return (mFlags & CrocCompilerFlags_Asserts) != 0;
-	}
+		for(auto &arr: mTempArrays.slice(0, mTempArrayIdx))
+			arr.free(t->vm->mem);
 
-	bool Compiler::typeConstraints()
-	{
-		return (mFlags & CrocCompilerFlags_TypeConstraints) != 0;
-	}
-
-	bool Compiler::docComments()
-	{
-		return (mFlags & (CrocCompilerFlags_DocTable | CrocCompilerFlags_DocDecorators)) != 0;
-	}
-
-	bool Compiler::docTable()
-	{
-		return (mFlags & CrocCompilerFlags_DocTable) != 0;
-	}
-
-	bool Compiler::docDecorators()
-	{
-		return (mFlags & CrocCompilerFlags_DocDecorators) != 0;
+		mTempArrays.free(t->vm->mem);
 	}
 
 	void Compiler::lexException(CompileLoc loc, const char* msg, ...)
@@ -157,12 +140,49 @@ namespace croc
 		return mNodes.alloc(size);
 	}
 
-	void Compiler::addArray(DArray<uint8_t> arr)
+	void Compiler::addArray(DArray<uint8_t> arr, DArray<uint8_t> old)
 	{
+		removeTempArray(old);
+
 		if(mHeapArrayIdx >= mHeapArrays.length)
 			mHeapArrays.resize(t->vm->mem, mHeapArrays.length * 2);
 
 		mHeapArrays[mHeapArrayIdx++] = arr;
+	}
+
+	void Compiler::addTempArray(DArray<uint8_t> arr)
+	{
+		if(mTempArrayIdx >= mTempArrays.length)
+			mTempArrays.resize(t->vm->mem, mTempArrays.length * 2);
+
+		mTempArrays[mTempArrayIdx++] = arr;
+	}
+
+	void Compiler::updateTempArray(DArray<uint8_t> old, DArray<uint8_t> new_)
+	{
+		for(auto& tmp: mTempArrays.slice(0, mTempArrayIdx))
+		{
+			if(tmp.ptr == old.ptr && tmp.length == old.length)
+			{
+				tmp = new_;
+				return;
+			}
+		}
+	}
+
+	void Compiler::removeTempArray(DArray<uint8_t> arr)
+	{
+		for(uword i = 0; i < mTempArrayIdx; i++)
+		{
+			auto tmp = mTempArrays[i];
+
+			if(arr.ptr == tmp.ptr && arr.length == tmp.length)
+			{
+				mTempArrays[i] = mTempArrays[mTempArrayIdx - 1];
+				mTempArrayIdx--;
+				break;
+			}
+		}
 	}
 
 	DArray<uint8_t> Compiler::copyArray(DArray<uint8_t> arr)

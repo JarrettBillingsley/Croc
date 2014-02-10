@@ -92,15 +92,19 @@ namespace croc
 		BumpAllocator<CROC_COMPILER_PAGE_SIZE> mArrays;
 		DArray<DArray<uint8_t> > mHeapArrays;
 		uword mHeapArrayIdx;
+		DArray<DArray<uint8_t> > mTempArrays;
+		uword mTempArrayIdx;
 
 	public:
 		Compiler(Thread* t);
 		~Compiler();
-		bool asserts();
-		bool typeConstraints();
-		bool docComments();
-		bool docTable();
-		bool docDecorators();
+
+		inline bool asserts()         { return (mFlags & CrocCompilerFlags_Asserts) != 0; }
+		inline bool typeConstraints() { return (mFlags & CrocCompilerFlags_TypeConstraints) != 0; }
+		inline bool docComments()     { return (mFlags & (CrocCompilerFlags_DocTable | CrocCompilerFlags_DocDecorators)) != 0; }
+		inline bool docTable()        { return (mFlags & CrocCompilerFlags_DocTable) != 0; }
+		inline bool docDecorators()   { return (mFlags & CrocCompilerFlags_DocDecorators) != 0; }
+
 		void lexException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
 		void synException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
 		void semException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
@@ -112,7 +116,10 @@ namespace croc
 		const char* newString(crocstr s);
 		const char* newString(const char* s);
 		void* allocNode(uword size);
-		void addArray(DArray<uint8_t> arr);
+		void addArray(DArray<uint8_t> arr, DArray<uint8_t> old);
+		void addTempArray(DArray<uint8_t> arr);
+		void updateTempArray(DArray<uint8_t> old, DArray<uint8_t> new_);
+		void removeTempArray(DArray<uint8_t> arr);
 		DArray<uint8_t> copyArray(DArray<uint8_t> arr);
 		int compileModule(const char* src, const char* name, const char*& modName);
 		int compileStmts(const char* src, const char* name);
@@ -142,7 +149,10 @@ namespace croc
 		~List()
 		{
 			if(mData.length && mData.ptr != mOwnData)
+			{
+				c.removeTempArray(mData.template as<uint8_t>());
 				mData.free(c.mem());
+			}
 		}
 
 		void add(T item)
@@ -165,9 +175,6 @@ namespace croc
 			for(auto &i: items)
 				add(i);
 		}
-
-		void operator+=(T item)    { add(item);  }
-		void operator+=(DArray<T> items) { add(items); }
 
 		T operator[](uword index) const
 		{
@@ -208,8 +215,9 @@ namespace croc
 				ret = c.copyArray(mData.slice(0, mIndex).template as<uint8_t>()).template as<T>();
 			else
 			{
+				auto old = mData;
 				mData.resize(c.mem(), mIndex);
-				c.addArray(mData.template as<uint8_t>());
+				c.addArray(mData.template as<uint8_t>(), old.template as<uint8_t>());
 				ret = mData;
 			}
 
@@ -241,9 +249,14 @@ namespace croc
 				auto newData = DArray<T>::alloc(c.mem(), newSize);
 				newData.slicea(0, mData.length, mData);
 				mData = newData;
+				c.addTempArray(mData.template as<uint8_t>());
 			}
 			else
+			{
+				auto old = mData;
 				mData.resize(c.mem(), newSize);
+				c.updateTempArray(old.template as<uint8_t>(), mData.template as<uint8_t>());
+			}
 		}
 	};
 }
