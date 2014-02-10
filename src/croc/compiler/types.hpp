@@ -204,16 +204,11 @@ namespace croc
 			DArray<T> ret;
 
 			if(mData.ptr == mOwnData)
-			{
-				auto tmp = DArray<uint8_t>::n(cast(uint8_t*)mData.ptr, mData.length * sizeof(T));
-				tmp = c.copyArray(tmp);
-				ret = DArray<T>::n(cast(T*)tmp.ptr, tmp.length / sizeof(T));
-			}
+				ret = c.copyArray(mData.slice(0, mIndex).template as<uint8_t>()).template as<T>();
 			else
 			{
 				mData.resize(c.mem(), mIndex);
-				auto tmp = DArray<uint8_t>::n(cast(uint8_t*)mData.ptr, mData.length * sizeof(T));
-				c.addArray(tmp);
+				c.addArray(mData.template as<uint8_t>());
 				ret = mData;
 			}
 

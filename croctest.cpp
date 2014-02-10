@@ -67,7 +67,18 @@ int main()
 	croc_pushString(t, data);
 	free(data);
 	const char* modName;
-	croc_compiler_compileModule(t, "samples\\simple.croc", &modName);
+
+	auto result = croc_compiler_compileModule(t, "samples\\simple.croc", &modName);
+
+	if(result >= 0)
+		printf("It's called %s\n", modName);
+	else
+	{
+		printf("OH NO! Error code: %d\n", result);
+		croc_pushToString(t, -1);
+		printf("%s\n", croc_getString(t, -1));
+		croc_pop(t, 2);
+	}
 
 	// croc_ex_registerGlobals(t, _stupidFuncs);
 
