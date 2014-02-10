@@ -92,7 +92,11 @@ namespace croc
 
 		auto stmts = new(c) BlockStmt(location, l.loc(), statements.toArray());
 
-		mDanglingDoc = l.expect(Token::EOF_).preComment != nullptr;
+		auto tok = l.expect(Token::EOF_);
+
+		if(tok.preComment != nullptr)
+			c.danglingDocException(tok.preCommentLoc, "Doc comment at end of module not attached to any declaration");
+
 		auto ret = new(c) Module(location, l.loc(), c.newString(name.toArrayView().toConst()), stmts, dec);
 
 		// Prevent final docs from being erroneously attached to the module
@@ -110,7 +114,10 @@ namespace croc
 		while(l.type() != Token::EOF_)
 			statements.add(parseStatement());
 
-		mDanglingDoc = l.expect(Token::EOF_).preComment != nullptr;
+		auto tok = l.expect(Token::EOF_);
+
+		if(tok.preComment != nullptr)
+			c.danglingDocException(tok.preCommentLoc, "Doc comment at end of code not attached to any declaration");
 
 		auto endLocation = statements.length() > 0 ? statements.last()->endLocation : location;
 		auto code = new(c) BlockStmt(location, endLocation, statements.toArray());

@@ -15,7 +15,6 @@ namespace croc
 	private:
 		Compiler& c;
 		Lexer& l;
-		bool mDanglingDoc;
 		uword mDummyNameCounter;
 		const char* mCurrentClassName;
 
@@ -23,15 +22,9 @@ namespace croc
 		Parser(Compiler& compiler, Lexer& lexer) :
 			c(compiler),
 			l(lexer),
-			mDanglingDoc(false),
 			mDummyNameCounter(0),
 			mCurrentClassName(nullptr)
 		{}
-
-		inline bool danglingDoc()
-		{
-			return mDanglingDoc;
-		}
 
 		const char* capture(std::function<void()> dg);
 		const char* parseName();
@@ -122,7 +115,7 @@ namespace croc
 			if(!c.docComments())
 				return;
 
-			if(strlen(preDocs) > 0)
+			if(preDocs != nullptr)
 			{
 				if(l.tok().postComment != nullptr)
 					c.synException(preDocsLoc, "Cannot have two doc comments on one declaration");

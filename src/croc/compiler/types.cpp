@@ -119,6 +119,15 @@ namespace croc
 		va_end(args);
 	}
 
+	void Compiler::danglingDocException(CompileLoc loc, const char* msg, ...)
+	{
+		va_list args;
+		va_start(args, msg);
+		mDanglingDoc = true;
+		vexception(loc, "LexicalException", msg, args);
+		va_end(args);
+	}
+
 	Thread* Compiler::thread()
 	{
 		return t;
@@ -173,7 +182,6 @@ namespace croc
 			Parser parser(*this, lexer);
 			auto mod = parser.parseModule();
 			modName = mod->name;
-			// mDanglingDoc = parser.danglingDoc();
 
 			// if(docComments)
 			// {
@@ -202,7 +210,6 @@ namespace croc
 		// 	lexer.begin(name, source);
 		// 	Parser parser(this, lexer);
 		// 	auto stmts = parser.parseStatements();
-		// 	mDanglingDoc = parser.danglingDoc();
 
 		// 	if(docComments)
 		// 	{

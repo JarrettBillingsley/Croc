@@ -45,7 +45,7 @@ int main()
 	auto t = croc_vm_open(&croc_DefaultMemFunc, nullptr);
 	croc_vm_loadUnsafeLibs(t, CrocUnsafeLib_ReallyAll);
 	croc_vm_loadAllAvailableAddons(t);
-	// croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
+	croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
 	// runModule(t, "samples.simple");
 
 	auto f = fopen("..\\samples\\simple.croc", "rb");
@@ -74,7 +74,16 @@ int main()
 		printf("It's called %s\n", modName);
 	else
 	{
-		printf("OH NO! Error code: %d\n", result);
+		printf("OH NO! ");
+
+		switch(result)
+		{
+			case CrocCompilerReturn_UnexpectedEOF: printf("unexpected end-of-file!\n"); break;
+			case CrocCompilerReturn_LoneStatement: printf("lone statement!\n"); break;
+			case CrocCompilerReturn_DanglingDoc:   printf("dangling doc!\n"); break;
+			case CrocCompilerReturn_Error:         printf("something else!\n"); break;
+		}
+
 		croc_pushToString(t, -1);
 		printf("%s\n", croc_getString(t, -1));
 		croc_pop(t, 2);

@@ -106,6 +106,7 @@ namespace croc
 		void semException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
 		void eofException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
 		void loneStmtException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
+		void danglingDocException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
 		Thread* thread();
 		Memory& mem();
 		const char* newString(crocstr s);
