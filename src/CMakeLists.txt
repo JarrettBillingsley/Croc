@@ -44,6 +44,8 @@ set(croc_SRC
 	croc/base/writebarrier.hpp
 	croc/compiler/ast.cpp
 	croc/compiler/ast.hpp
+	croc/compiler/astvisitor.cpp
+	croc/compiler/astvisitor.hpp
 	croc/compiler/types.hpp
 	croc/compiler/types.cpp
 	croc/ex/common.cpp
