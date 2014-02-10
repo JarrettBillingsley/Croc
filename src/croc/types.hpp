@@ -23,6 +23,7 @@ namespace croc
 	typedef size_t uword;
 	typedef crocint_t crocint;
 	typedef crocfloat_t crocfloat;
+	typedef crocchar_t crocchar;
 	typedef DArray<const char> crocstr;
 
 	enum CrocLocation : int

@@ -188,16 +188,16 @@ namespace croc
 		{
 			DArray<T> ret;
 
-			if(mData.ptr == mOwnData.ptr)
+			if(mData.ptr == mOwnData)
 			{
-				auto tmp = DArray<uint8_t>::n(cast(uint8_t)*mData.ptr, mData.length * sizeof(T));
+				auto tmp = DArray<uint8_t>::n(cast(uint8_t*)mData.ptr, mData.length * sizeof(T));
 				tmp = c->copyArray(tmp);
 				ret = DArray<T>::n(cast(T*)tmp.ptr, tmp.length / sizeof(T));
 			}
 			else
 			{
 				mData.resize(c->mem(), mIndex);
-				auto tmp = DArray<uint8_t>::n(cast(uint8_t)*mData.ptr, mData.length * sizeof(T));
+				auto tmp = DArray<uint8_t>::n(cast(uint8_t*)mData.ptr, mData.length * sizeof(T));
 				c->addArray(tmp);
 				ret = mData;
 			}
@@ -225,7 +225,7 @@ namespace croc
 	private:
 		void resize(uword newSize)
 		{
-			if(mData.ptr == mOwnData.ptr)
+			if(mData.ptr == mOwnData)
 			{
 				auto newData = DArray<T>::alloc(c->mem(), newSize);
 				newData.slicea(0, mData.length, mData);
