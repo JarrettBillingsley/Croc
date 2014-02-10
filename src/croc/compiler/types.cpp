@@ -1,6 +1,7 @@
 
 #include "croc/compiler/ast.hpp"
 #include "croc/compiler/lexer.hpp"
+#include "croc/compiler/parser.hpp"
 #include "croc/compiler/types.hpp"
 #include "croc/internal/eh.hpp"
 #include "croc/internal/stack.hpp"
@@ -137,6 +138,11 @@ namespace croc
 		return s->toCString();
 	}
 
+	const char* Compiler::newString(const char* data)
+	{
+		return newString(atoda(data));
+	}
+
 	void* Compiler::allocNode(uword size)
 	{
 		return mNodes.alloc(size);
@@ -164,17 +170,9 @@ namespace croc
 		{
 			Lexer lexer(*this);
 			lexer.begin(name, src);
-
-			while(lexer.type() != Token::EOF_)
-			{
-				auto loc = lexer.loc();
-				printf("[%*s(%3u:%3u)] %s\n", loc.file.length, loc.file.ptr, loc.line, loc.col, lexer.tok().typeString());
-				lexer.next();
-			}
-
-			// Parser parser(this, lexer);
-			// auto mod = parser.parseModule();
-			// moduleName = mod.names.join(".");
+			Parser parser(*this, lexer);
+			auto mod = parser.parseModule();
+			modName = mod->name;
 			// mDanglingDoc = parser.danglingDoc();
 
 			// if(docComments)

@@ -48,6 +48,8 @@ set(croc_SRC
 	croc/compiler/astvisitor.hpp
 	croc/compiler/lexer.cpp
 	croc/compiler/lexer.hpp
+	croc/compiler/parser.cpp
+	croc/compiler/parser.hpp
 	croc/compiler/types.hpp
 	croc/compiler/types.cpp
 	croc/ex/common.cpp

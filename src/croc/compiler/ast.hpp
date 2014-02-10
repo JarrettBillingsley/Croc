@@ -10,8 +10,8 @@ inline void* operator new(croc::uword size, croc::Compiler& c)
 	return c.allocNode(size);
 }
 
-namespace croc
-{
+#define AST_AS(T, exp) ((exp)->type == AstTag_##T ? cast(T*)(exp) : nullptr)
+
 #define AST_LIST(X)\
 	X(Identifier,           "identifier",                      AstNode)\
 \
@@ -124,6 +124,8 @@ namespace croc
 	X(ArrayComprehension,   "array comprehension",             Expression)\
 	X(TableComprehension,   "table comprehension",             Expression)
 
+namespace croc
+{
 	enum AstTag
 	{
 #define POOP(Tag, _, __) AstTag_##Tag,
@@ -196,6 +198,37 @@ namespace croc
 		Expression* defValue;
 		const char* typeString;
 		const char* valueString;
+
+		FuncParam() :
+			name(),
+			typeMask(cast(uint32_t)TypeMask::Any),
+			classTypes(),
+			customConstraint(),
+			defValue(),
+			typeString(),
+			valueString()
+		{}
+
+		FuncParam(Identifier* name) :
+			name(name),
+			typeMask(cast(uint32_t)TypeMask::Any),
+			classTypes(),
+			customConstraint(),
+			defValue(),
+			typeString(),
+			valueString()
+		{}
+
+		FuncParam(Identifier* name, uint32_t typeMask, DArray<Expression*> classTypes, Expression* customConstraint,
+			Expression* defValue, const char* typeString, const char* valueString) :
+			name(name),
+			typeMask(typeMask),
+			classTypes(classTypes),
+			customConstraint(customConstraint),
+			defValue(defValue),
+			typeString(typeString),
+			valueString(valueString)
+		{}
 	};
 
 	struct ClassField
@@ -206,6 +239,24 @@ namespace croc
 		bool isOverride;
 		const char* docs;
 		CompileLoc docsLoc;
+
+		ClassField() :
+			name(),
+			initializer(),
+			func(),
+			isOverride(),
+			docs(),
+			docsLoc()
+		{}
+
+		ClassField(const char* name, Expression* initializer, FuncLiteralExp* func, bool isOverride) :
+			name(name),
+			initializer(initializer),
+			func(func),
+			isOverride(isOverride),
+			docs(),
+			docsLoc()
+		{}
 	};
 
 	struct NamespaceField
@@ -215,6 +266,22 @@ namespace croc
 		FuncLiteralExp* func;
 		const char* docs;
 		CompileLoc docsLoc;
+
+		NamespaceField() :
+			name(),
+			initializer(),
+			func(),
+			docs(),
+			docsLoc()
+		{}
+
+		NamespaceField(const char* name, Expression* initializer, FuncLiteralExp* func) :
+			name(name),
+			initializer(initializer),
+			func(func),
+			docs(),
+			docsLoc()
+		{}
 	};
 
 	struct ForStmtInit
@@ -232,6 +299,16 @@ namespace croc
 	{
 		Expression* exp;
 		uint32_t dynJump;
+
+		CaseCond() :
+			exp(),
+			dynJump()
+		{}
+
+		CaseCond(Expression* exp) :
+			exp(exp),
+			dynJump()
+		{}
 	};
 
 	struct CatchClause
@@ -239,12 +316,34 @@ namespace croc
 		Identifier* catchVar;
 		DArray<Expression*> exTypes;
 		Statement* catchBody;
+
+		CatchClause() :
+			catchVar(),
+			exTypes(),
+			catchBody()
+		{}
+
+		CatchClause(Identifier* catchVar, DArray<Expression*> exTypes, Statement* catchBody) :
+			catchVar(catchVar),
+			exTypes(exTypes),
+			catchBody(catchBody)
+		{}
 	};
 
 	struct TableCtorField
 	{
 		Expression* key;
 		Expression* value;
+
+		TableCtorField() :
+			key(),
+			value()
+		{}
+
+		TableCtorField(Expression* key, Expression* value) :
+			key(key),
+			value(value)
+		{}
 	};
 
 	struct AstNode
@@ -290,22 +389,22 @@ namespace croc
 			AstNode(location, endLocation, type)
 		{}
 
-		inline void checkToNothing(Compiler* c)
+		inline void checkToNothing(Compiler& c)
 		{
 			if(!hasSideEffects())
-				c->loneStmtException(location, "%s cannot exist on its own", niceString());
+				c.loneStmtException(location, "%s cannot exist on its own", niceString());
 		}
 
-		inline void checkMultRet(Compiler* c)
+		inline void checkMultRet(Compiler& c)
 		{
 			if(!isMultRet())
-				c->semException(location, "%s cannot be the source of a multi-target assignment", niceString());
+				c.semException(location, "%s cannot be the source of a multi-target assignment", niceString());
 		}
 
-		inline void checkLHS(Compiler* c)
+		inline void checkLHS(Compiler& c)
 		{
 			if(!isLHS())
-				c->semException(location, "%s cannot be the target of an assignment", niceString());
+				c.semException(location, "%s cannot be the target of an assignment", niceString());
 		}
 
 		virtual bool hasSideEffects()  { return false;  }
@@ -390,8 +489,6 @@ namespace croc
 			forComp(forComp)
 		{}
 	};
-
-#define AST_AS(T, exp) ((exp)->type == AstTag_##T ? (exp) : nullptr)
 
 	struct Identifier : public AstNode
 	{

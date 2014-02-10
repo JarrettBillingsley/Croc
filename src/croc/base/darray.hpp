@@ -37,6 +37,15 @@ namespace croc
 			return ret;
 		}
 
+		template<typename U>
+		DArray<U> as()
+		{
+			auto thisSize = ARRAY_BYTE_SIZE(length);
+			auto newLen = thisSize / sizeof(U);
+			assert(newLen * sizeof(U) == thisSize);
+			return DArray<U>::n(cast(U*)ptr, newLen);
+		}
+
 		void free(Memory& mem)
 		{
 			if(length == 0)

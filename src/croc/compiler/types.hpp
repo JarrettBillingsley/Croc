@@ -109,6 +109,7 @@ namespace croc
 		Thread* thread();
 		Memory& mem();
 		const char* newString(crocstr s);
+		const char* newString(const char* s);
 		void* allocNode(uword size);
 		void addArray(DArray<uint8_t> arr);
 		DArray<uint8_t> copyArray(DArray<uint8_t> arr);
@@ -158,17 +159,31 @@ namespace croc
 				add(i);
 		}
 
+		void add(DArray<const T> items)
+		{
+			for(auto &i: items)
+				add(i);
+		}
+
 		void operator+=(T item)    { add(item);  }
 		void operator+=(DArray<T> items) { add(items); }
 
 		T operator[](uword index) const
 		{
+			assert(index < mIndex);
 			return mData[index];
 		}
 
 		T& operator[](uword index)
 		{
+			assert(index < mIndex);
 			return mData[index];
+		}
+
+		T& last()
+		{
+			assert(mIndex > 0);
+			return mData[mIndex - 1];
 		}
 
 		void length(uword l)
