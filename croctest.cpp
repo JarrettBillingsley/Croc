@@ -45,32 +45,53 @@ int main()
 	auto t = croc_vm_open(&croc_DefaultMemFunc, nullptr);
 	croc_vm_loadUnsafeLibs(t, CrocUnsafeLib_ReallyAll);
 	croc_vm_loadAllAvailableAddons(t);
-	croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
+	// croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
 	// runModule(t, "samples.simple");
 
-	croc_ex_registerGlobals(t, _stupidFuncs);
+	auto f = fopen("..\\samples\\simple.croc", "rb");
 
-	system("..\\croctest.exe > foo.txt");
-	LOAD_FUNCDEF_FROM_FILE(t, "foo.txt");
-
-	croc_function_newScript(t, -1);
-	croc_pushNull(t);
-	auto result = croc_tryCall(t, -2, 0);
-
-	if(result < 0)
+	if(!f)
 	{
-		printf("------------ ERROR ------------\n");
-		croc_pushToString(t, -1);
-		printf("%s\n", croc_getString(t, -1));
-		croc_popTop(t);
-
-		croc_dupTop(t);
-		croc_pushNull(t);
-		croc_methodCall(t, -2, "tracebackString", 1);
-		printf("%s\n", croc_getString(t, -1));
-
-		croc_pop(t, 2);
+		printf("Oh dear :(\n");
+		return 1;
 	}
+
+	fseek(f, 0, SEEK_END);
+	auto size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	auto data = (char*)malloc(size + 1);
+	fread(data, 1, size, f);
+	data[size] = 0;
+	fclose(f);
+
+	croc_pushString(t, data);
+	free(data);
+	const char* modName;
+	croc_compiler_compileModule(t, "samples\\simple.croc", &modName);
+
+	// croc_ex_registerGlobals(t, _stupidFuncs);
+
+	// system("..\\croctest.exe > foo.txt");
+	// LOAD_FUNCDEF_FROM_FILE(t, "foo.txt");
+
+	// croc_function_newScript(t, -1);
+	// croc_pushNull(t);
+	// auto result = croc_tryCall(t, -2, 0);
+
+	// if(result < 0)
+	// {
+	// 	printf("------------ ERROR ------------\n");
+	// 	croc_pushToString(t, -1);
+	// 	printf("%s\n", croc_getString(t, -1));
+	// 	croc_popTop(t);
+
+	// 	croc_dupTop(t);
+	// 	croc_pushNull(t);
+	// 	croc_methodCall(t, -2, "tracebackString", 1);
+	// 	printf("%s\n", croc_getString(t, -1));
+
+	// 	croc_pop(t, 2);
+	// }
 
 	croc_vm_close(t);
 	fflush(stdout);

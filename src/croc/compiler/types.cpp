@@ -1,4 +1,5 @@
 
+#include "croc/compiler/lexer.hpp"
 #include "croc/compiler/types.hpp"
 #include "croc/internal/eh.hpp"
 #include "croc/internal/stack.hpp"
@@ -13,6 +14,9 @@ namespace croc
 		mIsLoneStmt(false),
 		mDanglingDoc(false),
 		mStringTab(0),
+		mNodes(),
+		mArrays(),
+		mHeapArrays(),
 		mHeapArrayIdx(0)
 	{
 		this->t = t;
@@ -154,33 +158,38 @@ namespace croc
 
 	int Compiler::compileModule(const char* src, const char* name, const char*& modName)
 	{
-		(void)src;
-		(void)name;
 		(void)modName;
-		return 0;
-		// return commonCompile([&]()
-		// {
-		// 	Lexer lexer(this);
-		// 	lexer.begin(name, source);
-		// 	Parser parser(this, lexer);
-		// 	auto mod = parser.parseModule();
-		// 	moduleName = mod.names.join(".");
-		// 	mDanglingDoc = parser.danglingDoc();
+		return commonCompile([&]()
+		{
+			Lexer lexer(this);
+			lexer.begin(name, src);
 
-		// 	if(docComments)
-		// 	{
-		// 		DocGen doc(this);
-		// 		mod = doc.visit(mod);
+			while(lexer.type() != Token::EOF_)
+			{
+				auto loc = lexer.loc();
+				printf("[%*s(%3u:%3u)] %s\n", loc.file.length, loc.file.ptr, loc.line, loc.col, lexer.tok().typeString());
+				lexer.next();
+			}
 
-		// 		if(!docTable)
-		// 			croc_popTop(*t);
-		// 	}
+			// Parser parser(this, lexer);
+			// auto mod = parser.parseModule();
+			// moduleName = mod.names.join(".");
+			// mDanglingDoc = parser.danglingDoc();
 
-		// 	Semantic sem(this);
-		// 	mod = sem.visit(mod);
-		// 	Codegen cg(this);
-		// 	cg.visit(mod);
-		// });
+			// if(docComments)
+			// {
+			// 	DocGen doc(this);
+			// 	mod = doc.visit(mod);
+
+			// 	if(!docTable)
+			// 		croc_popTop(*t);
+			// }
+
+			// Semantic sem(this);
+			// mod = sem.visit(mod);
+			// Codegen cg(this);
+			// cg.visit(mod);
+		});
 	}
 
 	int Compiler::compileStmts(const char* src, const char* name)

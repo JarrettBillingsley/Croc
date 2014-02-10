@@ -195,7 +195,7 @@ namespace croc
 	{
 		int compareFunc(const void* a, const void* b)
 		{
-			return strcmp(cast(const char*)a, cast(const char*)b);
+			return strcmp(cast(const char*)a, *cast(const char* const*)b);
 		}
 	}
 	}
@@ -203,7 +203,7 @@ namespace croc
 	int Lexer::lookupKeyword(char* str)
 	{
 		auto ptr = cast(const char**)bsearch(cast(const void*)str, cast(const void*)Token::KeywordStrings,
-			Token::NUM_KEYWORDS, sizeof(const char*), cast(int(*)(const void*,const void*))&strcmp);
+			Token::NUM_KEYWORDS, sizeof(const char*), &compareFunc);
 
 		if(ptr)
 			return ptr - Token::KeywordStrings;

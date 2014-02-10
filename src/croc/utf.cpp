@@ -464,7 +464,7 @@ namespace croc
 	Returns:
 		One of the members of UtfError. If buf is too small to hold the encoded character, returns UtfError_Truncated.
 	*/
-	UtfError encodeUtf8Char(DArray<char> buf, dchar c, DArray<char> ret)
+	UtfError encodeUtf8Char(DArray<char> buf, dchar c, DArray<char>& ret)
 	{
 		auto str = DArray<const dchar>::n(&c, 1);
 		auto remaining = DArray<const dchar>();

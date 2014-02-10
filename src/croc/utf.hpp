@@ -41,7 +41,7 @@ namespace croc
 	UtfError Utf16ToUtf8BS(DArray<const wchar> str, DArray<char> buf, DArray<const wchar>& remaining, DArray<char>& output);
 	UtfError Utf32ToUtf8BS(DArray<const dchar> str, DArray<char> buf, DArray<const dchar>& remaining, DArray<char>& output);
 
-	UtfError encodeUtf8Char(DArray<char> buf, dchar c, DArray<char> ret);
+	UtfError encodeUtf8Char(DArray<char> buf, dchar c, DArray<char>& ret);
 
 	// =================================================================================================================
 	// The functions from here on all assume the input string is well-formed -- which is the case with Croc's strings
