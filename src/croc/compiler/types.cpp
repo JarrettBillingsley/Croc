@@ -274,7 +274,7 @@ namespace croc
 		croc_call(*t, ex, 1);
 		croc_dupTop(*t);
 		croc_pushNull(*t);
-		croc_eh_pushLocationObject(*t, loc.file.ptr, loc.line, loc.col);
+		croc_eh_pushLocationObject(*t, loc.file, loc.line, loc.col);
 		croc_methodCall(*t, -3, "setLocation", 0);
 		croc_eh_throw(*t);
 	}

@@ -75,7 +75,7 @@ namespace croc
 
 	void Lexer::begin(const char* name, const char* source)
 	{
-		mLoc.file = atoda(name);
+		mLoc.file = name;
 		mLoc.line = 1;
 		mLoc.col = 0;
 		mSource = atoda(source);
@@ -268,7 +268,7 @@ namespace croc
 
 				if(mLinePragmaFile != nullptr)
 				{
-					mLoc.file = atoda(mLinePragmaFile);
+					mLoc.file = mLinePragmaFile;
 					mLinePragmaFile = nullptr;
 				}
 			}
@@ -989,8 +989,8 @@ namespace croc
 		mNewlineSinceLastTok = false;
 		mTok.preComment = nullptr;
 		mTok.postComment = nullptr;
-		mTok.preCommentLoc = {{nullptr, 0}, 0, 0};
-		mTok.postCommentLoc = {{nullptr, 0}, 0, 0};
+		mTok.preCommentLoc = {nullptr, 0, 0};
+		mTok.postCommentLoc = {nullptr, 0, 0};
 		mTok.startChar = mCharPos;
 		mCaptureEnd = mTok.startChar;
 

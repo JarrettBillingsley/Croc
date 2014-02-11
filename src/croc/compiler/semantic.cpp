@@ -130,8 +130,8 @@ namespace croc
 			s->msg = visit(s->msg);
 		else
 		{
-			croc_pushFormat(*c.thread(), "Assertion failure at %*s(%u:%u)",
-				s->location.file.length, s->location.file.ptr, s->location.line, s->location.col);
+			croc_pushFormat(*c.thread(), "Assertion failure at %s(%u:%u)",
+				s->location.file, s->location.line, s->location.col);
 			auto str = c.newString(croc_getString(*c.thread(), -1));
 			croc_popTop(*c.thread());
 			s->msg = new(c) StringExp(s->location, str);
@@ -641,8 +641,8 @@ namespace croc
 							if(loVal == lo2Val ||
 								(loVal < lo2Val && (lo2Val - loVal) <= (hiVal - loVal)) ||
 								(loVal > lo2Val && (loVal - lo2Val) <= (hi2Val - lo2Val)))
-								c.semException(lo2->location, "case range overlaps range at %*s(%u:%u)",
-									lo->location.file.length, lo->location.file.ptr, lo->location.line, lo->location.col);
+								c.semException(lo2->location, "case range overlaps range at %s(%u:%u)",
+									lo->location.file, lo->location.line, lo->location.col);
 						}
 					}
 					else
@@ -652,8 +652,8 @@ namespace croc
 							if(cond.exp->isConstant() &&
 								((cond.exp->isInt() && cond.exp->asInt() >= loVal && cond.exp->asInt() <= hiVal) ||
 								(cond.exp->isFloat() && cond.exp->asFloat() >= loVal && cond.exp->asFloat() <= hiVal)))
-								c.semException(cond.exp->location, "case value overlaps range at %*s(%u:%u)",
-									lo->location.file.length, lo->location.file.ptr, lo->location.line, lo->location.col);
+								c.semException(cond.exp->location, "case value overlaps range at %s(%u:%u)",
+									lo->location.file, lo->location.line, lo->location.col);
 						}
 					}
 				}
@@ -682,8 +682,8 @@ namespace croc
 								(strcmp(hiVal, lo2Val) >= 0 && strcmp(hiVal, hi2Val) <= 0) ||
 								(strcmp(lo2Val, loVal) >= 0 && strcmp(lo2Val, hiVal) <= 0) ||
 								(strcmp(hi2Val, loVal) >= 0 && strcmp(hi2Val, hiVal) <= 0))
-								c.semException(lo2->location, "case range overlaps range at %*s(%u:%u)",
-									lo->location.file.length, lo->location.file.ptr, lo->location.line, lo->location.col);
+								c.semException(lo2->location, "case range overlaps range at %s(%u:%u)",
+									lo->location.file, lo->location.line, lo->location.col);
 						}
 					}
 					else
@@ -692,8 +692,8 @@ namespace croc
 						{
 							if(cond.exp->isConstant() && cond.exp->isString() &&
 								strcmp(cond.exp->asString(), loVal) >= 0 && strcmp(cond.exp->asString(), hiVal) <= 0)
-								c.semException(cond.exp->location, "case value overlaps range at %*s(%u:%u)",
-									lo->location.file.length, lo->location.file.ptr, lo->location.line, lo->location.col);
+								c.semException(cond.exp->location, "case value overlaps range at %s(%u:%u)",
+									lo->location.file, lo->location.line, lo->location.col);
 						}
 					}
 				}

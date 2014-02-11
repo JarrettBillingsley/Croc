@@ -15,7 +15,7 @@ namespace croc
 
 	struct CompileLoc
 	{
-		DArray<const char> file;
+		const char* file;
 		uword line;
 		uword col;
 	};

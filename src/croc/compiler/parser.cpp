@@ -2691,7 +2691,7 @@ namespace croc
 	Identifier* Parser::dummyFuncLiteralName(CompileLoc loc)
 	{
 		auto t = *c.thread();
-		croc_pushFormat(t, "<literal at %*s(%u:%u)>", loc.file.length, loc.file.ptr, loc.line, loc.col);
+		croc_pushFormat(t, "<literal at %s(%u:%u)>", loc.file, loc.line, loc.col);
 		auto str = c.newString(croc_getString(t, -1));
 		croc_popTop(t);
 		return new(c) Identifier(loc, str);
