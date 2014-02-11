@@ -223,7 +223,7 @@ namespace croc
 		l.expect(Token::At);
 
 		auto func = parseDottedName();
-		DArray<Expression*> argsArr;
+		auto argsArr = DArray<Expression*>();
 		Expression* context = nullptr;
 		CompileLoc endLocation;
 
@@ -359,7 +359,7 @@ namespace croc
 		auto namesArr = names.toArray();
 		auto endLocation = namesArr[namesArr.length - 1]->location;
 
-		DArray<Expression*> initializer;
+		auto initializer = DArray<Expression*>();
 
 		if(l.type() == Token::Assign)
 		{
@@ -1160,7 +1160,7 @@ namespace croc
 			indices.add(parseIdentifier());
 		}
 
-		DArray<Identifier*> indicesArr;
+		auto indicesArr = DArray<Identifier*>();
 
 		if(indices.length() == 1)
 		{
@@ -2329,7 +2329,7 @@ namespace croc
 		auto location = l.expect(Token::Yield).loc;
 		l.expect(Token::LParen);
 
-		DArray<Expression*> args;
+		auto args = DArray<Expression*>();
 
 		if(l.type() != Token::RParen)
 			args = parseArguments();
@@ -2424,7 +2424,7 @@ namespace croc
 					l.next();
 
 					Expression* context = nullptr;
-					DArray<Expression*> args;
+					auto args = DArray<Expression*>();
 
 					if(l.type() == Token::With)
 					{
@@ -2601,7 +2601,7 @@ namespace croc
 			if(container.length() > 3)
 				c.synException(container[0]->location, "Too many expressions in container");
 
-			DArray<Identifier*> namesArr;
+			auto namesArr = DArray<Identifier*>();
 
 			if(names.length() == 1)
 			{

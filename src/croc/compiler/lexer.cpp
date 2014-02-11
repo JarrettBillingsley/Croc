@@ -636,7 +636,7 @@ namespace croc
 		auto delimiter = mCharacter;
 		assert(delimiter < 0x7f);
 		char utfbuf[4];
-		DArray<char> tmp;
+		auto tmp = DArray<char>();
 
 		// Skip opening quote
 		nextChar();

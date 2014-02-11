@@ -311,6 +311,12 @@ namespace croc
 			exTypes(),
 			catchBody()
 		{}
+
+		CatchClause(Identifier* catchVar, DArray<Expression*> exTypes, Statement* catchBody) :
+			catchVar(catchVar),
+			exTypes(exTypes),
+			catchBody(catchBody)
+		{}
 	};
 
 	struct TableCtorField
@@ -390,20 +396,21 @@ namespace croc
 				c.semException(location, "%s cannot be the target of an assignment", niceString());
 		}
 
-		virtual bool hasSideEffects()  { return false;  }
-		virtual bool isMultRet()       { return false;  }
-		virtual bool isLHS()           { return false;  }
-		virtual bool isConstant()      { return false;  }
-		virtual bool isNull()          { return false;  }
-		virtual bool isBool()          { return false;  }
-		virtual bool isInt()           { return false;  }
-		virtual bool isFloat()         { return false;  }
-		virtual bool isString()        { return false;  }
-		virtual bool isTrue()          { return false;  }
-		virtual bool asBool()          { assert(false); }
-		virtual crocint asInt()        { assert(false); }
-		virtual crocfloat asFloat()    { assert(false); }
-		virtual const char* asString() { assert(false); }
+		bool hasSideEffects();
+		bool isMultRet();
+		bool isLHS();
+		bool isConstant();
+		bool isTrue();
+		bool isNull();
+		bool isBool();
+		bool isInt();
+		bool isFloat();
+		bool isNum();
+		bool isString();
+		bool asBool();
+		crocint asInt();
+		crocfloat asFloat();
+		const char* asString();
 	};
 
 	struct BinaryExp : public Expression
@@ -986,10 +993,6 @@ namespace croc
 			op2(op2)
 		{}
 
-		inline virtual bool hasSideEffects() override
-		{
-			return cond->hasSideEffects() || op1->hasSideEffects() || op2->hasSideEffects();
-		}
 	};
 
 	#define BINEXPCTOR(Tag, Base)\
@@ -1000,13 +1003,11 @@ namespace croc
 	struct OrOrExp : public BinaryExp
 	{
 		BINEXPCTOR(OrOrExp, BinaryExp)
-		inline virtual bool hasSideEffects() override { return op1->hasSideEffects() || op2->hasSideEffects(); }
 	};
 
 	struct AndAndExp : public BinaryExp
 	{
 		BINEXPCTOR(AndAndExp, BinaryExp)
-		inline virtual bool hasSideEffects() override { return op1->hasSideEffects() || op2->hasSideEffects(); }
 	};
 
 	struct OrExp       : public BinaryExp    { BINEXPCTOR(OrExp,   BinaryExp) };
@@ -1053,7 +1054,6 @@ namespace croc
 	struct LenExp : public UnExp
 	{
 		UNEXPCTOR(LenExp)
-		inline virtual bool isLHS() override { return true; }
 	};
 
 	struct DotExp : public PostfixExp
@@ -1064,8 +1064,6 @@ namespace croc
 			PostfixExp(op->location, name->endLocation, AstTag_DotExp, op),
 			name(name)
 		{}
-
-		inline virtual bool isLHS() override { return true; }
 	};
 
 	struct DotSuperExp : public PostfixExp
@@ -1083,8 +1081,6 @@ namespace croc
 			PostfixExp(op->location, endLocation, AstTag_IndexExp, op),
 			index(index)
 		{}
-
-		inline virtual bool isLHS() override { return true; }
 	};
 
 	struct SliceExp : public PostfixExp
@@ -1097,8 +1093,6 @@ namespace croc
 			loIndex(loIndex),
 			hiIndex(hiIndex)
 		{}
-
-		inline virtual bool isLHS() override { return true; }
 	};
 
 	struct CallExp : public PostfixExp
@@ -1111,9 +1105,6 @@ namespace croc
 			context(context),
 			args(args)
 		{}
-
-		inline virtual bool hasSideEffects() override { return true; }
-		inline virtual bool isMultRet() override { return true; }
 	};
 
 	struct MethodCallExp : public PostfixExp
@@ -1127,9 +1118,6 @@ namespace croc
 			method(method),
 			args(args)
 		{}
-
-		inline virtual bool hasSideEffects() override { return true; }
-		inline virtual bool isMultRet() override { return true; }
 	};
 
 	struct IdentExp : public PrimaryExp
@@ -1140,8 +1128,6 @@ namespace croc
 			PrimaryExp(name->location, AstTag_IdentExp),
 			name(name)
 		{}
-
-		inline virtual bool isLHS() override { return true; }
 	};
 
 	struct ThisExp : public PrimaryExp
@@ -1156,10 +1142,6 @@ namespace croc
 		NullExp(CompileLoc location) :
 			PrimaryExp(location, AstTag_NullExp)
 		{}
-
-		inline virtual bool isConstant() override { return true; }
-		inline virtual bool isTrue() override { return false; }
-		inline virtual bool isNull() override { return true; }
 	};
 
 	struct BoolExp : public PrimaryExp
@@ -1170,11 +1152,6 @@ namespace croc
 			PrimaryExp(location, AstTag_BoolExp),
 			value(value)
 		{}
-
-		inline virtual bool isConstant() override { return true; }
-		inline virtual bool isTrue() override { return value; }
-		inline virtual bool isBool() override { return true; }
-		inline virtual bool asBool() override { return value; }
 	};
 
 	struct VarargExp : public PrimaryExp
@@ -1182,8 +1159,6 @@ namespace croc
 		VarargExp(CompileLoc location) :
 			PrimaryExp(location, AstTag_VarargExp)
 		{}
-
-		inline virtual bool isMultRet() override { return true; }
 	};
 
 	struct VargLenExp : public PrimaryExp
@@ -1201,8 +1176,6 @@ namespace croc
 			PrimaryExp(location, endLocation, AstTag_VargIndexExp),
 			index(index)
 		{}
-
-		inline virtual bool isLHS() override { return true; }
 	};
 
 	struct VargSliceExp : public PrimaryExp
@@ -1215,8 +1188,6 @@ namespace croc
 			loIndex(loIndex),
 			hiIndex(hiIndex)
 		{}
-
-		inline virtual bool isMultRet() override { return true; }
 	};
 
 	struct IntExp : public PrimaryExp
@@ -1227,12 +1198,6 @@ namespace croc
 			PrimaryExp(location, AstTag_IntExp),
 			value(value)
 		{}
-
-		inline virtual bool isConstant() override { return true; }
-		inline virtual bool isTrue() override { return (value != 0); }
-		inline virtual bool isInt() override { return true; }
-		inline virtual crocint asInt() override { return value; }
-		inline virtual crocfloat asFloat() override { return cast(crocfloat)value; }
 	};
 
 	struct FloatExp : public PrimaryExp
@@ -1243,11 +1208,6 @@ namespace croc
 			PrimaryExp(location, AstTag_FloatExp),
 			value(value)
 		{}
-
-		inline virtual bool isConstant() override { return true; }
-		inline virtual bool isTrue() override { return (value != 0.0); }
-		inline virtual bool isFloat() override { return true; }
-		inline virtual crocfloat asFloat() override { return value; }
 	};
 
 	struct StringExp : public PrimaryExp
@@ -1258,11 +1218,6 @@ namespace croc
 			PrimaryExp(location, AstTag_StringExp),
 			value(value)
 		{}
-
-		inline virtual bool isConstant() override { return true; }
-		inline virtual bool isTrue() override { return true; }
-		inline virtual bool isString() override { return true; }
-		inline virtual const char* asString() override { return value; }
 	};
 
 	struct FuncLiteralExp : public PrimaryExp
@@ -1313,9 +1268,6 @@ namespace croc
 			PrimaryExp(location, endLocation, AstTag_YieldExp),
 			args(args)
 		{}
-
-		inline virtual bool hasSideEffects() override { return true; }
-		inline virtual bool isMultRet() override { return true; }
 	};
 
 	struct IfComprehension : public AstNode

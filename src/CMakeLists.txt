@@ -50,6 +50,8 @@ set(croc_SRC
 	croc/compiler/lexer.hpp
 	croc/compiler/parser.cpp
 	croc/compiler/parser.hpp
+	croc/compiler/semantic.cpp
+	croc/compiler/semantic.hpp
 	croc/compiler/types.hpp
 	croc/compiler/types.cpp
 	croc/ex/common.cpp
@@ -115,7 +117,7 @@ set(croc_ALLSRC
 )
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "-std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions -Wno-pedantic-ms-format -fmax-errors=5")
+	set(CMAKE_CXX_FLAGS "-std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions -Wno-pedantic-ms-format -fmax-errors=2")
 	set(CMAKE_CXX_FLAGS_DEBUG "-g -DCROC_STOMP_MEMORY -DCROC_LEAK_DETECTOR")
 	set(CMAKE_CXX_FLAGS_RELEASE "-fno-rtti")
 elseif(MSVC)

@@ -2,6 +2,7 @@
 #include "croc/compiler/ast.hpp"
 #include "croc/compiler/lexer.hpp"
 #include "croc/compiler/parser.hpp"
+#include "croc/compiler/semantic.hpp"
 #include "croc/compiler/types.hpp"
 #include "croc/internal/eh.hpp"
 #include "croc/internal/stack.hpp"
@@ -212,8 +213,8 @@ namespace croc
 			// 		croc_popTop(*t);
 			// }
 
-			// Semantic sem(this);
-			// mod = sem.visit(mod);
+			Semantic sem(*this);
+			mod = sem.visit(mod);
 			// Codegen cg(this);
 			// cg.visit(mod);
 		});

@@ -174,7 +174,12 @@ namespace croc
 			assert(lo <= hi);
 			assert(hi <= length);
 
-			return DArray<T>::n(ptr + lo, hi - lo);
+			auto len = hi - lo;
+
+			if(len)
+				return DArray<T>::n(ptr + lo, len);
+			else
+				return DArray<T>();
 		}
 
 		inline void fill(T val)

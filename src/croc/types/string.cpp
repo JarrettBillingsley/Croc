@@ -71,7 +71,7 @@ namespace croc
 		if(this->length < sub.length)
 			return false;
 
-		// TODO: implement this!
+		// TODO: string locate
 		// return this->toDArray().locatePattern(sub) != this->length;
 		return false;
 	}
