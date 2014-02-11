@@ -308,17 +308,24 @@ namespace croc
 						attachDocs(*ret, docs, docsLoc);
 						return ret;
 					}
-					case Token::Function:  { auto ret = parseFuncDecl(deco); attachDocs(*ret->def, docs, docsLoc); return ret; }
-					case Token::Class:     { auto ret = parseClassDecl(deco); attachDocs(*ret, docs, docsLoc); return ret; }
-					case Token::Namespace: { auto ret = parseNamespaceDecl(deco); attachDocs(*ret, docs, docsLoc); return ret; }
+					case Token::Function:
+						{ auto ret = parseFuncDecl(deco);      attachDocs(*ret->def, docs, docsLoc); return ret; }
+					case Token::Class:
+						{ auto ret = parseClassDecl(deco);     attachDocs(*ret,      docs, docsLoc); return ret; }
+					case Token::Namespace:
+						{ auto ret = parseNamespaceDecl(deco); attachDocs(*ret,      docs, docsLoc); return ret; }
 
 					default:
-						c.synException(l.loc(), "Illegal token '%s' after '%s'", l.peek().typeString(), l.tok().typeString());
+						c.synException(l.loc(), "Illegal token '%s' after '%s'",
+							l.peek().typeString(), l.tok().typeString());
 				}
 
-			case Token::Function:  { auto ret = parseFuncDecl(deco); attachDocs(*ret->def, docs, docsLoc); return ret; }
-			case Token::Class:     { auto ret = parseClassDecl(deco); attachDocs(*ret, docs, docsLoc); return ret; }
-			case Token::Namespace: { auto ret = parseNamespaceDecl(deco); attachDocs(*ret, docs, docsLoc); return ret; }
+			case Token::Function:
+				{ auto ret = parseFuncDecl(deco);      attachDocs(*ret->def, docs, docsLoc); return ret; }
+			case Token::Class:
+				{ auto ret = parseClassDecl(deco);     attachDocs(*ret,      docs, docsLoc); return ret; }
+			case Token::Namespace:
+				{ auto ret = parseNamespaceDecl(deco); attachDocs(*ret,      docs, docsLoc); return ret; }
 
 			default:
 				l.expected("Declaration");
@@ -430,7 +437,7 @@ namespace croc
 		{
 			code = parseStatement();
 
-			if(!AST_AS(BlockStmt, code))
+			if(code->type != AstTag_BlockStmt)
 			{
 				List<Statement*> dummy(c);
 				dummy.add(code);
@@ -519,7 +526,8 @@ namespace croc
 		return ret.toArray();
 	}
 
-	uint32_t Parser::parseParamType(DArray<Expression*>& classTypes, const char*& typeString, Expression*& customConstraint)
+	uint32_t Parser::parseParamType(DArray<Expression*>& classTypes, const char*& typeString,
+		Expression*& customConstraint)
 	{
 		uint32_t ret = 0;
 		List<Expression*> objTypes(c);
@@ -536,7 +544,8 @@ namespace croc
 		{
 			l.next();
 			auto t2 = l.expect(Token::Ident);
-			auto exp = new(c) DotExp(new(c) IdentExp(new(c) Identifier(t.loc, t.stringValue)), new(c) StringExp(t2.loc, t2.stringValue));
+			auto exp = new(c) DotExp(new(c) IdentExp(new(c) Identifier(t.loc, t.stringValue)),
+				new(c) StringExp(t2.loc, t2.stringValue));
 
 			while(l.type() == Token::Dot)
 			{
@@ -596,7 +605,11 @@ namespace croc
 							else
 								objTypes.add(new(c) IdentExp(new(c) Identifier(tt.loc, tt.stringValue)));
 						}
-						else if(l.type() != Token::Or && l.type() != Token::Comma && l.type() != Token::RParen && l.type() != Token::Arrow)
+						else if(l.type() != Token::Or &&
+							l.type() != Token::Comma &&
+							l.type() != Token::RParen &&
+							l.type() != Token::Arrow)
+
 							l.expected("class type");
 					}
 					else
@@ -748,7 +761,8 @@ namespace croc
 
 		List<ClassField> fields(c);
 
-		auto addField = [&](Decorator* deco, Identifier* name, Expression* v, FuncLiteralExp* func, bool isOverride, const char* preDocs, CompileLoc preDocsLoc)
+		auto addField = [&](Decorator* deco, Identifier* name, Expression* v, FuncLiteralExp* func, bool isOverride,
+			const char* preDocs, CompileLoc preDocsLoc)
 		{
 			if(deco != nullptr)
 				v = decoToExp(deco, v);
@@ -789,7 +803,8 @@ namespace croc
 
 				case Token::This: {
 					auto loc = l.expect(Token::This).loc;
-					addMethod(memberDeco, parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor"))), isOverride, docs, docsLoc);
+					addMethod(memberDeco, parseFuncBody(loc, new(c) Identifier(loc, c.newString("constructor"))),
+						isOverride, docs, docsLoc);
 					break;
 				}
 				case Token::Ident: {
@@ -820,7 +835,8 @@ namespace croc
 
 		mCurrentClassName = oldClassName;
 		auto endLocation = l.expect(Token::RBrace).loc;
-		return new(c) ClassDecl(location, endLocation, protection, deco, className, baseClasses.toArray(), fields.toArray());
+		return new(c) ClassDecl(location, endLocation, protection, deco, className, baseClasses.toArray(),
+			fields.toArray());
 	}
 
 	NamespaceDecl* Parser::parseNamespaceDecl(Decorator* deco)
@@ -858,7 +874,8 @@ namespace croc
 		auto fieldMap = croc_table_new(t, 8);
 		List<NamespaceField> fields(c);
 
-		auto addField = [&](Decorator* deco, Identifier* name, Expression* v, FuncLiteralExp* func, const char* preDocs, CompileLoc preDocsLoc)
+		auto addField = [&](Decorator* deco, Identifier* name, Expression* v, FuncLiteralExp* func, const char* preDocs,
+			CompileLoc preDocsLoc)
 		{
 			croc_pushString(t, name->name);
 
@@ -1423,7 +1440,8 @@ namespace croc
 		else if(strcmp(id.stringValue, "failure") == 0)
 			type = ScopeAction::Failure;
 		else
-			c.synException(location, "Expected one of 'exit', 'success', or 'failure' for scope statement, not '%s'", id.stringValue);
+			c.synException(location, "Expected one of 'exit', 'success', or 'failure' for scope statement, not '%s'",
+				id.stringValue);
 
 		l.expect(Token::RParen);
 		auto stmt = parseStatement();
@@ -1490,12 +1508,14 @@ namespace croc
 
 			if(finallyBody)
 			{
-				auto tmp = new(c) TryCatchStmt(location, catchArr[catchArr.length - 1].catchBody->endLocation, tryBody, catchArr);
+				auto tmp = new(c) TryCatchStmt(location, catchArr[catchArr.length - 1].catchBody->endLocation, tryBody,
+					catchArr);
 				return new(c) TryFinallyStmt(location, finallyBody->endLocation, tmp, finallyBody);
 			}
 			else
 			{
-				return new(c) TryCatchStmt(location, catchArr[catchArr.length - 1].catchBody->endLocation, tryBody, catchArr);
+				return new(c) TryCatchStmt(location, catchArr[catchArr.length - 1].catchBody->endLocation, tryBody,
+					catchArr);
 			}
 		}
 		else if(finallyBody)
@@ -2067,7 +2087,7 @@ namespace croc
 				l.next();
 				exp = parseUnExp();
 
-				if(AST_AS(VarargExp, exp))
+				if(exp->type == AstTag_VarargExp)
 					exp = new(c) VargLenExp(location, exp->endLocation);
 				else
 					exp = new(c) LenExp(location, exp);
@@ -2391,7 +2411,8 @@ namespace croc
 					auto arr = args.toArray();
 
 					if(auto dot = AST_AS(DotExp, exp))
-						exp = new(c) MethodCallExp(dot->location, arr[arr.length - 1]->endLocation, dot->op, dot->name, arr);
+						exp = new(c) MethodCallExp(dot->location, arr[arr.length - 1]->endLocation, dot->op, dot->name,
+							arr);
 					else
 						exp = new(c) CallExp(arr[arr.length - 1]->endLocation, exp, nullptr, arr);
 					continue;
@@ -2407,8 +2428,9 @@ namespace croc
 
 					if(l.type() == Token::With)
 					{
-						if(AST_AS(DotExp, exp))
-							c.semException(l.loc(), "'with' is disallowed for method calls; if you aren't making an actual method call, put the function in parentheses");
+						if(exp->type == AstTag_DotExp)
+							c.semException(l.loc(), "'with' is disallowed for method calls; if you aren't making an "
+								"actual method call, put the function in parentheses");
 
 						l.next();
 
@@ -2489,7 +2511,7 @@ namespace croc
 							// a[0]
 							endLocation = l.expect(Token::RBracket).loc;
 
-							if(AST_AS(VarargExp, exp))
+							if(exp->type == AstTag_VarargExp)
 								exp = new(c) VargIndexExp(location, endLocation, loIndex);
 							else
 								exp = new(c) IndexExp(endLocation, exp, loIndex);
@@ -2499,7 +2521,7 @@ namespace croc
 						}
 					}
 
-					if(AST_AS(VarargExp, exp))
+					if(exp->type == AstTag_VarargExp)
 						exp = new(c) VargSliceExp(location, endLocation, loIndex, hiIndex);
 					else
 						exp = new(c) SliceExp(endLocation, exp, loIndex, hiIndex);
