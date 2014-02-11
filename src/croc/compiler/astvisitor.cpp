@@ -5,15 +5,27 @@
 
 namespace croc
 {
-	const std::function<AstNode*(Visitor*, AstNode*)> Visitor::dispatchTable[] =
-	{
+	// Visit methods
 #define POOP(Tag, _, BaseType)\
-		[](Visitor* v, AstNode* n) -> AstNode*\
-		{\
-			return v->visit(cast(Tag*)n);\
-		},
-
-		AST_LIST(POOP)
+	BaseType* AstVisitor::visit(Tag* node)\
+	{\
+		(void)node;\
+		fprintf(stderr, "no visit method implemented for AST node '" #Tag "'");\
+		abort();\
+	}
+	AST_LIST(POOP)
 #undef POOP
-	};
+
+	AstNode* AstVisitor::visit(AstNode* n)
+	{
+		switch(n->type)
+		{
+#define POOP(Tag, _, __)\
+			case AstTag_##Tag: return visit(cast(Tag*)n);
+			AST_LIST(POOP)
+#undef poop
+
+			default: assert(false);
+		}
+	}
 }
