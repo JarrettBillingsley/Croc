@@ -148,11 +148,7 @@ namespace croc
 
 		~List()
 		{
-			if(mData.length && mData.ptr != mOwnData)
-			{
-				c.removeTempArray(mData.template as<uint8_t>());
-				mData.free(c.mem());
-			}
+			reset();
 		}
 
 		void add(T item)
@@ -239,6 +235,18 @@ namespace croc
 		T* end()
 		{
 			return mData.ptr + mIndex;
+		}
+
+		void reset()
+		{
+			if(mData.length && mData.ptr != mOwnData)
+			{
+				c.removeTempArray(mData.template as<uint8_t>());
+				mData.free(c.mem());
+			}
+
+			mData = DArray<T>::n(mOwnData, Len);
+			mIndex = 0;
 		}
 
 	private:

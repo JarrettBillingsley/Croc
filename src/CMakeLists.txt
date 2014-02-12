@@ -46,6 +46,8 @@ set(croc_SRC
 	croc/compiler/ast.hpp
 	croc/compiler/astvisitor.cpp
 	croc/compiler/astvisitor.hpp
+	croc/compiler/builder.cpp
+	croc/compiler/builder.hpp
 	croc/compiler/lexer.cpp
 	croc/compiler/lexer.hpp
 	croc/compiler/parser.cpp

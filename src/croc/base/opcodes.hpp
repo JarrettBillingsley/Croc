@@ -224,7 +224,8 @@ FIVE SHORTS:
 #define POOP(x) Op_ ## x
 	enum Op
 	{
-		INSTRUCTION_LIST(POOP)
+		INSTRUCTION_LIST(POOP),
+		Op_NUM_OPCODES
 	};
 #undef POOP
 
