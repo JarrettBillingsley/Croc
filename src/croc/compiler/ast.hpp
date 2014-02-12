@@ -425,20 +425,6 @@ namespace croc
 		{}
 	};
 
-	struct BaseEqualExp : public BinaryExp
-	{
-		BaseEqualExp(CompileLoc location, CompileLoc endLocation, AstTag type, Expression* op1, Expression* op2) :
-			BinaryExp(location, endLocation, type, op1, op2)
-		{}
-	};
-
-	struct BaseCmpExp : public BinaryExp
-	{
-		BaseCmpExp(CompileLoc location, CompileLoc endLocation, AstTag type, Expression* op1, Expression* op2) :
-			BinaryExp(location, endLocation, type, op1, op2)
-		{}
-	};
-
 	struct UnExp : public Expression
 	{
 		Expression* op;
@@ -995,51 +981,49 @@ namespace croc
 
 	};
 
-	#define BINEXPCTOR(Tag, Base)\
+	#define BINEXPCTOR(Tag)\
 		Tag(CompileLoc location, CompileLoc endLocation, Expression* left, Expression* right) :\
-			Base(location, endLocation, AstTag_##Tag, left, right)\
+			BinaryExp(location, endLocation, AstTag_##Tag, left, right)\
 		{}
 
-	struct OrOrExp : public BinaryExp
-	{
-		BINEXPCTOR(OrOrExp, BinaryExp)
-	};
+	struct OrOrExp     : public BinaryExp { BINEXPCTOR(OrOrExp)     };
+	struct AndAndExp   : public BinaryExp { BINEXPCTOR(AndAndExp)   };
 
-	struct AndAndExp : public BinaryExp
-	{
-		BINEXPCTOR(AndAndExp, BinaryExp)
-	};
+	struct OrExp       : public BinaryExp { BINEXPCTOR(OrExp)       };
+	struct XorExp      : public BinaryExp { BINEXPCTOR(XorExp)      };
+	struct AndExp      : public BinaryExp { BINEXPCTOR(AndExp)      };
+	struct Cmp3Exp     : public BinaryExp { BINEXPCTOR(Cmp3Exp)     };
+	struct ShlExp      : public BinaryExp { BINEXPCTOR(ShlExp)      };
+	struct ShrExp      : public BinaryExp { BINEXPCTOR(ShrExp)      };
+	struct UShrExp     : public BinaryExp { BINEXPCTOR(UShrExp)     };
+	struct AddExp      : public BinaryExp { BINEXPCTOR(AddExp)      };
+	struct SubExp      : public BinaryExp { BINEXPCTOR(SubExp)      };
+	struct MulExp      : public BinaryExp { BINEXPCTOR(MulExp)      };
+	struct DivExp      : public BinaryExp { BINEXPCTOR(DivExp)      };
+	struct ModExp      : public BinaryExp { BINEXPCTOR(ModExp)      };
 
-	struct OrExp       : public BinaryExp    { BINEXPCTOR(OrExp,   BinaryExp) };
-	struct XorExp      : public BinaryExp    { BINEXPCTOR(XorExp,  BinaryExp) };
-	struct AndExp      : public BinaryExp    { BINEXPCTOR(AndExp,  BinaryExp) };
-	struct Cmp3Exp     : public BinaryExp    { BINEXPCTOR(Cmp3Exp, BinaryExp) };
-	struct ShlExp      : public BinaryExp    { BINEXPCTOR(ShlExp,  BinaryExp) };
-	struct ShrExp      : public BinaryExp    { BINEXPCTOR(ShrExp,  BinaryExp) };
-	struct UShrExp     : public BinaryExp    { BINEXPCTOR(UShrExp, BinaryExp) };
-	struct AddExp      : public BinaryExp    { BINEXPCTOR(AddExp,  BinaryExp) };
-	struct SubExp      : public BinaryExp    { BINEXPCTOR(SubExp,  BinaryExp) };
-	struct MulExp      : public BinaryExp    { BINEXPCTOR(MulExp,  BinaryExp) };
-	struct DivExp      : public BinaryExp    { BINEXPCTOR(DivExp,  BinaryExp) };
-	struct ModExp      : public BinaryExp    { BINEXPCTOR(ModExp,  BinaryExp) };
+	struct EqualExp    : public BinaryExp { BINEXPCTOR(EqualExp)    };
+	struct NotEqualExp : public BinaryExp { BINEXPCTOR(NotEqualExp) };
+	struct IsExp       : public BinaryExp { BINEXPCTOR(IsExp)       };
+	struct NotIsExp    : public BinaryExp { BINEXPCTOR(NotIsExp)    };
+	struct InExp       : public BinaryExp { BINEXPCTOR(InExp)       };
+	struct NotInExp    : public BinaryExp { BINEXPCTOR(NotInExp)    };
 
-	struct EqualExp    : public BaseEqualExp { BINEXPCTOR(EqualExp,    BaseEqualExp) };
-	struct NotEqualExp : public BaseEqualExp { BINEXPCTOR(NotEqualExp, BaseEqualExp) };
-	struct IsExp       : public BaseEqualExp { BINEXPCTOR(IsExp,       BaseEqualExp) };
-	struct NotIsExp    : public BaseEqualExp { BINEXPCTOR(NotIsExp,    BaseEqualExp) };
-	struct InExp       : public BaseEqualExp { BINEXPCTOR(InExp,       BaseEqualExp) };
-	struct NotInExp    : public BaseEqualExp { BINEXPCTOR(NotInExp,    BaseEqualExp) };
-
-	struct LTExp       : public BaseCmpExp   { BINEXPCTOR(LTExp, BaseCmpExp) };
-	struct LEExp       : public BaseCmpExp   { BINEXPCTOR(LEExp, BaseCmpExp) };
-	struct GTExp       : public BaseCmpExp   { BINEXPCTOR(GTExp, BaseCmpExp) };
-	struct GEExp       : public BaseCmpExp   { BINEXPCTOR(GEExp, BaseCmpExp) };
+	struct LTExp       : public BinaryExp { BINEXPCTOR(LTExp)       };
+	struct LEExp       : public BinaryExp { BINEXPCTOR(LEExp)       };
+	struct GTExp       : public BinaryExp { BINEXPCTOR(GTExp)       };
+	struct GEExp       : public BinaryExp { BINEXPCTOR(GEExp)       };
 
 	struct CatExp : public BinaryExp
 	{
 		DArray<Expression*> operands;
 		bool collapsed = false;
-		BINEXPCTOR(CatExp, BinaryExp)
+
+		CatExp(CompileLoc location, CompileLoc endLocation, Expression* left, Expression* right) :
+			BinaryExp(location, endLocation, AstTag_CatExp, left, right),
+			operands(),
+			collapsed(false)
+		{}
 	};
 
 	#define UNEXPCTOR(Tag)\

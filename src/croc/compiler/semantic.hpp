@@ -39,9 +39,9 @@ namespace croc
 
 		FuncDef* commonVisitFuncDef(FuncDef* d);
 		OpAssignStmt* visitOpAssign(OpAssignStmt* s);
-		Expression* visitEquality(BaseEqualExp* e);
+		Expression* visitEquality(BinaryExp* e);
 		word commonCompare(Expression* op1, Expression* op2);
-		Expression* visitComparison(BaseCmpExp* e);
+		Expression* visitComparison(BinaryExp* e);
 		ForComprehension* visitForComp(ForComprehension* e);
 		Identifier* genDummyVar(CompileLoc loc, const char* fmt);
 

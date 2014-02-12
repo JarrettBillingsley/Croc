@@ -1088,7 +1088,7 @@ namespace croc
 		return e;
 	}
 
-	Expression* Semantic::visitEquality(BaseEqualExp* e)
+	Expression* Semantic::visitEquality(BinaryExp* e)
 	{
 		e->op1 = visit(e->op1);
 		e->op2 = visit(e->op2);
@@ -1169,7 +1169,7 @@ namespace croc
 		assert(false);
 	}
 
-	Expression* Semantic::visitComparison(BaseCmpExp* e)
+	Expression* Semantic::visitComparison(BinaryExp* e)
 	{
 		e->op1 = visit(e->op1);
 		e->op2 = visit(e->op2);

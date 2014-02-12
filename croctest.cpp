@@ -91,9 +91,6 @@ int main()
 
 	// croc_ex_registerGlobals(t, _stupidFuncs);
 
-	// system("..\\croctest.exe > foo.txt");
-	// LOAD_FUNCDEF_FROM_FILE(t, "foo.txt");
-
 	// croc_function_newScript(t, -1);
 	// croc_pushNull(t);
 	// auto result = croc_tryCall(t, -2, 0);
