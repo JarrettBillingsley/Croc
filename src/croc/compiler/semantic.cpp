@@ -7,6 +7,16 @@
 #include "croc/compiler/types.hpp"
 #include "croc/types.hpp"
 
+#define VISIT(e)               do { e = visit(e);                     } while(false)
+#define COND_VISIT(e)          do { if(e) e = visit(e);               } while(false)
+#define VISIT_ARR(a)           do { for(auto &x: a) x = visit(x);     } while(false)
+#define VISIT_ARR_FIELD(a, y)  do { for(auto &x: a) x.y = visit(x.y); } while(false)
+#define PROTECTION(d)\
+	do {\
+		if(d->protection == Protection::Default)\
+			d->protection = isTopLevel() ? Protection::Global : Protection::Local;\
+	} while(false)
+
 namespace croc
 {
 	bool Semantic::isTopLevel()
@@ -33,12 +43,8 @@ namespace croc
 	{
 		FinallyDepth depth(0, mFinallyDepth);
 		mFinallyDepth = &depth;
-
-		m->statements = visit(m->statements);
-
-		if(m->decorator)
-			m->decorator = visit(m->decorator);
-
+		VISIT(m->statements);
+		COND_VISIT(m->decorator);
 		mFinallyDepth = depth.prev;
 		return m;
 	}
@@ -75,18 +81,12 @@ namespace croc
 
 			CrocType type;
 
-			if(p.defValue->isNull())
-				type = CrocType_Null;
-			else if(p.defValue->isBool())
-				type = CrocType_Bool;
-			else if(p.defValue->isInt())
-				type = CrocType_Int;
-			else if(p.defValue->isFloat())
-				type = CrocType_Float;
-			else if(p.defValue->isString())
-				type = CrocType_String;
-			else
-				assert(false);
+			if(p.defValue->isNull())        type = CrocType_Null;
+			else if(p.defValue->isBool())   type = CrocType_Bool;
+			else if(p.defValue->isInt())    type = CrocType_Int;
+			else if(p.defValue->isFloat())  type = CrocType_Float;
+			else if(p.defValue->isString()) type = CrocType_String;
+			else assert(false);
 
 			if(!(p.typeMask & (1 << type)))
 				c.semException(p.defValue->location, "Parameter %u: Default parameter of type '%s' is not allowed",
@@ -95,7 +95,7 @@ namespace croc
 			i++;
 		}
 
-		d->code = visit(d->code);
+		VISIT(d->code);
 
 		List<Statement*> extra(c);
 
@@ -124,10 +124,10 @@ namespace croc
 		if(!c.asserts())
 			return new(c) BlockStmt(s->location, s->endLocation, DArray<Statement*>());
 
-		s->cond = visit(s->cond);
+		VISIT(s->cond);
 
 		if(s->msg)
-			s->msg = visit(s->msg);
+			VISIT(s->msg);
 		else
 		{
 			croc_pushFormat(*c.thread(), "Assertion failure at %s(%u:%u)",
@@ -142,7 +142,7 @@ namespace croc
 
 	Statement* Semantic::visit(ImportStmt* s)
 	{
-		s->expr = visit(s->expr);
+		VISIT(s->expr);
 
 		if(s->expr->isConstant() && !s->expr->isString())
 			c.semException(s->expr->location, "Import expression must evaluate to a string");
@@ -232,87 +232,55 @@ namespace croc
 
 	ScopeStmt* Semantic::visit(ScopeStmt* s)
 	{
-		s->statement = visit(s->statement);
+		VISIT(s->statement);
 		return s;
 	}
 
 	ExpressionStmt* Semantic::visit(ExpressionStmt* s)
 	{
-		s->expr = visit(s->expr);
+		VISIT(s->expr);
 		return s;
 	}
 
 	VarDecl* Semantic::visit(VarDecl* d)
 	{
-		for(auto &init: d->initializer)
-			init = visit(init);
-
-		if(d->protection == Protection::Default)
-			d->protection = isTopLevel() ? Protection::Global : Protection::Local;
-
+		VISIT_ARR(d->initializer);
+		PROTECTION(d);
 		return d;
 	}
 
 	Decorator* Semantic::visit(Decorator* d)
 	{
-		d->func = visit(d->func);
-
-		if(d->context)
-			d->context = visit(d->context);
-
-		for(auto &a: d->args)
-			a = visit(a);
-
-		if(d->nextDec)
-			d->nextDec = visit(d->nextDec);
-
+		VISIT(d->func);
+		COND_VISIT(d->context);
+		VISIT_ARR(d->args);
+		COND_VISIT(d->nextDec);
 		return d;
 	}
 
 	FuncDecl* Semantic::visit(FuncDecl* d)
 	{
-		if(d->protection == Protection::Default)
-			d->protection = isTopLevel() ? Protection::Global : Protection::Local;
-
-		d->def = visit(d->def);
-
-		if(d->decorator != nullptr)
-			d->decorator = visit(d->decorator);
-
+		PROTECTION(d);
+		VISIT(d->def);
+		COND_VISIT(d->decorator);
 		return d;
 	}
 
 	ClassDecl* Semantic::visit(ClassDecl* d)
 	{
-		if(d->protection == Protection::Default)
-			d->protection = isTopLevel() ? Protection::Global : Protection::Local;
-
-		if(d->decorator != nullptr)
-			d->decorator = visit(d->decorator);
-
-		for(auto &base: d->baseClasses)
-			base = visit(base);
-
-		for(auto &field: d->fields)
-			field.initializer = visit(field.initializer);
-
+		PROTECTION(d);
+		COND_VISIT(d->decorator);
+		VISIT_ARR(d->baseClasses);
+		VISIT_ARR_FIELD(d->fields, initializer);
 		return d;
 	}
 
 	NamespaceDecl* Semantic::visit(NamespaceDecl* d)
 	{
-		if(d->protection == Protection::Default)
-			d->protection = isTopLevel() ? Protection::Global : Protection::Local;
-
-		if(d->decorator != nullptr)
-			d->decorator = visit(d->decorator);
-
-		if(d->parent)
-			visit(d->parent);
-
-		for(auto &field: d->fields)
-			field.initializer = visit(field.initializer);
-
+		PROTECTION(d);
+		COND_VISIT(d->decorator);
+		COND_VISIT(d->parent);
+		VISIT_ARR_FIELD(d->fields, initializer);
 		return d;
 	}
 
@@ -464,11 +432,10 @@ namespace croc
 
 	Statement* Semantic::visit(IfStmt* s)
 	{
-		s->condition = visit(s->condition);
-		s->ifBody = visit(s->ifBody);
+		VISIT(s->condition);
+		VISIT(s->ifBody);
 
-		if(s->elseBody)
-			s->elseBody = visit(s->elseBody);
+		COND_VISIT(s->elseBody);
 
 		if(s->condition->isConstant())
 		{
@@ -503,8 +470,8 @@ namespace croc
 
 	Statement* Semantic::visit(WhileStmt* s)
 	{
-		s->condition = visit(s->condition);
-		s->code = visit(s->code);
+		VISIT(s->condition);
+		VISIT(s->code);
 
 		if(s->condition->isConstant() && !s->condition->isTrue())
 			return new(c) BlockStmt(s->location, s->endLocation, DArray<Statement*>());
@@ -514,9 +481,9 @@ namespace croc
 
 	Statement* Semantic::visit(DoWhileStmt* s)
 	{
-		s->code = visit(s->code);
-		s->condition = visit(s->condition);
 		// Jarrett, stop rewriting do-while statements with constant conditions. you did this before. it fucks up breaks/continues inside them. STOP IT.
+		VISIT(s->code);
+		VISIT(s->condition);
 		return s;
 	}
 
@@ -530,13 +497,9 @@ namespace croc
 				i.stmt = visit(i.stmt);
 		}
 
-		if(s->condition)
-			s->condition = visit(s->condition);
-
-		for(auto &inc: s->increment)
-			inc = visit(inc);
-
-		s->code = visit(s->code);
+		COND_VISIT(s->condition);
+		VISIT_ARR(s->increment);
+		VISIT(s->code);
 
 		if(s->condition && s->condition->isConstant())
 		{
@@ -568,9 +531,9 @@ namespace croc
 
 	Statement* Semantic::visit(ForNumStmt* s)
 	{
-		s->lo = visit(s->lo);
-		s->hi = visit(s->hi);
-		s->step = visit(s->step);
+		VISIT(s->lo);
+		VISIT(s->hi);
+		VISIT(s->step);
 
 		if(s->lo->isConstant() && !s->lo->isInt())
 			c.semException(s->lo->location, "Low value of a numeric for loop must be an integer");
@@ -587,25 +550,21 @@ namespace croc
 				c.semException(s->step->location, "Step value of a numeric for loop may not be 0");
 		}
 
-		s->code = visit(s->code);
+		VISIT(s->code);
 		return s;
 	}
 
 	ForeachStmt* Semantic::visit(ForeachStmt* s)
 	{
-		for(auto &c: s->container)
-			c = visit(c);
-
-		s->code = visit(s->code);
+		VISIT_ARR(s->container);
+		VISIT(s->code);
 		return s;
 	}
 
 	SwitchStmt* Semantic::visit(SwitchStmt* s)
 	{
-		s->condition = visit(s->condition);
-
-		for(auto &c: s->cases)
-			c = visit(c);
+		VISIT(s->condition);
+		VISIT_ARR(s->cases);
 
 		for(auto rc: s->cases)
 		{
@@ -616,7 +575,7 @@ namespace croc
 			auto hi = rc->highRange;
 
 			// this might not work for ranges using absurdly large numbers. fuh.
-			if((lo->isInt() || lo->isFloat()) && (hi->isInt() || hi->isFloat()))
+			if(lo->isNum() && hi->isNum())
 			{
 				auto loVal = lo->asFloat();
 				auto hiVal = hi->asFloat();
@@ -631,9 +590,7 @@ namespace croc
 						auto lo2 = c2->conditions[0].exp;
 						auto hi2 = c2->highRange;
 
-						if((lo2->isConstant() && hi2->isConstant()) &&
-							(lo2->isInt() || lo2->isFloat()) &&
-							(hi2->isInt() || hi2->isFloat()))
+						if((lo2->isConstant() && hi2->isConstant()) && lo2->isNum() && hi2->isNum())
 						{
 							auto lo2Val = lo2->asFloat();
 							auto hi2Val = hi2->asFloat();
@@ -700,20 +657,17 @@ namespace croc
 			}
 		}
 
-		if(s->caseDefault)
-			s->caseDefault = visit(s->caseDefault);
-
+		COND_VISIT(s->caseDefault);
 		return s;
 	}
 
 	CaseStmt* Semantic::visit(CaseStmt* s)
 	{
-		for(auto &cond: s->conditions)
-			cond.exp = visit(cond.exp);
+		VISIT_ARR_FIELD(s->conditions, exp);
 
 		if(s->highRange)
 		{
-			s->highRange = visit(s->highRange);
+			VISIT(s->highRange);
 
 			auto lo = s->conditions[0].exp;
 			auto hi = s->highRange;
@@ -727,7 +681,7 @@ namespace croc
 					else if(lo->asInt() == hi->asInt())
 						s->highRange = nullptr;
 				}
-				else if((lo->isInt() && hi->isFloat()) || (lo->isFloat() && hi->isInt()) || (lo->isFloat() && hi->isFloat()))
+				else if(lo->isNum() && hi->isNum())
 				{
 					if(lo->asFloat() > hi->asFloat())
 						c.semException(lo->location, "Invalid case range (low is greater than high)");
@@ -744,13 +698,13 @@ namespace croc
 			}
 		}
 
-		s->code = visit(s->code);
+		VISIT(s->code);
 		return s;
 	}
 
 	DefaultStmt* Semantic::visit(DefaultStmt* s)
 	{
-		s->code = visit(s->code);
+		VISIT(s->code);
 		return s;
 	}
 
@@ -775,22 +729,18 @@ namespace croc
 		if(inFinally())
 			c.semException(s->location, "Return statements are illegal inside finally blocks");
 
-		for(auto &exp: s->exprs)
-			exp = visit(exp);
-
+		VISIT_ARR(s->exprs);
 		return s;
 	}
 
 	TryCatchStmt* Semantic::visit(TryCatchStmt* s)
 	{
-		s->tryBody = visit(s->tryBody);
+		VISIT(s->tryBody);
 
 		for(auto &c: s->catches)
 		{
-			for(auto &e: c.exTypes)
-				e = visit(e);
-
-			c.catchBody = visit(c.catchBody);
+			VISIT_ARR(c.exTypes);
+			VISIT(c.catchBody);
 		}
 
 		/*
@@ -890,16 +840,16 @@ namespace croc
 
 	TryFinallyStmt* Semantic::visit(TryFinallyStmt* s)
 	{
-		s->tryBody = visit(s->tryBody);
+		VISIT(s->tryBody);
 		enterFinally();
-		s->finallyBody = visit(s->finallyBody);
+		VISIT(s->finallyBody);
 		leaveFinally();
 		return s;
 	}
 
 	ThrowStmt* Semantic::visit(ThrowStmt* s)
 	{
-		s->exp = visit(s->exp);
+		VISIT(s->exp);
 		return s;
 	}
 
@@ -908,30 +858,26 @@ namespace croc
 		if(s->type == ScopeAction::Exit || s->type == ScopeAction::Success)
 		{
 			enterFinally();
-			s->stmt = visit(s->stmt);
+			VISIT(s->stmt);
 			leaveFinally();
 		}
 		else
-			s->stmt = visit(s->stmt);
+			VISIT(s->stmt);
 
 		return s;
 	}
 
 	AssignStmt* Semantic::visit(AssignStmt* s)
 	{
-		for(auto &exp: s->lhs)
-			exp = visit(exp);
-
-		for(auto &exp: s->rhs)
-			exp = visit(exp);
-
+		VISIT_ARR(s->lhs);
+		VISIT_ARR(s->rhs);
 		return s;
 	}
 
 	OpAssignStmt* Semantic::visitOpAssign(OpAssignStmt* s)
 	{
-		s->lhs = visit(s->lhs);
-		s->rhs = visit(s->rhs);
+		VISIT(s->lhs);
+		VISIT(s->rhs);
 		return s;
 	}
 
@@ -949,8 +895,8 @@ namespace croc
 
 	Statement* Semantic::visit(CondAssignStmt* s)
 	{
-		s->lhs = visit(s->lhs);
-		s->rhs = visit(s->rhs);
+		VISIT(s->lhs);
+		VISIT(s->rhs);
 
 		if(s->rhs->isConstant() && s->rhs->isNull())
 			return new(c) BlockStmt(s->location, s->endLocation, DArray<Statement*>());
@@ -960,8 +906,8 @@ namespace croc
 
 	CatAssignStmt* Semantic::visit(CatAssignStmt* s)
 	{
-		s->lhs = visit(s->lhs);
-		s->rhs = visit(s->rhs);
+		VISIT(s->lhs);
+		VISIT(s->rhs);
 
 		if(auto catExp = AST_AS(CatExp, s->rhs))
 		{
@@ -981,21 +927,21 @@ namespace croc
 
 	IncStmt* Semantic::visit(IncStmt* s)
 	{
-		s->exp = visit(s->exp);
+		VISIT(s->exp);
 		return s;
 	}
 
 	DecStmt* Semantic::visit(DecStmt* s)
 	{
-		s->exp = visit(s->exp);
+		VISIT(s->exp);
 		return s;
 	}
 
 	Expression* Semantic::visit(CondExp* e)
 	{
-		e->cond = visit(e->cond);
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->cond);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->cond->isConstant())
 		{
@@ -1010,8 +956,8 @@ namespace croc
 
 	Expression* Semantic::visit(OrOrExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant())
 		{
@@ -1026,8 +972,8 @@ namespace croc
 
 	Expression* Semantic::visit(AndAndExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant())
 		{
@@ -1042,8 +988,8 @@ namespace croc
 
 	Expression* Semantic::visit(OrExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
@@ -1058,8 +1004,8 @@ namespace croc
 
 	Expression* Semantic::visit(XorExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
@@ -1074,8 +1020,8 @@ namespace croc
 
 	Expression* Semantic::visit(AndExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
@@ -1090,8 +1036,8 @@ namespace croc
 
 	Expression* Semantic::visitEquality(BinaryExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		bool isTrue = e->type == AstTag_EqualExp || e->type == AstTag_IsExp;
 
@@ -1126,7 +1072,7 @@ namespace croc
 			}
 			else
 			{
-				if((e->op1->isInt() || e->op1->isFloat()) && (e->op2->isInt() || e->op2->isFloat()))
+				if(e->op1->isNum() && e->op2->isNum())
 					return new(c) BoolExp(e->location,
 						isTrue ?
 						e->op1->asFloat() == e->op2->asFloat() :
@@ -1159,7 +1105,7 @@ namespace croc
 			return 0;
 		else if(op1->isInt() && op2->isInt())
 			return Compare3(op1->asInt(), op2->asInt());
-		else if((op1->isInt() || op1->isFloat()) && (op2->isInt() || op2->isFloat()))
+		else if(op1->isNum() && op2->isNum())
 			return Compare3(op1->asFloat(), op2->asFloat());
 		else if(op1->isString() && op2->isString())
 			return strcmp(op1->asString(), op2->asString());
@@ -1171,8 +1117,8 @@ namespace croc
 
 	Expression* Semantic::visitComparison(BinaryExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
@@ -1198,8 +1144,8 @@ namespace croc
 
 	Expression* Semantic::visit(Cmp3Exp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 			return new(c) IntExp(e->location, commonCompare(e->op1, e->op2));
@@ -1209,8 +1155,8 @@ namespace croc
 
 	Expression* Semantic::visit(InExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant() && e->op2->isString())
 		{
@@ -1228,8 +1174,8 @@ namespace croc
 
 	Expression* Semantic::visit(NotInExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant() && e->op2->isString())
 		{
@@ -1247,8 +1193,8 @@ namespace croc
 
 	Expression* Semantic::visit(ShlExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
@@ -1263,8 +1209,8 @@ namespace croc
 
 	Expression* Semantic::visit(ShrExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
@@ -1279,8 +1225,8 @@ namespace croc
 
 	Expression* Semantic::visit(UShrExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
@@ -1296,14 +1242,14 @@ namespace croc
 
 	Expression* Semantic::visit(AddExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
 			if(e->op1->isInt() && e->op2->isInt())
 				return new(c) IntExp(e->location, e->op1->asInt() + e->op2->asInt());
-			else if((e->op1->isInt() || e->op1->isFloat()) && (e->op2->isInt() || e->op2->isFloat()))
+			else if(e->op1->isNum() && e->op2->isNum())
 				return new(c) FloatExp(e->location, e->op1->asFloat() + e->op2->asFloat());
 			else
 				c.semException(e->location, "Addition must be performed on numbers");
@@ -1314,14 +1260,14 @@ namespace croc
 
 	Expression* Semantic::visit(SubExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
 			if(e->op1->isInt() && e->op2->isInt())
 				return new(c) IntExp(e->location, e->op1->asInt() - e->op2->asInt());
-			else if((e->op1->isInt() || e->op1->isFloat()) && (e->op2->isInt() || e->op2->isFloat()))
+			else if(e->op1->isNum() && e->op2->isNum())
 				return new(c) FloatExp(e->location, e->op1->asFloat() - e->op2->asFloat());
 			else
 				c.semException(e->location, "Subtraction must be performed on numbers");
@@ -1337,8 +1283,8 @@ namespace croc
 
 		e->collapsed = true;
 
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		// Collapse
 		{
@@ -1399,14 +1345,14 @@ namespace croc
 
 	Expression* Semantic::visit(MulExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
 			if(e->op1->isInt() && e->op2->isInt())
 				return new(c) IntExp(e->location, e->op1->asInt() * e->op2->asInt());
-			else if((e->op1->isInt() || e->op1->isFloat()) && (e->op2->isInt() || e->op2->isFloat()))
+			else if(e->op1->isNum() && e->op2->isNum())
 				return new(c) FloatExp(e->location, e->op1->asFloat() * e->op2->asFloat());
 			else
 				c.semException(e->location, "Multiplication must be performed on numbers");
@@ -1417,8 +1363,8 @@ namespace croc
 
 	Expression* Semantic::visit(DivExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
@@ -1429,7 +1375,7 @@ namespace croc
 
 				return new(c) IntExp(e->location, e->op1->asInt() / e->op2->asInt());
 			}
-			else if((e->op1->isInt() || e->op1->isFloat()) && (e->op2->isInt() || e->op2->isFloat()))
+			else if(e->op1->isNum() && e->op2->isNum())
 				return new(c) FloatExp(e->location, e->op1->asFloat() / e->op2->asFloat());
 			else
 				c.semException(e->location, "Division must be performed on numbers");
@@ -1440,8 +1386,8 @@ namespace croc
 
 	Expression* Semantic::visit(ModExp* e)
 	{
-		e->op1 = visit(e->op1);
-		e->op2 = visit(e->op2);
+		VISIT(e->op1);
+		VISIT(e->op2);
 
 		if(e->op1->isConstant() && e->op2->isConstant())
 		{
@@ -1452,7 +1398,7 @@ namespace croc
 
 				return new(c) IntExp(e->location, e->op1->asInt() % e->op2->asInt());
 			}
-			else if((e->op1->isInt() || e->op1->isFloat()) && (e->op2->isInt() || e->op2->isFloat()))
+			else if(e->op1->isNum() && e->op2->isNum())
 				return new(c) FloatExp(e->location, fmod(e->op1->asFloat(), e->op2->asFloat()));
 			else
 				c.semException(e->location, "Modulo must be performed on numbers");
@@ -1463,7 +1409,7 @@ namespace croc
 
 	Expression* Semantic::visit(NegExp* e)
 	{
-		e->op = visit(e->op);
+		VISIT(e->op);
 
 		if(e->op->isConstant())
 		{
@@ -1486,7 +1432,7 @@ namespace croc
 
 	Expression* Semantic::visit(NotExp* e)
 	{
-		e->op = visit(e->op);
+		VISIT(e->op);
 
 		if(e->op->isConstant())
 			return new(c) BoolExp(e->location, !e->op->isTrue());
@@ -1527,7 +1473,7 @@ namespace croc
 
 	Expression* Semantic::visit(ComExp* e)
 	{
-		e->op = visit(e->op);
+		VISIT(e->op);
 
 		if(e->op->isConstant())
 		{
@@ -1545,7 +1491,7 @@ namespace croc
 
 	Expression* Semantic::visit(LenExp* e)
 	{
-		e->op = visit(e->op);
+		VISIT(e->op);
 
 		if(e->op->isConstant())
 		{
@@ -1565,8 +1511,8 @@ namespace croc
 
 	Expression* Semantic::visit(DotExp* e)
 	{
-		e->op = visit(e->op);
-		e->name = visit(e->name);
+		VISIT(e->op);
+		VISIT(e->name);
 
 		if(e->name->isConstant() && !e->name->isString())
 			c.semException(e->name->location, "Field name must be a string");
@@ -1576,43 +1522,34 @@ namespace croc
 
 	Expression* Semantic::visit(DotSuperExp* e)
 	{
-		e->op = visit(e->op);
+		VISIT(e->op);
 		return e;
 	}
 
 	Expression* Semantic::visit(MethodCallExp* e)
 	{
-		if(e->op)
-			e->op = visit(e->op);
-
-		e->method = visit(e->method);
+		COND_VISIT(e->op);
+		VISIT(e->method);
 
 		if(e->method->isConstant() && !e->method->isString())
 			c.semException(e->method->location, "Method name must be a string");
 
-		for(auto &arg: e->args)
-			arg = visit(arg);
-
+		VISIT_ARR(e->args);
 		return e;
 	}
 
 	Expression* Semantic::visit(CallExp* e)
 	{
-		e->op = visit(e->op);
-
-		if(e->context)
-			e->context = visit(e->context);
-
-		for(auto &arg: e->args)
-			arg = visit(arg);
-
+		VISIT(e->op);
+		COND_VISIT(e->context);
+		VISIT_ARR(e->args);
 		return e;
 	}
 
 	Expression* Semantic::visit(IndexExp* e)
 	{
-		e->op = visit(e->op);
-		e->index = visit(e->index);
+		VISIT(e->op);
+		VISIT(e->index);
 
 		if(e->op->isConstant() && e->index->isConstant())
 		{
@@ -1639,7 +1576,7 @@ namespace croc
 
 	Expression* Semantic::visit(VargIndexExp* e)
 	{
-		e->index = visit(e->index);
+		VISIT(e->index);
 
 		if(e->index->isConstant() && !e->index->isInt())
 			c.semException(e->index->location, "index of a vararg indexing must be an integer");
@@ -1649,9 +1586,9 @@ namespace croc
 
 	Expression* Semantic::visit(SliceExp* e)
 	{
-		e->op = visit(e->op);
-		e->loIndex = visit(e->loIndex);
-		e->hiIndex = visit(e->hiIndex);
+		VISIT(e->op);
+		VISIT(e->loIndex);
+		VISIT(e->hiIndex);
 
 		if(e->op->isConstant() && e->loIndex->isConstant() && e->hiIndex->isConstant())
 		{
@@ -1691,8 +1628,8 @@ namespace croc
 
 	Expression* Semantic::visit(VargSliceExp* e)
 	{
-		e->loIndex = visit(e->loIndex);
-		e->hiIndex = visit(e->hiIndex);
+		VISIT(e->loIndex);
+		VISIT(e->hiIndex);
 
 		if(e->loIndex->isConstant() && !(e->loIndex->isNull() || e->loIndex->isInt()))
 			c.semException(e->loIndex->location, "low index of vararg slice must be nullptr or int");
@@ -1705,13 +1642,13 @@ namespace croc
 
 	FuncLiteralExp* Semantic::visit(FuncLiteralExp* e)
 	{
-		e->def = visit(e->def);
+		VISIT(e->def);
 		return e;
 	}
 
 	Expression* Semantic::visit(ParenExp* e)
 	{
-		e->exp = visit(e->exp);
+		VISIT(e->exp);
 
 		if(e->exp->isMultRet())
 			return e;
@@ -1723,8 +1660,8 @@ namespace croc
 	{
 		for(auto &field: e->fields)
 		{
-			field.key = visit(field.key);
-			field.value = visit(field.value);
+			VISIT(field.key);
+			VISIT(field.value);
 		}
 
 		return e;
@@ -1732,31 +1669,27 @@ namespace croc
 
 	ArrayCtorExp* Semantic::visit(ArrayCtorExp* e)
 	{
-		for(auto &value: e->values)
-			value = visit(value);
-
+		VISIT_ARR(e->values);
 		return e;
 	}
 
 	YieldExp* Semantic::visit(YieldExp* e)
 	{
-		for(auto &arg: e->args)
-			arg = visit(arg);
-
+		VISIT_ARR(e->args);
 		return e;
 	}
 
 	TableComprehension* Semantic::visit(TableComprehension* e)
 	{
-		e->key = visit(e->key);
-		e->value = visit(e->value);
+		VISIT(e->key);
+		VISIT(e->value);
 		e->forComp = visitForComp(e->forComp);
 		return e;
 	}
 
 	Expression* Semantic::visit(ArrayComprehension* e)
 	{
-		e->exp = visit(e->exp);
+		VISIT(e->exp);
 		e->forComp = visitForComp(e->forComp);
 		return e;
 	}
@@ -1775,38 +1708,25 @@ namespace croc
 
 	ForeachComprehension* Semantic::visit(ForeachComprehension* e)
 	{
-		for(auto &exp: e->container)
-			exp = visit(exp);
-
-		if(e->ifComp)
-			e->ifComp = visit(e->ifComp);
-
-		if(e->forComp)
-			e->forComp = visitForComp(e->forComp);
-
+		VISIT_ARR(e->container);
+		COND_VISIT(e->ifComp);
+		if(e->forComp) e->forComp = visitForComp(e->forComp);
 		return e;
 	}
 
 	ForNumComprehension* Semantic::visit(ForNumComprehension* e)
 	{
-		e->lo = visit(e->lo);
-		e->hi = visit(e->hi);
-
-		if(e->step)
-			e->step = visit(e->step);
-
-		if(e->ifComp)
-			e->ifComp = visit(e->ifComp);
-
-		if(e->forComp)
-			e->forComp = visitForComp(e->forComp);
-
+		VISIT(e->lo);
+		VISIT(e->hi);
+		COND_VISIT(e->step);
+		COND_VISIT(e->ifComp);
+		if(e->forComp) e->forComp = visitForComp(e->forComp);
 		return e;
 	}
 
 	IfComprehension* Semantic::visit(IfComprehension* e)
 	{
-		e->condition = visit(e->condition);
+		VISIT(e->condition);
 		return e;
 	}
 
