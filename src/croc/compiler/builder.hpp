@@ -1,8 +1,45 @@
 #ifndef CROC_COMPILER_BUILDER_HPP
 #define CROC_COMPILER_BUILDER_HPP
 
+#include "croc/compiler/ast.hpp"
 #include "croc/compiler/types.hpp"
 #include "croc/types.hpp"
+
+// #define REGPUSHPOP
+// #define VARACTIVATE
+// #define SHOWME
+// #define WRITECODE
+#define EXPSTACKCHECK
+
+#if defined(REGPUSHPOP) && !defined(NDEBUG)
+#define DEBUG_REGPUSHPOP(x) x
+#else
+#define DEBUG_REGPUSHPOP(x)
+#endif
+
+#if defined(VARACTIVATE) && !defined(NDEBUG)
+#define DEBUG_VARACTIVATE(x) x
+#else
+#define DEBUG_VARACTIVATE(x)
+#endif
+
+#if defined(SHOWME) && !defined(NDEBUG)
+#define DEBUG_SHOWME(x) x
+#else
+#define DEBUG_SHOWME(x)
+#endif
+
+#if defined(WRITECODE) && !defined(NDEBUG)
+#define DEBUG_WRITECODE(x) x
+#else
+#define DEBUG_WRITECODE(x)
+#endif
+
+#if defined(EXPSTACKCHECK) && !defined(NDEBUG)
+#define DEBUG_EXPSTACKCHECK(x) x
+#else
+#define DEBUG_EXPSTACKCHECK(x)
+#endif
 
 namespace croc
 {
@@ -140,13 +177,11 @@ namespace croc
 		Funcdef::SwitchTable::OffsetsType offsets;
 		int defaultOffset;
 		uword switchPC;
-		SwitchDesc* prev;
 
 		SwitchDesc() :
 			offsets(),
 			defaultOffset(-1),
-			switchPC(),
-			prev(nullptr)
+			switchPC()
 		{}
 	};
 
@@ -232,7 +267,8 @@ namespace croc
 
 		uword mNamespaceReg = 0;
 
-		SwitchDesc* mSwitch;
+		DArray<SwitchDesc> mInProgressSwitches;
+		uword mSwitchIdx;
 		List<SwitchDesc, 2> mSwitchTables;
 		List<uword, 64> mLineInfo;
 		List<LocVarDesc, 16> mLocVars;
@@ -260,7 +296,8 @@ namespace croc
 			mConstants(c),
 			mCode(c),
 			mNamespaceReg(0),
-			mSwitch(nullptr),
+			mInProgressSwitches(),
+			mSwitchIdx(0),
 			mSwitchTables(c),
 			mLineInfo(c),
 			mLocVars(c),
@@ -288,7 +325,7 @@ namespace croc
 		void addParam(Identifier* ident, uword typeMask);
 		uword insertLocal(Identifier* ident);
 		void activateLocals(uword num);
-		void beginSwitch(SwitchDesc& s, CompileLoc loc);
+		void beginSwitch(CompileLoc loc);
 		void endSwitch();
 		void addCase(CompileLoc loc, Expression* v);
 		void addDefault();

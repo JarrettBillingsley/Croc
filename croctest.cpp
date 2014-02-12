@@ -46,6 +46,8 @@ int main()
 	croc_vm_loadUnsafeLibs(t, CrocUnsafeLib_ReallyAll);
 	croc_vm_loadAllAvailableAddons(t);
 	croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
+	croc_ex_registerGlobals(t, _stupidFuncs);
+
 	// runModule(t, "samples.simple");
 
 	auto f = fopen("..\\samples\\simple.croc", "rb");
@@ -71,7 +73,28 @@ int main()
 	auto result = croc_compiler_compileModule(t, "samples\\simple.croc", &modName);
 
 	if(result >= 0)
+	{
 		printf("It's called %s\n", modName);
+
+		croc_function_newScript(t, -1);
+		croc_pushNull(t);
+		auto result = croc_tryCall(t, -2, 0);
+
+		if(result < 0)
+		{
+			printf("------------ ERROR ------------\n");
+			croc_pushToString(t, -1);
+			printf("%s\n", croc_getString(t, -1));
+			croc_popTop(t);
+
+			croc_dupTop(t);
+			croc_pushNull(t);
+			croc_methodCall(t, -2, "tracebackString", 1);
+			printf("%s\n", croc_getString(t, -1));
+
+			croc_pop(t, 2);
+		}
+	}
 	else
 	{
 		printf("OH NO! ");
@@ -88,27 +111,6 @@ int main()
 		printf("%s\n", croc_getString(t, -1));
 		croc_pop(t, 2);
 	}
-
-	// croc_ex_registerGlobals(t, _stupidFuncs);
-
-	// croc_function_newScript(t, -1);
-	// croc_pushNull(t);
-	// auto result = croc_tryCall(t, -2, 0);
-
-	// if(result < 0)
-	// {
-	// 	printf("------------ ERROR ------------\n");
-	// 	croc_pushToString(t, -1);
-	// 	printf("%s\n", croc_getString(t, -1));
-	// 	croc_popTop(t);
-
-	// 	croc_dupTop(t);
-	// 	croc_pushNull(t);
-	// 	croc_methodCall(t, -2, "tracebackString", 1);
-	// 	printf("%s\n", croc_getString(t, -1));
-
-	// 	croc_pop(t, 2);
-	// }
 
 	croc_vm_close(t);
 	fflush(stdout);

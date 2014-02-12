@@ -9,42 +9,6 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
 
-// #define REGPUSHPOP
-// #define VARACTIVATE
-// #define SHOWME
-// #define WRITECODE
-#define EXPSTACKCHECK
-
-#if defined(REGPUSHPOP) && !defined(NDEBUG)
-#define DEBUG_REGPUSHPOP(x) x
-#else
-#define DEBUG_REGPUSHPOP(x)
-#endif
-
-#if defined(VARACTIVATE) && !defined(NDEBUG)
-#define DEBUG_VARACTIVATE(x) x
-#else
-#define DEBUG_VARACTIVATE(x)
-#endif
-
-#if defined(SHOWME) && !defined(NDEBUG)
-#define DEBUG_SHOWME(x) x
-#else
-#define DEBUG_SHOWME(x)
-#endif
-
-#if defined(WRITECODE) && !defined(NDEBUG)
-#define DEBUG_WRITECODE(x) x
-#else
-#define DEBUG_WRITECODE(x)
-#endif
-
-#if defined(EXPSTACKCHECK) && !defined(NDEBUG)
-#define DEBUG_EXPSTACKCHECK(x) x
-#else
-#define DEBUG_EXPSTACKCHECK(x)
-#endif
-
 /*
 any = any, duh
 src = Local|Const
@@ -97,41 +61,44 @@ namespace croc
 				default: assert(false);
 			}
 		}
-#ifndef NDEBUG
-		const char* expTypeToString(ExpType type)
-		{
-			switch(type)
-			{
-				case ExpType::Const:       return "Const";
-				case ExpType::Local:       return "Local/Temp";
-				case ExpType::NewLocal:    return "NewLocal";
-				case ExpType::Upval:       return "Upval";
-				case ExpType::Global:      return "Global";
-				case ExpType::NewGlobal:   return "NewGlobal";
-				case ExpType::Index:       return "Index";
-				case ExpType::Field:       return "Field";
-				case ExpType::Slice:       return "Slice";
-				case ExpType::Vararg:      return "Vararg";
-				case ExpType::VarargIndex: return "VarargIndex";
-				case ExpType::VarargSlice: return "VarargSlice";
-				case ExpType::Length:      return "Length";
-				case ExpType::Call:        return "Call";
-				case ExpType::Yield:       return "Yield";
-				case ExpType::NeedsDest:   return "NeedsDest";
-				case ExpType::Conflict:    return "Conflict";
-				default: assert(false);
-			}
-		}
-#endif
 	}
-
+#ifndef NDEBUG
+	const char* expTypeToString(ExpType type)
+	{
+		switch(type)
+		{
+			case ExpType::Const:       return "Const";
+			case ExpType::Local:       return "Local/Temp";
+			case ExpType::NewLocal:    return "NewLocal";
+			case ExpType::Upval:       return "Upval";
+			case ExpType::Global:      return "Global";
+			case ExpType::NewGlobal:   return "NewGlobal";
+			case ExpType::Index:       return "Index";
+			case ExpType::Field:       return "Field";
+			case ExpType::Slice:       return "Slice";
+			case ExpType::Vararg:      return "Vararg";
+			case ExpType::VarargIndex: return "VarargIndex";
+			case ExpType::VarargSlice: return "VarargSlice";
+			case ExpType::Length:      return "Length";
+			case ExpType::Call:        return "Call";
+			case ExpType::Yield:       return "Yield";
+			case ExpType::NeedsDest:   return "NeedsDest";
+			case ExpType::Conflict:    return "Conflict";
+			default: assert(false);
+		}
+	}
+#endif
 	// =================================================================================================================
 	// Misc
 
 	FuncBuilder::~FuncBuilder()
 	{
-		for(auto s = mSwitch; s != nullptr; s = s->prev)
-			s->offsets.clear(c.mem());
+		mExpStack.free(c.mem());
+
+		for(auto &s: mInProgressSwitches.slice(0, mSwitchIdx))
+			s.offsets.clear(c.mem());
+
+		mInProgressSwitches.free(c.mem());
 
 		for(auto &s: mSwitchTables)
 			s.offsets.clear(c.mem());
@@ -169,7 +136,6 @@ namespace croc
 		{
 			printf("%u: ", i);
 			mExpStack[i].print();
-			printf("\n");
 		}
 
 		printf("\n");
@@ -306,47 +272,56 @@ namespace croc
 	// Switches
 
 	// [src] => []
-	void FuncBuilder::beginSwitch(SwitchDesc& s, CompileLoc loc)
+	void FuncBuilder::beginSwitch(CompileLoc loc)
 	{
-		auto cond = getExp(-1);
+		auto &cond = getExp(-1);
 		assert(cond.isSource());
+
+		if(mSwitchIdx >= mInProgressSwitches.length)
+		{
+			if(mInProgressSwitches.length == 0)
+				mInProgressSwitches = DArray<SwitchDesc>::alloc(c.mem(), 4);
+			else
+				mInProgressSwitches.resize(c.mem(), mInProgressSwitches.length * 2);
+		}
+
+		auto &s = mInProgressSwitches[mSwitchIdx++];
+		s = SwitchDesc();
 		s.switchPC = codeRD(loc, Op_Switch, 0);
 		codeRC(cond);
-		s.prev = mSwitch;
-		mSwitch = &s;
 		pop();
 	}
 
 	void FuncBuilder::endSwitch()
 	{
-		assert(mSwitch != nullptr);
+		assert(mSwitchIdx > 0);
 
-		auto prev = mSwitch->prev;
+		auto &s = mInProgressSwitches[mSwitchIdx - 1];
 
-		if(mSwitch->offsets.length() > 0 || mSwitch->defaultOffset == -1)
+		if(s.offsets.length() > 0 || s.defaultOffset == -1)
 		{
-			mSwitchTables.add(*mSwitch);
+			mSwitchTables.add(s);
 			auto switchIdx = mSwitchTables.length() - 1;
 
 			if(switchIdx > INST_MAX_SWITCH_TABLE)
 				c.semException(mLocation, "Too many switches");
 
-			setRD(mSwitch->switchPC, switchIdx);
+			setRD(s.switchPC, switchIdx);
 		}
 		else
 		{
 			// Happens when all the cases are dynamic and there is a default -- no need to add a switch table then
-			setOpcode(mSwitch->switchPC, Op_Jmp);
-			setRD(mSwitch->switchPC, 1);
-			setJumpOffset(mSwitch->switchPC, mSwitch->defaultOffset);
+			setOpcode(s.switchPC, Op_Jmp);
+			setRD(s.switchPC, 1);
+			setJumpOffset(s.switchPC, s.defaultOffset);
 		}
 
-		mSwitch = prev;
+		mSwitchIdx--;
 	}
 
 	void FuncBuilder::addCase(CompileLoc loc, Expression* v)
 	{
-		assert(mSwitch != nullptr);
+		assert(mSwitchIdx > 0);
 
 		Value val;
 
@@ -363,7 +338,9 @@ namespace croc
 		else
 			assert(false);
 
-		if(mSwitch->offsets.lookup(val) != nullptr)
+		auto &s = mInProgressSwitches[mSwitchIdx - 1];
+
+		if(s.offsets.lookup(val) != nullptr)
 		{
 			croc_pushString(*t, "Duplicate case value '");
 			push(t, val);
@@ -374,15 +351,15 @@ namespace croc
 			c.semException(loc, croc_getString(*t, -1));
 		}
 
-		*mSwitch->offsets.insert(c.mem(), val) = jumpDiff(mSwitch->switchPC, here());
+		*s.offsets.insert(c.mem(), val) = jumpDiff(s.switchPC, here());
 	}
 
 	void FuncBuilder::addDefault()
 	{
-		assert(mSwitch != nullptr);
-		assert(mSwitch->defaultOffset == -1);
-
-		mSwitch->defaultOffset = jumpDiff(mSwitch->switchPC, here());
+		assert(mSwitchIdx > 0);
+		auto &s = mInProgressSwitches[mSwitchIdx - 1];
+		assert(s.defaultOffset == -1);
+		s.defaultOffset = jumpDiff(s.switchPC, here());
 	}
 
 	// =================================================================================================================
@@ -595,7 +572,7 @@ namespace croc
 	// [] => [Local|Upval|Global]
 	void FuncBuilder::pushVar(Identifier* name)
 	{
-		auto e = pushExp();
+		auto &e = pushExp();
 		e.type = ExpType::Local;
 		searchVar(this, name, e);
 
@@ -677,7 +654,7 @@ namespace croc
 		if(mExpSP == 0)
 			return;
 
-		auto src = getExp(-1);
+		auto &src = getExp(-1);
 
 		if(src.type == ExpType::Call || src.type == ExpType::Yield)
 			setMultRetReturns(src.index, 1);
@@ -729,8 +706,8 @@ namespace croc
 	{
 		DEBUG_EXPSTACKCHECK(assert(mExpSP >= 2);)
 
-		auto arr = getExp(-2);
-		auto item = getExp(-1);
+		auto &arr = getExp(-2);
+		auto &item = getExp(-1);
 
 		DEBUG_EXPSTACKCHECK(assert(arr.type == ExpType::Temporary);)
 		DEBUG_EXPSTACKCHECK(assert(item.isSource());)
@@ -744,7 +721,7 @@ namespace croc
 	// [src] => []
 	void FuncBuilder::customParamFail(CompileLoc loc, uword paramIdx)
 	{
-		auto msg = getExp(-1);
+		auto &msg = getExp(-1);
 		DEBUG_EXPSTACKCHECK(assert(msg.isSource());)
 
 		codeRD(loc, Op_CustomParamFail, paramIdx);
@@ -756,7 +733,7 @@ namespace croc
 	// [src] => []
 	void FuncBuilder::assertFail(CompileLoc loc)
 	{
-		auto msg = getExp(-1);
+		auto &msg = getExp(-1);
 		DEBUG_EXPSTACKCHECK(assert(msg.isSource());)
 
 		codeRD(loc, Op_AssertFail, msg);
@@ -766,7 +743,7 @@ namespace croc
 	// [src] => []
 	uword FuncBuilder::checkObjParam(CompileLoc loc, uword paramIdx)
 	{
-		auto type = getExp(-1);
+		auto &type = getExp(-1);
 		DEBUG_EXPSTACKCHECK(assert(type.isSource());)
 
 		auto ret = codeRD(loc, Op_CheckObjParam, paramIdx);
@@ -780,7 +757,7 @@ namespace croc
 	// [src] => []
 	uword FuncBuilder::codeIsTrue(CompileLoc loc, bool isTrue)
 	{
-		auto src = getExp(-1);
+		auto &src = getExp(-1);
 		DEBUG_EXPSTACKCHECK(assert(src.isSource());)
 
 		auto ret = codeRD(loc, Op_IsTrue, isTrue);
@@ -824,7 +801,7 @@ namespace croc
 	// [src] => []
 	void FuncBuilder::codeThrow(CompileLoc loc, bool rethrowing)
 	{
-		auto src = getExp(-1);
+		auto &src = getExp(-1);
 		DEBUG_EXPSTACKCHECK(assert(src.isSource());)
 
 		codeRD(loc, Op_Throw, rethrowing ? 1 : 0);
@@ -855,9 +832,9 @@ namespace croc
 	// [Local Const src] => []
 	void FuncBuilder::addClassField(CompileLoc loc, bool isOverride)
 	{
-		auto cls = getExp(-3);
-		auto name = getExp(-2);
-		auto src = getExp(-1);
+		auto &cls = getExp(-3);
+		auto &name = getExp(-2);
+		auto &src = getExp(-1);
 
 		DEBUG_EXPSTACKCHECK(assert(cls.type == ExpType::Local);)
 		DEBUG_EXPSTACKCHECK(assert(name.type == ExpType::Const);)
@@ -874,9 +851,9 @@ namespace croc
 	// [Local Const src] => []
 	void FuncBuilder::addClassMethod(CompileLoc loc, bool isOverride)
 	{
-		auto cls = getExp(-3);
-		auto name = getExp(-2);
-		auto src = getExp(-1);
+		auto &cls = getExp(-3);
+		auto &name = getExp(-2);
+		auto &src = getExp(-1);
 
 		DEBUG_EXPSTACKCHECK(assert(cls.type == ExpType::Local);)
 		DEBUG_EXPSTACKCHECK(assert(name.type == ExpType::Const);)
@@ -908,7 +885,7 @@ namespace croc
 	{
 		assert(type == AstTag_IncStmt || type == AstTag_DecStmt);
 		assert(mExpSP >= 1);
-		auto op = getExp(-1);
+		auto &op = getExp(-1);
 
 		DEBUG_EXPSTACKCHECK(assert(op.type == ExpType::Local);)
 
@@ -920,8 +897,8 @@ namespace croc
 	{
 		assert(mExpSP >= 2);
 
-		auto lhs = getExp(-2);
-		auto op = getExp(-1);
+		auto &lhs = getExp(-2);
+		auto &op = getExp(-1);
 
 		DEBUG_EXPSTACKCHECK(assert(lhs.type == ExpType::Local);)
 		DEBUG_EXPSTACKCHECK(assert(op.isSource());)
@@ -937,7 +914,7 @@ namespace croc
 		assert(operands >= 1);
 		assert(mExpSP >= operands + 1);
 
-		auto lhs = getExp(-operands - 1);
+		auto &lhs = getExp(-operands - 1);
 		auto ops = mExpStack.slice(mExpSP - operands, mExpSP);
 
 		DEBUG_EXPSTACKCHECK(assert(lhs.type == ExpType::Local);)
@@ -1037,7 +1014,7 @@ namespace croc
 	// [src Temp*nbase] => [NeedsDest]
 	void FuncBuilder::newClass(CompileLoc loc, uword numBases)
 	{
-		auto name = getExp(-numBases - 1);
+		auto &name = getExp(-numBases - 1);
 
 		DEBUG_EXPSTACKCHECK(assert(name.isSource());)
 		DEBUG_EXPSTACKCHECK(for(int i = -numBases; i < 0; i++) assert(getExp(i).type == ExpType::Temporary);)
@@ -1061,8 +1038,8 @@ namespace croc
 	// [Const src] => [NeedsDest]
 	void FuncBuilder::newNamespace(CompileLoc loc)
 	{
-		auto name = getExp(-2);
-		auto base = getExp(-1);
+		auto &name = getExp(-2);
+		auto &base = getExp(-1);
 
 		DEBUG_EXPSTACKCHECK(assert(name.type == ExpType::Const);)
 		DEBUG_EXPSTACKCHECK(assert(base.isSource());)
@@ -1077,7 +1054,7 @@ namespace croc
 	// [Const] => [NeedsDest]
 	void FuncBuilder::newNamespaceNP(CompileLoc loc)
 	{
-		auto name = getExp(-1);
+		auto &name = getExp(-1);
 		DEBUG_EXPSTACKCHECK(assert(name.type == ExpType::Const);)
 		auto i = codeRD(loc, Op_NamespaceNP, 0);
 		codeUImm(name.index);
@@ -1174,8 +1151,8 @@ namespace croc
 	{
 		assert(mExpSP >= 2);
 
-		auto op1 = getExp(-2);
-		auto op2 = getExp(-1);
+		auto &op1 = getExp(-2);
+		auto &op2 = getExp(-1);
 
 		DEBUG_EXPSTACKCHECK(assert(op1.isSource());)
 		DEBUG_EXPSTACKCHECK(assert(op2.isSource());)
@@ -1206,7 +1183,7 @@ namespace croc
 	// [src] => [NeedsDest]
 	void FuncBuilder::unOp(CompileLoc loc, AstTag type)
 	{
-		auto src = getExp(-1);
+		auto &src = getExp(-1);
 		DEBUG_EXPSTACKCHECK(assert(src.isSource());)
 
 		auto inst = codeRD(loc, AstTagToOpcode(type), 0);
@@ -1321,7 +1298,7 @@ namespace croc
 	// [Call] => [Call] (changes opcode of call instruction to tailcall variant)
 	void FuncBuilder::makeTailcall()
 	{
-		auto e = getExp(-1);
+		auto &e = getExp(-1);
 
 		DEBUG_EXPSTACKCHECK(assert(e.type == ExpType::Call);)
 
@@ -1337,7 +1314,7 @@ namespace croc
 	NamespaceDesc FuncBuilder::beginNamespace(CompileLoc loc)
 	{
 		NamespaceDesc ret(mNamespaceReg);
-		auto e = getExp(-1);
+		auto &e = getExp(-1);
 
 		DEBUG_EXPSTACKCHECK(assert(e.type == ExpType::NeedsDest);)
 		mNamespaceReg = checkRegOK(mFreeReg);
@@ -1645,12 +1622,12 @@ namespace croc
 				mExpStack.resize(c.mem(), mExpStack.length * 2);
 		}
 
-		auto &ret = mExpStack[mExpSP++];
-		ret.type = type;
-		ret.index = index;
-		ret.index2 = index2;
-		ret.regAfter = mFreeReg;
-		return ret;
+		auto ret = &mExpStack[mExpSP++];
+		ret->type = type;
+		ret->index = index;
+		ret->index2 = index2;
+		ret->regAfter = mFreeReg;
+		return *ret;
 	}
 
 	Exp& FuncBuilder::getExp(int idx)
@@ -1991,7 +1968,7 @@ namespace croc
 
 	void FuncBuilder::multRetToRegs(int num)
 	{
-		auto src = getExp(-1);
+		auto &src = getExp(-1);
 
 		switch(src.type)
 		{
@@ -2166,8 +2143,8 @@ namespace croc
 
 	uword FuncBuilder::commonCmpJump(CompileLoc loc, Op opcode, uword rd)
 	{
-		auto src1 = getExp(-2);
-		auto src2 = getExp(-1);
+		auto &src1 = getExp(-2);
+		auto &src2 = getExp(-1);
 		DEBUG_EXPSTACKCHECK(assert(src1.isSource());)
 		DEBUG_EXPSTACKCHECK(assert(src2.isSource());)
 
@@ -2329,7 +2306,7 @@ namespace croc
 		ret->isVararg = mIsVararg;
 		ret->name = String::create(t->vm, atoda(mName));
 		ret->numParams = mNumParams;
-		ret->paramMasks = mParamMasks.toArray();
+		ret->paramMasks = mParamMasks.toArrayView().dup(c.mem());
 
 		ret->upvals.resize(c.mem(), mUpvals.length());
 
@@ -2342,13 +2319,13 @@ namespace croc
 		}
 
 		ret->stackSize = mStackSize + 1;
-		ret->innerFuncs = mInnerFuncs.toArray();
+		ret->innerFuncs = mInnerFuncs.toArrayView().dup(c.mem());
 
 		if(ret->innerFuncs.length > 0)
 			croc_insertAndPop(*t, -1 - ret->innerFuncs.length);
 
-		ret->constants = mConstants.toArray();
-		ret->code = mCode.toArray();
+		ret->constants = mConstants.toArrayView().dup(c.mem());
+		ret->code = mCode.toArrayView().dup(c.mem());
 		ret->switchTables.resize(c.mem(), mSwitchTables.length());
 
 		i = 0;
@@ -2362,7 +2339,7 @@ namespace croc
 		mSwitchTables.reset();
 
 		// Debug info
-		ret->lineInfo = mLineInfo.toArray();
+		ret->lineInfo = mLineInfo.toArrayView().dup(c.mem());
 		ret->upvalNames.resize(c.mem(), mUpvals.length());
 
 		i = 0;

@@ -1,6 +1,34 @@
 module samples.simple
 
-function main()
+class C
 {
+	x = 5
 
+	this()
+		println("C ctor")
+
+	function foo()
+		println("x = ", :x)
 }
+
+local c = C()
+c.foo()
+println(#modules.loaded)
+println(exceptions.stdException("TypeError"))
+
+function threadFunc()
+{
+	println("Hi I'm in a thread")
+	yield(5)
+	return 10
+}
+
+try
+{
+	local t = newThread(threadFunc)
+	println("first: ", t())
+	println("then: ", t())
+	t()
+}
+catch(e)
+	println("wooo ", e)

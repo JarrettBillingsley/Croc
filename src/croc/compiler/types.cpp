@@ -1,5 +1,6 @@
 
 #include "croc/compiler/ast.hpp"
+#include "croc/compiler/codegen.hpp"
 #include "croc/compiler/lexer.hpp"
 #include "croc/compiler/parser.hpp"
 #include "croc/compiler/semantic.hpp"
@@ -215,8 +216,8 @@ namespace croc
 
 			Semantic sem(*this);
 			mod = sem.visit(mod);
-			// Codegen cg(this);
-			// cg.visit(mod);
+			Codegen cg(*this);
+			cg.visit(mod);
 		});
 	}
 
