@@ -223,48 +223,42 @@ namespace croc
 
 	int Compiler::compileStmts(const char* src, const char* name)
 	{
-		(void)src;
-		(void)name;
-		return 0;
-		// return commonCompile([&]()
-		// {
-		// 	Lexer lexer(this);
-		// 	lexer.begin(name, source);
-		// 	Parser parser(this, lexer);
-		// 	auto stmts = parser.parseStatements();
+		return commonCompile([&]()
+		{
+			Lexer lexer(*this);
+			lexer.begin(name, src);
+			Parser parser(*this, lexer);
+			auto stmts = parser.parseStatements(name);
 
-		// 	if(docComments)
-		// 	{
-		// 		DocGen doc(this);
-		// 		stmts = doc.visitStatements(stmts);
+			// if(docComments)
+			// {
+			// 	DocGen doc(this);
+			// 	stmts = doc.visitStatements(stmts);
 
-		// 		if(!docTable)
-		// 			croc_popTop(*t);
-		// 	}
+			// 	if(!docTable)
+			// 		croc_popTop(*t);
+			// }
 
-		// 	Semantic sem(this);
-		// 	stmts = sem.visitStatements(stmts);
-		// 	Codegen cg(this);
-		// 	cg.codegenStatements(stmts);
-		// });
+			Semantic sem(*this);
+			stmts = sem.visit(stmts);
+			Codegen cg(*this);
+			cg.codegenStatements(stmts);
+		});
 	}
 
 	int Compiler::compileExpr(const char* src, const char* name)
 	{
-		(void)src;
-		(void)name;
-		return 0;
-		// return commonCompile([&]()
-		// {
-		// 	Lexer lexer(this);
-		// 	lexer.begin(name, source);
-		// 	Parser parser(this, lexer);
-		// 	auto exp = parser.parseExpressionFunc();
-		// 	Semantic sem(this);
-		// 	exp = sem.visit(exp);
-		// 	Codegen cg(this);
-		// 	cg.codegenStatements(exp);
-		// });
+		return commonCompile([&]()
+		{
+			Lexer lexer(*this);
+			lexer.begin(name, src);
+			Parser parser(*this, lexer);
+			auto exp = parser.parseExpressionFunc(name);
+			Semantic sem(*this);
+			exp = sem.visit(exp);
+			Codegen cg(*this);
+			cg.codegenStatements(exp);
+		});
 	}
 
 	void Compiler::vexception(CompileLoc loc, const char* exType, const char* msg, va_list args)
