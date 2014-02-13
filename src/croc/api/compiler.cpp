@@ -54,9 +54,10 @@ extern "C"
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(1);
 		API_CHECK_PARAM(src, -1, String, "source code");
-
 		Compiler c(t);
-		return c.compileModule(src->toCString(), name, *modName);
+		auto ret = c.compileModule(src->toCString(), name, *modName);
+		croc_insertAndPop(t_, -2);
+		return (ret >= 0) ? ret - 1 : ret;
 	}
 
 	int croc_compiler_compileStmts(CrocThread* t_, const char* name)
@@ -64,10 +65,10 @@ extern "C"
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(1);
 		API_CHECK_PARAM(src, -1, String, "source code");
-
 		Compiler c(t);
-		return c.compileStmts(src->toCString(), name);
-
+		auto ret = c.compileStmts(src->toCString(), name);
+		croc_insertAndPop(t_, -2);
+		return (ret >= 0) ? ret - 1 : ret;
 	}
 
 	int croc_compiler_compileExpr(CrocThread* t_, const char* name)
@@ -75,9 +76,10 @@ extern "C"
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(1);
 		API_CHECK_PARAM(src, -1, String, "source code");
-
 		Compiler c(t);
-		return c.compileExpr(src->toCString(), name);
+		auto ret = c.compileExpr(src->toCString(), name);
+		croc_insertAndPop(t_, -2);
+		return (ret >= 0) ? ret - 1 : ret;
 	}
 }
 }

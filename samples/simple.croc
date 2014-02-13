@@ -32,3 +32,8 @@ try
 }
 catch(e)
 	println("wooo ", e)
+
+function main()
+{
+	println("HI I'M MAIN!")
+}

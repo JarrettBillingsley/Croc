@@ -17,7 +17,7 @@ extern "C" {
 
 word_t CROCAPI(importModule)           (CrocThread* t, const char* name);
 word_t CROCAPI(importModuleStk)        (CrocThread* t, word_t name);
-word_t CROCAPI(importModuleFromString) (CrocThread* t, const char* name, const char* src, uword_t srcLen, const char* srcName);
+word_t CROCAPI(importModuleFromString) (CrocThread* t, const char* name, const char* src, const char* srcName);
 
 #define croc_ex_importModuleNoNS(t, name)\
 	(croc_ex_importModule((t), (name)), croc_pop(t, 1))
@@ -25,32 +25,32 @@ word_t CROCAPI(importModuleFromString) (CrocThread* t, const char* name, const c
 #define croc_ex_importModuleNoNSStk(t, name)\
 	(croc_ex_importModuleStk((t), (name)), croc_pop(t, 1))
 
-#define croc_ex_importModuleFromStringNoNS(t, name, src, srcLen, srcName)\
-	(croc_ex_importModuleFromString((t), (name), (src), (srcLen), (srcName)), croc_pop(t, 1))
+#define croc_ex_importModuleFromStringNoNS(t, name, src, srcName)\
+	(croc_ex_importModuleFromString((t), (name), (src), (srcName)), croc_pop(t, 1))
 
 // =====================================================================================================================
 // Compilation
 
-word_t  CROCAPI(loadStringNamed)        (CrocThread* t, const char* code, uword_t codeLen, const char* name);
-word_t  CROCAPI(loadStringWithEnvNamed) (CrocThread* t, const char* code, uword_t codeLen, const char* name);
-void    CROCAPI(runStringNamed)         (CrocThread* t, const char* code, uword_t codeLen, const char* name);
-void    CROCAPI(runStringWithEnvNamed)  (CrocThread* t, const char* code, uword_t codeLen, const char* name);
-uword_t CROCAPI(eval)                   (CrocThread* t, const char* code, uword_t codeLen, word_t numReturns);
-uword_t CROCAPI(evalWithEnv)            (CrocThread* t, const char* code, uword_t codeLen, word_t numReturns);
+word_t  CROCAPI(loadStringNamed)        (CrocThread* t, const char* code, const char* name);
+word_t  CROCAPI(loadStringWithEnvNamed) (CrocThread* t, const char* code, const char* name);
+void    CROCAPI(runStringNamed)         (CrocThread* t, const char* code, const char* name);
+void    CROCAPI(runStringWithEnvNamed)  (CrocThread* t, const char* code, const char* name);
+uword_t CROCAPI(eval)                   (CrocThread* t, const char* code, word_t numReturns);
+uword_t CROCAPI(evalWithEnv)            (CrocThread* t, const char* code, word_t numReturns);
 void    CROCAPI(runFile)                (CrocThread* t, const char* filename, uword_t numParams);
 void    CROCAPI(runModule)              (CrocThread* t, const char* moduleName, uword_t numParams);
 
-#define croc_ex_loadString(t, code, codeLen)\
-	(croc_ex_loadStringNamed((t), (code), (codeLen), "<loaded from string>"))
+#define croc_ex_loadString(t, code)\
+	(croc_ex_loadStringNamed((t), (code), "<loaded from string>"))
 
-#define croc_ex_loadStringWithEnv(t, code, codeLen)\
-	(croc_ex_loadStringWithEnvNamed((t), (code), (codeLen), "<loaded from string>"))
+#define croc_ex_loadStringWithEnv(t, code)\
+	(croc_ex_loadStringWithEnvNamed((t), (code), "<loaded from string>"))
 
-#define croc_ex_runString(t, code, codeLen)\
-	(croc_ex_runStringNamed((t), (code), (codeLen), "<loaded from string>"))
+#define croc_ex_runString(t, code)\
+	(croc_ex_runStringNamed((t), (code), "<loaded from string>"))
 
-#define croc_ex_runStringWithEnv(t, code, codeLen)\
-	(croc_ex_runStringWithEnvNamed((t), (code), (codeLen), "<loaded from string>"))
+#define croc_ex_runStringWithEnv(t, code)\
+	(croc_ex_runStringWithEnvNamed((t), (code), "<loaded from string>"))
 
 // =====================================================================================================================
 // Common tasks

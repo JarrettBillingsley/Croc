@@ -1,4 +1,6 @@
 
+#include <stdlib.h>
+
 #include "croc/api.h"
 #include "croc/internal/eh.hpp"
 #include "croc/types.hpp"
@@ -304,8 +306,74 @@ namespace croc
 
 	word_t _loadFiles(CrocThread* t)
 	{
-		// TODO:stdlib TODO:compiler
-		croc_eh_throwStd(t, "Throwable", "I DUNNO LOL");
+		auto name = croc_ex_checkStringParam(t, 1);
+		auto nameLen = strlen(name);
+		auto maxNameLen = nameLen + 6; // 6 chars for ".croco"
+
+		// safe since this string is held in the modules namespace
+		croc_pushGlobal(t, "path");
+		auto paths = croc_getString(t, -1);
+		croc_popTop(t);
+
+		for(auto path: delimiters(paths, ';'))
+		{
+			char filenameBuf[FILENAME_MAX + 1];
+
+			// +1 for /
+			if(path.length + 1 + maxNameLen >= FILENAME_MAX)
+				croc_eh_throwStd(t, "ApiError", "Filename for '%s' is too long", name);
+
+			uword idx = 0;
+			memcpy(filenameBuf + idx, path.ptr, path.length); idx += path.length;
+			filenameBuf[idx++] = '/';
+			memcpy(filenameBuf + idx, name, nameLen);
+			filenameBuf[idx + nameLen] = 0;
+
+			for(auto pos = strchr(filenameBuf + idx, '.'); pos != nullptr; pos = strchr(pos + 1, '.'))
+				*pos = '/';
+
+			idx += nameLen;
+			memcpy(filenameBuf + idx, ".croc", 5); idx += 5;
+			filenameBuf[idx] = 0;
+
+			// TODO: load .croco files.
+
+			auto f = fopen(filenameBuf, "rb");
+
+			if(!f)
+				continue;
+
+			// TODO: load this more elegantly? :P
+			fseek(f, 0, SEEK_END);
+			auto size = ftell(f);
+			fseek(f, 0, SEEK_SET);
+			auto data = (char*)malloc(size + 1);
+			fread(data, 1, size, f);
+			data[size] = 0;
+			fclose(f);
+
+			auto slot = croc_pushNull(t);
+			auto failed = tryCode(Thread::from(t), slot, [&] { croc_pushString(t, data); });
+			free(data);
+
+			if(failed)
+				croc_eh_rethrow(t);
+
+			croc_insertAndPop(t, slot);
+
+			const char* loadedName;
+			croc_compiler_compileModuleEx(t, filenameBuf, &loadedName);
+
+			if(strcmp(name, loadedName) != 0)
+			{
+				croc_eh_throwStd(t,
+					"ImportException", "Import name (%s) does not match name given in module statement (%s)",
+					name, loadedName);
+			}
+
+			return 1;
+		}
+
 		return 0;
 	}
 	}

@@ -40,78 +40,52 @@ const CrocRegisterFunc _stupidFuncs[] =
 	{nullptr, 0, nullptr, 0}
 };
 
+word_t mainStuff(CrocThread* t)
+{
+	croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
+	croc_ex_registerGlobals(t, _stupidFuncs);
+
+	croc_pushGlobal(t, "modules");
+	croc_field(t, -1, "path");
+	croc_pushString(t, ";..");
+	croc_cat(t, 2);
+	croc_fielda(t, -2, "path");
+	croc_popTop(t);
+
+	croc_ex_importModule(t, "samples.simple");
+	croc_pushNull(t);
+	croc_ex_lookup(t, "modules.runMain");
+	croc_swapTopWith(t, -3);
+	croc_call(t, -3, 0);
+
+	return 0;
+}
+
 int main()
 {
 	auto t = croc_vm_open(&croc_DefaultMemFunc, nullptr);
 	croc_vm_loadUnsafeLibs(t, CrocUnsafeLib_ReallyAll);
 	croc_vm_loadAllAvailableAddons(t);
-	croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
-	croc_ex_registerGlobals(t, _stupidFuncs);
 
-	// runModule(t, "samples.simple");
+	croc_function_new(t, "<main>", 0, &mainStuff, 0);
+	croc_pushNull(t);
 
-	auto f = fopen("..\\samples\\simple.croc", "rb");
-
-	if(!f)
+	if(croc_tryCall(t, -2, 0) < 0)
 	{
-		printf("Oh dear :(\n");
-		return 1;
-	}
-
-	fseek(f, 0, SEEK_END);
-	auto size = ftell(f);
-	fseek(f, 0, SEEK_SET);
-	auto data = (char*)malloc(size + 1);
-	fread(data, 1, size, f);
-	data[size] = 0;
-	fclose(f);
-
-	croc_pushString(t, data);
-	free(data);
-	const char* modName;
-
-	auto result = croc_compiler_compileModule(t, "samples\\simple.croc", &modName);
-
-	if(result >= 0)
-	{
-		printf("It's called %s\n", modName);
-
-		croc_function_newScript(t, -1);
-		croc_pushNull(t);
-		auto result = croc_tryCall(t, -2, 0);
-
-		if(result < 0)
-		{
-			printf("------------ ERROR ------------\n");
-			croc_pushToString(t, -1);
-			printf("%s\n", croc_getString(t, -1));
-			croc_popTop(t);
-
-			croc_dupTop(t);
-			croc_pushNull(t);
-			croc_methodCall(t, -2, "tracebackString", 1);
-			printf("%s\n", croc_getString(t, -1));
-
-			croc_pop(t, 2);
-		}
-	}
-	else
-	{
-		printf("OH NO! ");
-
-		switch(result)
-		{
-			case CrocCompilerReturn_UnexpectedEOF: printf("unexpected end-of-file!\n"); break;
-			case CrocCompilerReturn_LoneStatement: printf("lone statement!\n"); break;
-			case CrocCompilerReturn_DanglingDoc:   printf("dangling doc!\n"); break;
-			case CrocCompilerReturn_Error:         printf("something else!\n"); break;
-		}
-
+		printf("\n------------ ERROR ------------\n");
 		croc_pushToString(t, -1);
 		printf("%s\n", croc_getString(t, -1));
+		croc_popTop(t);
+
+		croc_dupTop(t);
+		croc_pushNull(t);
+		croc_methodCall(t, -2, "tracebackString", 1);
+		printf("%s\n", croc_getString(t, -1));
+
 		croc_pop(t, 2);
 	}
 
-	croc_vm_close(t);
 	fflush(stdout);
+	croc_vm_close(t);
+	return 0;
 }
