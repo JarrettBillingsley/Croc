@@ -83,7 +83,10 @@ extern "C"
 		if(strncmp(type, "nurserySizeCutoff",    30) == 0) p = &t->vm->mem.nurserySizeCutoff;  else
 		if(strncmp(type, "cycleCollectInterval", 30) == 0) p = &t->vm->mem.nextCycleCollect;   else
 		if(strncmp(type, "cycleMetadataLimit",   30) == 0) p = &t->vm->mem.cycleMetadataLimit; else
-		croc_eh_throwStd(t_, "ValueError", "Invalid limit type '%s'", type);
+		{
+			croc_eh_throwStd(t_, "ValueError", "Invalid limit type '%s'", type);
+			assert(false);
+		}
 
 		auto ret = *p;
 		*p = lim;

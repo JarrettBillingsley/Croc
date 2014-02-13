@@ -241,6 +241,7 @@ namespace croc
 			}
 
 			argsArr = args.toArray();
+			endLocation = argsArr[argsArr.length - 1]->endLocation;
 		}
 		else if(l.type() == Token::LParen)
 		{
@@ -1440,8 +1441,11 @@ namespace croc
 		else if(strcmp(id.stringValue, "failure") == 0)
 			type = ScopeAction::Failure;
 		else
+		{
 			c.synException(location, "Expected one of 'exit', 'success', or 'failure' for scope statement, not '%s'",
 				id.stringValue);
+			assert(false);
+		}
 
 		l.expect(Token::RParen);
 		auto stmt = parseStatement();

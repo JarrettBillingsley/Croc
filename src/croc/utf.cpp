@@ -108,7 +108,7 @@ namespace croc
 			return UtfError_OK;
 		}
 
-		size_t len = Utf8CharLengths[c];
+		size_t len = Utf8CharLengths[cast(unsigned char)c];
 
 		if(len == 0)
 			return UtfError_BadEncoding;
@@ -515,7 +515,7 @@ namespace croc
 			return c;
 		}
 
-		size_t len = Utf8CharLengths[c];
+		size_t len = Utf8CharLengths[cast(unsigned char)c];
 
 		for(size_t i = 1; i < len; i++)
 			c = (c << 6) + s[i];

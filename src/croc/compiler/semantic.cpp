@@ -310,7 +310,7 @@ namespace croc
 		if(rest.length == 0)
 		{
 			// If there are no more statements, the body of the scope statement will either always or never be run
-			if(ss->type == ScopeAction::Exit || ss->type == ScopeAction::Success)
+			if(ss->action == ScopeAction::Exit || ss->action == ScopeAction::Success)
 				s->statements[s->statements.length - 1] = ss->stmt;
 			else
 				s->statements = s->statements.slice(0, s->statements.length - 1);
@@ -322,7 +322,7 @@ namespace croc
 		auto tryBody = new(c) ScopeStmt(new(c) BlockStmt(rest[0]->location, rest[rest.length - 1]->endLocation, rest));
 		Statement* replacement = nullptr;
 
-		switch(ss->type)
+		switch(ss->action)
 		{
 			case ScopeAction::Exit:
 				/*
@@ -855,7 +855,7 @@ namespace croc
 
 	ScopeActionStmt* Semantic::visit(ScopeActionStmt* s)
 	{
-		if(s->type == ScopeAction::Exit || s->type == ScopeAction::Success)
+		if(s->action == ScopeAction::Exit || s->action == ScopeAction::Success)
 		{
 			enterFinally();
 			VISIT(s->stmt);

@@ -39,6 +39,7 @@ extern "C"
 			case CrocType_Namespace: name = v.mNamespace->name; break;
 			case CrocType_Funcdef:   name = v.mFuncdef->name; break;
 			default: API_PARAM_TYPE_ERROR(obj, "obj", "namespace|function|funcdef|class");
+			assert(false);
 		}
 
 		*len = name->length;

@@ -882,12 +882,12 @@ namespace croc
 
 	struct ScopeActionStmt : public Statement
 	{
-		ScopeAction type;
+		ScopeAction action;
 		Statement* stmt;
 
-		ScopeActionStmt(CompileLoc location, ScopeAction type, Statement* stmt) :
+		ScopeActionStmt(CompileLoc location, ScopeAction action, Statement* stmt) :
 			Statement(location, stmt->endLocation, AstTag_ScopeActionStmt),
-			type(type),
+			action(action),
 			stmt(stmt)
 		{}
 	};

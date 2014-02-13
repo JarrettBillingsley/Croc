@@ -628,7 +628,7 @@ namespace croc
 
 	void sliceImpl(Thread* t, AbsStack dest, Value src, Value lo, Value hi)
 	{
-		crocint loIndex, hiIndex;
+		crocint loIndex = 0, hiIndex = 0;
 
 		switch(src.type)
 		{
@@ -674,7 +674,7 @@ namespace croc
 		{
 			case CrocType_Array: {
 				auto arr = container.mArray;
-				crocint loIndex, hiIndex;
+				crocint loIndex = 0, hiIndex = 0;
 
 				if(!correctIndices(loIndex, hiIndex, lo, hi, arr->length))
 				{
