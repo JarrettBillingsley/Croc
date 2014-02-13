@@ -25,7 +25,7 @@
 #define CROC_HEX64_FORMAT "I64x"
 #else
 #define CROC_INTEGER_FORMAT "lld"
-#define CROC_INTEGER_FORMAT "llu"
+#define CROC_UINTEGER_FORMAT "llu"
 #define CROC_HEX64_FORMAT "llx"
 #endif
 
