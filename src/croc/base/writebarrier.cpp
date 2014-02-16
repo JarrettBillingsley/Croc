@@ -183,18 +183,21 @@ namespace croc
 			{
 				COND_CALLBACK(n->key);
 				VALUE_CALLBACK(n->value);
+				CLEAR_BOTH_MODIFIED(n);
 			}
 
 			for(auto n: o->methods.modifiedNodes())
 			{
 				COND_CALLBACK(n->key);
 				VALUE_CALLBACK(n->value);
+				CLEAR_BOTH_MODIFIED(n);
 			}
 
 			for(auto n: o->hiddenFields.modifiedNodes())
 			{
 				COND_CALLBACK(n->key);
 				VALUE_CALLBACK(n->value);
+				CLEAR_BOTH_MODIFIED(n);
 			}
 		}
 		else
@@ -235,6 +238,7 @@ namespace croc
 			{
 				COND_CALLBACK(n->key);
 				VALUE_CALLBACK(n->value);
+				CLEAR_BOTH_MODIFIED(n);
 			}
 
 			if(o->hiddenFields)
@@ -243,6 +247,7 @@ namespace croc
 				{
 					COND_CALLBACK(n->key);
 					VALUE_CALLBACK(n->value);
+					CLEAR_BOTH_MODIFIED(n);
 				}
 			}
 		}
