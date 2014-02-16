@@ -219,11 +219,6 @@ namespace croc
 		// acyclic
 		GCObject* obj;
 
-		// inline GCObject* getObj()
-		// {
-		// 	return this->obj;
-		// }
-
 		static Weakref* create(VM* vm, GCObject* obj);
 		static Value makeref(VM* vm, Value val);
 		static void free(VM* vm, Weakref* r);
@@ -369,9 +364,6 @@ namespace croc
 		{
 			Funcdef* scriptFunc;
 			CrocNativeFunc nativeFunc;
-
-			// TODO:staticassert
-			// static assert((CrocFuncdef*).sizeof == NativeFunc.sizeof);
 		};
 
 		inline DArray<Value> nativeUpvals() const
@@ -384,11 +376,6 @@ namespace croc
 			return DArray<Upval*>::n(cast(Upval**)(this + 1), numUpvals);
 		}
 
-		// inline bool isNative()
-		// {
-		// 	return this->isNative;
-		// }
-
 		static Function* create(Memory& mem, Namespace* env, Funcdef* def);
 		static Function* createPartial(Memory& mem, uword numUpvals);
 		static void finishCreate(Memory& mem, Function* f, Namespace* env, Funcdef* def);
@@ -398,25 +385,24 @@ namespace croc
 		bool isVararg();
 	};
 
-	// The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
 	struct Funcdef : public GCObject
 	{
 		String* locFile;
-		int32_t locLine;
-		int32_t locCol;
+		word locLine;
+		word locCol;
 		bool isVararg;
 		String* name;
-		uint32_t numParams;
-		DArray<uint32_t> paramMasks;
+		uword numParams;
+		DArray<uword> paramMasks;
 
 		struct UpvalDesc
 		{
 			bool isUpval;
-			uint32_t index;
+			uword index;
 		};
 
 		DArray<UpvalDesc> upvals;
-		uint32_t stackSize;
+		uword stackSize;
 		DArray<Funcdef*> innerFuncs;
 		DArray<Value> constants;
 		DArray<Instruction> code;
@@ -426,23 +412,23 @@ namespace croc
 
 		struct SwitchTable
 		{
-			typedef Hash<Value, int32_t, MethodHasher> OffsetsType;
+			typedef Hash<Value, word, MethodHasher> OffsetsType;
 			OffsetsType offsets;
-			int32_t defaultOffset;
+			word defaultOffset;
 		};
 
 		DArray<SwitchTable> switchTables;
 
 		// Debug info.
-		DArray<uint32_t> lineInfo;
+		DArray<uword> lineInfo;
 		DArray<String*> upvalNames;
 
 		struct LocVarDesc
 		{
 			String* name;
-			uint32_t pcStart;
-			uint32_t pcEnd;
-			uint32_t reg;
+			uword pcStart;
+			uword pcEnd;
+			uword reg;
 		};
 
 		DArray<LocVarDesc> locVarDescs;

@@ -423,7 +423,6 @@ RelExpression:
 	ShiftExpression > ShiftExpression
 	ShiftExpression >= ShiftExpression
 	ShiftExpression <=> ShiftExpression
-	ShiftExpression as ShiftExpression
 	ShiftExpression in ShiftExpression
 	ShiftExpression ! in ShiftExpression
 	ShiftExpression not in ShiftExpression
@@ -469,7 +468,6 @@ DotExpression:
 CallExpression:
 	PostfixExpression ArgumentsWith
 	DotExpression ArgumentsWith
-	super (. (Identifier | '(' Expression ')'))? Arguments
 
 ArgumentsWith:
 	Arguments

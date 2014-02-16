@@ -5,7 +5,7 @@ class C
 	x = 5
 
 	this()
-		println("C ctor")
+		println("C ctor ", this)
 
 	function foo()
 		println("x = ", :x)
@@ -35,5 +35,5 @@ catch(e)
 
 function main()
 {
-	println("HI I'M MAIN!")
+	println("this is a string\0with secret characters!")
 }
