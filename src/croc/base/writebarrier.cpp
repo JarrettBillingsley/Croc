@@ -101,23 +101,21 @@ namespace croc
 
 	void visitArray(Array* o, WBCallback callback, bool isModifyPhase)
 	{
-		auto vals = o->toDArray();
-
 		if(isModifyPhase)
 		{
-			for(size_t i = 0; i < vals.length; i++)
+			for(auto &slot: o->toDArray())
 			{
-				if(!vals[i].modified)
+				if(!slot.modified)
 					continue;
 
-				VALUE_CALLBACK(vals[i].value);
-				vals[i].modified = false;
+				VALUE_CALLBACK(slot.value);
+				slot.modified = false;
 			}
 		}
 		else
 		{
-			for(size_t i = 0; i < vals.length; i++)
-				VALUE_CALLBACK(vals[i].value);
+			for(auto &slot: o->toDArray())
+				VALUE_CALLBACK(slot.value);
 		}
 	}
 
@@ -128,19 +126,15 @@ namespace croc
 
 		if(o->isNative)
 		{
-			DArray<Value> uvs = o->nativeUpvals();
-
-			for(size_t i = 0; i < uvs.length; i++)
-				VALUE_CALLBACK(uvs[i]);
+			for(auto &uv: o->nativeUpvals())
+				VALUE_CALLBACK(uv);
 		}
 		else
 		{
 			COND_CALLBACK(o->scriptFunc);
 
-			DArray<Upval*> uvs = o->scriptUpvals();
-
-			for(size_t i = 0; i < uvs.length; i++)
-				COND_CALLBACK(uvs[i]);
+			for(auto &uv: o->scriptUpvals())
+				COND_CALLBACK(uv);
 		}
 	}
 
@@ -179,13 +173,6 @@ namespace croc
 				COND_CALLBACK(o->name);
 			}
 
-			for(auto n: o->fields.modifiedNodes())
-			{
-				COND_CALLBACK(n->key);
-				VALUE_CALLBACK(n->value);
-				CLEAR_BOTH_MODIFIED(n);
-			}
-
 			for(auto n: o->methods.modifiedNodes())
 			{
 				COND_CALLBACK(n->key);
@@ -193,22 +180,58 @@ namespace croc
 				CLEAR_BOTH_MODIFIED(n);
 			}
 
-			for(auto n: o->hiddenFields.modifiedNodes())
+			if(o->isFrozen)
 			{
-				COND_CALLBACK(n->key);
-				VALUE_CALLBACK(n->value);
-				CLEAR_BOTH_MODIFIED(n);
+				for(auto n: o->fields.modifiedNodes())
+				{
+					COND_CALLBACK(n->key);
+					CLEAR_BOTH_MODIFIED(n);
+				}
+
+				for(auto n: o->hiddenFields.modifiedNodes())
+				{
+					COND_CALLBACK(n->key);
+					CLEAR_BOTH_MODIFIED(n);
+				}
+
+				for(auto &slot: o->frozenFields)
+				{
+					if(!slot.modified)
+						continue;
+
+					VALUE_CALLBACK(slot.value);
+					slot.modified = 0;
+				}
+
+				for(auto &slot: o->frozenHiddenFields)
+				{
+					if(!slot.modified)
+						continue;
+
+					VALUE_CALLBACK(slot.value);
+					slot.modified = 0;
+				}
+			}
+			else
+			{
+				for(auto n: o->fields.modifiedNodes())
+				{
+					COND_CALLBACK(n->key);
+					VALUE_CALLBACK(n->value);
+					CLEAR_BOTH_MODIFIED(n);
+				}
+
+				for(auto n: o->hiddenFields.modifiedNodes())
+				{
+					COND_CALLBACK(n->key);
+					VALUE_CALLBACK(n->value);
+					CLEAR_BOTH_MODIFIED(n);
+				}
 			}
 		}
 		else
 		{
 			COND_CALLBACK(o->name);
-
-			for(auto n: o->fields)
-			{
-				COND_CALLBACK(n->key);
-				VALUE_CALLBACK(n->value);
-			}
 
 			for(auto n: o->methods)
 			{
@@ -216,10 +239,33 @@ namespace croc
 				VALUE_CALLBACK(n->value);
 			}
 
-			for(auto n: o->hiddenFields)
+			if(o->isFrozen)
 			{
-				COND_CALLBACK(n->key);
-				VALUE_CALLBACK(n->value);
+				for(auto n: o->fields)
+					COND_CALLBACK(n->key);
+
+				for(auto n: o->hiddenFields)
+					COND_CALLBACK(n->key);
+
+				for(auto &slot: o->frozenFields)
+					VALUE_CALLBACK(slot.value);
+
+				for(auto &slot: o->frozenHiddenFields)
+					VALUE_CALLBACK(slot.value);
+			}
+			else
+			{
+				for(auto n: o->fields)
+				{
+					COND_CALLBACK(n->key);
+					VALUE_CALLBACK(n->value);
+				}
+
+				for(auto n: o->hiddenFields)
+				{
+					COND_CALLBACK(n->key);
+					VALUE_CALLBACK(n->value);
+				}
 			}
 		}
 	}
@@ -234,41 +280,21 @@ namespace croc
 				COND_CALLBACK(o->parent);
 			}
 
-			for(auto n: o->fields.modifiedNodes())
+			for(auto &slot: DArray<Array::Slot>::n(cast(Array::Slot*)(o + 1), o->parent->numInstanceFields))
 			{
-				COND_CALLBACK(n->key);
-				VALUE_CALLBACK(n->value);
-				CLEAR_BOTH_MODIFIED(n);
-			}
+				if(!slot.modified)
+					continue;
 
-			if(o->hiddenFields)
-			{
-				for(auto n: o->hiddenFields->modifiedNodes())
-				{
-					COND_CALLBACK(n->key);
-					VALUE_CALLBACK(n->value);
-					CLEAR_BOTH_MODIFIED(n);
-				}
+				VALUE_CALLBACK(slot.value);
+				slot.modified = false;
 			}
 		}
 		else
 		{
 			COND_CALLBACK(o->parent);
 
-			for(auto n: o->fields)
-			{
-				COND_CALLBACK(n->key);
-				VALUE_CALLBACK(n->value);
-			}
-
-			if(o->hiddenFields)
-			{
-				for(auto n: *o->hiddenFields)
-				{
-					COND_CALLBACK(n->key);
-					VALUE_CALLBACK(n->value);
-				}
-			}
+			for(auto &slot: DArray<Array::Slot>::n(cast(Array::Slot*)(o + 1), o->parent->numInstanceFields))
+				VALUE_CALLBACK(slot.value);
 		}
 	}
 

@@ -8,6 +8,10 @@ namespace croc
 {
 	void classDeriveImpl(Thread* t, Class* c, Class* base)
 	{
+		// This probably shouldn't happen under normal circumstances but maybe if it's made a library function?
+		if(c->isFrozen)
+			croc_eh_throwStd(*t, "StateError", "Attempting to derive classes into a frozen class");
+
 		freezeImpl(t, base);
 
 		if(base->finalizer)
@@ -31,28 +35,28 @@ namespace croc
 
 		if(auto ctor = c->getMethod(t->vm->ctorString))
 		{
-			if(ctor->value.type != CrocType_Function)
+			if(ctor->type != CrocType_Function)
 			{
-				pushTypeStringImpl(t, ctor->value);
+				pushTypeStringImpl(t, *ctor);
 				croc_eh_throwStd(*t, "TypeError", "Class constructor must be of type 'function', not '%s'",
 					croc_getString(*t, -1));
 			}
 
-			c->constructor = &ctor->value;
+			c->constructor = ctor;
 		}
 
 		if(auto finalizer = c->getMethod(t->vm->finalizerString))
 		{
-			if(finalizer->value.type != CrocType_Function)
+			if(finalizer->type != CrocType_Function)
 			{
-				pushTypeStringImpl(t, finalizer->value);
+				pushTypeStringImpl(t, *finalizer);
 				croc_eh_throwStd(*t, "TypeError", "Class finalizer must be of type 'function', not '%s'",
 					croc_getString(*t, -1));
 			}
 
-			c->finalizer = &finalizer->value;
+			c->finalizer = finalizer;
 		}
 
-		c->freeze();
+		c->freeze(t->vm->mem);
 	}
 }

@@ -449,66 +449,90 @@ namespace croc
 		HashType hiddenFields;
 		Value* constructor;
 		Value* finalizer;
+		DArray<Array::Slot> frozenFields;
+		DArray<Array::Slot> frozenHiddenFields;
+		uword numInstanceFields;
 
 		static Class* create(Memory& mem, String* name);
 		static Class::HashType::NodeType* derive(Memory& mem, Class* c, Class* parent, const char*& which);
 		static void free(Memory& mem, Class* c);
+		void freeze(Memory& mem);
 
-		void freeze();
-		Class::HashType::NodeType* getField(String* name);
-		Class::HashType::NodeType* getMethod(String* name);
-		Class::HashType::NodeType* getHiddenField(String* name);
-		void setMember(Memory& mem, Class::HashType::NodeType* slot, Value value);
-		bool addField(Memory& mem, String* name, Value value, bool isOverride);
-		bool addMethod(Memory& mem, String* name, Value value, bool isOverride);
-		bool addHiddenField(Memory& mem, String* name, Value value);
-		bool removeField(Memory& mem, String* name);
-		bool removeMethod(Memory& mem, String* name);
+		Value* getField       (String* name);
+		Value* getMethod      (String* name);
+		Value* getHiddenField (String* name);
+		bool setField         (Memory& mem, String* name, Value value);
+		bool setMethod        (Memory& mem, String* name, Value value);
+		bool setHiddenField   (Memory& mem, String* name, Value value);
+		bool addField         (Memory& mem, String* name, Value value, bool isOverride);
+		bool addMethod        (Memory& mem, String* name, Value value, bool isOverride);
+		bool addHiddenField   (Memory& mem, String* name, Value value);
+		bool removeField      (Memory& mem, String* name);
+		bool removeMethod     (Memory& mem, String* name);
 		bool removeHiddenField(Memory& mem, String* name);
-		bool removeMember(Memory& mem, String* name);
-		bool nextField(uword& idx, String**& key, Value*& val);
-		bool nextMethod(uword& idx, String**& key, Value*& val);
-		bool nextHiddenField(uword& idx, String**& key, Value*& val);
+		bool removeMember     (Memory& mem, String* name);
+		bool nextField        (uword& idx, String**& key, Value*& val);
+		bool nextMethod       (uword& idx, String**& key, Value*& val);
+		bool nextHiddenField  (uword& idx, String**& key, Value*& val);
 	};
 
 	struct Instance : public GCObject
 	{
 		Class* parent;
 		bool visitedOnce;
-		Class::HashType fields;
-		// The way this works is that it's null to mean there are no hidden fields, and if it's not null, the Hash structure
-		// and its data are appended to the end of the instance, and this points to that structure.
-		Class::HashType* hiddenFields;
+		// Points to parent->fields
+		Class::HashType* fields;
+		// If null, instance has no hidden fields. If not null, points to extra bytes allocated in instance where hidden
+		// fields start (the index is looked up in parent->hiddenFields).
+		Array::Slot* hiddenFieldsData;
 
-		inline Class::HashType::NodeType* getField(String* name)
-		{
-			return this->fields.lookupNode(name);
-		}
-
-		inline Class::HashType::NodeType* getMethod(String* name)
+		inline Value* getMethod(String* name)
 		{
 			return this->parent->getMethod(name);
 		}
 
-		inline bool nextField(uword& idx, String**& key, Value*& val)
+		inline Value* getField(String* name)
 		{
-			return this->fields.next(idx, key, val);
-		}
-
-		inline Class::HashType::NodeType* getHiddenField(String* name)
-		{
-			if(this->hiddenFields)
-				return this->hiddenFields->lookupNode(name);
+			if(auto n = this->fields->lookupNode(name))
+				return &(cast(Array::Slot*)(this + 1))[cast(uword)n->value.mInt].value;
 			else
 				return nullptr;
 		}
 
+		inline bool nextField(uword& idx, String**& key, Value*& val)
+		{
+			if(this->fields->next(idx, key, val))
+			{
+				val = &(cast(Array::Slot*)(this + 1))[cast(uword)val->mInt].value;
+				return true;
+			}
+
+			return false;
+		}
+
+		inline Value* getHiddenField(String* name)
+		{
+			if(this->hiddenFieldsData)
+			{
+				if(auto n = this->parent->hiddenFields.lookupNode(name))
+					return &this->hiddenFieldsData[cast(uword)n->value.mInt].value;
+			}
+
+			return nullptr;
+		}
+
 		inline bool nextHiddenField(uword& idx, String**& key, Value*& val)
 		{
-			if(this->hiddenFields)
-				return this->hiddenFields->next(idx, key, val);
-			else
-				return false;
+			if(this->hiddenFieldsData)
+			{
+				if(this->parent->hiddenFields.next(idx, key, val))
+				{
+					val = &this->hiddenFieldsData[cast(uword)val->mInt].value;
+					return true;
+				}
+			}
+
+			return false;
 		}
 
 		inline bool derivesFrom(Class* c)
@@ -519,7 +543,8 @@ namespace croc
 		static Instance* create(Memory& mem, Class* parent);
 		static Instance* createPartial(Memory& mem, uword size, bool finalizable);
 		static bool finishCreate(Instance* i, Class* parent);
-		void setField(Memory& mem, Class::HashType::NodeType* slot, Value value);
+		bool setField(Memory& mem, String* name, Value value);
+		bool setHiddenField(Memory& mem, String* name, Value value);
 	};
 
 	typedef uword AbsStack;

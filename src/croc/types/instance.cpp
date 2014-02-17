@@ -13,25 +13,18 @@
 		(mem).decBuffer.add((mem), (slot)->value.toGCObject());\
 	} while(false)
 
+#define REMOVEFROZENVALUEREF(mem, slot)\
+	do {\
+	if(!(slot).modified && (slot).value.isGCObject())\
+		(mem).decBuffer.add((mem), (slot).value.toGCObject());\
+	} while(false)
+
 namespace croc
 {
-	namespace
-	{
-		uword InstanceExtraSize(Class* parent)
-		{
-			auto ret = parent->fields.dataSize();
-
-			if(parent->hiddenFields.length() > 0)
-				ret += sizeof(Class::HashType) + parent->hiddenFields.dataSize();
-
-			return ret;
-		}
-	}
-
 	Instance* Instance::create(Memory& mem, Class* parent)
 	{
 		assert(parent->isFrozen);
-		auto i = createPartial(mem, InstanceExtraSize(parent), parent->finalizer != nullptr);
+		auto i = createPartial(mem, parent->numInstanceFields * sizeof(Array::Slot), parent->finalizer != nullptr);
 		auto b = finishCreate(i, parent);
 		assert(b);
 		return i;
@@ -53,69 +46,92 @@ namespace croc
 	{
 		assert(parent->isFrozen);
 
-		if(i->memSize != sizeof(Instance) + InstanceExtraSize(parent))
+		if(i->memSize != sizeof(Instance) + parent->numInstanceFields * sizeof(Array::Slot))
 			return false;
 
 		i->parent = parent;
+		i->fields = &parent->fields;
 
 		void* hiddenFieldsLoc = cast(void*)(i + 1);
 
-		if(parent->fields.length() > 0)
+		if(parent->frozenFields.length > 0)
 		{
-			auto instNodes = DArray<Class::HashType::NodeType>::n(
-				cast(Class::HashType::NodeType*)(i + 1),
-				parent->fields.capacity());
+			auto instFields = DArray<Array::Slot>::n(cast(Array::Slot*)(i + 1), parent->frozenFields.length);
+			instFields.slicea(parent->frozenFields);
 
-			parent->fields.dupInto(i->fields, instNodes);
+			for(auto &slot: instFields)
+				slot.modified = slot.value.isGCObject();
 
-			hiddenFieldsLoc = cast(void*)(instNodes.ptr + instNodes.length);
-
-			for(auto node: i->fields)
-			{
-				if(node->value.isGCObject())
-					SET_BOTH_MODIFIED(node);
-				else
-					SET_KEY_MODIFIED(node);
-			}
+			hiddenFieldsLoc = cast(void*)(instFields.ptr + instFields.length);
 		}
 
-		if(parent->hiddenFields.length() > 0)
+		if(parent->frozenHiddenFields.length > 0)
 		{
-			i->hiddenFields = cast(Class::HashType*)hiddenFieldsLoc;
-			auto hiddenNodes = DArray<Class::HashType::NodeType>::n(
-				cast(Class::HashType::NodeType*)(i->hiddenFields + 1),
-				parent->hiddenFields.capacity());
+			i->hiddenFieldsData = cast(Array::Slot*)hiddenFieldsLoc;
 
-			assert(cast(char*)(hiddenNodes.ptr + hiddenNodes.length) == (cast(char*)i + i->memSize));
+			auto instHiddenFields = DArray<Array::Slot>::n(cast(Array::Slot*)hiddenFieldsLoc,
+				parent->frozenHiddenFields.length);
+			instHiddenFields.slicea(parent->frozenHiddenFields);
 
-			parent->hiddenFields.dupInto(*i->hiddenFields, hiddenNodes);
-
-			for(auto node: *i->hiddenFields)
-			{
-				if(node->value.isGCObject())
-					SET_BOTH_MODIFIED(node);
-				else
-					SET_KEY_MODIFIED(node);
-			}
+			for(auto &slot: instHiddenFields)
+				slot.modified = slot.value.isGCObject();
 		}
 
 		return true;
 	}
 
-	void Instance::setField(Memory& mem, Class::HashType::NodeType* slot, Value value)
+	bool Instance::setField(Memory& mem, String* name, Value value)
 	{
-		if(slot->value != value)
+		if(auto slot = this->fields->lookupNode(name))
 		{
-			REMOVEVALUEREF(mem, slot);
-			slot->value = value;
+			auto &fslot = (cast(Array::Slot*)(this + 1))[cast(uword)slot->value.mInt];
 
-			if(value.isGCObject())
+			if(fslot.value != value)
 			{
-				CONTAINER_WRITE_BARRIER(mem, this);
-				SET_VAL_MODIFIED(slot);
+				REMOVEFROZENVALUEREF(mem, fslot);
+				fslot.value = value;
+
+				if(value.isGCObject())
+				{
+					CONTAINER_WRITE_BARRIER(mem, this);
+					fslot.modified = true;
+				}
+				else
+					fslot.modified = false;
 			}
-			else
-				CLEAR_VAL_MODIFIED(slot);
+
+			return true;
 		}
+
+		return false;
+	}
+
+	bool Instance::setHiddenField(Memory& mem, String* name, Value value)
+	{
+		if(this->hiddenFieldsData == nullptr)
+			return false;
+
+		if(auto slot = this->parent->hiddenFields.lookupNode(name))
+		{
+			auto &fslot = this->hiddenFieldsData[cast(uword)slot->value.mInt];
+
+			if(fslot.value != value)
+			{
+				REMOVEFROZENVALUEREF(mem, fslot);
+				fslot.value = value;
+
+				if(value.isGCObject())
+				{
+					CONTAINER_WRITE_BARRIER(mem, this);
+					fslot.modified = true;
+				}
+				else
+					fslot.modified = false;
+			}
+
+			return true;
+		}
+
+		return false;
 	}
 }

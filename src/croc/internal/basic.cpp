@@ -739,7 +739,7 @@ namespace croc
 							name->toCString(), c->name->toCString());
 				}
 
-				t->stack[dest] = v->value;
+				t->stack[dest] = *v;
 				return;
 			}
 			case CrocType_Instance: {
@@ -761,7 +761,7 @@ namespace croc
 					}
 				}
 
-				t->stack[dest] = v->value;
+				t->stack[dest] = *v;
 				return;
 			}
 			case CrocType_Namespace: {
@@ -801,34 +801,32 @@ namespace croc
 			case CrocType_Class: {
 				auto c = cont.mClass;
 
-				if(auto slot = c->getField(name))
-					c->setMember(t->vm->mem, slot, value);
-				else if(auto slot = c->getMethod(name))
+				if(!c->setField(t->vm->mem, name, value))
 				{
 					if(c->isFrozen)
 						croc_eh_throwStd(*t, "FieldError",
 							"Attempting to change method '%s' in class '%s' after it has been frozen",
 							name->toCString(), c->name->toCString());
 
-					c->setMember(t->vm->mem, slot, value);
+					if(!c->setMethod(t->vm->mem, name, value))
+						croc_eh_throwStd(*t, "FieldError",
+							"Attempting to assign to nonexistent field '%s' in class '%s'",
+							name->toCString(), c->name->toCString());
 				}
-				else
-					croc_eh_throwStd(*t, "FieldError", "Attempting to assign to nonexistent field '%s' in class '%s'",
-						name->toCString(), c->name->toCString());
-
 				return;
 			}
 			case CrocType_Instance: {
 				auto i = cont.mInstance;
 
-				if(auto slot = i->getField(name))
-					i->setField(t->vm->mem, slot, value);
-				else if(!raw && tryMM(t, MM_FieldAssign, t->stack[container], Value::from(name), value))
-					return;
-				else
+				if(!i->setField(t->vm->mem, name, value))
+				{
+					if(!raw && tryMM(t, MM_FieldAssign, t->stack[container], Value::from(name), value))
+						return;
+
 					croc_eh_throwStd(*t, "FieldError",
 						"Attempting to assign to nonexistent field '%s' in instance of class '%s'",
 						name->toCString(), i->parent->name->toCString());
+				}
 				return;
 			}
 			case CrocType_Namespace: {

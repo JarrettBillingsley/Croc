@@ -285,9 +285,9 @@ namespace croc
 		auto t_ = Thread::from(t);
 
 		croc_class_new(t, "Location", 0);
-			croc_pushInt(t, Unknown); croc_class_addField(t, -2, "Unknown");
-			croc_pushInt(t, Native);  croc_class_addField(t, -2, "Native");
-			croc_pushInt(t, Script);  croc_class_addField(t, -2, "Script");
+			croc_pushInt(t, Unknown); croc_class_addMethod(t, -2, "Unknown");
+			croc_pushInt(t, Native);  croc_class_addMethod(t, -2, "Native");
+			croc_pushInt(t, Script);  croc_class_addMethod(t, -2, "Script");
 
 			croc_pushString(t, "");   croc_class_addField(t, -2, "file");
 			croc_pushInt(t, 0);       croc_class_addField(t, -2, "line");

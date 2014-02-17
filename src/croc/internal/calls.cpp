@@ -39,7 +39,7 @@ namespace croc
 		{
 			case CrocType_Class:
 				if(auto ret = v.mClass->getMethod(name))
-					return ret->value;
+					return *ret;
 				else
 					return Value::nullValue;
 
@@ -65,7 +65,7 @@ namespace croc
 	{
 		(void)t;
 		if(auto ret = inst->getMethod(name))
-			return ret->value;
+			return *ret;
 		else
 			return Value::nullValue;
 	}

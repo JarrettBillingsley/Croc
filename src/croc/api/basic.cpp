@@ -344,7 +344,7 @@ extern "C"
 						"%s - Attempting to access nonexistent hidden field '%s' from class '%s'",
 						__FUNCTION__, name->toCString(), c->name->toCString());
 
-				t->stack[t->stackIndex - 1] = v->value;
+				t->stack[t->stackIndex - 1] = *v;
 				break;
 			}
 			case CrocType_Instance: {
@@ -356,7 +356,7 @@ extern "C"
 						"%s - Attempting to access nonexistent hidden field '%s' from instance of class '%s'",
 						__FUNCTION__, name->toCString(), i->parent->name->toCString());
 
-				t->stack[t->stackIndex - 1] = v->value;
+				t->stack[t->stackIndex - 1] = *v;
 				break;
 			}
 			default:
@@ -390,9 +390,7 @@ extern "C"
 			case CrocType_Class: {
 				auto c = obj.mClass;
 
-				if(auto slot = c->getHiddenField(name))
-					c->setMember(t->vm->mem, slot, value);
-				else
+				if(!c->setHiddenField(t->vm->mem, name, value))
 					croc_eh_throwStd(t_, "FieldError",
 						"%s - Attempting to assign to nonexistent hidden field '%s' in class '%s'",
 						__FUNCTION__, name->toCString(), c->name->toCString());
@@ -401,9 +399,7 @@ extern "C"
 			case CrocType_Instance: {
 				auto i = obj.mInstance;
 
-				if(auto slot = i->getHiddenField(name))
-					i->setField(t->vm->mem, slot, value);
-				else
+				if(!i->setHiddenField(t->vm->mem, name, value))
 					croc_eh_throwStd(t_, "FieldError",
 						"%s - Attempting to assign to nonexistent hidden field '%s' in instance of class '%s'",
 						__FUNCTION__, name->toCString(), i->parent->name->toCString());
