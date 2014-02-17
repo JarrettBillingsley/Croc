@@ -136,6 +136,13 @@ namespace croc
 			this->type = v->type;
 		}
 
+		static inline Value from(GCObject* v)
+		{
+			Value ret;
+			ret.setGCObject(v);
+			return ret;
+		}
+
 #define MAKE_SET(name, nativetype)\
 		static inline Value from(nativetype v)\
 		{\
