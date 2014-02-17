@@ -1,4 +1,4 @@
-module stdlibdocs
+module tools.stdlibdocs
 
 import docs: docsOf
 import doctools.output: SectionOrder, LinkResolver, LinkTranslator, OutputDocVisitor

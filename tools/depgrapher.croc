@@ -1,4 +1,4 @@
-module depgrapher
+module tools.depgrapher
 
 import math: min
 import regexp: Regexp
@@ -55,7 +55,7 @@ local cats =
 	[
 		@"croc\.serialization.*"
 	]
-	
+
 	Interp =
 	[
 		@"croc\.api_interpreter"

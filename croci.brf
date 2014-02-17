@@ -1,7 +1,0 @@
-croci.d
--clean
--release
--op
--O
--w
--version=CrocBuiltinDocs

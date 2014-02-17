@@ -1,4 +1,4 @@
-module wikiconv
+module tools.wikiconv
 
 import pcre: Regex
 
