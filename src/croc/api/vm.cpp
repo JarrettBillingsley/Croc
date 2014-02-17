@@ -118,7 +118,7 @@ extern "C"
 		// Core libs
 		initModulesLib(*t);
 		initExceptionsLib(*t);
-		// initGCLib(*t);
+		initGCLib(*t);
 
 		// Safe libs
 		// initBaseLib(*t);
