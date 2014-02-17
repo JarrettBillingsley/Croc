@@ -5,7 +5,6 @@ namespace croc
 {
 	void initArrayLib(CrocThread* t);
 	void initAsciiLib(CrocThread* t);
-	void initBaseLib(CrocThread* t);
 	void initCompilerLib(CrocThread* t);
 	void initConsoleLib(CrocThread* t);
 	void initDocsLib(CrocThread* t);
@@ -17,6 +16,7 @@ namespace croc
 	void initJSONLib(CrocThread* t);
 	void initMathLib(CrocThread* t);
 	void initMemblockLib(CrocThread* t);
+	void initMiscLib(CrocThread* t);
 	void initModulesLib(CrocThread* t);
 	void initObjectLib(CrocThread* t);
 	void initPathLib(CrocThread* t);

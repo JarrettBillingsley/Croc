@@ -121,7 +121,7 @@ extern "C"
 		initGCLib(*t);
 
 		// Safe libs
-		// initBaseLib(*t);
+		initMiscLib(*t);
 		// initStringLib(*t);
 		// initDocsLib(*t); // implicitly depends on the stringlib because of how ex_doccomments is implemented
 
