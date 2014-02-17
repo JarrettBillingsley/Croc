@@ -95,7 +95,7 @@ namespace croc
 		auto savedTop = t->stackIndex;
 		t->hooksEnabled = false;
 
-		auto slot = push(t, Value::from(t->hookFunc));
+		auto slot = push(t, Value::from(t->hookFunc)) + t->stackBase;
 		push(t, Value::from(t));
 
 		switch(hook)
@@ -110,7 +110,7 @@ namespace croc
 
 		auto failed = tryCode(t, slot, [&]
 		{
-			commonCall(t, t->stackBase + slot, 0, callPrologue(t, t->stackBase + slot, 0, 1));
+			commonCall(t, slot, 0, callPrologue(t, slot, 0, 1));
 		});
 
 		t->hooksEnabled = true;

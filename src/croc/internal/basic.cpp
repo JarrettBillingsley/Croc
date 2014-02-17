@@ -73,9 +73,9 @@ namespace croc
 		{
 			if(auto method = getMM(t, v, MM_ToString))
 			{
-				auto funcSlot = push(t, Value::from(method));
+				auto funcSlot = push(t, Value::from(method)) + t->stackBase;
 				push(t, v);
-				commonCall(t, funcSlot + t->stackBase, 1, callPrologue(t, funcSlot + t->stackBase, 1, 1));
+				commonCall(t, funcSlot, 1, callPrologue(t, funcSlot, 1, 1));
 
 				if(t->stack[t->stackIndex - 1].type != CrocType_String)
 				{
@@ -260,10 +260,10 @@ namespace croc
 						MetaNames[MM_In], croc_getString(*t, -1));
 				}
 
-				auto funcSlot = push(t, Value::from(method));
+				auto funcSlot = push(t, Value::from(method)) + t->stackBase;
 				push(t, container);
 				push(t, item);
-				commonCall(t, funcSlot + t->stackBase, 1, callPrologue(t, funcSlot + t->stackBase, 1, 2));
+				commonCall(t, funcSlot, 1, callPrologue(t, funcSlot, 1, 2));
 
 				auto ret = !t->stack[t->stackIndex - 1].isFalse();
 				croc_popTop(*t);
@@ -275,10 +275,10 @@ namespace croc
 	{
 		crocint commonCompare(Thread* t, Function* method, Value a, Value b)
 		{
-			auto funcReg = push(t, Value::from(method));
+			auto funcReg = push(t, Value::from(method)) + t->stackBase;
 			push(t, a);
 			push(t, b);
-			commonCall(t, funcReg + t->stackBase, 1, callPrologue(t, funcReg + t->stackBase, 1, 2));
+			commonCall(t, funcReg, 1, callPrologue(t, funcReg, 1, 2));
 
 			auto ret = *getValue(t, -1);
 			croc_popTop(*t);
@@ -367,10 +367,10 @@ namespace croc
 	{
 		bool commonEquals(Thread* t, Function* method, Value a, Value b)
 		{
-			auto funcReg = push(t, Value::from(method));
+			auto funcReg = push(t, Value::from(method)) + t->stackBase;
 			push(t, a);
 			push(t, b);
-			commonCall(t, funcReg + t->stackBase, 1, callPrologue(t, funcReg + t->stackBase, 1, 2));
+			commonCall(t, funcReg, 1, callPrologue(t, funcReg, 1, 2));
 
 			auto ret = *getValue(t, -1);
 			croc_popTop(*t);
@@ -1048,7 +1048,7 @@ namespace croc
 					auto src1save = stack[slot];
 					auto src2save = stack[slot + 1];
 
-					auto funcSlot = push(t, Value::from(method));
+					auto funcSlot = push(t, Value::from(method)) + t->stackBase;
 
 					if(swap)
 					{
@@ -1061,7 +1061,7 @@ namespace croc
 						push(t, src2save);
 					}
 
-					commonCall(t, funcSlot + t->stackBase, 1, callPrologue(t, funcSlot + t->stackBase, 1, 2));
+					commonCall(t, funcSlot, 1, callPrologue(t, funcSlot, 1, 2));
 
 					// stack might have changed.
 					stack = t->stack;

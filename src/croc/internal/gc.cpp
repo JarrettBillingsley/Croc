@@ -31,7 +31,8 @@ namespace croc
 
 			auto failed = tryCode(t, slot, [&]
 			{
-				commonCall(t, t->stackIndex - 2, 0, callPrologue(t, t->stackIndex - 2, 0, 1));
+				auto absSlot = slot + t->stackBase;
+				commonCall(t, absSlot, 0, callPrologue(t, absSlot, 0, 1));
 			});
 
 			if(failed)
