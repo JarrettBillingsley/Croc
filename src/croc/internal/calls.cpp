@@ -126,6 +126,7 @@ namespace croc
 				return uv;
 
 		auto ret = ALLOC_OBJ(t->vm->mem, Upval);
+		ret->type = CrocType_Upval;
 		ret->value = slot;
 		ret->nextuv = *puv;
 		*puv = ret;
