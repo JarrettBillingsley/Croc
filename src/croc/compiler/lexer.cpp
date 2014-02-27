@@ -3,7 +3,7 @@
 
 #include "croc/compiler/lexer.hpp"
 #include "croc/compiler/types.hpp"
-#include "croc/utf.hpp"
+#include "croc/util/utf.hpp"
 
 namespace croc
 {
@@ -73,14 +73,14 @@ namespace croc
 	// Public
 	// =================================================================================================================
 
-	void Lexer::begin(const char* name, const char* source)
+	void Lexer::begin(crocstr name, crocstr source)
 	{
 		mLoc.file = name;
 		mLoc.line = 1;
 		mLoc.col = 0;
-		mSource = atoda(source);
-		mSourceEnd = source + mSource.length;
-		mSourcePtr = source;
+		mSource = source;
+		mSourceEnd = source.ptr + mSource.length;
+		mSourcePtr = source.ptr;
 
 		mHaveLookahead = false;
 		mNewlineSinceLastTok = false;
@@ -179,7 +179,7 @@ namespace croc
 		return mCaptureEnd;
 	}
 
-	const char* Lexer::endCapture(const char* captureStart)
+	crocstr Lexer::endCapture(const char* captureStart)
 	{
 		// TODO: trim whitespace off the captured string
 		return mCompiler.newString(crocstr::n(captureStart, mCaptureEnd - captureStart));
@@ -266,10 +266,10 @@ namespace croc
 				mHadLinePragma = false;
 				mLoc.line = mLinePragmaLine;
 
-				if(mLinePragmaFile != nullptr)
+				if(mLinePragmaFile.length != 0)
 				{
 					mLoc.file = mLinePragmaFile;
-					mLinePragmaFile = nullptr;
+					mLinePragmaFile = crocstr();
 				}
 			}
 			else
@@ -628,7 +628,7 @@ namespace croc
 		return ret;
 	}
 
-	const char* Lexer::readStringLiteral(bool escape)
+	crocstr Lexer::readStringLiteral(bool escape)
 	{
 		auto beginning = mLoc;
 
@@ -700,14 +700,14 @@ namespace croc
 
 		// Skip end quote
 		nextChar();
-		return mCompiler.newString(buf.toArrayView().toConst());
+		return mCompiler.newString(buf.toArrayView());
 	}
 
-	void Lexer::addComment(const char* str, CompileLoc location)
+	void Lexer::addComment(crocstr str, CompileLoc location)
 	{
-		auto derp = [&](const char*& existing)
+		auto derp = [&](crocstr& existing)
 		{
-			if(existing == nullptr)
+			if(existing.length == 0)
 				existing = str;
 			else
 				mCompiler.lexException(location,
@@ -751,7 +751,7 @@ namespace croc
 			}
 
 			buf.add('\n');
-			addComment(mCompiler.newString(buf.toArrayView().toConst()), loc);
+			addComment(mCompiler.newString(buf.toArrayView()), loc);
 		}
 		else if(mCharacter == '#')
 		{
@@ -782,7 +782,7 @@ namespace croc
 			}
 
 			crocint lineNum;
-			if(!convertInt(lineBuf.toArrayView().toConst(), lineNum, 10))
+			if(!convertInt(lineBuf.toArrayView(), lineNum, 10))
 				mCompiler.lexException(lineNumLoc, "Line number overflow");
 
 			if(lineNum < 1) // TODO:range
@@ -823,7 +823,7 @@ namespace croc
 				if(!IS_EOL())
 					mCompiler.lexException(mLoc, "End-of-line expected immediately after line pragma");
 
-				mLinePragmaFile = mCompiler.newString(fileBuf.toArrayView().toConst());
+				mLinePragmaFile = mCompiler.newString(fileBuf.toArrayView());
 			}
 
 			mHadLinePragma = true;
@@ -923,7 +923,7 @@ namespace croc
 			if(buf.length() > 0 && buf[buf.length() - 1] != '\n')
 				buf.add('\n');
 
-			addComment(mCompiler.newString(buf.toArrayView().toConst()), loc);
+			addComment(mCompiler.newString(buf.toArrayView()), loc);
 		}
 		else
 		{
@@ -987,10 +987,10 @@ namespace croc
 	void Lexer::nextToken()
 	{
 		mNewlineSinceLastTok = false;
-		mTok.preComment = nullptr;
-		mTok.postComment = nullptr;
-		mTok.preCommentLoc = {nullptr, 0, 0};
-		mTok.postCommentLoc = {nullptr, 0, 0};
+		mTok.preComment = crocstr();
+		mTok.postComment = crocstr();
+		mTok.preCommentLoc = {crocstr(), 0, 0};
+		mTok.postCommentLoc = {crocstr(), 0, 0};
 		mTok.startChar = mCharPos;
 		mCaptureEnd = mTok.startChar;
 
@@ -1224,7 +1224,7 @@ namespace croc
 						else
 						{
 							// Have to slice the \0 off the end of arr
-							mTok.stringValue = mCompiler.newString(arr.slice(0, arr.length - 1).toConst());
+							mTok.stringValue = mCompiler.newString(arr.slice(0, arr.length - 1));
 							TOK(Token::Ident);
 						}
 						RETURN;

@@ -64,6 +64,16 @@ namespace croc
 			return nullptr;
 	}
 
+	crocstr getCrocstr(Thread* t, word slot)
+	{
+		auto v = &t->stack[fakeToAbs(t, slot)];
+
+		if(v->type == CrocType_String)
+			return v->mString->toDArray();
+		else
+			return crocstr();
+	}
+
 #define MAKE_GET(Type)\
 	Type* get##Type(Thread* t, word slot)\
 	{\

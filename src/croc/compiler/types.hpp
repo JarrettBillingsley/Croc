@@ -15,7 +15,7 @@ namespace croc
 
 	struct CompileLoc
 	{
-		const char* file;
+		crocstr file;
 		uword line;
 		uword col;
 	};
@@ -113,17 +113,17 @@ namespace croc
 		void danglingDocException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
 		Thread* thread();
 		Memory& mem();
-		const char* newString(crocstr s);
-		const char* newString(const char* s);
+		crocstr newString(crocstr s);
+		crocstr newString(const char* s);
 		void* allocNode(uword size);
 		void addArray(DArray<uint8_t> arr, DArray<uint8_t> old);
 		void addTempArray(DArray<uint8_t> arr);
 		void updateTempArray(DArray<uint8_t> old, DArray<uint8_t> new_);
 		void removeTempArray(DArray<uint8_t> arr);
 		DArray<uint8_t> copyArray(DArray<uint8_t> arr);
-		int compileModule(const char* src, const char* name, const char*& modName);
-		int compileStmts(const char* src, const char* name);
-		int compileExpr(const char* src, const char* name);
+		int compileModule(crocstr src, crocstr name, crocstr& modName);
+		int compileStmts(crocstr src, crocstr name);
+		int compileExpr(crocstr src, crocstr name);
 
 	private:
 		void vexception(CompileLoc loc, const char* exType, const char* msg, va_list args);

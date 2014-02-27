@@ -141,7 +141,7 @@ namespace croc
 		Scope* continueScope;
 		uword breaks;
 		uword continues;
-		const char* name;
+		crocstr name;
 		uword varStart;
 		uword regStart;
 		uword firstFreeReg;
@@ -213,18 +213,18 @@ namespace croc
 	{
 		bool isUpvalue;
 		uword index;
-		const char* name;
+		crocstr name;
 
 		UpvalDesc() :
 			isUpvalue(),
 			index(),
-			name(nullptr)
+			name()
 		{}
 	};
 
 	struct LocVarDesc
 	{
-		const char* name;
+		crocstr name;
 		uword pcStart;
 		uword pcEnd;
 		uword reg;
@@ -233,7 +233,7 @@ namespace croc
 		bool isActive;
 
 		LocVarDesc():
-			name(nullptr),
+			name(),
 			pcStart(),
 			pcEnd(),
 			reg(),
@@ -255,7 +255,7 @@ namespace croc
 
 		CompileLoc mLocation;
 		bool mIsVararg;
-		const char* mName;
+		crocstr mName;
 		uword mNumParams;
 		List<uword> mParamMasks;
 
@@ -276,7 +276,7 @@ namespace croc
 		uword mDummyNameCounter = 0;
 
 	public:
-		FuncBuilder(Compiler& c, CompileLoc location, const char* name, FuncBuilder* parent = nullptr) :
+		FuncBuilder(Compiler& c, CompileLoc location, crocstr name, FuncBuilder* parent = nullptr) :
 			c(c),
 			t(c.thread()),
 			mParent(parent),
@@ -320,7 +320,7 @@ namespace croc
 		void popScope(CompileLoc loc);
 		void setBreakable();
 		void setContinuable();
-		void setScopeName(const char* name);
+		void setScopeName(crocstr name);
 		void closeScopeUpvals(CompileLoc loc);
 		void addParam(Identifier* ident, uword typeMask);
 		uword insertLocal(Identifier* ident);
@@ -341,7 +341,7 @@ namespace croc
 		void pushBool(bool value);
 		void pushInt(crocint value);
 		void pushFloat(crocfloat value);
-		void pushString(const char* value);
+		void pushString(crocstr value);
 		void pushNewGlobal(Identifier* name);
 		void pushThis();
 		void addUpval(Identifier* name, Exp& e);
@@ -414,8 +414,8 @@ namespace croc
 		uword codeFinally(CompileLoc loc, Scope& s);
 		void popFinally(CompileLoc loc, CompileLoc finallyLoc, uword finallyBegin);
 		bool inTryCatch();
-		void codeContinue(CompileLoc loc, const char* name);
-		void codeBreak(CompileLoc loc, const char* name);
+		void codeContinue(CompileLoc loc, crocstr name);
+		void codeBreak(CompileLoc loc, crocstr name);
 		void defaultReturn(CompileLoc loc);
 		void codeRet(CompileLoc loc);
 		void codeUnwind(CompileLoc loc);
@@ -427,7 +427,7 @@ namespace croc
 		uword pushRegister();
 		uword checkRegOK(uword reg);
 		uword insertDummyLocal(CompileLoc loc, const char* fmt);
-		int searchLocal(const char* name, uword& reg);
+		int searchLocal(crocstr name, uword& reg);
 		void deactivateLocals(uword varStart, uword regTo);
 		void codeClose(CompileLoc loc, uword reg);
 		void pushConst(uword index);
@@ -435,7 +435,7 @@ namespace croc
 		uword addBoolConst(bool b);
 		uword addIntConst(crocint x);
 		uword addFloatConst(crocfloat x);
-		uword addStringConst(const char* s);
+		uword addStringConst(crocstr s);
 		uword addConst(Value v);
 		void setMultRetReturns(uword index, uword num);
 		void setJumpOffset(uword i, int offs);

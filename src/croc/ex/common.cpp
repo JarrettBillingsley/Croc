@@ -1,6 +1,7 @@
 
 #include "croc/api.h"
 #include "croc/types.hpp"
+#include "croc/util/str.hpp"
 
 namespace croc
 {
@@ -13,30 +14,26 @@ extern "C"
 		if(len == 0)
 			croc_eh_throwStd(t, "ApiError", "The name '%s' is not formatted correctly", name);
 
-		auto end = name + len;
-		auto dot = strchr(name, '.');
+		bool isFirst = true;
+		word_t idx;
 
-		if(dot == nullptr)
-			return croc_pushGlobal(t, name);
-
-		auto origName = name;
-		croc_pushStringn(t, name, dot - name);
-		auto idx = croc_pushGlobalStk(t);
-
-		for(name = dot + 1; (name < end) && (dot = strchr(name, '.')); name = dot + 1)
+		delimiters(crocstr::n(name, len), atoda("."), [&](crocstr segment)
 		{
-			if(dot == name)
-				croc_eh_throwStd(t, "ApiError", "The name '%s' is not formatted correctly", origName);
+			if(segment.length == 0)
+				croc_eh_throwStd(t, "ApiError", "The name '%s' is not formatted correctly", name);
 
-			croc_pushStringn(t, name, dot - name);
-			croc_fieldStk(t, -2);
-		}
-
-		if(name == end)
-			croc_eh_throwStd(t, "ApiError", "The name '%s' is not formatted correctly", origName);
-
-		croc_pushStringn(t, name, end - name);
-		croc_fieldStk(t, -2);
+			if(isFirst)
+			{
+				isFirst = false;
+				idx = croc_pushStringn(t, segment.ptr, segment.length);
+				croc_pushGlobalStk(t);
+			}
+			else
+			{
+				croc_pushStringn(t, segment.ptr, segment.length);
+				croc_fieldStk(t, -2);
+			}
+		});
 
 		if(croc_getStackSize(t) > cast(uword)idx + 1)
 			croc_insertAndPop(t, idx);

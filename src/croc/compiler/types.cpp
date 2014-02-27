@@ -123,16 +123,16 @@ namespace croc
 		return t->vm->mem;
 	}
 
-	const char* Compiler::newString(crocstr data)
+	crocstr Compiler::newString(crocstr data)
 	{
 		auto s = String::create(t->vm, data);
 		push(t, Value::from(s));
 		croc_pushBool(*t, true);
 		croc_idxa(*t, mStringTab);
-		return s->toCString();
+		return s->toDArray();
 	}
 
-	const char* Compiler::newString(const char* data)
+	crocstr Compiler::newString(const char* data)
 	{
 		return newString(atoda(data));
 	}
@@ -194,7 +194,7 @@ namespace croc
 		return ret;
 	}
 
-	int Compiler::compileModule(const char* src, const char* name, const char*& modName)
+	int Compiler::compileModule(crocstr src, crocstr name, crocstr& modName)
 	{
 		(void)modName;
 		return commonCompile([&]()
@@ -221,7 +221,7 @@ namespace croc
 		});
 	}
 
-	int Compiler::compileStmts(const char* src, const char* name)
+	int Compiler::compileStmts(crocstr src, crocstr name)
 	{
 		return commonCompile([&]()
 		{
@@ -246,7 +246,7 @@ namespace croc
 		});
 	}
 
-	int Compiler::compileExpr(const char* src, const char* name)
+	int Compiler::compileExpr(crocstr src, crocstr name)
 	{
 		return commonCompile([&]()
 		{
@@ -269,7 +269,7 @@ namespace croc
 		croc_call(*t, ex, 1);
 		croc_dupTop(*t);
 		croc_pushNull(*t);
-		croc_eh_pushLocationObject(*t, loc.file, loc.line, loc.col);
+		croc_eh_pushLocationObject(*t, loc.file.ptr, loc.line, loc.col);
 		croc_methodCall(*t, -3, "setLocation", 0);
 		croc_eh_throw(*t);
 	}

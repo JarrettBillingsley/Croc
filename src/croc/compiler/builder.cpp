@@ -177,7 +177,7 @@ namespace croc
 		s.regStart = mFreeReg;
 		s.firstFreeReg = mFreeReg;
 		s.hasUpval = false;
-		s.name = nullptr;
+		s.name = crocstr();
 
 		mScope = &s;
 	}
@@ -204,7 +204,7 @@ namespace croc
 		mScope->continueScope = mScope;
 	}
 
-	void FuncBuilder::setScopeName(const char* name)
+	void FuncBuilder::setScopeName(crocstr name)
 	{
 		mScope->name = name;
 	}
@@ -236,7 +236,7 @@ namespace croc
 		{
 			auto l = mLocVars[index].location;
 			c.semException(ident->location, "Local '%s' conflicts with previous definition at %s(%u:%u)",
-				ident->name, l.file, l.line, l.col);
+				ident->name.ptr, l.file.ptr, l.line, l.col);
 		}
 
 		LocVarDesc lv {};
@@ -334,7 +334,7 @@ namespace croc
 		else if(v->isFloat())
 			val = Value::from(v->asFloat());
 		else if(v->isString())
-			val = Value::from(String::create(t->vm, atoda(v->asString())));
+			val = Value::from(String::create(t->vm, v->asString()));
 		else
 			assert(false);
 
@@ -472,7 +472,7 @@ namespace croc
 	}
 
 	// [] => [Const]
-	void FuncBuilder::pushString(const char* value)
+	void FuncBuilder::pushString(crocstr value)
 	{
 		pushConst(addStringConst(value));
 	}
@@ -1498,12 +1498,12 @@ namespace croc
 		return mTryCatchDepth > 0;
 	}
 
-	void FuncBuilder::codeContinue(CompileLoc loc, const char* name)
+	void FuncBuilder::codeContinue(CompileLoc loc, crocstr name)
 	{
 		bool anyUpvals = false;
 		Scope* continueScope;
 
-		if(name == nullptr)
+		if(name.length == 0)
 		{
 			if(mScope->continueScope == nullptr)
 				c.semException(loc, "No continuable control structure");
@@ -1541,12 +1541,12 @@ namespace croc
 		codeImm(cont);
 	}
 
-	void FuncBuilder::codeBreak(CompileLoc loc, const char* name)
+	void FuncBuilder::codeBreak(CompileLoc loc, crocstr name)
 	{
 		bool anyUpvals = false;
 		Scope* breakScope;
 
-		if(name == nullptr)
+		if(name.length == 0)
 		{
 			if(mScope->breakScope == nullptr)
 				c.semException(loc, "No breakable control structure");
@@ -1688,7 +1688,7 @@ namespace croc
 		return insertLocal(new(c) Identifier(loc, str));
 	}
 
-	int FuncBuilder::searchLocal(const char* name, uword& reg)
+	int FuncBuilder::searchLocal(crocstr name, uword& reg)
 	{
 		for(uword i = mLocVars.length() - 1; cast(word)i >= 0; i--)
 		{
@@ -1751,9 +1751,9 @@ namespace croc
 		return addConst(Value::from(x));
 	}
 
-	uword FuncBuilder::addStringConst(const char* s)
+	uword FuncBuilder::addStringConst(crocstr s)
 	{
-		return addConst(Value::from(String::create(t->vm, atoda(s))));
+		return addConst(Value::from(String::create(t->vm, s)));
 	}
 
 	uword FuncBuilder::addConst(Value v)
@@ -2300,11 +2300,11 @@ namespace croc
 		auto ret = Funcdef::create(c.mem());
 		push(t, Value::from(ret));
 
-		ret->locFile = String::create(t->vm, atoda(mLocation.file));
+		ret->locFile = String::create(t->vm, mLocation.file);
 		ret->locLine = mLocation.line;
 		ret->locCol = mLocation.col;
 		ret->isVararg = mIsVararg;
-		ret->name = String::create(t->vm, atoda(mName));
+		ret->name = String::create(t->vm, mName);
 		ret->numParams = mNumParams;
 		ret->paramMasks = mParamMasks.toArrayView().dup(c.mem());
 
@@ -2345,7 +2345,7 @@ namespace croc
 		i = 0;
 		for(auto &u: mUpvals)
 		{
-			ret->upvalNames[i] = String::create(t->vm, atoda(u.name));
+			ret->upvalNames[i] = String::create(t->vm, u.name);
 			i++;
 		}
 
@@ -2355,7 +2355,7 @@ namespace croc
 		i = 0;
 		for(auto &var: mLocVars)
 		{
-			ret->locVarDescs[i].name = String::create(t->vm, atoda(var.name));
+			ret->locVarDescs[i].name = String::create(t->vm, var.name);
 			ret->locVarDescs[i].pcStart = var.pcStart;
 			ret->locVarDescs[i].pcEnd = var.pcEnd;
 			ret->locVarDescs[i].reg = var.reg;

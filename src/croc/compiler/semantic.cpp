@@ -6,6 +6,7 @@
 #include "croc/compiler/semantic.hpp"
 #include "croc/compiler/types.hpp"
 #include "croc/types.hpp"
+#include "croc/util/str.hpp"
 
 #define VISIT(e)               do { e = visit(e);                     } while(false)
 #define COND_VISIT(e)          do { if(e) e = visit(e);               } while(false)
@@ -131,7 +132,7 @@ namespace croc
 		else
 		{
 			croc_pushFormat(*c.thread(), "Assertion failure at %s(%u:%u)",
-				s->location.file, s->location.line, s->location.col);
+				s->location.file.ptr, s->location.line, s->location.col);
 			auto str = c.newString(croc_getString(*c.thread(), -1));
 			croc_popTop(*c.thread());
 			s->msg = new(c) StringExp(s->location, str);
@@ -599,7 +600,7 @@ namespace croc
 								(loVal < lo2Val && (lo2Val - loVal) <= (hiVal - loVal)) ||
 								(loVal > lo2Val && (loVal - lo2Val) <= (hi2Val - lo2Val)))
 								c.semException(lo2->location, "case range overlaps range at %s(%u:%u)",
-									lo->location.file, lo->location.line, lo->location.col);
+									lo->location.file.ptr, lo->location.line, lo->location.col);
 						}
 					}
 					else
@@ -610,7 +611,7 @@ namespace croc
 								((cond.exp->isInt() && cond.exp->asInt() >= loVal && cond.exp->asInt() <= hiVal) ||
 								(cond.exp->isFloat() && cond.exp->asFloat() >= loVal && cond.exp->asFloat() <= hiVal)))
 								c.semException(cond.exp->location, "case value overlaps range at %s(%u:%u)",
-									lo->location.file, lo->location.line, lo->location.col);
+									lo->location.file.ptr, lo->location.line, lo->location.col);
 						}
 					}
 				}
@@ -635,12 +636,12 @@ namespace croc
 							auto lo2Val = lo2->asString();
 							auto hi2Val = hi2->asString();
 
-							if( (strcmp(loVal, lo2Val) >= 0 && strcmp(loVal, hi2Val) <= 0) ||
-								(strcmp(hiVal, lo2Val) >= 0 && strcmp(hiVal, hi2Val) <= 0) ||
-								(strcmp(lo2Val, loVal) >= 0 && strcmp(lo2Val, hiVal) <= 0) ||
-								(strcmp(hi2Val, loVal) >= 0 && strcmp(hi2Val, hiVal) <= 0))
+							if( (loVal >= lo2Val && loVal <= hi2Val) ||
+								(hiVal >= lo2Val && hiVal <= hi2Val) ||
+								(lo2Val >= loVal && lo2Val <= hiVal) ||
+								(hi2Val >= loVal && hi2Val <= hiVal))
 								c.semException(lo2->location, "case range overlaps range at %s(%u:%u)",
-									lo->location.file, lo->location.line, lo->location.col);
+									lo->location.file.ptr, lo->location.line, lo->location.col);
 						}
 					}
 					else
@@ -648,9 +649,9 @@ namespace croc
 						for(auto cond: c2->conditions)
 						{
 							if(cond.exp->isConstant() && cond.exp->isString() &&
-								strcmp(cond.exp->asString(), loVal) >= 0 && strcmp(cond.exp->asString(), hiVal) <= 0)
+								cond.exp->asString() >= loVal && cond.exp->asString() <= hiVal)
 								c.semException(cond.exp->location, "case value overlaps range at %s(%u:%u)",
-									lo->location.file, lo->location.line, lo->location.col);
+									lo->location.file.ptr, lo->location.line, lo->location.col);
 						}
 					}
 				}
@@ -690,9 +691,9 @@ namespace croc
 				}
 				else if(lo->isString() && hi->isString())
 				{
-					if(strcmp(lo->asString(), hi->asString()) > 0)
+					if(lo->asString() > hi->asString())
 						c.semException(lo->location, "Invalid case range (low is greater than high)");
-					else if(strcmp(lo->asString(), hi->asString()) == 0)
+					else if(lo->asString() == hi->asString())
 						s->highRange = nullptr;
 				}
 			}
@@ -1082,8 +1083,8 @@ namespace croc
 			if(e->op1->isString() && e->op2->isString())
 				return new(c) BoolExp(e->location,
 					isTrue ?
-					strcmp(e->op1->asString(), e->op2->asString()) == 0 :
-					strcmp(e->op1->asString(), e->op2->asString()) != 0);
+					e->op1->asString() == e->op2->asString() :
+					e->op1->asString() != e->op2->asString());
 
 			if(e->type == AstTag_IsExp || e->type == AstTag_NotIsExp)
 				return new(c) BoolExp(e->location, !isTrue);
@@ -1108,7 +1109,7 @@ namespace croc
 		else if(op1->isNum() && op2->isNum())
 			return Compare3(op1->asFloat(), op2->asFloat());
 		else if(op1->isString() && op2->isString())
-			return strcmp(op1->asString(), op2->asString());
+			return op1->asString().cmp(op2->asString());
 		else
 			c.semException(op1->location, "Invalid compile-time comparison");
 
@@ -1160,11 +1161,10 @@ namespace croc
 
 		if(e->op1->isConstant() && e->op2->isConstant() && e->op2->isString())
 		{
-			// auto s = e->op2->asString();
+			auto s = e->op2->asString();
 
 			if(e->op1->isString())
-				// TODO: string locate
-				return new(c) BoolExp(e->location, false); // s.locatePattern(e->op1->asString()) != s.length);
+				return new(c) BoolExp(e->location, strLocate(s, e->op1->asString()) != s.length);
 			else
 				c.semException(e->location, "'in' must be performed on a string with a string");
 		}
@@ -1179,11 +1179,10 @@ namespace croc
 
 		if(e->op1->isConstant() && e->op2->isConstant() && e->op2->isString())
 		{
-			// auto s = e->op2->asString();
+			auto s = e->op2->asString();
 
 			if(e->op1->isString())
-				// TODO: string locate
-				return new(c) BoolExp(e->location, false); //s.locatePattern(e->op1->asString()) == s.length);
+				return new(c) BoolExp(e->location, strLocate(s, e->op1->asString()) == s.length);
 			else
 				c.semException(e->location, "'!in' must be performed on a string with a string");
 		}
@@ -1327,9 +1326,9 @@ namespace croc
 
 				// j points to first non-const non-string non-char operand
 				for(auto op: ops.slice(i, j))
-					tempStr.add(atoda(op->asString()));
+					tempStr.add(op->asString());
 
-				newOperands.add(new(c) StringExp(e->location, c.newString(tempStr.toArray().toConst())));
+				newOperands.add(new(c) StringExp(e->location, c.newString(tempStr.toArray())));
 				i = j - 1;
 			}
 		}
@@ -1497,7 +1496,8 @@ namespace croc
 		{
 			if(e->op->isString())
 			{
-				croc_pushString(*c.thread(), e->op->asString());
+				auto s = e->op->asString();
+				croc_pushStringn(*c.thread(), s.ptr, s.length);
 				auto len = croc_len(*c.thread(), -1);
 				croc_popTop(*c.thread());
 				return new(c) IntExp(e->location, len);
@@ -1556,7 +1556,7 @@ namespace croc
 			if(!e->op->isString() || !e->index->isInt())
 				c.semException(e->location, "Can only index strings with integers at compile time");
 
-			auto str = atoda(e->op->asString());
+			auto str = e->op->asString();
 			auto strLen = fastUtf8CPLength(str);
 			auto idx = e->index->asInt();
 
@@ -1597,7 +1597,7 @@ namespace croc
 				(!e->hiIndex->isInt() && !e->hiIndex->isNull()))
 				c.semException(e->location, "Can only slice strings with integers at compile time");
 
-			auto str = atoda(e->op->asString());
+			auto str = e->op->asString();
 			auto strLen = fastUtf8CPLength(str);
 			crocint l, h;
 

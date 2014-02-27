@@ -196,8 +196,8 @@ namespace croc
 		DArray<Expression*> classTypes;
 		Expression* customConstraint;
 		Expression* defValue;
-		const char* typeString;
-		const char* valueString;
+		crocstr typeString;
+		crocstr valueString;
 
 		FuncParam() :
 			name(),
@@ -222,11 +222,11 @@ namespace croc
 
 	struct ClassField
 	{
-		const char* name;
+		crocstr name;
 		Expression* initializer;
 		FuncLiteralExp* func;
 		bool isOverride;
-		const char* docs;
+		crocstr docs;
 		CompileLoc docsLoc;
 
 		ClassField() :
@@ -238,7 +238,7 @@ namespace croc
 			docsLoc()
 		{}
 
-		ClassField(const char* name, Expression* initializer, FuncLiteralExp* func, bool isOverride) :
+		ClassField(crocstr name, Expression* initializer, FuncLiteralExp* func, bool isOverride) :
 			name(name),
 			initializer(initializer),
 			func(func),
@@ -250,10 +250,10 @@ namespace croc
 
 	struct NamespaceField
 	{
-		const char* name;
+		crocstr name;
 		Expression* initializer;
 		FuncLiteralExp* func;
-		const char* docs;
+		crocstr docs;
 		CompileLoc docsLoc;
 
 		NamespaceField() :
@@ -264,7 +264,7 @@ namespace croc
 			docsLoc()
 		{}
 
-		NamespaceField(const char* name, Expression* initializer, FuncLiteralExp* func) :
+		NamespaceField(crocstr name, Expression* initializer, FuncLiteralExp* func) :
 			name(name),
 			initializer(initializer),
 			func(func),
@@ -372,7 +372,7 @@ namespace croc
 
 	struct Expression : public AstNode
 	{
-		const char* sourceStr;
+		crocstr sourceStr;
 
 		Expression(CompileLoc location, CompileLoc endLocation, AstTag type) :
 			AstNode(location, endLocation, type)
@@ -410,7 +410,7 @@ namespace croc
 		bool asBool();
 		crocint asInt();
 		crocfloat asFloat();
-		const char* asString();
+		crocstr asString();
 	};
 
 	struct BinaryExp : public Expression
@@ -468,9 +468,9 @@ namespace croc
 
 	struct Identifier : public AstNode
 	{
-		const char* name;
+		crocstr name;
 
-		Identifier(CompileLoc location, const char* name) :
+		Identifier(CompileLoc location, crocstr name) :
 			AstNode(location, location, AstTag_Identifier),
 			name(name)
 		{}
@@ -482,7 +482,7 @@ namespace croc
 		DArray<FuncParam> params;
 		bool isVararg;
 		Statement* code;
-		const char* docs;
+		crocstr docs;
 		CompileLoc docsLoc;
 
 		FuncDef(CompileLoc location, Identifier* name, DArray<FuncParam> params, bool isVararg, Statement* code) :
@@ -496,13 +496,13 @@ namespace croc
 
 	struct Module : public AstNode
 	{
-		const char* name;
+		crocstr name;
 		Statement* statements;
 		Decorator* decorator;
-		const char* docs;
+		crocstr docs;
 		CompileLoc docsLoc;
 
-		Module(CompileLoc location, CompileLoc endLocation, const char* name, Statement* statements,
+		Module(CompileLoc location, CompileLoc endLocation, crocstr name, Statement* statements,
 			Decorator* decorator) :
 			AstNode(location, endLocation, AstTag_Module),
 			name(name),
@@ -516,7 +516,7 @@ namespace croc
 		Protection protection;
 		DArray<Identifier*> names;
 		DArray<Expression*> initializer;
-		const char* docs;
+		crocstr docs;
 		CompileLoc docsLoc;
 
 		VarDecl(CompileLoc location, CompileLoc endLocation, Protection protection, DArray<Identifier*> names,
@@ -566,7 +566,7 @@ namespace croc
 		Identifier* name;
 		DArray<Expression*> baseClasses;
 		DArray<ClassField> fields;
-		const char* docs;
+		crocstr docs;
 		CompileLoc docsLoc;
 
 		ClassDecl(CompileLoc location, CompileLoc endLocation, Protection protection, Decorator* decorator,
@@ -587,7 +587,7 @@ namespace croc
 		Identifier* name;
 		Expression* parent;
 		DArray<NamespaceField> fields;
-		const char* docs;
+		crocstr docs;
 		CompileLoc docsLoc;
 
 		NamespaceDecl(CompileLoc location, CompileLoc endLocation, Protection protection, Decorator* decorator,
@@ -684,12 +684,12 @@ namespace croc
 
 	struct WhileStmt : public Statement
 	{
-		const char* name;
+		crocstr name;
 		IdentExp* condVar;
 		Expression* condition;
 		Statement* code;
 
-		WhileStmt(CompileLoc location, const char* name, IdentExp* condVar, Expression* condition, Statement* code) :
+		WhileStmt(CompileLoc location, crocstr name, IdentExp* condVar, Expression* condition, Statement* code) :
 			Statement(location, code->endLocation, AstTag_WhileStmt),
 			name(name),
 			condVar(condVar),
@@ -700,11 +700,11 @@ namespace croc
 
 	struct DoWhileStmt : public Statement
 	{
-		const char* name;
+		crocstr name;
 		Statement* code;
 		Expression* condition;
 
-		DoWhileStmt(CompileLoc location, CompileLoc endLocation, const char* name, Statement* code,
+		DoWhileStmt(CompileLoc location, CompileLoc endLocation, crocstr name, Statement* code,
 			Expression* condition):
 			Statement(location, endLocation, AstTag_DoWhileStmt),
 			name(name),
@@ -715,13 +715,13 @@ namespace croc
 
 	struct ForStmt : public Statement
 	{
-		const char* name;
+		crocstr name;
 		DArray<ForStmtInit> init;
 		Expression* condition;
 		DArray<Statement*> increment;
 		Statement* code;
 
-		ForStmt(CompileLoc location, const char* name, DArray<ForStmtInit> init, Expression* cond,
+		ForStmt(CompileLoc location, crocstr name, DArray<ForStmtInit> init, Expression* cond,
 			DArray<Statement*> inc, Statement* code) :
 			Statement(location, endLocation, AstTag_ForStmt),
 			name(name),
@@ -734,14 +734,14 @@ namespace croc
 
 	struct ForNumStmt : public Statement
 	{
-		const char* name;
+		crocstr name;
 		Identifier* index;
 		Expression* lo;
 		Expression* hi;
 		Expression* step;
 		Statement* code;
 
-		ForNumStmt(CompileLoc location, const char* name, Identifier* index, Expression* lo, Expression* hi,
+		ForNumStmt(CompileLoc location, crocstr name, Identifier* index, Expression* lo, Expression* hi,
 			Expression* step, Statement* code) :
 			Statement(location, code->endLocation, AstTag_ForNumStmt),
 			name(name),
@@ -755,12 +755,12 @@ namespace croc
 
 	struct ForeachStmt : public Statement
 	{
-		const char* name;
+		crocstr name;
 		DArray<Identifier*> indices;
 		DArray<Expression*> container;
 		Statement* code;
 
-		ForeachStmt(CompileLoc location, const char* name, DArray<Identifier*> indices, DArray<Expression*> container,
+		ForeachStmt(CompileLoc location, crocstr name, DArray<Identifier*> indices, DArray<Expression*> container,
 			Statement* code) :
 			Statement(location, code->endLocation, AstTag_ForeachStmt),
 			name(name),
@@ -772,12 +772,12 @@ namespace croc
 
 	struct SwitchStmt : public Statement
 	{
-		const char* name;
+		crocstr name;
 		Expression* condition;
 		DArray<CaseStmt*> cases;
 		DefaultStmt* caseDefault;
 
-		SwitchStmt(CompileLoc location, CompileLoc endLocation, const char* name, Expression* condition,
+		SwitchStmt(CompileLoc location, CompileLoc endLocation, crocstr name, Expression* condition,
 			DArray<CaseStmt*> cases, DefaultStmt* caseDefault) :
 			Statement(location, endLocation, AstTag_SwitchStmt),
 			name(name),
@@ -814,9 +814,9 @@ namespace croc
 
 	struct ContinueStmt : public Statement
 	{
-		const char* name;
+		crocstr name;
 
-		ContinueStmt(CompileLoc location, const char* name) :
+		ContinueStmt(CompileLoc location, crocstr name) :
 			Statement(location, location, AstTag_ContinueStmt),
 			name(name)
 		{}
@@ -824,9 +824,9 @@ namespace croc
 
 	struct BreakStmt : public Statement
 	{
-		const char* name;
+		crocstr name;
 
-		BreakStmt(CompileLoc location, const char* name) :
+		BreakStmt(CompileLoc location, crocstr name) :
 			Statement(location, location, AstTag_BreakStmt),
 			name(name)
 		{}
@@ -1196,9 +1196,9 @@ namespace croc
 
 	struct StringExp : public PrimaryExp
 	{
-		const char* value;
+		crocstr value;
 
-		StringExp(CompileLoc location, const char* value) :
+		StringExp(CompileLoc location, crocstr value) :
 			PrimaryExp(location, AstTag_StringExp),
 			value(value)
 		{}

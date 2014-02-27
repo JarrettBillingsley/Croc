@@ -4,7 +4,7 @@
 #include "croc/base/opcodes.hpp"
 #include "croc/base/writebarrier.hpp"
 #include "croc/types.hpp"
-#include "croc/utils.hpp"
+#include "croc/util/misc.hpp"
 
 #define ADDREF(slot)\
 	do {\

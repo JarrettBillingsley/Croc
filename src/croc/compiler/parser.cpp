@@ -7,7 +7,7 @@ namespace croc
 	// Public
 	// =================================================================================================================
 
-	const char* Parser::capture(std::function<void()> dg)
+	crocstr Parser::capture(std::function<void()> dg)
 	{
 		if(c.docComments())
 		{
@@ -18,11 +18,11 @@ namespace croc
 		else
 		{
 			dg();
-			return nullptr;
+			return crocstr();
 		}
 	}
 
-	const char* Parser::parseName()
+	crocstr Parser::parseName()
 	{
 		return l.expect(Token::Ident).stringValue;
 	}
@@ -74,13 +74,13 @@ namespace croc
 		l.expect(Token::Module);
 
 		List<char, 32> name(c);
-		name.add(atoda(parseName()));
+		name.add(parseName());
 
 		while(l.type() == Token::Dot)
 		{
 			l.next();
 			name.add('.');
-			name.add(atoda(parseName()));
+			name.add(parseName());
 		}
 
 		l.statementTerm();
@@ -94,18 +94,18 @@ namespace croc
 
 		auto tok = l.expect(Token::EOF_);
 
-		if(tok.preComment != nullptr)
+		if(tok.preComment.length != 0)
 			c.danglingDocException(tok.preCommentLoc, "Doc comment at end of module not attached to any declaration");
 
-		auto ret = new(c) Module(location, l.loc(), c.newString(name.toArrayView().toConst()), stmts, dec);
+		auto ret = new(c) Module(location, l.loc(), c.newString(name.toArrayView()), stmts, dec);
 
 		// Prevent final docs from being erroneously attached to the module
-		l.tok().postComment = nullptr;
+		l.tok().postComment = crocstr();
 		attachDocs(*ret, docs, docsLoc);
 		return ret;
 	}
 
-	FuncDef* Parser::parseStatements(const char* name)
+	FuncDef* Parser::parseStatements(crocstr name)
 	{
 		auto location = l.loc();
 
@@ -116,7 +116,7 @@ namespace croc
 
 		auto tok = l.expect(Token::EOF_);
 
-		if(tok.preComment != nullptr)
+		if(tok.preComment.length != 0)
 			c.danglingDocException(tok.preCommentLoc, "Doc comment at end of code not attached to any declaration");
 
 		auto endLocation = statements.length() > 0 ? statements.last()->endLocation : location;
@@ -126,7 +126,7 @@ namespace croc
 		return new(c) FuncDef(location, new(c) Identifier(location, c.newString(name)), params.toArray(), true, code);
 	}
 
-	FuncDef* Parser::parseExpressionFunc(const char* name)
+	FuncDef* Parser::parseExpressionFunc(crocstr name)
 	{
 		auto location = l.loc();
 
@@ -527,7 +527,7 @@ namespace croc
 		return ret.toArray();
 	}
 
-	uint32_t Parser::parseParamType(DArray<Expression*>& classTypes, const char*& typeString,
+	uint32_t Parser::parseParamType(DArray<Expression*>& classTypes, crocstr& typeString,
 		Expression*& customConstraint)
 	{
 		uint32_t ret = 0;
@@ -576,18 +576,18 @@ namespace croc
 						objTypes.add(parseIdentList(t));
 					}
 					else
-					if(strcmp(t.stringValue, "bool") == 0)      addConstraint(CrocType_Bool); else
-					if(strcmp(t.stringValue, "int") == 0)       addConstraint(CrocType_Int); else
-					if(strcmp(t.stringValue, "float") == 0)     addConstraint(CrocType_Float); else
-					if(strcmp(t.stringValue, "string") == 0)    addConstraint(CrocType_String); else
-					if(strcmp(t.stringValue, "table") == 0)     addConstraint(CrocType_Table); else
-					if(strcmp(t.stringValue, "array") == 0)     addConstraint(CrocType_Array); else
-					if(strcmp(t.stringValue, "memblock") == 0)  addConstraint(CrocType_Memblock); else
-					if(strcmp(t.stringValue, "thread") == 0)    addConstraint(CrocType_Thread); else
-					if(strcmp(t.stringValue, "nativeobj") == 0) addConstraint(CrocType_Nativeobj); else
-					if(strcmp(t.stringValue, "weakref") == 0)   addConstraint(CrocType_Weakref); else
-					if(strcmp(t.stringValue, "funcdef") == 0)   addConstraint(CrocType_Funcdef); else
-					if(strcmp(t.stringValue, "instance") == 0)
+					if(strcmp(t.stringValue.ptr, "bool") == 0)      addConstraint(CrocType_Bool); else
+					if(strcmp(t.stringValue.ptr, "int") == 0)       addConstraint(CrocType_Int); else
+					if(strcmp(t.stringValue.ptr, "float") == 0)     addConstraint(CrocType_Float); else
+					if(strcmp(t.stringValue.ptr, "string") == 0)    addConstraint(CrocType_String); else
+					if(strcmp(t.stringValue.ptr, "table") == 0)     addConstraint(CrocType_Table); else
+					if(strcmp(t.stringValue.ptr, "array") == 0)     addConstraint(CrocType_Array); else
+					if(strcmp(t.stringValue.ptr, "memblock") == 0)  addConstraint(CrocType_Memblock); else
+					if(strcmp(t.stringValue.ptr, "thread") == 0)    addConstraint(CrocType_Thread); else
+					if(strcmp(t.stringValue.ptr, "nativeobj") == 0) addConstraint(CrocType_Nativeobj); else
+					if(strcmp(t.stringValue.ptr, "weakref") == 0)   addConstraint(CrocType_Weakref); else
+					if(strcmp(t.stringValue.ptr, "funcdef") == 0)   addConstraint(CrocType_Funcdef); else
+					if(strcmp(t.stringValue.ptr, "instance") == 0)
 					{
 						addConstraint(CrocType_Instance);
 
@@ -643,7 +643,7 @@ namespace croc
 				l.expect(Token::Null);
 				ret = cast(uint32_t)TypeMask::NotNull;
 			}
-			else if(l.type() == Token::Ident && strcmp(l.tok().stringValue, "any") == 0)
+			else if(l.type() == Token::Ident && strcmp(l.tok().stringValue.ptr, "any") == 0)
 			{
 				l.next();
 				ret = cast(uint32_t)TypeMask::Any;
@@ -763,7 +763,7 @@ namespace croc
 		List<ClassField> fields(c);
 
 		auto addField = [&](Decorator* deco, Identifier* name, Expression* v, FuncLiteralExp* func, bool isOverride,
-			const char* preDocs, CompileLoc preDocsLoc)
+			crocstr preDocs, CompileLoc preDocsLoc)
 		{
 			if(deco != nullptr)
 				v = decoToExp(deco, v);
@@ -772,7 +772,7 @@ namespace croc
 			attachDocs(fields.last(), preDocs, preDocsLoc);
 		};
 
-		auto addMethod = [&](Decorator* deco, FuncDef* m, bool isOverride, const char* preDocs, CompileLoc preDocsLoc)
+		auto addMethod = [&](Decorator* deco, FuncDef* m, bool isOverride, crocstr preDocs, CompileLoc preDocsLoc)
 		{
 			auto func = new(c) FuncLiteralExp(m->location, m);
 			addField(deco, m->name, func, func, isOverride, preDocs, preDocsLoc);
@@ -875,15 +875,15 @@ namespace croc
 		auto fieldMap = croc_table_new(t, 8);
 		List<NamespaceField> fields(c);
 
-		auto addField = [&](Decorator* deco, Identifier* name, Expression* v, FuncLiteralExp* func, const char* preDocs,
+		auto addField = [&](Decorator* deco, Identifier* name, Expression* v, FuncLiteralExp* func, crocstr preDocs,
 			CompileLoc preDocsLoc)
 		{
-			croc_pushString(t, name->name);
+			croc_pushStringn(t, name->name.ptr, name->name.length);
 
 			if(croc_in(t, -1, fieldMap))
 			{
 				croc_popTop(t);
-				c.semException(v->location, "Redeclaration of member '%s'", name->name);
+				c.semException(v->location, "Redeclaration of member '%s'", name->name.ptr);
 			}
 
 			croc_pushBool(t, true);
@@ -896,7 +896,7 @@ namespace croc
 			attachDocs(fields.last(), preDocs, preDocsLoc);
 		};
 
-		auto addMethod = [&](Decorator* deco, FuncDef* m, const char* preDocs, CompileLoc preDocsLoc)
+		auto addMethod = [&](Decorator* deco, FuncDef* m, crocstr preDocs, CompileLoc preDocsLoc)
 		{
 			auto func = new(c) FuncLiteralExp(m->location, m);
 			addField(deco, m->name, func, func, preDocs, preDocsLoc);
@@ -986,7 +986,7 @@ namespace croc
 	BreakStmt* Parser::parseBreakStmt()
 	{
 		auto location = l.expect(Token::Break).loc;
-		const char* name = nullptr;
+		crocstr name = crocstr();
 
 		if(!l.isStatementTerm() && l.type() == Token::Ident)
 		{
@@ -1001,7 +1001,7 @@ namespace croc
 	ContinueStmt* Parser::parseContinueStmt()
 	{
 		auto location = l.expect(Token::Continue).loc;
-		const char* name = nullptr;
+		crocstr name = crocstr();
 
 		if(!l.isStatementTerm() && l.type() == Token::Ident)
 		{
@@ -1020,7 +1020,7 @@ namespace croc
 
 		l.expect(Token::While);
 
-		const char* name = nullptr;
+		crocstr name = crocstr();
 
 		if(l.type() == Token::Ident)
 		{
@@ -1038,7 +1038,7 @@ namespace croc
 	Statement* Parser::parseForStmt()
 	{
 		auto location = l.expect(Token::For).loc;
-		const char* name = nullptr;
+		crocstr name = crocstr();
 
 		if(l.type() == Token::Ident)
 		{
@@ -1142,7 +1142,7 @@ namespace croc
 	ForeachStmt* Parser::parseForeachStmt()
 	{
 		auto location = l.expect(Token::Foreach).loc;
-		const char* name = nullptr;
+		crocstr name = crocstr();
 
 		if(l.type() == Token::Ident)
 		{
@@ -1247,16 +1247,16 @@ namespace croc
 		{
 			List<char, 32> name(c);
 
-			name.add(atoda(parseName()));
+			name.add(parseName());
 
 			while(l.type() == Token::Dot)
 			{
 				l.next();
 				name.add('.');
-				name.add(atoda(parseName()));
+				name.add(parseName());
 			}
 
-			expr = new(c) StringExp(location, c.newString(name.toArrayView().toConst()));
+			expr = new(c) StringExp(location, c.newString(name.toArrayView()));
 		}
 
 		if(l.type() == Token::As)
@@ -1337,7 +1337,7 @@ namespace croc
 	SwitchStmt* Parser::parseSwitchStmt()
 	{
 		auto location = l.expect(Token::Switch).loc;
-		const char* name = nullptr;
+		crocstr name = crocstr();
 
 		if(l.type() == Token::Ident)
 		{
@@ -1434,16 +1434,16 @@ namespace croc
 
 		ScopeAction type;
 
-		if(strcmp(id.stringValue, "exit") == 0)
+		if(strcmp(id.stringValue.ptr, "exit") == 0)
 			type = ScopeAction::Exit;
-		else if(strcmp(id.stringValue, "success") == 0)
+		else if(strcmp(id.stringValue.ptr, "success") == 0)
 			type = ScopeAction::Success;
-		else if(strcmp(id.stringValue, "failure") == 0)
+		else if(strcmp(id.stringValue.ptr, "failure") == 0)
 			type = ScopeAction::Failure;
 		else
 		{
 			c.synException(location, "Expected one of 'exit', 'success', or 'failure' for scope statement, not '%s'",
-				id.stringValue);
+				id.stringValue.ptr);
 			assert(false);
 		}
 
@@ -1533,7 +1533,7 @@ namespace croc
 	WhileStmt* Parser::parseWhileStmt()
 	{
 		auto location = l.expect(Token::While).loc;
-		const char* name = nullptr;
+		crocstr name = crocstr();
 
 		if(l.type() == Token::Ident)
 		{
@@ -2695,24 +2695,24 @@ namespace croc
 	Identifier* Parser::dummyFuncLiteralName(CompileLoc loc)
 	{
 		auto t = *c.thread();
-		croc_pushFormat(t, "<literal at %s(%u:%u)>", loc.file, loc.line, loc.col);
+		croc_pushFormat(t, "<literal at %s(%u:%u)>", loc.file.ptr, loc.line, loc.col);
 		auto str = c.newString(croc_getString(t, -1));
 		croc_popTop(t);
 		return new(c) Identifier(loc, str);
 	}
 
-	bool Parser::isPrivateFieldName(const char* name)
+	bool Parser::isPrivateFieldName(crocstr name)
 	{
-		return strlen(name) >= 2 && name[0] == '_' && name[1] == '_';
+		return name.length >= 2 && name[0] == '_' && name[1] == '_';
 	}
 
-	const char* Parser::checkPrivateFieldName(const char* fieldName)
+	crocstr Parser::checkPrivateFieldName(crocstr fieldName)
 	{
-		if(mCurrentClassName != nullptr && isPrivateFieldName(fieldName))
+		if(mCurrentClassName.length > 0 && isPrivateFieldName(fieldName))
 		{
 			auto t = *c.thread();
-			croc_pushString(t, mCurrentClassName);
-			croc_pushString(t, fieldName);
+			croc_pushStringn(t, mCurrentClassName.ptr, mCurrentClassName.length);
+			croc_pushStringn(t, fieldName.ptr, fieldName.length);
 			croc_cat(t, 2);
 			auto ret = c.newString(croc_getString(t, -1));
 			croc_popTop(t);

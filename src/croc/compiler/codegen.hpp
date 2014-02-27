@@ -32,8 +32,8 @@ namespace croc
 		word dottedNameToString(Expression* exp);
 		void visitDecorator(Decorator* d, std::function<void()> obj);
 		void visitIf(CompileLoc endLocation, CompileLoc elseLocation, IdentExp* condVar, Expression* condition, std::function<void()> genBody, std::function<void()> genElse);
-		void visitForNum(CompileLoc location, CompileLoc endLocation, const char* name, Expression* lo, Expression* hi, Expression* step, Identifier* index, std::function<void()> genBody);
-		void visitForeach(CompileLoc location, CompileLoc endLocation, const char* name, DArray<Identifier*> indices, DArray<Expression*> container, std::function<void()> genBody);
+		void visitForNum(CompileLoc location, CompileLoc endLocation, crocstr name, Expression* lo, Expression* hi, Expression* step, Identifier* index, std::function<void()> genBody);
+		void visitForeach(CompileLoc location, CompileLoc endLocation, crocstr name, DArray<Identifier*> indices, DArray<Expression*> container, std::function<void()> genBody);
 		OpAssignStmt* visitOpAssign(OpAssignStmt* s);
 		BinaryExp* visitBinExp(BinaryExp* e);
 		BinaryExp* visitComparisonExp(BinaryExp* e);

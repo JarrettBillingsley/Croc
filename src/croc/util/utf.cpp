@@ -1,7 +1,7 @@
 #include "croc/base/darray.hpp"
 #include "croc/base/sanity.hpp"
 
-#include "croc/utf.hpp"
+#include "croc/util/utf.hpp"
 
 namespace croc
 {
@@ -99,7 +99,7 @@ namespace croc
 	*/
 	UtfError decodeUtf8Char(const char*& s, const char* end, dchar& out)
 	{
-		dchar c = *s;
+		dchar c = *cast(uchar*)s;
 
 		if(c < 0x80)
 		{
@@ -120,8 +120,8 @@ namespace croc
 		for(size_t i = 1; i < len; i++)
 		{
 			// This looks wrong, but it's not! The "continuation" bits are removed by the UTF8MagicSubtraction step.
-			c = (c << 6) + s[i];
-			mask = (mask << 1) | Utf8InvalidTailBits[s[i] >> 6];
+			c = (c << 6) + cast(uchar)s[i];
+			mask = (mask << 1) | Utf8InvalidTailBits[cast(uchar)s[i] >> 6];
 		}
 
 		if(mask)
@@ -238,7 +238,7 @@ namespace croc
 	*/
 	void skipBadUtf8Char(const char*& s, const char* end)
 	{
-		size_t len = Utf8CharLengths[cast(size_t)*s];
+		size_t len = Utf8CharLengths[*cast(uchar*)s];
 
 		if(len == 0)
 			s++;
@@ -308,7 +308,7 @@ namespace croc
 		{
 			cpLen++;
 
-			if((cast(size_t)*s) < 0x80)
+			if((*cast(uchar*)s) < 0x80)
 				s++;
 			else
 			{
@@ -507,7 +507,7 @@ namespace croc
 	*/
 	dchar fastDecodeUtf8Char(const char*& s)
 	{
-		dchar c = *s;
+		dchar c = *cast(uchar*)s;
 
 		if(c < 0x80)
 		{
@@ -518,7 +518,7 @@ namespace croc
 		size_t len = Utf8CharLengths[cast(unsigned char)c];
 
 		for(size_t i = 1; i < len; i++)
-			c = (c << 6) + s[i];
+			c = (c << 6) + cast(uchar)s[i];
 
 		s += len;
 		c -= Utf8MagicSubtraction[len];
@@ -551,9 +551,9 @@ namespace croc
 	}
 	-----
 	*/
-	dchar fastReverseUTF8Char(const char*& s)
+	dchar fastReverseUtf8Char(const char*& s)
 	{
-		dchar c = *(--s);
+		dchar c = *cast(uchar*)(--s);
 
 		if(c < 0x80)
 			return c;
@@ -563,15 +563,25 @@ namespace croc
 		while(*s & 0x80)
 		{
 			s--;
-			c += *s << (6 * len);
+			c += *cast(uchar*)s << (6 * len);
 			len++;
 
 			if((*s & 0xC0) == 0xC0)
 				break;
 		}
 
-		assert(len == Utf8CharLengths[cast(size_t)*s]);
+		assert(len == Utf8CharLengths[*cast(uchar*)s]);
 		return c - Utf8MagicSubtraction[len];
+	}
+
+	/**
+	Assuming that s points into well-formed UTF-8, moves s backwards, if necessary, to place it at the beginning of a
+	multibyte character. If s is already pointing to the beginning of a character, it is left unchanged.
+	*/
+	void fastAlignUtf8(const char*& s)
+	{
+		while((*s & 0xC0) == 0x80)
+			s--;
 	}
 
 	/**
@@ -621,12 +631,12 @@ namespace croc
 
 		while(src < end && dest < destEnd)
 		{
-			if(*src < 0x80)
+			if(*cast(uchar*)src < 0x80)
 			{
 				if(swap)
-					*dest++ = cast(wchar)(*src++ << 8);
+					*dest++ = cast(wchar)(*cast(uchar*)src++ << 8);
 				else
-					*dest++ = *src++;
+					*dest++ = *cast(uchar*)(src++);
 			}
 			else
 			{
@@ -687,8 +697,8 @@ namespace croc
 		{
 			if(swap)
 			{
-				if(*src < 0x80)
-					*dest++ = (*src++) << 24;
+				if(*cast(uchar*)src < 0x80)
+					*dest++ = *cast(uchar*)(src++) << 24;
 				else
 				{
 					auto c = fastDecodeUtf8Char(src);
@@ -697,8 +707,8 @@ namespace croc
 			}
 			else
 			{
-				if(*src < 0x80)
-					*dest++ = *src++;
+				if(*cast(uchar*)src < 0x80)
+					*dest++ = *cast(uchar*)(src++);
 				else
 					*dest++ = fastDecodeUtf8Char(src);
 			}
@@ -724,18 +734,17 @@ namespace croc
 		if(lo == hi)
 			return DArray<const char>();
 
-		auto s = str.ptr;
-		size_t realLo = 0;
+		auto s = cast(uchar*)str.ptr;
 
-		for( ; realLo < lo; realLo++)
-			s += Utf8CharLengths[cast(size_t)*s];
+		for(size_t i = 0; i < lo; i++)
+			s += Utf8CharLengths[*cast(uchar*)s];
 
-		size_t realHi = realLo;
+		size_t realLo = cast(size_t)(s - cast(uchar*)str.ptr);
 
-		for( ; realHi < hi; realHi++)
-			s += Utf8CharLengths[cast(size_t)*s];
+		for(size_t i = lo; i < hi; i++)
+			s += Utf8CharLengths[*cast(uchar*)s];
 
-		return str.slice(realLo, realHi);
+		return str.slice(realLo, cast(size_t)(s - cast(uchar*)str.ptr));
 	}
 
 	/**
@@ -749,7 +758,7 @@ namespace croc
 		auto s = str.ptr;
 
 		for(size_t i = 0; i < idx; i++)
-			s += Utf8CharLengths[cast(size_t)*s];
+			s += Utf8CharLengths[*cast(uchar*)s];
 
 		return fastDecodeUtf8Char(s);
 	}
@@ -765,7 +774,7 @@ namespace croc
 		auto s = str.ptr;
 
 		for(size_t i = 0; i < fake; i++)
-			s += Utf8CharLengths[cast(size_t)*s];
+			s += Utf8CharLengths[*cast(uchar*)s];
 
 		return s - str.ptr;
 	}
@@ -784,7 +793,7 @@ namespace croc
 		size_t ret = 0;
 
 		for(auto s = str.ptr; s < fakeEnd; ret++)
-			s += Utf8CharLengths[cast(size_t)*s];
+			s += Utf8CharLengths[*cast(uchar*)s];
 
 		return ret;
 	}

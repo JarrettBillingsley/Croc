@@ -37,7 +37,7 @@ extern "C"
 		if(encodeUtf8Char(buf, c, s) != UtfError_OK)
 			croc_eh_throwStd(t_, "UnicodeError", "Invalid Unicode codepoint U+%.6x", cast(uint32_t)c);
 
-		return push(t, Value::from(String::createUnverified(t->vm, s.toConst(), 1)));
+		return push(t, Value::from(String::createUnverified(t->vm, s, 1)));
 	}
 
 	word_t croc_pushFormat(CrocThread* t, const char* fmt, ...)
@@ -66,6 +66,7 @@ extern "C"
 
 		vsnprintf(buf, len, fmt, args);
 
+		// TODO: memory leak possible if string is not valid UTF-8
 		auto ret = croc_pushStringn(t_, buf, len - 1);
 
 		if(arr.length > 0)

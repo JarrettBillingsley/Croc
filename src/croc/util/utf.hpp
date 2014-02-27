@@ -3,6 +3,7 @@
 
 namespace croc
 {
+	typedef uint8_t uchar;
 	typedef uint16_t wchar;
 	typedef uint32_t dchar;
 
@@ -47,7 +48,8 @@ namespace croc
 	// The functions from here on all assume the input string is well-formed -- which is the case with Croc's strings
 
 	dchar fastDecodeUtf8Char(const char*& s);
-	dchar fastReverseUTF8Char(const char*& s);
+	dchar fastReverseUtf8Char(const char*& s);
+	void fastAlignUtf8(const char*& s);
 	template<bool swap = false>
 	DArray<wchar> Utf8ToUtf16(DArray<const char> str, DArray<wchar> buf, DArray<const char>& remaining);
 	#define Utf8ToUtf16BS Utf8ToUtf16<true>

@@ -88,6 +88,7 @@ void        CROCAPI(paramTypeError)       (CrocThread* t, word_t index, const ch
 // =====================================================================================================================
 // StrBuffer
 
+// TODO: move this to a configuration header
 #define CROC_STR_BUFFER_DATA_LENGTH 1024
 
 typedef struct CrocStrBuffer

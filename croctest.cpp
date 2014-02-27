@@ -3,6 +3,9 @@
 
 #include "croc/api.h"
 
+#include "croc/util/str.hpp"
+#include "croc/types.hpp"
+
 word_t println(CrocThread* t)
 {
 	auto size = croc_getStackSize(t);
@@ -63,7 +66,7 @@ word_t mainStuff(CrocThread* t)
 
 int main()
 {
-	auto t = croc_vm_open(&croc_DefaultMemFunc, nullptr);
+	auto t = croc_vm_openDefault();
 	croc_vm_loadUnsafeLibs(t, CrocUnsafeLib_ReallyAll);
 	croc_vm_loadAllAvailableAddons(t);
 

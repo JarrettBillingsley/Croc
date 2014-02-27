@@ -26,25 +26,26 @@ namespace croc
 			vm->stringTab.minimize(vm->mem);
 			vm->weakrefTab.minimize(vm->mem);
 
-			auto ret = beforeSize > vm->mem.totalBytes ? beforeSize - vm->mem.totalBytes : 0; // This is.. possible? TODO: figure out how.
+			return beforeSize > vm->mem.totalBytes ? beforeSize - vm->mem.totalBytes : 0; // This is.. possible? TODO: figure out how.
+		}
 
-			croc_vm_pushRegistry(*t);
-
+		void runPostGCCallbacks(CrocThread* t)
+		{
+			(void)t;
 			// TODO:stdlib
-			// croc_field(*t, -1, "gc.postGCCallbacks");
+			// croc_vm_pushRegistry(t);
+			// croc_field(t, -1, "gc.postGCCallbacks");
 
 			// word_t state;
-			// for(croc_foreachBegin(*t, &state, 1); croc_foreachNext(*t, &state, 1); )
+			// for(croc_foreachBegin(t, &state, 1); croc_foreachNext(t, &state, 1); )
 			// {
-			// 	croc_dup(*t, -1);
-			// 	croc_pushNull(*t);
-			// 	croc_call(*t, -2, 0);
+			// 	croc_dup(t, -1);
+			// 	croc_pushNull(t);
+			// 	croc_call(t, -2, 0);
 			// }
-			// croc_foreachEnd(*t, &state);
+			// croc_foreachEnd(t, &state);
 
-			croc_popTop(*t);
-
-			return ret;
+			// croc_popTop(t);
 		}
 	}
 
@@ -65,12 +66,16 @@ extern "C"
 
 	uword_t croc_gc_collect(CrocThread* t_)
 	{
-		return gcInternal(Thread::from(t_), false);
+		auto ret = gcInternal(Thread::from(t_), false);
+		runPostGCCallbacks(t_);
+		return ret;
 	}
 
 	uword_t croc_gc_collectFull(CrocThread* t_)
 	{
-		return gcInternal(Thread::from(t_), true);
+		auto ret = gcInternal(Thread::from(t_), true);
+		runPostGCCallbacks(t_);
+		return ret;
 	}
 
 	uword_t croc_gc_setLimit(CrocThread* t_, const char* type, uword_t lim)

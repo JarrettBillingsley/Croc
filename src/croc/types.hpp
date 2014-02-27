@@ -11,7 +11,7 @@
 #include "croc/base/memory.hpp"
 #include "croc/base/opcodes.hpp"
 #include "croc/base/sanity.hpp"
-#include "croc/utf.hpp"
+#include "croc/util/utf.hpp"
 
 namespace croc
 {

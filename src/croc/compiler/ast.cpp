@@ -151,7 +151,7 @@ namespace croc
 		assert(false);
 	}
 
-	const char* Expression::asString()
+	crocstr Expression::asString()
 	{
 		if(auto s = AST_AS(StringExp, this))
 			return s->value;

@@ -3,8 +3,9 @@
 
 #include "croc/api.h"
 #include "croc/types.hpp"
-#include "croc/utf.hpp"
-#include "croc/utils.hpp"
+#include "croc/util/misc.hpp"
+#include "croc/util/str.hpp"
+#include "croc/util/utf.hpp"
 
 #define STRING_EXTRA_SIZE(len) (1 + (sizeof(char) * (len)))
 
@@ -62,18 +63,13 @@ namespace croc
 	// Compare two string objects.
 	crocint String::compare(String* other)
 	{
-		return scmp(this->toDArray(), other->toDArray());
+		return this->toDArray().cmp(other->toDArray());
 	}
 
 	// See if the string contains the given substring.
 	bool String::contains(crocstr sub)
 	{
-		if(this->length < sub.length)
-			return false;
-
-		// TODO: string locate
-		// return this->toDArray().locatePattern(sub) != this->length;
-		return false;
+		return strLocate(this->toDArray(), sub) != this->length;
 	}
 
 	// The slice indices are in codepoints, not byte indices.

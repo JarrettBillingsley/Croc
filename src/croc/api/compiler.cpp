@@ -55,7 +55,9 @@ extern "C"
 		API_CHECK_NUM_PARAMS(1);
 		API_CHECK_PARAM(src, -1, String, "source code");
 		Compiler c(t);
-		auto ret = c.compileModule(src->toCString(), name, *modName);
+		crocstr modNameStr;
+		auto ret = c.compileModule(src->toDArray(), atoda(name), modNameStr);
+		*modName = modNameStr.ptr;
 		croc_insertAndPop(t_, -2);
 		return (ret >= 0) ? ret - 1 : ret;
 	}
@@ -66,7 +68,7 @@ extern "C"
 		API_CHECK_NUM_PARAMS(1);
 		API_CHECK_PARAM(src, -1, String, "source code");
 		Compiler c(t);
-		auto ret = c.compileStmts(src->toCString(), name);
+		auto ret = c.compileStmts(src->toDArray(), atoda(name));
 		croc_insertAndPop(t_, -2);
 		return (ret >= 0) ? ret - 1 : ret;
 	}
@@ -77,7 +79,7 @@ extern "C"
 		API_CHECK_NUM_PARAMS(1);
 		API_CHECK_PARAM(src, -1, String, "source code");
 		Compiler c(t);
-		auto ret = c.compileExpr(src->toCString(), name);
+		auto ret = c.compileExpr(src->toDArray(), atoda(name));
 		croc_insertAndPop(t_, -2);
 		return (ret >= 0) ? ret - 1 : ret;
 	}

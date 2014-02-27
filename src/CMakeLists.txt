@@ -91,6 +91,7 @@ set(croc_SRC
 	croc/stdlib/exceptions.cpp
 	croc/stdlib/gc.cpp
 	croc/stdlib/modules.cpp
+	croc/stdlib/string.cpp
 	croc/types.cpp
 	croc/types.hpp
 	croc/types/array.cpp
@@ -104,10 +105,12 @@ set(croc_SRC
 	croc/types/table.cpp
 	croc/types/thread.cpp
 	croc/types/weakref.cpp
-	croc/utf.cpp
-	croc/utf.hpp
-	croc/utils.cpp
-	croc/utils.hpp
+	croc/util/misc.cpp
+	croc/util/misc.hpp
+	croc/util/str.cpp
+	croc/util/str.hpp
+	croc/util/utf.cpp
+	croc/util/utf.hpp
 )
 
 set(croc_API

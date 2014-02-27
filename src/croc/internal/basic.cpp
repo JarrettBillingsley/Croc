@@ -1135,7 +1135,7 @@ namespace croc
 		for(auto &v: vals)
 			add(v);
 
-		vals[vals.length - 1] = Value::from(String::createUnverified(t->vm, tmpBuffer.toConst(), cpLen));
+		vals[vals.length - 1] = Value::from(String::createUnverified(t->vm, tmpBuffer, cpLen));
 		tmpBuffer.free(t->vm->mem);
 	}
 

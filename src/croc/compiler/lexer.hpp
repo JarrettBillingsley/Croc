@@ -133,14 +133,14 @@ namespace croc
 		union
 		{
 			bool boolValue;
-			const char* stringValue;
+			crocstr stringValue;
 			crocint intValue;
 			crocfloat floatValue;
 		};
 
 		CompileLoc loc;
-		const char* preComment;
-		const char* postComment;
+		crocstr preComment;
+		crocstr postComment;
 		CompileLoc preCommentLoc;
 		CompileLoc postCommentLoc;
 		const char* startChar;
@@ -195,7 +195,7 @@ namespace croc
 		bool mNewlineSinceLastTok;
 		bool mTokSinceLastNewline;
 		bool mHadLinePragma;
-		const char* mLinePragmaFile;
+		crocstr mLinePragmaFile;
 		uword mLinePragmaLine;
 
 		const char* mCaptureEnd;
@@ -219,7 +219,7 @@ namespace croc
 			mNewlineSinceLastTok(false),
 			mTokSinceLastNewline(false),
 			mHadLinePragma(false),
-			mLinePragmaFile(nullptr),
+			mLinePragmaFile(),
 			mLinePragmaLine(0),
 			mCaptureEnd(nullptr),
 			mTok(),
@@ -231,7 +231,7 @@ namespace croc
 		inline CompileLoc& loc() { return mTok.loc; }
 		inline uword type() { return mTok.type; }
 
-		void begin(const char* name, const char* source);
+		void begin(crocstr name, crocstr source);
 		Token expect(uword t);
 		void expected(const char* message);
 		bool isStatementTerm();
@@ -239,7 +239,7 @@ namespace croc
 		Token& peek();
 		void next();
 		const char* beginCapture();
-		const char* endCapture(const char* captureStart);
+		crocstr endCapture(const char* captureStart);
 
 	private:
 		static int lookupKeyword(char* str);
@@ -252,8 +252,8 @@ namespace croc
 		bool readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret);
 		uword readHexDigits(uword num);
 		crocchar readEscapeSequence(CompileLoc beginning);
-		const char* readStringLiteral(bool escape);
-		void addComment(const char* str, CompileLoc location);
+		crocstr readStringLiteral(bool escape);
+		void addComment(crocstr str, CompileLoc location);
 		void readLineComment();
 		void readBlockComment();
 		void nextToken();

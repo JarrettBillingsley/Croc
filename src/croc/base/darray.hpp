@@ -46,6 +46,11 @@ namespace croc
 			return DArray<U>::n(cast(U*)ptr, newLen);
 		}
 
+		inline operator DArray<const T>() const
+		{
+			return DArray<const T>::n(cast(const T*)ptr, length);
+		}
+
 		void free(Memory& mem)
 		{
 			if(length == 0)
@@ -138,11 +143,6 @@ namespace croc
 			return hashlittle(ptr, ARRAY_BYTE_SIZE(length), 0xFACEDAB5); // face dabs!
 		}
 
-		inline DArray<const T> toConst() const
-		{
-			return DArray<const T>::n(cast(const T*)ptr, length);
-		}
-
 		inline T operator[](size_t idx) const
 		{
 			assert(idx < length);
@@ -160,7 +160,7 @@ namespace croc
 			slicea(0, length, src);
 		}
 
-		inline void slicea(size_t lo, size_t hi, DArray<T> src)
+		inline void slicea(size_t lo, size_t hi, DArray<const T> src)
 		{
 			assert(lo <= hi);
 			assert(hi <= length);
@@ -195,9 +195,39 @@ namespace croc
 
 		inline bool operator==(const DArray<T>& other) const
 		{
-			assert(length == other.length);
-			return memcmp(ptr, other.ptr, length) == 0;
+			size_t len = length;
+
+			if(other.length < len)
+				len = other.length;
+
+			if(len != 0 && memcmp(ptr, other.ptr, ARRAY_BYTE_SIZE(len)))
+				return false;
+			else
+				return length == other.length;
 		}
+
+		inline bool operator!=(const DArray<T>& other) const { return !this->operator==(other); }
+
+		inline int cmp(const DArray<T>& other) const
+		{
+			size_t len = length;
+
+			if(other.length < len)
+				len = other.length;
+
+			if(len != 0)
+			{
+				if(int ret = memcmp(ptr, other.ptr, ARRAY_BYTE_SIZE(len)))
+					return ret;
+			}
+
+			return length < other.length ? -1 : length > other.length ? 1 : 0;
+		}
+
+		inline bool operator< (const DArray<T>& other) const { return this->cmp(other) <  0; }
+		inline bool operator<=(const DArray<T>& other) const { return this->cmp(other) <= 0; }
+		inline bool operator> (const DArray<T>& other) const { return this->cmp(other) >  0; }
+		inline bool operator>=(const DArray<T>& other) const { return this->cmp(other) >= 0; }
 	};
 }
 

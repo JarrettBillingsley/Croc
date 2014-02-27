@@ -184,7 +184,7 @@ namespace croc
 				fb->catToTrue(success, fb->codeIsTrue(con->endLocation));
 
 				dottedNameToString(AST_AS(CallExp, con)->op);
-				fb->pushString(croc_getString(*c.thread(), -1));
+				fb->pushString(getCrocstr(c.thread(), -1));
 				fb->toSource(con->endLocation);
 				fb->customParamFail(con->endLocation, idx);
 				croc_popTop(*c.thread());
@@ -204,14 +204,14 @@ namespace croc
 		{
 			if(auto n = AST_AS(IdentExp, exp))
 			{
-				croc_pushString(*c.thread(), n->name->name);
+				croc_pushString(*c.thread(), n->name->name.ptr);
 				return 1;
 			}
 			else if(auto n = AST_AS(DotExp, exp))
 			{
 				auto ret = work(n->op);
 				croc_pushString(*c.thread(), ".");
-				croc_pushString(*c.thread(), AST_AS(StringExp, n->name)->value);
+				croc_pushString(*c.thread(), AST_AS(StringExp, n->name)->value.ptr);
 				return ret + 2;
 			}
 			else
@@ -441,7 +441,7 @@ namespace croc
 				{
 					auto loc = d->names[j]->location;
 					c.semException(n1->location, "Variable '%s' conflicts with previous definition at %s(%u:%u)",
-						n1->name, loc.file, loc.line, loc.col);
+						n1->name.ptr, loc.file.ptr, loc.line, loc.col);
 				}
 			}
 		}
@@ -706,7 +706,7 @@ namespace croc
 		return s;
 	}
 
-	void Codegen::visitForNum(CompileLoc location, CompileLoc endLocation, const char* name, Expression* lo,
+	void Codegen::visitForNum(CompileLoc location, CompileLoc endLocation, crocstr name, Expression* lo,
 		Expression* hi, Expression* step, Identifier* index, std::function<void()> genBody)
 	{
 		Scope scop;
@@ -729,7 +729,7 @@ namespace croc
 		return s;
 	}
 
-	void Codegen::visitForeach(CompileLoc location, CompileLoc endLocation, const char* name,
+	void Codegen::visitForeach(CompileLoc location, CompileLoc endLocation, crocstr name,
 		DArray<Identifier*> indices, DArray<Expression*> container, std::function<void()> genBody)
 	{
 		Scope scop;
@@ -1458,7 +1458,7 @@ namespace croc
 		else if(e->forComp)
 			newInner = [&]{ visitForComp(e->forComp, inner); };
 
-		visitForeach(e->location, e->endLocation, nullptr, e->indices, e->container, newInner);
+		visitForeach(e->location, e->endLocation, crocstr(), e->indices, e->container, newInner);
 		return e;
 	}
 
@@ -1477,7 +1477,7 @@ namespace croc
 		else if(e->forComp)
 			newInner = [&]{ visitForComp(e->forComp, inner); };
 
-		visitForNum(e->location, e->endLocation, nullptr, e->lo, e->hi, e->step, e->index, newInner);
+		visitForNum(e->location, e->endLocation, crocstr(), e->lo, e->hi, e->step, e->index, newInner);
 		return e;
 	}
 

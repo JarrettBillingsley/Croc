@@ -2,7 +2,7 @@
 #include "croc/base/gcobject.hpp"
 #include "croc/base/memory.hpp"
 #include "croc/base/sanity.hpp"
-#include "croc/utils.hpp"
+#include "croc/util/misc.hpp"
 
 #ifdef CROC_LEAK_DETECTOR
 #  define MEMBERTYPEID ,typeid(GCObject**)

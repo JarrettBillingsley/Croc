@@ -4,7 +4,7 @@
 #include "croc/base/darray.hpp"
 #include "croc/base/memory.hpp"
 #include "croc/base/sanity.hpp"
-#include "croc/utils.hpp"
+#include "croc/util/misc.hpp"
 
 enum NodeFlags
 {

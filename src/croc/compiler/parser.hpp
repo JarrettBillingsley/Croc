@@ -16,24 +16,24 @@ namespace croc
 		Compiler& c;
 		Lexer& l;
 		uword mDummyNameCounter;
-		const char* mCurrentClassName;
+		crocstr mCurrentClassName;
 
 	public:
 		Parser(Compiler& compiler, Lexer& lexer) :
 			c(compiler),
 			l(lexer),
 			mDummyNameCounter(0),
-			mCurrentClassName(nullptr)
+			mCurrentClassName()
 		{}
 
-		const char* capture(std::function<void()> dg);
-		const char* parseName();
+		crocstr capture(std::function<void()> dg);
+		crocstr parseName();
 		Expression* parseDottedName();
 		Identifier* parseIdentifier();
 		DArray<Expression*> parseArguments();
 		Module* parseModule();
-		FuncDef* parseStatements(const char* name);
-		FuncDef* parseExpressionFunc(const char* name);
+		FuncDef* parseStatements(crocstr name);
+		FuncDef* parseExpressionFunc(crocstr name);
 		Statement* parseStatement(bool needScope = true);
 		Statement* parseExpressionStmt();
 		Decorator* parseDecorator();
@@ -43,7 +43,7 @@ namespace croc
 		FuncDecl* parseFuncDecl(Decorator* deco);
 		FuncDef* parseFuncBody(CompileLoc location, Identifier* name);
 		DArray<FuncParam> parseFuncParams(bool& isVararg);
-		uint32_t parseParamType(DArray<Expression*>& classTypes, const char*& typeString, Expression*& customConstraint);
+		uint32_t parseParamType(DArray<Expression*>& classTypes, crocstr& typeString, Expression*& customConstraint);
 		FuncDef* parseSimpleFuncDef();
 		FuncDef* parseFuncLiteral();
 		FuncDef* parseHaskellFuncLiteral();
@@ -105,19 +105,19 @@ namespace croc
 		void propagateFuncLiteralName(AstNode* lhs, FuncLiteralExp* fl);
 		Identifier* dummyForeachIndex(CompileLoc loc);
 		Identifier* dummyFuncLiteralName(CompileLoc loc);
-		bool isPrivateFieldName(const char* name);
-		const char* checkPrivateFieldName(const char* fieldName);
+		bool isPrivateFieldName(crocstr name);
+		crocstr checkPrivateFieldName(crocstr fieldName);
 		Expression* decoToExp(Decorator* dec, Expression* exp);
 
 		template<typename T>
-		void attachDocs(T& t, const char* preDocs, CompileLoc preDocsLoc)
+		void attachDocs(T& t, crocstr preDocs, CompileLoc preDocsLoc)
 		{
 			if(!c.docComments())
 				return;
 
-			if(preDocs != nullptr)
+			if(preDocs.length != 0)
 			{
-				if(l.tok().postComment != nullptr)
+				if(l.tok().postComment.length != 0)
 					c.synException(preDocsLoc, "Cannot have two doc comments on one declaration");
 				else
 				{
@@ -125,7 +125,7 @@ namespace croc
 					t.docsLoc = preDocsLoc;
 				}
 			}
-			else if(l.tok().postComment != nullptr)
+			else if(l.tok().postComment.length != 0)
 			{
 				t.docs = l.tok().postComment;
 				t.docsLoc = l.tok().postCommentLoc;

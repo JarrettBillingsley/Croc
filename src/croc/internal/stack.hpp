@@ -11,6 +11,7 @@ namespace croc
 	word       push         (Thread* t, Value val);
 	Value*     getValue     (Thread* t, word slot);
 	String*    getStringObj (Thread* t, word slot);
+	crocstr    getCrocstr   (Thread* t, word slot);
 	Weakref*   getWeakref   (Thread* t, word slot);
 	Table*     getTable     (Thread* t, word slot);
 	Namespace* getNamespace (Thread* t, word slot);
