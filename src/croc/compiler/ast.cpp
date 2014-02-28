@@ -131,6 +131,7 @@ namespace croc
 			return b->value;
 
 		assert(false);
+		return false; // dummy
 	}
 
 	crocint Expression::asInt()
@@ -139,6 +140,7 @@ namespace croc
 			return i->value;
 
 		assert(false);
+		return 0; // dummy
 	}
 
 	crocfloat Expression::asFloat()
@@ -149,6 +151,7 @@ namespace croc
 			return f->value;
 
 		assert(false);
+		return 0; // dummy
 	}
 
 	crocstr Expression::asString()
@@ -157,5 +160,6 @@ namespace croc
 			return s->value;
 
 		assert(false);
+		return crocstr(); // dummy
 	}
 }

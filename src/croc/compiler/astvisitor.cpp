@@ -1,4 +1,6 @@
 
+#include <cstdio>
+
 #include "croc/compiler/ast.hpp"
 #include "croc/compiler/astvisitor.hpp"
 #include "croc/compiler/types.hpp"
@@ -25,7 +27,7 @@ namespace croc
 			AST_LIST(POOP)
 #undef poop
 
-			default: assert(false);
+			default: assert(false); return nullptr; // dummy
 		}
 	}
 }

@@ -87,7 +87,7 @@ namespace croc
 			else if(p.defValue->isInt())    type = CrocType_Int;
 			else if(p.defValue->isFloat())  type = CrocType_Float;
 			else if(p.defValue->isString()) type = CrocType_String;
-			else assert(false);
+			else { assert(false); type = CrocType_Null; } // dummy
 
 			if(!(p.typeMask & (1 << type)))
 				c.semException(p.defValue->location, "Parameter %u: Default parameter of type '%s' is not allowed",
@@ -1114,6 +1114,7 @@ namespace croc
 			c.semException(op1->location, "Invalid compile-time comparison");
 
 		assert(false);
+		return 0; // dummy
 	}
 
 	Expression* Semantic::visitComparison(BinaryExp* e)

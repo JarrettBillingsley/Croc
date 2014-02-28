@@ -38,6 +38,7 @@ extern "C"
 			default:
 				API_PARAM_TYPE_ERROR(idx, "value", "null|bool|int|float|string|nativeobj|weakref");
 				assert(false);
+				return 0; // dummy
 		}
 	}
 }

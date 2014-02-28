@@ -91,6 +91,7 @@ extern "C"
 		{
 			croc_eh_throwStd(t_, "ValueError", "Invalid limit type '%s'", type);
 			assert(false);
+			p = nullptr;
 		}
 
 		auto ret = *p;
@@ -107,8 +108,7 @@ extern "C"
 		if(strncmp(type, "nurserySizeCutoff",    30) == 0) return t->vm->mem.nurserySizeCutoff;  else
 		if(strncmp(type, "cycleCollectInterval", 30) == 0) return t->vm->mem.nextCycleCollect;   else
 		if(strncmp(type, "cycleMetadataLimit",   30) == 0) return t->vm->mem.cycleMetadataLimit; else
-		croc_eh_throwStd(t_, "ValueError", "Invalid limit type '%s'", type);
-		assert(false);
+		return croc_eh_throwStd(t_, "ValueError", "Invalid limit type '%s'", type);
 	}
 }
 }

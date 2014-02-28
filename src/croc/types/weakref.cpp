@@ -32,6 +32,9 @@ namespace croc
 		{
 			auto b = vm->weakrefTab.remove(r->obj);
 			assert(b);
+#ifdef NDEBUG
+			(void)b;
+#endif
 		}
 
 		FREE_OBJ(vm->mem, Weakref, r);

@@ -23,6 +23,7 @@ extern "C"
 			case CrocType_Funcdef:   return v.mFuncdef->name->toCString();
 			default: API_PARAM_TYPE_ERROR(obj, "obj", "namespace|function|funcdef|class");
 			assert(false);
+			return 0; // dummy
 		}
 	}
 
@@ -40,6 +41,7 @@ extern "C"
 			case CrocType_Funcdef:   name = v.mFuncdef->name; break;
 			default: API_PARAM_TYPE_ERROR(obj, "obj", "namespace|function|funcdef|class");
 			assert(false);
+			name = nullptr; // dummy
 		}
 
 		*len = name->length;

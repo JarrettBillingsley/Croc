@@ -88,6 +88,7 @@ set(croc_SRC
 	croc/internal/variables.hpp
 	croc/stdlib/all.hpp
 	croc/stdlib/misc.cpp
+	croc/stdlib/misc_vector.cpp
 	croc/stdlib/exceptions.cpp
 	croc/stdlib/gc.cpp
 	croc/stdlib/modules.cpp

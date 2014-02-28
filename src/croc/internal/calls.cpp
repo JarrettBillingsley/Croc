@@ -348,9 +348,8 @@ namespace croc
 				else
 				{
 					pushTypeStringImpl(t, func);
-					croc_eh_throwStd(*t, "TypeError", "No implementation of %s for type '%s'", MetaNames[MM_Call],
+					return croc_eh_throwStd(*t, "TypeError", "No implementation of %s for type '%s'", MetaNames[MM_Call],
 						croc_getString(*t, -1));
-					assert(false);
 				}
 		}
 	}
@@ -508,9 +507,8 @@ namespace croc
 			else
 			{
 				pushTypeStringImpl(t, self);
-				croc_eh_throwStd(*t, "MethodError", "No implementation of method '%s' or %s for type '%s'",
+				return croc_eh_throwStd(*t, "MethodError", "No implementation of method '%s' or %s for type '%s'",
 					methodName->toCString(), MetaNames[MM_Method], croc_getString(*t, -1));
-				assert(false);
 			}
 		}
 	}

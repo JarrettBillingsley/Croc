@@ -165,7 +165,9 @@ namespace croc
 			assert(lo <= hi);
 			assert(hi <= length);
 			assert(hi - lo == src.length);
-
+#ifdef NDEBUG
+			(void)hi;
+#endif
 			memcpy(ptr + lo, src.ptr, ARRAY_BYTE_SIZE(src.length));
 		}
 
@@ -228,6 +230,23 @@ namespace croc
 		inline bool operator<=(const DArray<T>& other) const { return this->cmp(other) <= 0; }
 		inline bool operator> (const DArray<T>& other) const { return this->cmp(other) >  0; }
 		inline bool operator>=(const DArray<T>& other) const { return this->cmp(other) >= 0; }
+
+		inline void reverseItems()
+		{
+			auto mid = length / 2;
+
+			for(size_t i = 0, j = length - 1; i < mid; i++, j--)
+			{
+				auto tmp = ptr[i];
+				ptr[i] = ptr[j];
+				ptr[j] = tmp;
+			}
+		}
+
+		inline void sort()
+		{
+			// TODO:
+		}
 	};
 }
 

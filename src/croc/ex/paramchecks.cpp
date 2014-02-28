@@ -6,16 +6,16 @@ namespace croc
 {
 extern "C"
 {
-	void croc_ex_paramTypeError(CrocThread* t, word_t index, const char* expected)
+	word_t croc_ex_paramTypeError(CrocThread* t, word_t index, const char* expected)
 	{
 		index = croc_absIndex(t, index);
 		croc_pushTypeString(t, index);
 
 		if(index == 0)
-			croc_eh_throwStd(t, "TypeError", "Expected type '%s' for 'this', not '%s'",
+			return croc_eh_throwStd(t, "TypeError", "Expected type '%s' for 'this', not '%s'",
 				expected, croc_getString(t, -1));
 		else
-			croc_eh_throwStd(t, "TypeError", "Expected type '%s' for parameter %u, not '%s'",
+			return croc_eh_throwStd(t, "TypeError", "Expected type '%s' for parameter %u, not '%s'",
 				expected, index, croc_getString(t, -1));
 	}
 
@@ -66,6 +66,7 @@ extern "C"
 
 		croc_ex_paramTypeError(t, index, "int|float");
 		assert(false);
+		return 0; // dummy
 	}
 
 	const char* croc_ex_checkStringParam(CrocThread* t, word_t index)

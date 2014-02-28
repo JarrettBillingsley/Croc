@@ -215,7 +215,10 @@ namespace croc
 				return ret + 2;
 			}
 			else
+			{
 				assert(false);
+				return 0; // dummy
+			}
 		};
 
 		return croc_cat(*c.thread(), work(exp));
@@ -225,6 +228,7 @@ namespace croc
 	{
 		(void)s;
 		assert(false);
+		return nullptr; // dummy
 	}
 
 	ScopeStmt* Codegen::visit(ScopeStmt* s)

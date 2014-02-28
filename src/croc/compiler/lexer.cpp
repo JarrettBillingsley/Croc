@@ -1128,6 +1128,9 @@ namespace croc
 						crocint dummy;
 						bool b = readNumLiteral(true, mTok.floatValue, dummy);
 						assert(!b);
+#ifdef NDEBUG
+						(void)b;
+#endif
 						TOK(Token::FloatLiteral);
 					}
 					else if(mCharacter == '.') NEXT_AND_TOK(Token::DotDot);

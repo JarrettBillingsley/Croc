@@ -76,11 +76,11 @@ uword_t CROCAPI(gc_getLimit)     (CrocThread* t, const char* type);
 // =====================================================================================================================
 // Exceptions
 
-void   CROCAPI(eh_throw)                 (CrocThread* t);
-void   CROCAPI(eh_rethrow)               (CrocThread* t);
+word_t CROCAPI(eh_throw)                 (CrocThread* t);
+word_t CROCAPI(eh_rethrow)               (CrocThread* t);
 word_t CROCAPI(eh_pushStd)               (CrocThread* t, const char* exName);
-void   CROCAPI(eh_throwStd)              (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
-void   CROCAPI(eh_vthrowStd)             (CrocThread* t, const char* exName, const char* fmt, va_list args);
+word_t CROCAPI(eh_throwStd)              (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
+word_t CROCAPI(eh_vthrowStd)             (CrocThread* t, const char* exName, const char* fmt, va_list args);
 word_t CROCAPI(eh_pushLocationClass)     (CrocThread* t);
 word_t CROCAPI(eh_pushLocationObject)    (CrocThread* t, const char* file, int line, int col);
 void   CROCAPI(eh_setUnhandledExHandler) (CrocThread* t);

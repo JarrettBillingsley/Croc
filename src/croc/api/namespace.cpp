@@ -37,6 +37,7 @@ extern "C"
 			API_PARAM_TYPE_ERROR(parent, "parent", "null|namespace");
 
 		assert(false);
+		return 0; // dummy
 	}
 
 	word_t croc_namespace_newNoParent(CrocThread* t_, const char* name)

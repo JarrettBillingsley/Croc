@@ -191,7 +191,7 @@ extern "C"
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(2);
 		API_CHECK_PARAM(c, cls, Class, "cls");
-		API_CHECK_PARAM(name, -1, String, "hidden field name");
+		API_CHECK_PARAM(name, -2, String, "hidden field name");
 
 		if(c->isFrozen)
 			croc_eh_throwStd(t_, "StateError", "%s - Attempting to add a hidden field to class '%s' which is frozen",

@@ -57,6 +57,9 @@ namespace croc
 	{
 		bool b = vm->stringTab.remove(s->toDArray());
 		assert(b);
+#ifdef NDEBUG
+		(void)b;
+#endif
 		FREE_OBJ(vm->mem, String, s);
 	}
 

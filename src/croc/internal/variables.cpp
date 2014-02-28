@@ -18,6 +18,7 @@ namespace croc
 
 		croc_eh_throwStd(*t, "NameError", "Attempting to get a nonexistent global '%s'", name->toCString());
 		assert(false);
+		return Value::nullValue; // dummy
 	}
 
 	void setGlobalImpl(Thread* t, String* name, Namespace* env, Value val)

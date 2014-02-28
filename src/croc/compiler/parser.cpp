@@ -209,6 +209,7 @@ namespace croc
 		}
 
 		assert(false);
+		return nullptr; // dummy
 	}
 
 	Statement* Parser::parseExpressionStmt()
@@ -333,6 +334,7 @@ namespace croc
 		}
 
 		assert(false);
+		return nullptr; // dummy
 	}
 
 	VarDecl* Parser::parseVarDecl()
@@ -1445,6 +1447,7 @@ namespace croc
 			c.synException(location, "Expected one of 'exit', 'success', or 'failure' for scope statement, not '%s'",
 				id.stringValue.ptr);
 			assert(false);
+			type = ScopeAction::Exit; // dummy
 		}
 
 		l.expect(Token::RParen);
@@ -1528,6 +1531,7 @@ namespace croc
 			c.eofException(location, "Try statement must be followed by catches, finally, or both");
 
 		assert(false);
+		return nullptr; // dummy
 	}
 
 	WhileStmt* Parser::parseWhileStmt()
@@ -1670,7 +1674,7 @@ namespace croc
 			MAKE_CASE(OrEq,      OrAssignStmt)
 			MAKE_CASE(AndEq,     AndAssignStmt)
 			MAKE_CASE(DefaultEq, CondAssignStmt)
-			default: assert(false);
+			default: assert(false); return nullptr; // dummy
 		}
 #undef MAKE_CASE
 	}
@@ -2628,6 +2632,7 @@ namespace croc
 			l.expected("for or foreach");
 
 		assert(false);
+		return nullptr; // dummy
 	}
 
 	IfComprehension* Parser::parseIfComprehension()

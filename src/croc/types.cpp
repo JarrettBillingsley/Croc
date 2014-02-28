@@ -30,7 +30,7 @@ namespace croc
 
 			case CrocType_Upval:     return "upval";
 
-			default: assert(false);
+			default: assert(false); return nullptr; // dummy
 		}
 	}
 

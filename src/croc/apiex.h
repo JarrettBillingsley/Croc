@@ -83,7 +83,7 @@ const char* CROCAPI(optStringParamn)      (CrocThread* t, word_t index, const ch
 crocchar_t  CROCAPI(optCharParam)         (CrocThread* t, word_t index, crocchar_t def);
 int         CROCAPI(optParam)             (CrocThread* t, word_t index, CrocType type);
 
-void        CROCAPI(paramTypeError)       (CrocThread* t, word_t index, const char* expected);
+word_t      CROCAPI(paramTypeError)       (CrocThread* t, word_t index, const char* expected);
 
 // =====================================================================================================================
 // StrBuffer

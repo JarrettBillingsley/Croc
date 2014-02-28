@@ -68,6 +68,9 @@ namespace croc
 
 				auto result = callPrologue(t, cast(AbsStack)1, -1, numParams);
 				assert(result);
+#ifdef NDEBUG
+				(void)result;
+#endif
 			}
 			else
 			{

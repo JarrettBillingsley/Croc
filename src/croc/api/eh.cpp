@@ -12,18 +12,20 @@ namespace croc
 {
 extern "C"
 {
-	void croc_eh_throw(CrocThread* t_)
+	word_t croc_eh_throw(CrocThread* t_)
 	{
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(1);
 		throwImpl(t, t->stack[t->stackIndex - 1], false);
+		return 0; // dummy
 	}
 
-	void croc_eh_rethrow(CrocThread* t_)
+	word_t croc_eh_rethrow(CrocThread* t_)
 	{
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(1);
 		throwImpl(t, t->stack[t->stackIndex - 1], true);
+		return 0; // dummy
 	}
 
 	word_t croc_eh_pushStd(CrocThread* t_, const char* exName)
@@ -47,21 +49,23 @@ extern "C"
 		return push(t, Value::from(*ex));
 	}
 
-	void croc_eh_throwStd(CrocThread* t, const char* exName, const char* fmt, ...)
+	word_t croc_eh_throwStd(CrocThread* t, const char* exName, const char* fmt, ...)
 	{
 		va_list args;
 		va_start(args, fmt);
 		croc_eh_vthrowStd(t, exName, fmt, args);
 		va_end(args);
+		return 0; // dummy
 	}
 
-	void croc_eh_vthrowStd(CrocThread* t, const char* exName, const char* fmt, va_list args)
+	word_t croc_eh_vthrowStd(CrocThread* t, const char* exName, const char* fmt, va_list args)
 	{
 		croc_eh_pushStd(t, exName);
 		croc_pushNull(t);
 		croc_vpushFormat(t, fmt, args);
 		croc_call(t, -3, 1);
 		croc_eh_throw(t);
+		return 0; // dummy
 	}
 
 	word_t croc_eh_pushLocationClass(CrocThread* t_)

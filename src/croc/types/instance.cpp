@@ -27,6 +27,9 @@ namespace croc
 		auto i = createPartial(mem, parent->numInstanceFields * sizeof(Array::Slot), parent->finalizer != nullptr);
 		auto b = finishCreate(i, parent);
 		assert(b);
+#ifdef NDEBUG
+		(void)b;
+#endif
 		return i;
 	}
 

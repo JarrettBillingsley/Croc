@@ -1,6 +1,9 @@
 
+#include <cstdio>
+
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/all.hpp"
 #include "croc/types.hpp"
 
 namespace croc
@@ -106,10 +109,8 @@ namespace croc
 				return 1;
 
 			default:
-				croc_ex_paramTypeError(t, 1, "null|bool|int|float|nativeobj|weakref");
+				return croc_ex_paramTypeError(t, 1, "null|bool|int|float|nativeobj|weakref");
 		}
-
-		assert(false);
 	}
 
 	// =================================================================================================================
@@ -479,7 +480,9 @@ namespace croc
 		croc_dup(t, 1);
 
 		assert(croc_len(t, shown) == 0);
-
+#ifdef NDEBUG
+		(void)shown;
+#endif
 		auto result = croc_tryCall(t, dumpValWork, 0);
 
 		croc_pushUpval(t, 1);
@@ -581,7 +584,6 @@ namespace croc
 			croc_table_new(t, 0);
 		croc_ex_registerGlobal(t, _dumpValFunc);
 
-		// TODO:
-		// initVector(t);
+		initMiscLib_Vector(t);
 	}
 }

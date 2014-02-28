@@ -58,7 +58,7 @@ namespace croc
 				case AstTag_ShrAssignStmt:  return Op_ShrEq;
 				case AstTag_UShrAssignStmt: return Op_UShrEq;
 
-				default: assert(false);
+				default: assert(false); return Op_Neg; // dummy
 			}
 		}
 	}
@@ -1140,7 +1140,9 @@ namespace croc
 		DEBUG_EXPSTACKCHECK(assert(base.type == ExpType::Temporary);)
 		DEBUG_EXPSTACKCHECK(assert(lo.type == ExpType::Temporary);)
 		DEBUG_EXPSTACKCHECK(assert(hi.type == ExpType::Temporary);)
-
+#ifdef NDEBUG
+		(void)lo;
+#endif
 		pop(3);
 		mFreeReg = hi.regAfter;
 		pushExp(ExpType::Slice, base.index);
@@ -1256,7 +1258,9 @@ namespace croc
 
 		DEBUG_EXPSTACKCHECK(assert(func.type == ExpType::Temporary);)
 		DEBUG_EXPSTACKCHECK(assert(context.type == ExpType::Temporary);)
-
+#ifdef NDEBUG
+		(void)context;
+#endif
 		auto args = mExpStack.slice(mExpSP - numArgs, mExpSP);
 		auto derp = prepareArgList(args);
 		derp = derp == 0 ? 0 : derp + 1;
@@ -1315,7 +1319,9 @@ namespace croc
 	{
 		NamespaceDesc ret(mNamespaceReg);
 		auto &e = getExp(-1);
-
+#ifdef NDEBUG
+		(void)e;
+#endif
 		DEBUG_EXPSTACKCHECK(assert(e.type == ExpType::NeedsDest);)
 		mNamespaceReg = checkRegOK(mFreeReg);
 		toSource(loc);
@@ -1847,7 +1853,7 @@ namespace croc
 			case Op_Is:
 			case Op_In:            return getImm(i + 3);
 
-			default: assert(false);
+			default: assert(false); return 0; // dummy
 		}
 	}
 
@@ -1873,7 +1879,7 @@ namespace croc
 			case Op_Is:
 			case Op_In:            return dest - (srcIndex + 4);
 
-			default: assert(false);
+			default: assert(false); return 0; // dummy
 		}
 	}
 

@@ -17,6 +17,7 @@ namespace croc
 	void initMathLib(CrocThread* t);
 	void initMemblockLib(CrocThread* t);
 	void initMiscLib(CrocThread* t);
+	void initMiscLib_Vector(CrocThread* t);
 	void initModulesLib(CrocThread* t);
 	void initObjectLib(CrocThread* t);
 	void initPathLib(CrocThread* t);
@@ -28,9 +29,10 @@ namespace croc
 	void initTimeLib(CrocThread* t);
 
 #ifdef CROC_BUILTIN_DOCS
-	void docBaseLib(CrocThread* t);
 	void docExceptionsLib(CrocThread* t);
 	void docGCLib(CrocThread* t);
+	void docMiscLib(CrocThread* t);
+	void docMiscLib_Vector(CrocThread* t);
 	void docModulesLib(CrocThread* t);
 	void docStringLib(CrocThread* t);
 #endif

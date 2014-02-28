@@ -1,4 +1,5 @@
 
+#include <cstdio>
 #include <functional>
 
 #include "croc/api.h"
@@ -216,7 +217,7 @@ namespace croc
 				auto n = v.mInstance->parent->name;
 				return croc_pushFormat(*t, "%s of %s", typeToString(CrocType_Instance), n->toCString());
 			}
-			default: assert(false);
+			default: assert(false); return 0; // dummy
 		}
 	}
 
@@ -339,9 +340,8 @@ namespace croc
 
 		pushTypeStringImpl(t, a);
 		pushTypeStringImpl(t, b);
-		croc_eh_throwStd(*t, "TypeError", "Can't compare types '%s' and '%s'",
+		return croc_eh_throwStd(*t, "TypeError", "Can't compare types '%s' and '%s'",
 			croc_getString(*t, -2), croc_getString(*t, -1));
-		assert(false);
 	}
 
 	bool switchCmpImpl(Thread* t, Value a, Value b)
@@ -431,9 +431,8 @@ namespace croc
 
 		pushTypeStringImpl(t, a);
 		pushTypeStringImpl(t, b);
-		croc_eh_throwStd(*t, "TypeError", "Can't compare types '%s' and '%s' for equality",
+		return croc_eh_throwStd(*t, "TypeError", "Can't compare types '%s' and '%s' for equality",
 			croc_getString(*t, -2), croc_getString(*t, -1));
-		assert(false);
 	}
 
 	void idxImpl(Thread* t, AbsStack dest, Value container, Value key)
@@ -1256,5 +1255,6 @@ namespace croc
 		}
 
 		assert(false);
+		return Value::nullValue; // dummy
 	}
 }

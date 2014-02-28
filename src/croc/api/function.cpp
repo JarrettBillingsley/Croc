@@ -52,10 +52,9 @@ extern "C"
 		else
 		{
 			croc_pushToString(t_, funcdef);
-			croc_eh_throwStd(t_, "RuntimeError",
+			return croc_eh_throwStd(t_, "RuntimeError",
 				"%s - Attempting to instantiate %s with a different namespace than was associated with it",
 				__FUNCTION__, croc_getString(t_, -1));
-			assert(false);
 		}
 	}
 

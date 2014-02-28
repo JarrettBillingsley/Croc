@@ -1,4 +1,5 @@
 
+#include <cstdio>
 #include <stdlib.h>
 
 #include "croc/api.h"
