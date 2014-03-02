@@ -382,7 +382,7 @@ namespace croc
 					MetaNames[MM_Equals], croc_getString(*t, -1));
 			}
 
-			return ret.mInt;
+			return ret.mBool;
 		}
 	}
 
