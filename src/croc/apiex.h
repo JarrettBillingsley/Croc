@@ -95,17 +95,20 @@ typedef struct CrocStrBuffer
 {
 	CrocThread* t;
 	word_t slot;
+	word_t buffer;
 	uword_t pos;
 	char data[CROC_STR_BUFFER_DATA_LENGTH];
 } CrocStrBuffer;
 
-void   CROCAPI(buffer_init)       (CrocThread* t, CrocStrBuffer* b);
-void   CROCAPI(buffer_addChar)    (CrocStrBuffer* b, crocchar_t c);
-void   CROCAPI(buffer_addString)  (CrocStrBuffer* b, const char* s);
-void   CROCAPI(buffer_addStringn) (CrocStrBuffer* b, const char* s, uword_t len);
-void   CROCAPI(buffer_addTop)     (CrocStrBuffer* b);
-word_t CROCAPI(buffer_finish)     (CrocStrBuffer* b);
-void   CROCAPI(buffer_start)      (CrocStrBuffer* b);
+void   CROCAPI(buffer_init)        (CrocThread* t, CrocStrBuffer* b);
+void   CROCAPI(buffer_addChar)     (CrocStrBuffer* b, crocchar_t c);
+void   CROCAPI(buffer_addString)   (CrocStrBuffer* b, const char* s);
+void   CROCAPI(buffer_addStringn)  (CrocStrBuffer* b, const char* s, uword_t len);
+void   CROCAPI(buffer_addTop)      (CrocStrBuffer* b);
+word_t CROCAPI(buffer_finish)      (CrocStrBuffer* b);
+void   CROCAPI(buffer_start)       (CrocStrBuffer* b);
+char*  CROCAPI(buffer_prepare)     (CrocStrBuffer* b, uword_t size);
+void   CROCAPI(buffer_addPrepared) (CrocStrBuffer* b);
 
 // =====================================================================================================================
 // Exception handling

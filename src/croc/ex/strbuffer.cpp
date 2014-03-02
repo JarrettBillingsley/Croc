@@ -42,6 +42,7 @@ extern "C"
 	void croc_ex_buffer_addChar(CrocStrBuffer* b, crocchar_t c)
 	{
 		assert(b->slot != 0);
+		assert(b->buffer == 0);
 
 		char outbuf_[4];
 		auto outbuf = DArray<char>::n(outbuf_, 4);
@@ -65,18 +66,18 @@ extern "C"
 	void croc_ex_buffer_addStringn(CrocStrBuffer* b, const char* s, uword_t len)
 	{
 		assert(b->slot != 0);
+		assert(b->buffer == 0);
 
 		if(len > (CROC_STR_BUFFER_DATA_LENGTH - b->pos))
 		{
+			flush(b);
+
 			if(len > CROC_STR_BUFFER_DATA_LENGTH)
 			{
-				flush(b);
 				croc_pushString(b->t, s);
 				addPiece(b);
 				return;
 			}
-
-			flush(b);
 		}
 
 		DArray<char>::n(b->data + b->pos, len).slicea(DArray<char>::n(cast(char*)s, len));
@@ -86,6 +87,7 @@ extern "C"
 	void croc_ex_buffer_addTop(CrocStrBuffer* b)
 	{
 		assert(b->slot != 0);
+		assert(b->buffer == 0);
 		auto t = Thread::from(b->t);
 		API_CHECK_PARAM(s, -1, String, "new piece");
 
@@ -111,9 +113,10 @@ extern "C"
 	word_t croc_ex_buffer_finish(CrocStrBuffer* b)
 	{
 		assert(b->slot != 0);
+		assert(b->buffer == 0);
 		auto t = b->t;
 
-		if(croc_getStackSize(t) - 1 != cast(uword)b->slot)
+		if(croc_getStackSize(b->t) - 1 != cast(uword)b->slot)
 			croc_eh_throwStd(t, "ApiError",
 				"Stack is not in the same configuration as when croc_ex_buffer_start was called");
 
@@ -141,6 +144,53 @@ extern "C"
 		assert(b->slot == 0);
 		b->slot = croc_pushNull(b->t);
 		b->pos = 0;
+		b->buffer = 0;
+	}
+
+	char* croc_ex_buffer_prepare(CrocStrBuffer* b, uword_t size)
+	{
+		assert(b->slot != 0);
+		assert(b->buffer == 0);
+
+		if(size <= CROC_STR_BUFFER_DATA_LENGTH)
+		{
+			if(size > (CROC_STR_BUFFER_DATA_LENGTH - b->pos))
+				flush(b);
+
+			b->buffer = -size;
+			return b->data + b->pos;
+		}
+		else
+		{
+			b->buffer = croc_memblock_new(b->t, size);
+			return croc_memblock_getData(b->t, -1);
+		}
+	}
+
+	void croc_ex_buffer_addPrepared(CrocStrBuffer* b)
+	{
+		assert(b->slot != 0);
+		assert(b->buffer != 0);
+
+		if(b->buffer > 0)
+		{
+			if(croc_getStackSize(b->t) - 1 != cast(uword)b->buffer)
+				croc_eh_throwStd(b->t, "ApiError",
+					"Stack is not in the same configuration as when croc_ex_buffer_prepare was called");
+
+			uword_t size;
+			auto ptr = croc_memblock_getDatan(b->t, -1, &size);
+			croc_pushStringn(b->t, ptr, size);
+			croc_swapTop(b->t);
+			croc_popTop(b->t);
+			b->buffer = 0;
+			croc_ex_buffer_addTop(b);
+		}
+		else
+		{
+			b->pos += -b->buffer;
+			b->buffer = 0;
+		}
 	}
 }
 }
