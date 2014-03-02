@@ -1273,17 +1273,17 @@ namespace croc
 		return 1;
 	}
 
-	word_t _format(CrocThread* t)
-	{
-		(void)t;
-		return 0;
-	}
+	// word_t _format(CrocThread* t)
+	// {
+	// 	(void)t;
+	// 	return 0;
+	// }
 
-	word_t _formatln(CrocThread* t)
-	{
-		(void)t;
-		return 0;
-	}
+	// word_t _formatln(CrocThread* t)
+	// {
+	// 	(void)t;
+	// 	return 0;
+	// }
 
 	word_t _opSerialize(CrocThread* t)
 	{
@@ -1424,8 +1424,8 @@ namespace croc
 		{"lstrip",          0, &_lstrip,            0},
 		{"rstrip",          0, &_rstrip,            0},
 		{"replace",         2, &_replace,           0},
-		{"format",         -1, &_format,            0},
-		{"formatln",       -1, &_formatln,          0},
+		// {"format",         -1, &_format,            0},
+		// {"formatln",       -1, &_formatln,          0},
 		{"opSerialize",     2, &_opSerialize,       0},
 		{"opDeserialize",   2, &_opDeserialize,     0},
 		{nullptr, 0, nullptr, 0}
