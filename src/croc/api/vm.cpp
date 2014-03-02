@@ -131,7 +131,7 @@ extern "C"
 		docModulesLib(*t);
 		docExceptionsLib(*t);
 		docGCLib(*t);
-		docBaseLib(*t);
+		docMiscLib(*t);
 		docStringLib(*t);
 #endif
 		// Finish up the safe libs.

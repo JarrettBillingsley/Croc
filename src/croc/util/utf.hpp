@@ -61,6 +61,7 @@ namespace croc
 	size_t utf8CPIdxToByte(DArray<const char> str, size_t fake);
 	size_t utf8ByteIdxToCP(DArray<const char> str, size_t fake);
 	size_t fastUtf8CPLength(DArray<const char> str);
+	size_t fastUtf32GetUtf8Size(DArray<const dchar> str);
 
 	struct DcharIterator
 	{
@@ -74,7 +75,7 @@ namespace croc
 		DcharIterator operator++(int) { DcharIterator tmp(*this); operator++(); return tmp; }
 		bool operator==(const DcharIterator& rhs) { return mPtr == rhs.mPtr; }
 		bool operator!=(const DcharIterator& rhs) { return !(*this == rhs); }
-		char operator*() { const char* tmp = mPtr; return fastDecodeUtf8Char(tmp); }
+		dchar operator*() { const char* tmp = mPtr; return fastDecodeUtf8Char(tmp); }
 	};
 
 	struct dcharsOf

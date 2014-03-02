@@ -2,5 +2,6 @@ module samples.simple
 
 function main()
 {
-
+	local s = string.StringBuffer("hello!");
+	println(s)
 }

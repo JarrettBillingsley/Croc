@@ -4,6 +4,10 @@
 
 namespace croc
 {
+	// =================================================================================================================
+	// UTF-8
+	// =================================================================================================================
+
 	size_t findCharFast(DArray<const char> str, char ch)
 	{
 		if(str.length)
@@ -21,7 +25,7 @@ namespace croc
 
 			while(p < e)
 			{
-				// clear matching T segments
+				// clear matching segments
 				auto v = (*cast(size_t*)p) ^ m;
 
 				if((v - cast(size_t)0x0101010101010101) & ~v & cast(size_t)0x8080808080808080)
@@ -324,6 +328,289 @@ namespace croc
 
 			mark = (pos - str.ptr) + 1;
 			next = str.ptr + mark;
+		}
+
+		if(mark <= str.length)
+			dg(str.slice(mark, str.length));
+	}
+
+	// =================================================================================================================
+	// UTF-32
+	// =================================================================================================================
+
+	size_t findCharFast(DArray<const uint32_t> str, uint32_t ch)
+	{
+		for(auto p = str.ptr, e = str.ptr + str.length; p < e; p++)
+		{
+			if(*p == ch)
+				return cast(size_t)(p - str.ptr);
+		}
+
+		return str.length;
+	}
+
+	size_t strLocate(DArray<const uint32_t> source, DArray<const uint32_t> match, size_t start)
+	{
+		if(match.length == 1)
+			return strLocateChar(source, match[0], start);
+		else
+			return strLocatePattern(source, match, start);
+	}
+
+	size_t strLocateChar(DArray<const uint32_t> source, uint32_t match, size_t start)
+	{
+		if(start > source.length)
+			start = source.length;
+
+		return findCharFast(DArray<const uint32_t>::n(source.ptr + start, source.length - start), match) + start;
+	}
+
+	size_t strLocatePattern(DArray<const uint32_t> source, DArray<const uint32_t> match, size_t start)
+	{
+		size_t idx;
+		const uint32_t* p = source.ptr + start;
+		size_t extent = source.length - start - match.length + 1;
+
+		if(match.length && extent <= source.length)
+		{
+			while(extent)
+			{
+				idx = findCharFast(DArray<const uint32_t>::n(p, extent), match[0]);
+
+				if(idx == extent)
+					break;
+
+				p += idx;
+
+				if(strEqFast(p, match.ptr, match.length))
+					return p - source.ptr;
+				else
+				{
+					extent -= idx + 1;
+					++p;
+				}
+			}
+		}
+
+		return source.length;
+	}
+
+	size_t strRLocate(DArray<const uint32_t> source, DArray<const uint32_t> match, size_t start)
+	{
+		if(match.length == 1)
+			return strRLocateChar(source, match[0], start);
+		else
+			return strRLocatePattern(source, match, start);
+	}
+
+	size_t strRLocateChar(DArray<const uint32_t> source, uint32_t match, size_t start)
+	{
+		if(start > source.length)
+			start = source.length;
+
+		while(start > 0)
+		{
+			if(source[--start] == match)
+				return start;
+		}
+
+		return source.length;
+	}
+
+	size_t strRLocatePattern(DArray<const uint32_t> source, DArray<const uint32_t> match, size_t start)
+	{
+		if(start > source.length)
+			start = source.length;
+
+		if(match.length && match.length <= source.length)
+		{
+			while(start > 0)
+			{
+				start = strRLocateChar(source, match[0], start);
+
+				if(start == source.length)
+					break;
+
+				if((start + match.length) <= source.length && strEqFast(source.ptr + start, match.ptr, match.length))
+					return start;
+			}
+		}
+
+		return source.length;
+	}
+
+	bool strEqFast(const uint32_t* s1, const uint32_t* s2, size_t length)
+	{
+		return strMismatchFast(s1, s2, length) == length;
+	}
+
+	size_t strMismatchFast(const uint32_t* s1, const uint32_t* s2, size_t length)
+	{
+		auto i = length;
+
+		for(auto p = s1; i--; )
+		{
+			if(*p++ != *s2++)
+				return p - s1 - 1;
+		}
+
+		return length;
+	}
+
+	DArray<const uint32_t> strTrimWS(DArray<const uint32_t> str)
+	{
+		if(str.length == 0)
+			return str;
+
+		auto head = str.ptr;
+		auto tail = str.ptr + str.length;
+
+		for(auto c = head[0]; head < tail && IS_WHITESPACE(c); c = (++head)[0]) {}
+		for(auto c = tail[-1]; tail > head && IS_WHITESPACE(c); c = (--tail)[-1]) {}
+
+		return DArray<const uint32_t>::n(head, tail - head);
+	}
+
+	DArray<const uint32_t> strTrimlWS(DArray<const uint32_t> str)
+	{
+		if(str.length == 0)
+			return str;
+
+		auto head = str.ptr;
+		auto tail = str.ptr + str.length;
+
+		for(auto c = head[0]; head < tail && IS_WHITESPACE(c); c = (++head)[0]) {}
+
+		return DArray<const uint32_t>::n(head, tail - head);
+	}
+
+	DArray<const uint32_t> strTrimrWS(DArray<const uint32_t> str)
+	{
+		if(str.length == 0)
+			return str;
+
+		auto head = str.ptr;
+		auto tail = str.ptr + str.length;
+
+		for(auto c = tail[-1]; tail > head && IS_WHITESPACE(c); c = (--tail)[-1]) {}
+
+		return DArray<const uint32_t>::n(head, tail - head);
+	}
+
+	// =================================================================================================================
+	// Delimiters
+
+	void delimiters(DArray<const uint32_t> str, DArray<const uint32_t> set,
+		std::function<void(DArray<const uint32_t>)> dg)
+	{
+		delimitersBreak(str, set, [&](DArray<const uint32_t> s) { dg(s); return true; });
+	}
+
+	void delimitersBreak(DArray<const uint32_t> str, DArray<const uint32_t> set,
+		std::function<bool(DArray<const uint32_t>)> dg)
+	{
+		size_t pos;
+		size_t mark = 0;
+
+		if(set.length == 1)
+		{
+			auto ch = set[0];
+
+			while((pos = findCharFast(str, ch)) != str.length)
+			{
+				if(!dg(str.slice(mark, pos)))
+					return;
+
+				mark = pos + 1;
+			}
+		}
+		else if(set.length > 1)
+		{
+			size_t i = 0;
+			for(auto ch: str)
+			{
+				if(findCharFast(set, ch) != set.length)
+				{
+					if(!dg(str.slice(mark, i)))
+						return;
+
+					mark = i + 1;
+				}
+
+				i++;
+			}
+		}
+
+		if(mark <= str.length)
+			dg(str.slice(mark, str.length));
+	}
+
+	// =================================================================================================================
+	// Patterns
+
+	void patterns(DArray<const uint32_t> str, DArray<const uint32_t> pat,
+		std::function<void(DArray<const uint32_t>)> dg)
+	{
+		patternsRepBreak(str, pat, DArray<const uint32_t>(), [&](DArray<const uint32_t> s) { dg(s); return true; });
+	}
+
+	void patternsBreak(DArray<const uint32_t> str, DArray<const uint32_t> pat,
+		std::function<bool(DArray<const uint32_t>)> dg)
+	{
+		patternsRepBreak(str, pat, DArray<const uint32_t>(), dg);
+	}
+
+	void patternsRep(DArray<const uint32_t> str, DArray<const uint32_t> pat, DArray<const uint32_t> rep,
+		std::function<void(DArray<const uint32_t>)> dg)
+	{
+		patternsRepBreak(str, pat, rep, [&](DArray<const uint32_t> s) { dg(s); return true; });
+	}
+
+	void patternsRepBreak(DArray<const uint32_t> str, DArray<const uint32_t> pat, DArray<const uint32_t> rep,
+		std::function<bool(DArray<const uint32_t>)> dg)
+	{
+		size_t pos;
+		size_t mark = 0;
+
+		while((pos = strLocate(str, pat, mark)) < str.length)
+		{
+			if(!dg(str.slice(mark, pos)))
+				return;
+
+			if(rep.length > 0 && !dg(rep))
+				return;
+
+			mark = pos + pat.length;
+		}
+
+		if(mark <= str.length)
+			dg(str.slice(mark, str.length));
+	}
+
+	// =================================================================================================================
+	// lines
+
+	void lines(DArray<const uint32_t> str, std::function<void(DArray<const uint32_t>)> dg)
+	{
+		linesBreak(str, [&](DArray<const uint32_t> s) { dg(s); return true; });
+	}
+
+	void linesBreak(DArray<const uint32_t> str, std::function<bool(DArray<const uint32_t>)> dg)
+	{
+		size_t pos;
+		size_t mark = 0;
+
+		while((pos = findCharFast(str, '\n')) != str.length)
+		{
+			auto end = pos;
+
+			if(end > 0 && str[end - 1] == '\r')
+				end--;
+
+			if(!dg(str.slice(mark, end)))
+				return;
+
+			mark = pos + 1;
 		}
 
 		if(mark <= str.length)

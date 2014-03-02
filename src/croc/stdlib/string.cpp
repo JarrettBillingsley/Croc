@@ -3,6 +3,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/all.hpp"
 #include "croc/types.hpp"
 #include "croc/util/str.hpp"
 
@@ -208,9 +209,6 @@ namespace croc
 
 		if(start < 0 || start >= srcCPLen)
 			croc_eh_throwStd(t, "BoundsError", "Invalid start index %" CROC_INTEGER_FORMAT, start);
-
-		if(reverse)
-			start++; // because of the way fastReverseUtf8Char works
 
 		// Search
 		if(reverse)
@@ -586,7 +584,7 @@ namespace croc
 
 	word loader(CrocThread* t)
 	{
-		// initStringBuffer(t);
+		initStringLib_StringBuffer(t);
 
 		croc_namespace_new(t, "string");
 			croc_ex_registerFields(t, _methodFuncs);

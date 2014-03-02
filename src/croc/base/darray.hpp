@@ -155,7 +155,7 @@ namespace croc
 			return ptr[idx];
 		}
 
-		inline void slicea(DArray<T> src)
+		inline void slicea(DArray<const T> src)
 		{
 			slicea(0, length, src);
 		}

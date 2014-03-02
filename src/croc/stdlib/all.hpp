@@ -24,6 +24,7 @@ namespace croc
 	void initSerializationLib(CrocThread* t);
 	void initStreamLib(CrocThread* t);
 	void initStringLib(CrocThread* t);
+	void initStringLib_StringBuffer(CrocThread* t);
 	void initTextLib(CrocThread* t);
 	void initThreadLib(CrocThread* t);
 	void initTimeLib(CrocThread* t);
@@ -35,6 +36,7 @@ namespace croc
 	void docMiscLib_Vector(CrocThread* t);
 	void docModulesLib(CrocThread* t);
 	void docStringLib(CrocThread* t);
+	void docStringLib_StringBuffer(CrocThread* t);
 #endif
 }
 

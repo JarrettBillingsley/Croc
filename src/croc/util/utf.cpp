@@ -195,6 +195,9 @@ namespace croc
 		return UtfError_OK;
 	}
 
+	template UtfError decodeUtf16Char<true>(const wchar*& s, const wchar* end, dchar& out);
+	template UtfError decodeUtf16Char<false>(const wchar*& s, const wchar* end, dchar& out);
+
 	/**
 	Same as above, but byteswaps the code units when reading them.
 	*/
@@ -222,6 +225,9 @@ namespace croc
 			return UtfError_OK;
 		}
 	}
+
+	template UtfError decodeUtf32Char<true>(const dchar*& s, const dchar* end, dchar& out);
+	template UtfError decodeUtf32Char<false>(const dchar*& s, const dchar* end, dchar& out);
 
 	/**
 	Same as above, but byteswaps the code units when reading them.
@@ -267,6 +273,9 @@ namespace croc
 			s += 2;
 	}
 
+	template void skipBadUtf16Char<true>(const wchar*& s, const wchar* end);
+	template void skipBadUtf16Char<false>(const wchar*& s, const wchar* end);
+
 	/**
 	Same as above, but byteswaps the code units when reading them.
 	*/
@@ -281,6 +290,9 @@ namespace croc
 		if(s < end)
 			s++;
 	}
+
+	template void skipBadUtf32Char<true>(const dchar*& s, const dchar* end);
+	template void skipBadUtf32Char<false>(const dchar*& s, const dchar* end);
 
 	/**
 	Same as above, but byteswaps the code units when reading them.
@@ -677,6 +689,9 @@ namespace croc
 		return buf.slice(0, dest - buf.ptr);
 	}
 
+	template DArray<wchar> Utf8ToUtf16<true>(DArray<const char> str, DArray<wchar> buf, DArray<const char>& remaining);
+	template DArray<wchar> Utf8ToUtf16<false>(DArray<const char> str, DArray<wchar> buf, DArray<const char>& remaining);
+
 	/**
 	Same as above, but byte-swaps the output.
 	*/
@@ -717,6 +732,9 @@ namespace croc
 		remaining = str.slice(src - str.ptr, str.length);
 		return buf.slice(0, dest - buf.ptr);
 	}
+
+	template DArray<dchar> Utf8ToUtf32<true>(DArray<const char> str, DArray<dchar> buf, DArray<const char>& remaining);
+	template DArray<dchar> Utf8ToUtf32<false>(DArray<const char> str, DArray<dchar> buf, DArray<const char>& remaining);
 
 	/**
 	Same as above, but byte-swaps the output.
@@ -807,5 +825,27 @@ namespace croc
 	size_t fastUtf8CPLength(DArray<const char> str)
 	{
 		return utf8ByteIdxToCP(str, str.length);
+	}
+
+	/**
+	Given a valid UTF-32 string, get how many bytes it would take to encode it as UTF-8.
+	*/
+	size_t fastUtf32GetUtf8Size(DArray<const dchar> str)
+	{
+		size_t ret = 0;
+
+		for(auto ch: str)
+		{
+			if(ch < 0x80)
+				ret++;
+			else if(ch < 0x800)
+				ret += 2;
+			else if(ch < 0x10000)
+				ret += 3;
+			else
+				ret += 4;
+		}
+
+		return ret;
 	}
 }
