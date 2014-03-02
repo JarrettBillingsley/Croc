@@ -218,7 +218,10 @@ namespace croc
 			push(t, Value::nullValue);
 			push(t, Value::from(vm->exception));
 			vm->exception = nullptr;
-			croc_call(*t, -3, 0);
+
+			if(croc_tryCall(*t, -3, 0) < 0)
+				fprintf(stderr, "Error in unhandled exception handler!\n");
+
 			abort();
 		}
 		else
