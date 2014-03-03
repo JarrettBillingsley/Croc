@@ -19,13 +19,14 @@ width is positive or negative integer that specifies minimum field width; negati
 
 fmt is a type-specific string which specifies output
 	for ints:
-		[+][#][width][type]
+		[+| ][#][width][type]
 		type:
+			d/i signed (this is the default)
 			u unsigned
-			b/B binary (0b0101/0B0101)
+			b/B binary
 			x/X hex
 	for floats:
-		[+][width][.[precision]][type]
+		[+| ][width][.[precision]][type]
 		type:
 			e/E
 			f
@@ -44,6 +45,8 @@ namespace croc
 {
 	const char* Spaces_ = "                                                                ";
 	const crocstr Spaces = {Spaces_, 64};
+	const char* Lowercase = "0123456789abcdef";
+	const char* Uppercase = "0123456789ABCDEF";
 
 	namespace
 	{
@@ -65,13 +68,21 @@ namespace croc
 				croc_eh_throwStd(t, "ValueError", "invalid format string: integer format string too large");
 
 			auto p = fmt.ptr, e = fmt.ptr + fmt.length;
+			bool putPlus = false;
+			bool putSpace = false;
 			bool putPrefix = false;
 			uword width = 0;
-			bool haveFmtType = false;
+			// bool haveFmtType = false;
 			char fmtType = 'd';
+			int radix = 10;
 
 			// Flags
-			if(p < e && *p == '+') p++;
+			if(p < e)
+			{
+				if(*p == '+') { p++; putPlus = true; }
+				else if(*p == ' ') { p++; putSpace = true; }
+			}
+
 			if(p < e && *p == '#') { p++; putPrefix = true; }
 
 			// Width
@@ -81,13 +92,15 @@ namespace croc
 			// Type
 			if(p < e)
 			{
-				haveFmtType = true;
+				// haveFmtType = true;
 
 				switch(*p)
 				{
-					case 'u': case 'x': case 'X': case 'b': case 'B': fmtType = *p++; break;
-					default: croc_eh_throwStd(t, "ValueError",
-						"invalid format string: unknown integer format type '%c'", *p);
+					case 'd': case 'i': p++; break; // just leave fmtType as 'd'
+					case 'u': fmtType = *p++; break;
+					case 'x': case 'X': radix = 16; fmtType = *p++; break;
+					case 'b': case 'B': radix = 2; fmtType = *p++; break;
+					default: croc_eh_throwStd(t, "ValueError", "invalid format string: unknown integer format type");
 				}
 			}
 
@@ -98,59 +111,59 @@ namespace croc
 			auto vm = Thread::from(t)->vm;
 			auto outbuf = DArray<char>::n(vm->formatBuf, CROC_FORMAT_BUF_SIZE / 2);
 
-			// conservatively add 2 for 0x, 1 for \0
-			if((width + (2 + 1)) > outbuf.length)
+			// conservatively add 2 for 0x
+			if((width + 2) > outbuf.length)
 				croc_eh_throwStd(t, "ValueError", "invalid format string: output number width is too large");
 
-			if(fmtType == 'b' || fmtType == 'B')
+			auto neg = (fmtType == 'd') && v < 0;
+
+			if(neg)
+				v = -v; // note for -max, this will still give correct output
+
+			auto dest = outbuf.ptr + outbuf.length;
+			auto x = cast(uint64_t)v;
+			auto chars = (fmtType == 'X') ? Uppercase : Lowercase;
+
+			uword total = 0;
+
+			do
 			{
-				auto dest = outbuf.ptr + outbuf.length;
-				auto x = cast(uint64_t)v;
+				*--dest = chars[cast(uword)(x % radix)];
+				total++;
+			} while(x /= radix);
 
-				uword total = 0;
+			while(total < width)
+			{
+				*--dest = '0';
+				total++;
+			}
 
-				do
+			if(neg)
+			{
+				*--dest = '-';
+				total++;
+			}
+			else if(fmtType == 'd')
+			{
+				if(putPlus)
 				{
-					*--dest = (x & 1) ? '1' : '0';
+					*--dest = '+';
 					total++;
 				}
-				while(x >>= cast(uint64_t)1);
-
-				while(total++ < width)
-					*--dest = '0';
-
-				if(putPrefix)
+				else if(putSpace)
 				{
-					*--dest = fmtType;
-					*--dest = '0';
-					total += 2;
+					*--dest = ' ';
+					total++;
 				}
-
-				return croc_pushStringn(t, dest, total);
 			}
-			else
+			else if(fmtType != 'u' && putPrefix)
 			{
-				auto cfmt = DArray<char>::n(vm->formatBuf + (CROC_FORMAT_BUF_SIZE / 2), CROC_FORMAT_BUF_SIZE / 2);
-				auto ifmt = atoda(CROC_INTEGER_FORMAT);
-
-				auto offs = 0;
-				cfmt[offs++] = '%';
-				memcpy(cfmt.ptr + offs, fmt.ptr, fmt.length); offs += fmt.length;
-
-				if(haveFmtType)
-					offs--; // overwrite format type char
-
-				memcpy(cfmt.ptr + offs, ifmt.ptr, ifmt.length); offs += ifmt.length;
-				cfmt[offs - 1] = fmtType;
-				cfmt[offs++] = '\0';
-
-				auto len = snprintf(outbuf.ptr, outbuf.length, cfmt.ptr, v);
-
-				if(len < 0 || cast(uword)len >= outbuf.length)
-					croc_eh_throwStd(t, "ValueError", "error formatting integer");
-
-				return croc_pushStringn(t, outbuf.ptr, len);
+				*--dest = fmtType;
+				*--dest = '0';
+				total += 2;
 			}
+
+			return croc_pushStringn(t, dest, total);
 		}
 
 		word doFloat(CrocThread* t, crocfloat v, crocstr fmt)
@@ -164,7 +177,12 @@ namespace croc
 			char fmtType = 'f';
 
 			// Flags
-			if(p < e && *p == '+') p++;
+			if(p < e)
+			{
+				if(*p == '+') p++;
+				else if(*p == ' ') p++;
+			}
+
 
 			// Width
 			while(p < e && isdigit(*p)) p++;
@@ -187,8 +205,7 @@ namespace croc
 				switch(*p)
 				{
 					case 'e': case 'E': case 'f': case 'g': case 'G': fmtType = *p++; break;
-					default: croc_eh_throwStd(t, "ValueError",
-						"invalid format string: unknown float format type '%c'", *p);
+					default: croc_eh_throwStd(t, "ValueError", "invalid format string: unknown float format type");
 				}
 			}
 
@@ -361,7 +378,7 @@ namespace croc
 			if(p < e)
 			{
 				if(*p != ':')
-					croc_eh_throwStd(t, "ValueError", "invalid format string: expected ':', not '%c'", *p);
+					croc_eh_throwStd(t, "ValueError", "invalid format string: expected ':'");
 
 				p++;
 
