@@ -524,7 +524,7 @@ namespace croc
 			char* check;
 			fret = strtod(buf, &check);
 
-			if(check != (buf + i))
+			if(check != (buf + i - 1)) // -1 since i was incremented after adding the trailing \0
 				mCompiler.lexException(beginning, "Invalid floating point literal");
 
 			return false;
