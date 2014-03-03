@@ -3,6 +3,7 @@
 #include <limits>
 
 #include "croc/api.h"
+#include "croc/internal/format.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
 #include "croc/util/str.hpp"
@@ -1273,17 +1274,24 @@ namespace croc
 		return 1;
 	}
 
-	// word_t _format(CrocThread* t)
-	// {
-	// 	(void)t;
-	// 	return 0;
-	// }
+	word_t _format(CrocThread* t)
+	{
+		croc_ex_checkStringParam(t, 1);
+		auto numPieces = formatImpl(t, 1, croc_getStackSize(t) - 2);
 
-	// word_t _formatln(CrocThread* t)
-	// {
-	// 	(void)t;
-	// 	return 0;
-	// }
+		croc_dup(t, 0);
+		croc_pushNull(t);
+		croc_rotate(t, numPieces + 2, 2);
+		return croc_methodCall(t, -numPieces - 2, "append", 1);
+	}
+
+	word_t _formatln(CrocThread* t)
+	{
+		_format(t);
+		croc_pushNull(t);
+		croc_pushString(t, "\n");
+		return croc_methodCall(t, -3, "append", 1);
+	}
 
 	word_t _opSerialize(CrocThread* t)
 	{
@@ -1424,8 +1432,8 @@ namespace croc
 		{"lstrip",          0, &_lstrip,            0},
 		{"rstrip",          0, &_rstrip,            0},
 		{"replace",         2, &_replace,           0},
-		// {"format",         -1, &_format,            0},
-		// {"formatln",       -1, &_formatln,          0},
+		{"format",         -1, &_format,            0},
+		{"formatln",       -1, &_formatln,          0},
 		{"opSerialize",     2, &_opSerialize,       0},
 		{"opDeserialize",   2, &_opDeserialize,     0},
 		{nullptr, 0, nullptr, 0}
