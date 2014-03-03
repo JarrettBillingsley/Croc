@@ -9,7 +9,7 @@ namespace croc
 {
 	namespace
 	{
-		const uint32_t MaxParams = cast(uint32_t)MaxParams;
+		const uint32_t MaxParams = cast(uint32_t)-2;
 	}
 
 	// Create a script function.
