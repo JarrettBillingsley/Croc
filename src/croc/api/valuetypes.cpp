@@ -55,23 +55,20 @@ extern "C"
 		auto t = Thread::from(t_);
 		va_list argsDup;
 		va_copy(argsDup, args);
-		auto len = 1 + vsnprintf(t->vm->formatBuf, 1, fmt, argsDup);
-		char* buf = t->vm->formatBuf;
-		auto arr = DArray<char>();
+		auto len = vsnprintf(t->vm->formatBuf, CROC_FORMAT_BUF_SIZE, fmt, argsDup);
+		word_t ret;
 
-		if(len > CROC_FORMAT_BUF_SIZE)
+		if(len >= 0 && len < CROC_FORMAT_BUF_SIZE)
+			ret = croc_pushStringn(t_, t->vm->formatBuf, len);
+		else
 		{
-			arr = DArray<char>::alloc(t->vm->mem, len);
-			buf = arr.ptr;
-		}
+			auto arr = DArray<char>::alloc(t->vm->mem, len + 1); // +1 for terminating \0
+			vsnprintf(arr.ptr, len, fmt, args);
 
-		vsnprintf(buf, len, fmt, args);
-
-		// TODO: memory leak possible if string is not valid UTF-8
-		auto ret = croc_pushStringn(t_, buf, len - 1);
-
-		if(arr.length > 0)
+			// TODO: memory leak if string is not valid UTF-8
+			ret = croc_pushStringn(t_, arr.ptr, len);
 			arr.free(t->vm->mem);
+		}
 
 		croc_gc_maybeCollect(t_);
 		return ret;
