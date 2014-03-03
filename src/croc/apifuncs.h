@@ -96,6 +96,7 @@ word_t  CROCAPI(dup)          (CrocThread* t, word_t slot);
 void    CROCAPI(swap)         (CrocThread* t, word_t first, word_t second);
 void    CROCAPI(insert)       (CrocThread* t, word_t slot);
 void    CROCAPI(insertAndPop) (CrocThread* t, word_t slot);
+void    CROCAPI(remove)       (CrocThread* t, word_t slot);
 void    CROCAPI(moveToTop)    (CrocThread* t, word_t slot);
 void    CROCAPI(rotate)       (CrocThread* t, uword_t numSlots, uword_t dist);
 void    CROCAPI(rotateAll)    (CrocThread* t, uword_t dist);

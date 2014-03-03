@@ -105,6 +105,21 @@ extern "C"
 		t->stackIndex = s + 1;
 	}
 
+	void croc_remove(CrocThread* t_, word_t slot)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
+		auto s = fakeToAbs(t, slot);
+
+		if(s == t->stackBase)
+			croc_eh_throwStd(t_, "ApiError", "%s - Cannot remove 'this'", __FUNCTION__);
+
+		if(s != t->stackIndex - 1)
+			memmove(&t->stack[s], &t->stack[s + 1], (t->stackIndex - s - 1) * sizeof(Value));
+
+		croc_pop(t_, 1);
+	}
+
 	void croc_moveToTop(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
