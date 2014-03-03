@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "croc/api.h"
+#include "croc/internal/format.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/all.hpp"
 #include "croc/types.hpp"
@@ -22,22 +23,13 @@ namespace croc
 
 	const uword VSplitMax = 20;
 
-	// word_t _format(CrocThread* t)
-	// {
-	// 	uint sink(char[] s)
-	// 	{
-	// 		if(s.length)
-	// 			croc_pushString(t, s);
-
-	// 		return s.length;
-	// 	}
-
-	// 	croc_ex_checkStringParam(t, 0);
-	// 	auto startSize = croc_getStackSize(t);
-	// 	formatImpl(t, 0, startSize, &sink);
-	// 	croc_cat(t, croc_getStackSize(t) - startSize);
-	// 	return 1;
-	// }
+	word_t _format(CrocThread* t)
+	{
+		croc_ex_checkStringParam(t, 0);
+		auto num = formatImpl(t, 0, croc_getStackSize(t) - 1);
+		croc_cat(t, num);
+		return 1;
+	}
 
 	word_t _join(CrocThread* t)
 	{
@@ -555,7 +547,7 @@ namespace croc
 
 	const CrocRegisterFunc _methodFuncs[] =
 	{
-		// {"format",       -1, &_format,            0},
+		{"format",       -1, &_format,            0},
 		{"join",          1, &_join,              0},
 		{"vjoin",        -1, &_vjoin,             0},
 		{"toInt",         1, &_toInt,             0},

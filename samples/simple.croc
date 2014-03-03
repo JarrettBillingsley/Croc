@@ -1,7 +1,9 @@
 module samples.simple
 
+function writefln(fmt: string, vararg)
+	println(fmt.format(vararg))
+
 function main()
 {
-	local s = string.StringBuffer("hello!");
-	println(s)
+
 }
