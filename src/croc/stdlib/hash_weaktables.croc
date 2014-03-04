@@ -1,0 +1,253 @@
+local weakref, deref = weakref, deref
+local allWeakTables = {}
+
+gc.postCallback$ function postGC()
+{
+	foreach(k, _; allWeakTables, "modify")
+	{
+		local tab = deref(k)
+
+		if(tab is null)
+			allWeakTables[k] = null
+		else
+			tab.normalize()
+	}
+}
+
+/**
+Base class for all types of weak tables.
+
+All the weak table classes present an interface as similar to actual tables as possible.
+*/
+local class WeakTableBase
+{
+	/**
+	All subclasses of this class must call this constructor with \tt{super()}.
+	*/
+	this()
+	{
+		allWeakTables[weakref(this)] = true
+	}
+}
+
+/**
+A table with weak keys and strong values. This kind of table is often useful for associating data with objects, using
+the object as the key and the data you want to associate as the value.
+
+\warnings It is possible for memory leaks to occur with this kind of table! Even though the keys are weak, the values
+may directly or indirectly reference the key objects, which means those objects can be kept alive even if the only thing
+that references them is a table like this. Be careful.
+*/
+class WeakKeyTable : WeakTableBase
+{
+	_data
+
+	/**
+	Constructor.
+	*/
+	override this()
+	{
+		:_data = {}
+		(WeakTableBase.constructor)(with this)
+	}
+
+	/**
+	Operator overloads for \tt{in}, getting and setting key-value pairs, and getting the length of the table.
+	*/
+	function opIn(k) = weakref(k) in :_data
+	function opIndex(k) = :_data[weakref(k)] /// ditto
+	function opIndexAssign(k, v) :_data[weakref(k)] = v /// ditto
+	function opLength() = #:_data /// ditto
+
+	/**
+	Allows you to use a foreach loop over the table. You will not get weakref objects for the keys, but rather strong
+	references. Also, you can modify the table during iteration.
+	*/
+	function opApply(_) // can modify with this implementation too
+	{
+		local keys = hash.keys(:_data)
+		local idx = -1
+
+		function iterator(_)
+		{
+			for(idx++; idx < #keys; idx++)
+			{
+				local v = :_data[keys[idx]]
+
+				if(v !is null)
+					return deref(keys[idx]), v
+			}
+		}
+
+		return iterator, this, null
+	}
+
+	/**
+	Gets an array of the keys (dereferenced) of this table.
+	*/
+	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
+
+	/**
+	Gets an array of the values of this table.
+	*/
+	function values() = hash.values(:_data)
+
+	/**
+	Normalizes the table by removing any key-value pairs where the key has been collected. This is usually called
+	automatically for you.
+	*/
+	function normalize()
+	{
+		foreach(k, _; :_data, "modify")
+		{
+			if(deref(k) is null)
+				:_data[k] = null
+		}
+	}
+}
+
+/**
+A table with strong keys and weak values.
+
+\warnings It is possible for memory leaks to occur with this kind of table! Even though the values are weak, the keys
+may directly or indirectly reference the value objects, which means those objects can be kept alive even if the only
+thing that references them is a table like this. Be careful.
+*/
+class WeakValTable : WeakTableBase
+{
+	_data
+
+	/**
+	Constructor.
+	*/
+	override this()
+	{
+		:_data = {}
+		(WeakTableBase.constructor)(with this)
+	}
+
+	/**
+	Operator overloads for \tt{in}, getting and setting key-value pairs, and getting the length of the table.
+	*/
+	function opIn(k) = k in :_data
+	function opIndex(k) = deref(:_data[k]) /// ditto
+	function opIndexAssign(k, v) :_data[k] = weakref(v) /// ditto
+	function opLength() = #:_data /// ditto
+
+	/**
+	Allows you to use a foreach loop over the table. You will not get weakref objects for the values, but rather strong
+	references. Also, you can modify the table during iteration.
+	*/
+	function opApply(_) // can modify with this implementation too
+	{
+		local keys = hash.keys(:_data)
+		local idx = -1
+
+		function iterator(_)
+		{
+			for(idx++; idx < #keys; idx++)
+			{
+				local v = deref(:_data[keys[idx]])
+
+				if(v !is null)
+					return keys[idx], v
+			}
+		}
+
+		return iterator, this, null
+	}
+
+	/**
+	Gets an array of the keys of this table.
+	*/
+	function keys() = hash.keys(:_data)
+
+	/**
+	Gets an array of the values (dereferenced) of this table.
+	*/
+	function values() = [deref(v) foreach _, v; :_data if deref(v) !is null]
+
+	/**
+	Normalizes the table by removing any key-value pairs where the value has been collected. This is usually called
+	automatically for you.
+	*/
+	function normalize()
+	{
+		foreach(k, v; :_data, "modify")
+		{
+			if(deref(v) is null)
+				:_data[k] = null
+		}
+	}
+}
+
+/**
+A table with weak keys \em{and} weak values.
+
+Unlike the other two varieties of weak tables, you can't cause memory leaks with this one!
+*/
+class WeakKeyValTable : WeakTableBase
+{
+	_data
+
+	/**
+	Constructor.
+	*/
+	override this()
+	{
+		:_data = {}
+		(WeakTableBase.constructor)(with this)
+	}
+
+	/**
+	Operator overloads for \tt{in}, getting and setting key-value pairs, and getting the length of the table.
+	*/
+	function opIn(k) = weakref(k) in :_data
+	function opIndex(k) = deref(:_data[weakref(k)]) /// ditto
+	function opIndexAssign(k, v) :_data[weakref(k)] = weakref(v) /// ditto
+	function opLength() = #:_data /// ditto
+
+	/**
+	Allows you to use a foreach loop over the table. You will not get weakref objects for the keys and values, but
+	rather strong references. Also, you can modify the table during iteration.
+	*/
+	function opApply(_) // can modify with this implementation too
+	{
+		local keys = hash.keys(:_data)
+		local idx = -1
+
+		function iterator(_)
+		{
+			for(idx++; idx < #keys; idx++)
+			{
+				local v = deref(:_data[keys[idx]])
+
+				if(v !is null)
+					return deref(keys[idx]), v
+			}
+		}
+
+		return iterator, this, null
+	}
+
+	/**
+	Gets an array of the keys (dereferenced) of this table.
+	*/
+	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
+
+	/**
+	Gets an array of the values (dereferenced) of this table.
+	*/
+	function values() = [deref(v) foreach _, v; :_data if deref(v) !is null]
+
+	/**
+	Normalizes the table by removing any key-value pairs where the key or value have been collected. This is usually
+	called automatically for you.
+	*/
+	function normalize()
+	{
+		foreach(k, v; :_data, "modify")
+			if(deref(k) is null || deref(v) is null)
+				:_data[k] = null
+	}
+}

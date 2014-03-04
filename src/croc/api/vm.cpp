@@ -135,7 +135,7 @@ extern "C"
 		docStringLib(*t);
 #endif
 		// Finish up the safe libs.
-		// initHashLib(*t);
+		initHashLib(*t);
 		// initMathLib(*t);
 		// initObjectLib(*t);
 		// initMemblockLib(*t);

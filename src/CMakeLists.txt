@@ -93,6 +93,7 @@ set(croc_SRC
 	croc/stdlib/misc_vector.cpp
 	croc/stdlib/exceptions.cpp
 	croc/stdlib/gc.cpp
+	croc/stdlib/hash.cpp
 	croc/stdlib/modules.cpp
 	croc/stdlib/string.cpp
 	croc/stdlib/string_stringbuffer.cpp
@@ -117,6 +118,10 @@ set(croc_SRC
 	croc/util/utf.hpp
 )
 
+set(croc_CROCSRC
+	croc/stdlib/hash_weaktables.croc
+)
+
 set(croc_API
 	croc/api.h
 	croc/apifuncs.h
@@ -124,9 +129,44 @@ set(croc_API
 	croc/apiex.h
 )
 
+set(croc_CROCSRC_CONVERTED)
+
+add_executable(convert croc/ext/convert.cpp)
+
+foreach(crocsrc ${croc_CROCSRC})
+	set(infile "${CMAKE_CURRENT_SOURCE_DIR}/${crocsrc}")
+	set(outfile "${CMAKE_CURRENT_BINARY_DIR}/${crocsrc}.hpp")
+
+	if(MINGW)
+		# CMake bug 5939: http://www.cmake.org/Bug/view.php?id=5939
+		string(REGEX REPLACE "/" "\\\\" infileNative "${infile}")
+		string(REGEX REPLACE "/" "\\\\" outfileNative "${outfile}")
+	else()
+		set(infileNative "${infile}")
+		set(outfileNative "${outfile}")
+	endif()
+
+	get_filename_component(outpath "${outfileNative}" PATH)
+	message("outpath: ${outpath}")
+	file(MAKE_DIRECTORY "${outpath}")
+
+	# message("in: ${infileNative}, out: ${outfileNative}")
+	add_custom_command(
+		OUTPUT ${outfile}
+		COMMAND convert ${infileNative} > ${outfileNative}
+		DEPENDS ${infile} convert
+		COMMENT "Converting ${infileNative}, output ${outfileNative}"
+	)
+	list(APPEND croc_CROCSRC_CONVERTED "${outfile}")
+endforeach()
+
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
+add_custom_target(ConvertCrocFiles ALL DEPENDS ${croc_CROCSRC_CONVERTED})
+
 set(croc_ALLSRC
 	${croc_SRC}
 	${croc_API}
+	${croc_CROCSRC_CONVERTED}
 )
 
 if(CMAKE_COMPILER_IS_GNUCXX)
