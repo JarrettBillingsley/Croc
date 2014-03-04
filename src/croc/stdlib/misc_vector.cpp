@@ -171,7 +171,7 @@ namespace croc
 
 		auto size = croc_ex_checkIntParam(t, 2);
 
-		if(size < 0) //TODO:range || size > uword.max)
+		if(size < 0 || size > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid size (%" CROC_INTEGER_FORMAT ")", size);
 
 		croc_memblock_new(t, cast(uword)size * kind->itemSize);

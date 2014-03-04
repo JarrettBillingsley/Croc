@@ -1,6 +1,7 @@
 
 #include <cstdio>
 #include <functional>
+#include <limits>
 
 #include "croc/api.h"
 #include "croc/internal/basic.hpp"
@@ -875,7 +876,7 @@ namespace croc
 
 				auto l = len.mInt;
 
-				if(l < 0) // || l > uword.max) TODO:range
+				if(l < 0 || l > std::numeric_limits<uword>::max())
 					croc_eh_throwStd(*t, "RangeError", "Invalid length (%" CROC_INTEGER_FORMAT ")", l);
 
 				dest.mArray->resize(t->vm->mem, cast(uword)l);
@@ -897,7 +898,7 @@ namespace croc
 
 				auto l = len.mInt;
 
-				if(l < 0) // || l > uword.max) TODO:range
+				if(l < 0 || l > std::numeric_limits<uword>::max())
 					croc_eh_throwStd(*t, "RangeError", "Invalid length (%" CROC_INTEGER_FORMAT ")", l);
 
 				mb->resize(t->vm->mem, cast(uword)l);

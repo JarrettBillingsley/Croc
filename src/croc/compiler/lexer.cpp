@@ -1,8 +1,10 @@
 
+#include <limits>
 #include <stdlib.h>
 
 #include "croc/compiler/lexer.hpp"
 #include "croc/compiler/types.hpp"
+#include "croc/util/str.hpp"
 #include "croc/util/utf.hpp"
 
 namespace croc
@@ -181,8 +183,7 @@ namespace croc
 
 	crocstr Lexer::endCapture(const char* captureStart)
 	{
-		// TODO: trim whitespace off the captured string
-		return mCompiler.newString(crocstr::n(captureStart, mCaptureEnd - captureStart));
+		return mCompiler.newString(strTrimWS(crocstr::n(captureStart, mCaptureEnd - captureStart)));
 	}
 
 	// =================================================================================================================
@@ -785,7 +786,7 @@ namespace croc
 			if(!convertInt(lineBuf.toArrayView(), lineNum, 10))
 				mCompiler.lexException(lineNumLoc, "Line number overflow");
 
-			if(lineNum < 1) // TODO:range
+			if(lineNum < 1 || lineNum > std::numeric_limits<uword>::max())
 				mCompiler.lexException(lineNumLoc, "Invalid line number");
 
 			mLinePragmaLine = cast(uword)lineNum;

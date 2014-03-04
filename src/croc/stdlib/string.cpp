@@ -1,4 +1,5 @@
 
+#include <limits>
 #include <stdlib.h>
 
 #include "croc/api.h"
@@ -43,7 +44,7 @@ namespace croc
 			return 1;
 		}
 
-		uword totalLen = 0;
+		uint64_t totalLen = 0;
 		uword i = 0;
 
 		for(auto &val: arr)
@@ -56,9 +57,12 @@ namespace croc
 			i++;
 		}
 
-		// TODO:range
 		totalLen += sep.length * (arr.length - 1);
-		auto buf = DArray<char>::alloc(Thread::from(t)->vm->mem, totalLen);
+
+		if(totalLen > std::numeric_limits<uword>::max())
+			croc_eh_throwStd(t, "ValueError", "Resulting string is too long");
+
+		auto buf = DArray<char>::alloc(Thread::from(t)->vm->mem, cast(uword)totalLen);
 		uword pos = 0;
 
 		i = 0;
