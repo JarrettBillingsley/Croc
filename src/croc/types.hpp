@@ -11,6 +11,7 @@
 #include "croc/base/memory.hpp"
 #include "croc/base/opcodes.hpp"
 #include "croc/base/sanity.hpp"
+#include "croc/util/rng.hpp"
 #include "croc/util/utf.hpp"
 
 namespace croc
@@ -695,6 +696,7 @@ namespace croc
 		String* ctorString; // also stored in metaStrings, don't have to scan it as a root
 		String* finalizerString; // also stored in metaStrings, don't have to scan it as a root
 		char formatBuf[CROC_FORMAT_BUF_SIZE];
+		RNG rng;
 
 		inline void disableGC() { this->mem.gcDisabled++; }
 		inline void enableGC()

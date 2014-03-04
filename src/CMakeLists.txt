@@ -94,6 +94,7 @@ set(croc_SRC
 	croc/stdlib/exceptions.cpp
 	croc/stdlib/gc.cpp
 	croc/stdlib/hash.cpp
+	croc/stdlib/math.cpp
 	croc/stdlib/modules.cpp
 	croc/stdlib/string.cpp
 	croc/stdlib/string_stringbuffer.cpp
@@ -112,6 +113,8 @@ set(croc_SRC
 	croc/types/weakref.cpp
 	croc/util/misc.cpp
 	croc/util/misc.hpp
+	croc/util/rng.cpp
+	croc/util/rng.hpp
 	croc/util/str.cpp
 	croc/util/str.hpp
 	croc/util/utf.cpp

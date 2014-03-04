@@ -106,6 +106,7 @@ extern "C"
 		vm->registry = Namespace::create(vm->mem, String::create(vm, atoda("<registry>")));
 		vm->unhandledEx = Function::create(vm->mem, vm->globals, String::create(vm, atoda("defaultUnhandledEx")), 1, defaultUnhandledEx, 0);
 		vm->ehFrames = DArray<EHFrame>::alloc(vm->mem, 10);
+		vm->rng.seed();
 
 		// _G = _G._G = _G._G._G = _G._G._G._G = ...
 		push(t, Value::from(vm->globals));
@@ -136,7 +137,7 @@ extern "C"
 #endif
 		// Finish up the safe libs.
 		initHashLib(*t);
-		// initMathLib(*t);
+		initMathLib(*t);
 		// initObjectLib(*t);
 		// initMemblockLib(*t);
 		// initTextLib(*t); // depends on memblock
