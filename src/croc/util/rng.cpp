@@ -52,14 +52,9 @@ namespace croc
 		return x + y + w;
 	}
 
-	uint32_t RNG::next(uint32_t max)
+	uint64_t RNG::next64()
 	{
-		return next() % max;
-	}
-
-	uint32_t RNG::next(uint32_t min, uint32_t max)
-	{
-		return (next() % (max - min)) + min;
+		return next() | (((uint64_t)next()) << 32);
 	}
 
 	double RNG::nextf32()

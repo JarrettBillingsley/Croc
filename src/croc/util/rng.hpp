@@ -31,8 +31,7 @@ namespace croc
 		void seed();
 		void seed(uint32_t seed);
 		uint32_t next();
-		uint32_t next(uint32_t max);
-		uint32_t next(uint32_t min, uint32_t max);
+		uint64_t next64();
 		double nextf32();
 		double nextf52();
 	};

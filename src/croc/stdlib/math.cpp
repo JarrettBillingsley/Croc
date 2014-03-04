@@ -100,8 +100,7 @@ namespace croc
 	word_t _rand(CrocThread* t)
 	{
 		auto &rng = Thread::from(t)->vm->rng;
-		crocint num = rng.next();
-		num |= (cast(uint64_t)rng.next()) << 32;
+		crocint num = cast(crocint)rng.next64();
 
 		switch(croc_getStackSize(t) - 1)
 		{
@@ -115,7 +114,7 @@ namespace croc
 				if(max == 0)
 					croc_eh_throwStd(t, "RangeError", "Maximum value may not be 0");
 
-				croc_pushInt(t, cast(uword)num % max);
+				croc_pushInt(t, cast(uint64_t)num % max);
 				break;
 			}
 			default:
@@ -125,7 +124,7 @@ namespace croc
 				if(hi == lo)
 					croc_eh_throwStd(t, "ValueError", "Low and high values must be different");
 
-				croc_pushInt(t, (cast(uword)num % (hi - lo)) + lo);
+				croc_pushInt(t, (cast(uint64_t)num % (hi - lo)) + lo);
 				break;
 		}
 
