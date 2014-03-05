@@ -251,21 +251,21 @@ namespace croc
 
 	const CrocRegisterFunc _globalFuncs[] =
 	{
-		{"newClass",          -1, &_newClass,          0},
-		{"fieldsOf",           1, &_fieldsOf,          0},
-		{"methodsOf",          1, &_methodsOf,         0},
-		{"rawSetField",        3, &_rawSetField,       0},
-		{"rawGetField",        2, &_rawGetField,       0},
-		{"addMethod",          3, &_addMethod,         0},
-		{"addField",           3, &_addField,          0},
-		{"addMethodOverride",  3, &_addMethodOverride, 0},
-		{"addFieldOverride",   3, &_addFieldOverride,  0},
-		{"removeMember",       2, &_removeMember,      0},
-		{"freeze",             1, &_freeze,            0},
-		{"isFrozen",           1, &_isFrozen,          0},
-		{"isFinalizable",      1, &_isFinalizable,     0},
-		{"instanceOf",         2, &_instanceOf,        0},
-		{nullptr, 0, nullptr, 0}
+		{"newClass",          -1, &_newClass         },
+		{"fieldsOf",           1, &_fieldsOf         },
+		{"methodsOf",          1, &_methodsOf        },
+		{"rawSetField",        3, &_rawSetField      },
+		{"rawGetField",        2, &_rawGetField      },
+		{"addMethod",          3, &_addMethod        },
+		{"addField",           3, &_addField         },
+		{"addMethodOverride",  3, &_addMethodOverride},
+		{"addFieldOverride",   3, &_addFieldOverride },
+		{"removeMember",       2, &_removeMember     },
+		{"freeze",             1, &_freeze           },
+		{"isFrozen",           1, &_isFrozen         },
+		{"isFinalizable",      1, &_isFinalizable    },
+		{"instanceOf",         2, &_instanceOf       },
+		{nullptr, 0, nullptr}
 	};
 
 	word loader(CrocThread* t)

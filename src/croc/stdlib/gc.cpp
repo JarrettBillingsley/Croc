@@ -89,13 +89,13 @@ namespace croc
 
 	const CrocRegisterFunc _globalFuncs[] =
 	{
-		{"collect",            0, &_collect,            0},
-		{"collectFull",        0, &_collectFull,        0},
-		{"allocated",          0, &_allocated,          0},
-		{"limit",              2, &_limit,              0},
-		{"postCallback",       1, &_postCallback,       0},
-		{"removePostCallback", 1, &_removePostCallback, 0},
-		{nullptr, 0, nullptr, 0}
+		{"collect",            0, &_collect           },
+		{"collectFull",        0, &_collectFull       },
+		{"allocated",          0, &_allocated         },
+		{"limit",              2, &_limit             },
+		{"postCallback",       1, &_postCallback      },
+		{"removePostCallback", 1, &_removePostCallback},
+		{nullptr, 0, nullptr}
 	};
 
 	word loader(CrocThread* t)

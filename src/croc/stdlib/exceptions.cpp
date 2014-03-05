@@ -259,25 +259,25 @@ namespace croc
 
 	const CrocRegisterFunc _locationMethods[] =
 	{
-		{"constructor", 3, &_locationConstructor, 0},
-		{"toString",    0, &_locationToString,    0},
-		{nullptr, 0, nullptr, 0}
+		{"constructor", 3, &_locationConstructor},
+		{"toString",    0, &_locationToString   },
+		{nullptr, 0, nullptr}
 	};
 
 	const CrocRegisterFunc _throwableMethods[] =
 	{
-		{"constructor",     2, &_throwableConstructor,     0},
-		{"toString",        0, &_throwableToString,        0},
-		{"setLocation",     1, &_throwableSetLocation,     0},
-		{"setCause",        1, &_throwableSetCause,        0},
-		{"tracebackString", 0, &_throwableTracebackString, 0},
-		{nullptr, 0, nullptr, 0}
+		{"constructor",     2, &_throwableConstructor    },
+		{"toString",        0, &_throwableToString       },
+		{"setLocation",     1, &_throwableSetLocation    },
+		{"setCause",        1, &_throwableSetCause       },
+		{"tracebackString", 0, &_throwableTracebackString},
+		{nullptr, 0, nullptr}
 	};
 
 	const CrocRegisterFunc _globalFuncs[] =
 	{
-		{"stdException", 1, &_stdException, 0},
-		{nullptr, 0, nullptr, 0}
+		{"stdException", 1, &_stdException},
+		{nullptr, 0, nullptr}
 	};
 
 	word loader(CrocThread* t)

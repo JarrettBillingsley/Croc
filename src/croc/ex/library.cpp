@@ -10,7 +10,7 @@ extern "C"
 	{
 	void pushRegisterFunc(CrocThread* t, CrocRegisterFunc& f)
 	{
-		croc_function_new(t, f.name, f.maxParams, f.func, f.numUpvals);
+		croc_function_new(t, f.name, f.maxParams, f.func, 0);
 	}
 	}
 
@@ -49,40 +49,19 @@ extern "C"
 	void croc_ex_registerGlobals(CrocThread* t, const CrocRegisterFunc* funcs)
 	{
 		for(auto f = funcs; f->name != nullptr; f++)
-		{
-			if(f->numUpvals > 0)
-				croc_eh_throwStd(t, "ValueError",
-					"%s - can't register function '%s' as it has upvalues. Use registerGlobal instead",
-					__FUNCTION__, f->name);
-
 			croc_ex_registerGlobal(t, *f);
-		}
 	}
 
 	void croc_ex_registerFields(CrocThread* t, const CrocRegisterFunc* funcs)
 	{
 		for(auto f = funcs; f->name != nullptr; f++)
-		{
-			if(f->numUpvals > 0)
-				croc_eh_throwStd(t, "ValueError",
-					"%s - can't register function '%s' as it has upvalues. Use registerField instead",
-					__FUNCTION__, f->name);
-
 			croc_ex_registerField(t, *f);
-		}
 	}
 
 	void croc_ex_registerMethods(CrocThread* t, const CrocRegisterFunc* funcs)
 	{
 		for(auto f = funcs; f->name != nullptr; f++)
-		{
-			if(f->numUpvals > 0)
-				croc_eh_throwStd(t, "ValueError",
-					"%s - can't register function '%s' as it has upvalues. Use registerMethod instead",
-					__FUNCTION__, f->name);
-
 			croc_ex_registerMethod(t, *f);
-		}
 	}
 }
 }

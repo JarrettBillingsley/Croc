@@ -1392,54 +1392,52 @@ namespace croc
 
 	const CrocRegisterFunc _methods[] =
 	{
-		{"constructor",     1, &_constructor,       0},
-		{"dup",             0, &_dup,               0},
-		{"toString",        2, &_toString,          0},
-		{"opEquals",        1, &_opEquals,          0},
-		{"opCmp",           1, &_opCmp,             0},
-		{"opLength",        0, &_opLength,          0},
-		{"opLengthAssign",  1, &_opLengthAssign,    0},
-		{"opIndex",         1, &_opIndex,           0},
-		{"opIndexAssign",   2, &_opIndexAssign,     0},
-		{"opCat",           1, &_opCat,             0},
-		{"opCat_r",         1, &_opCat_r,           0},
-		{"opCatAssign",    -1, &_opCatAssign,       0},
-		{"opSlice",         2, &_opSlice,           0},
-		{"fill",            1, &_fill,              0},
-		{"fillRange",       3, &_fillRange,         0},
-		{"fillChar",        3, &_fillChar,          0},
-		{"insert",          2, &_insert,            0},
-		{"remove",          2, &_remove,            0},
-		{"find",            2, &_commonFind<false>, 0},
-		{"rfind",           2, &_commonFind<true>,  0},
-		{"startsWith",      1, &_startsWith,        0},
-		{"endsWith",        1, &_endsWith,          0},
-		{"split",           1, &_split,             0},
-		{"vsplit",          1, &_vsplit,            0},
-		{"splitWS",         0, &_splitWS,           0},
-		{"vsplitWS",        0, &_vsplitWS,          0},
-		{"splitLines",      0, &_splitLines,        0},
-		{"vsplitLines",     0, &_vsplitLines,       0},
-		{"repeat!",         1, &_repeat_ip,         0},
-		{"reverse!",        0, &_reverse_ip,        0},
-		{"strip!",          0, &_strip_ip,          0},
-		{"lstrip!",         0, &_lstrip_ip,         0},
-		{"rstrip!",         0, &_rstrip_ip,         0},
-		{"replace!",        2, &_replace_ip,        0},
-		{"repeat",          1, &_repeat,            0},
-		{"reverse",         0, &_reverse,           0},
-		{"strip",           0, &_strip,             0},
-		{"lstrip",          0, &_lstrip,            0},
-		{"rstrip",          0, &_rstrip,            0},
-		{"replace",         2, &_replace,           0},
-		{"format",         -1, &_format,            0},
-		{"formatln",       -1, &_formatln,          0},
-		{"opSerialize",     2, &_opSerialize,       0},
-		{"opDeserialize",   2, &_opDeserialize,     0},
-		{nullptr, 0, nullptr, 0}
+		{"constructor",     1, &_constructor      },
+		{"dup",             0, &_dup              },
+		{"toString",        2, &_toString         },
+		{"opEquals",        1, &_opEquals         },
+		{"opCmp",           1, &_opCmp            },
+		{"opLength",        0, &_opLength         },
+		{"opLengthAssign",  1, &_opLengthAssign   },
+		{"opIndex",         1, &_opIndex          },
+		{"opIndexAssign",   2, &_opIndexAssign    },
+		{"opCat",           1, &_opCat            },
+		{"opCat_r",         1, &_opCat_r          },
+		{"opCatAssign",    -1, &_opCatAssign      },
+		{"opSlice",         2, &_opSlice          },
+		{"fill",            1, &_fill             },
+		{"fillRange",       3, &_fillRange        },
+		{"fillChar",        3, &_fillChar         },
+		{"insert",          2, &_insert           },
+		{"remove",          2, &_remove           },
+		{"find",            2, &_commonFind<false>},
+		{"rfind",           2, &_commonFind<true> },
+		{"startsWith",      1, &_startsWith       },
+		{"endsWith",        1, &_endsWith         },
+		{"split",           1, &_split            },
+		{"vsplit",          1, &_vsplit           },
+		{"splitWS",         0, &_splitWS          },
+		{"vsplitWS",        0, &_vsplitWS         },
+		{"splitLines",      0, &_splitLines       },
+		{"vsplitLines",     0, &_vsplitLines      },
+		{"repeat!",         1, &_repeat_ip        },
+		{"reverse!",        0, &_reverse_ip       },
+		{"strip!",          0, &_strip_ip         },
+		{"lstrip!",         0, &_lstrip_ip        },
+		{"rstrip!",         0, &_rstrip_ip        },
+		{"replace!",        2, &_replace_ip       },
+		{"repeat",          1, &_repeat           },
+		{"reverse",         0, &_reverse          },
+		{"strip",           0, &_strip            },
+		{"lstrip",          0, &_lstrip           },
+		{"rstrip",          0, &_rstrip           },
+		{"replace",         2, &_replace          },
+		{"format",         -1, &_format           },
+		{"formatln",       -1, &_formatln         },
+		{"opSerialize",     2, &_opSerialize      },
+		{"opDeserialize",   2, &_opDeserialize    },
+		{nullptr, 0, nullptr}
 	};
-
-	const CrocRegisterFunc _opApplyFunc = {"opApply", 1, &_opApply, 2};
 	}
 
 	void initStringLib_StringBuffer(CrocThread* t)
@@ -1452,7 +1450,8 @@ namespace croc
 
 				croc_function_new(t, "iterator",        1, &_iterator,        0);
 				croc_function_new(t, "iteratorReverse", 1, &_iteratorReverse, 0);
-			croc_ex_registerMethod(t, _opApplyFunc);
+			croc_function_new(t, "opApply", 1, &_opApply, 2);
+			croc_class_addMethod(t, -2, "opApply");
 
 			croc_field(t, -1, "fillRange");   croc_class_addMethod(t, -2, "opSliceAssign");
 			croc_field(t, -1, "opCatAssign"); croc_class_addMethod(t, -2, "append");

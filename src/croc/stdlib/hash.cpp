@@ -443,30 +443,30 @@ namespace croc
 
 	const CrocRegisterFunc _globalFuncs[] =
 	{
-		{"dup",    1, &_dup,             0},
-		{"keys",   1, &_keys,            0},
-		{"values", 1, &_values,          0},
-		{"apply",  2, &_apply,           0},
-		{"map",    2, &_map,             0},
-		{"reduce", 3, &_reduce,          0},
-		{"filter", 2, &_filter,          0},
-		{"take",   1, &_takeImpl<false>, 0},
-		{"pop",    1, &_takeImpl<true>,  0},
-		{"clear",  1, &_clear,           0},
-		{"remove", 2, &_remove,          0},
-		{nullptr, 0, nullptr, 0}
+		{"dup",    1, &_dup            },
+		{"keys",   1, &_keys           },
+		{"values", 1, &_values         },
+		{"apply",  2, &_apply          },
+		{"map",    2, &_map            },
+		{"reduce", 3, &_reduce         },
+		{"filter", 2, &_filter         },
+		{"take",   1, &_takeImpl<false>},
+		{"pop",    1, &_takeImpl<true> },
+		{"clear",  1, &_clear          },
+		{"remove", 2, &_remove         },
+		{nullptr, 0, nullptr}
 	};
 
 	const CrocRegisterFunc _tableMetamethods[] =
 	{
-		{"opApply", 1, &_tableOpApply, 0},
-		{nullptr, 0, nullptr, 0}
+		{"opApply", 1, &_tableOpApply},
+		{nullptr, 0, nullptr}
 	};
 
 	const CrocRegisterFunc _namespaceMetamethods[] =
 	{
-		{"opApply", 1, &_namespaceOpApply, 0},
-		{nullptr, 0, nullptr, 0}
+		{"opApply", 1, &_namespaceOpApply},
+		{nullptr, 0, nullptr}
 	};
 
 	word loader(CrocThread* t)

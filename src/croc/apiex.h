@@ -167,7 +167,6 @@ typedef struct CrocRegisterFunc
 	const char* name;
 	word_t maxParams;
 	CrocNativeFunc func;
-	uword_t numUpvals;
 } CrocRegisterFunc;
 
 typedef struct CrocDocParam

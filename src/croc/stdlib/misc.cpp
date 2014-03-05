@@ -503,67 +503,65 @@ namespace croc
 
 	const CrocRegisterFunc _funcMetatable[] =
 	{
-		{"isNative",    0, &_functionIsNative,    0},
-		{"numParams",   0, &_functionNumParams,   0},
-		{"maxParams",   0, &_functionMaxParams,   0},
-		{"isVararg",    0, &_functionIsVararg,    0},
-		{"isCacheable", 0, &_functionIsCacheable, 0},
-		{nullptr, 0, nullptr, 0}
+		{"isNative",    0, &_functionIsNative   },
+		{"numParams",   0, &_functionNumParams  },
+		{"maxParams",   0, &_functionMaxParams  },
+		{"isVararg",    0, &_functionIsVararg   },
+		{"isCacheable", 0, &_functionIsCacheable},
+		{nullptr, 0, nullptr}
 	};
 
 	const CrocRegisterFunc _funcdefMetatable[] =
 	{
-		{"numParams",   0, &_funcdefNumParams,   0},
-		{"isVararg",    0, &_funcdefIsVararg,    0},
-		{"isCacheable", 0, &_funcdefIsCacheable, 0},
-		{"isCached",    0, &_funcdefIsCached,    0},
-		{nullptr, 0, nullptr, 0}
+		{"numParams",   0, &_funcdefNumParams  },
+		{"isVararg",    0, &_funcdefIsVararg   },
+		{"isCacheable", 0, &_funcdefIsCacheable},
+		{"isCached",    0, &_funcdefIsCached   },
+		{nullptr, 0, nullptr}
 	};
 
 	const CrocRegisterFunc _weakrefFuncs[] =
 	{
-		{"weakref", 1, &_weakref, 0},
-		{"deref",   1, &_deref,   0},
-		{nullptr, 0, nullptr, 0}
+		{"weakref", 1, &_weakref},
+		{"deref",   1, &_deref  },
+		{nullptr, 0, nullptr}
 	};
 
 	const CrocRegisterFunc _reflFuncs[] =
 	{
-		{"typeof",      1, &_typeof,      0},
-		{"nameOf",      1, &_nameOf,      0},
-		{"hasField",    2, &_hasField,    0},
-		{"hasMethod",   2, &_hasMethod,   0},
+		{"typeof",      1, &_typeof     },
+		{"nameOf",      1, &_nameOf     },
+		{"hasField",    2, &_hasField   },
+		{"hasMethod",   2, &_hasMethod  },
 
-		{"isNull",      1, &_isNull,      0},
-		{"isBool",      1, &_isBool,      0},
-		{"isInt",       1, &_isInt,       0},
-		{"isFloat",     1, &_isFloat,     0},
-		{"isNativeobj", 1, &_isNativeobj, 0},
-		{"isString",    1, &_isString,    0},
-		{"isWeakref",   1, &_isWeakref,   0},
-		{"isTable",     1, &_isTable,     0},
-		{"isNamespace", 1, &_isNamespace, 0},
-		{"isArray",     1, &_isArray,     0},
-		{"isMemblock",  1, &_isMemblock,  0},
-		{"isFunction",  1, &_isFunction,  0},
-		{"isFuncdef",   1, &_isFuncdef,   0},
-		{"isClass",     1, &_isClass,     0},
-		{"isInstance",  1, &_isInstance,  0},
-		{"isThread",    1, &_isThread,    0},
-		{nullptr, 0, nullptr, 0}
+		{"isNull",      1, &_isNull     },
+		{"isBool",      1, &_isBool     },
+		{"isInt",       1, &_isInt      },
+		{"isFloat",     1, &_isFloat    },
+		{"isNativeobj", 1, &_isNativeobj},
+		{"isString",    1, &_isString   },
+		{"isWeakref",   1, &_isWeakref  },
+		{"isTable",     1, &_isTable    },
+		{"isNamespace", 1, &_isNamespace},
+		{"isArray",     1, &_isArray    },
+		{"isMemblock",  1, &_isMemblock },
+		{"isFunction",  1, &_isFunction },
+		{"isFuncdef",   1, &_isFuncdef  },
+		{"isClass",     1, &_isClass    },
+		{"isInstance",  1, &_isInstance },
+		{"isThread",    1, &_isThread   },
+		{nullptr, 0, nullptr}
 	};
 
 	const CrocRegisterFunc _convFuncs[] =
 	{
-		{"toString",    1, &_toString,    0},
-		{"rawToString", 1, &_rawToString, 0},
-		{"toBool",      1, &_toBool,      0},
-		{"toInt",       1, &_toInt,       0},
-		{"toFloat",     1, &_toFloat,     0},
-		{nullptr, 0, nullptr, 0}
+		{"toString",    1, &_toString   },
+		{"rawToString", 1, &_rawToString},
+		{"toBool",      1, &_toBool     },
+		{"toInt",       1, &_toInt      },
+		{"toFloat",     1, &_toFloat    },
+		{nullptr, 0, nullptr}
 	};
-
-	const CrocRegisterFunc _dumpValFunc = {"dumpVal", 2, &_dumpVal, 2};
 	}
 
 	void initMiscLib(CrocThread* t)
@@ -582,7 +580,8 @@ namespace croc
 
 			croc_function_new(t, "dumpValWork", 2, &_dumpValWork, 0);
 			croc_table_new(t, 0);
-		croc_ex_registerGlobal(t, _dumpValFunc);
+		croc_function_new(t, "dumpVal", 2, &_dumpVal, 2);
+		croc_newGlobal(t, "dumpVal");
 
 		initMiscLib_Vector(t);
 	}

@@ -37,10 +37,10 @@ word_t newThread(CrocThread* t)
 
 const CrocRegisterFunc _stupidFuncs[] =
 {
-	{"println",   -1, &println,   0},
-	{"nasty",      0, &nasty,     0},
-	{"newThread",  1, &newThread, 0},
-	{nullptr, 0, nullptr, 0}
+	{"println",   -1, &println  },
+	{"nasty",      0, &nasty    },
+	{"newThread",  1, &newThread},
+	{nullptr, 0, nullptr}
 };
 
 word_t mainStuff(CrocThread* t)
