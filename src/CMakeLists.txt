@@ -113,6 +113,7 @@ set(croc_SRC
 	croc/types/table.cpp
 	croc/types/thread.cpp
 	croc/types/weakref.cpp
+	croc/util/array.hpp
 	croc/util/misc.cpp
 	croc/util/misc.hpp
 	croc/util/rng.cpp

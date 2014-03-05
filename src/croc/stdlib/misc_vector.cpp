@@ -5,6 +5,7 @@
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
+#include "croc/util/array.hpp"
 
 namespace croc
 {
@@ -439,10 +440,10 @@ namespace croc
 
 		switch(m.kind->itemSize)
 		{
-			case 1: DArray<uint8_t> ::n(cast(uint8_t*) m.data->data.ptr, m.itemLength).reverseItems(); break;
-			case 2: DArray<uint16_t>::n(cast(uint16_t*)m.data->data.ptr, m.itemLength).reverseItems(); break;
-			case 4: DArray<uint32_t>::n(cast(uint32_t*)m.data->data.ptr, m.itemLength).reverseItems(); break;
-			case 8: DArray<uint64_t>::n(cast(uint64_t*)m.data->data.ptr, m.itemLength).reverseItems(); break;
+			case 1: arrReverse(DArray<uint8_t> ::n(cast(uint8_t*) m.data->data.ptr, m.itemLength)); break;
+			case 2: arrReverse(DArray<uint16_t>::n(cast(uint16_t*)m.data->data.ptr, m.itemLength)); break;
+			case 4: arrReverse(DArray<uint32_t>::n(cast(uint32_t*)m.data->data.ptr, m.itemLength)); break;
+			case 8: arrReverse(DArray<uint64_t>::n(cast(uint64_t*)m.data->data.ptr, m.itemLength)); break;
 			default: assert(false);
 		}
 
@@ -456,16 +457,16 @@ namespace croc
 
 		switch(m.kind->code)
 		{
-			case TypeCode_i8:  DArray<int8_t>  ::n(cast(int8_t*)  m.data->data.ptr, m.itemLength).sort(); break;
-			case TypeCode_i16: DArray<int16_t> ::n(cast(int16_t*) m.data->data.ptr, m.itemLength).sort(); break;
-			case TypeCode_i32: DArray<int32_t> ::n(cast(int32_t*) m.data->data.ptr, m.itemLength).sort(); break;
-			case TypeCode_i64: DArray<int64_t> ::n(cast(int64_t*) m.data->data.ptr, m.itemLength).sort(); break;
-			case TypeCode_u8:  DArray<uint8_t> ::n(cast(uint8_t*) m.data->data.ptr, m.itemLength).sort(); break;
-			case TypeCode_u16: DArray<uint16_t>::n(cast(uint16_t*)m.data->data.ptr, m.itemLength).sort(); break;
-			case TypeCode_u32: DArray<uint32_t>::n(cast(uint32_t*)m.data->data.ptr, m.itemLength).sort(); break;
-			case TypeCode_u64: DArray<uint64_t>::n(cast(uint64_t*)m.data->data.ptr, m.itemLength).sort(); break;
-			case TypeCode_f32: DArray<float>   ::n(cast(float*)   m.data->data.ptr, m.itemLength).sort(); break;
-			case TypeCode_f64: DArray<double>  ::n(cast(double*)  m.data->data.ptr, m.itemLength).sort(); break;
+			case TypeCode_i8:  arrSort(DArray<int8_t>  ::n(cast(int8_t*)  m.data->data.ptr, m.itemLength)); break;
+			case TypeCode_i16: arrSort(DArray<int16_t> ::n(cast(int16_t*) m.data->data.ptr, m.itemLength)); break;
+			case TypeCode_i32: arrSort(DArray<int32_t> ::n(cast(int32_t*) m.data->data.ptr, m.itemLength)); break;
+			case TypeCode_i64: arrSort(DArray<int64_t> ::n(cast(int64_t*) m.data->data.ptr, m.itemLength)); break;
+			case TypeCode_u8:  arrSort(DArray<uint8_t> ::n(cast(uint8_t*) m.data->data.ptr, m.itemLength)); break;
+			case TypeCode_u16: arrSort(DArray<uint16_t>::n(cast(uint16_t*)m.data->data.ptr, m.itemLength)); break;
+			case TypeCode_u32: arrSort(DArray<uint32_t>::n(cast(uint32_t*)m.data->data.ptr, m.itemLength)); break;
+			case TypeCode_u64: arrSort(DArray<uint64_t>::n(cast(uint64_t*)m.data->data.ptr, m.itemLength)); break;
+			case TypeCode_f32: arrSort(DArray<float>   ::n(cast(float*)   m.data->data.ptr, m.itemLength)); break;
+			case TypeCode_f64: arrSort(DArray<double>  ::n(cast(double*)  m.data->data.ptr, m.itemLength)); break;
 			default: assert(false);
 		}
 
