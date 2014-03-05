@@ -239,8 +239,7 @@ namespace croc
 					case Op_Shr:  t->stack[dest] = Value::from(RS.mInt >> RT.mInt); return;
 
 					case Op_UShr:
-						// TODO: ushr types
-						t->stack[dest] = Value::from(cast(crocint)(cast(uword)RS.mInt >> cast(uword)RT.mInt));
+						t->stack[dest] = Value::from(cast(crocint)(cast(uint64_t)RS.mInt >> cast(uint64_t)RT.mInt));
 						return;
 
 					default: assert(false);
@@ -279,9 +278,8 @@ namespace croc
 					case Op_ShrEq:  t->stack[dest].mInt >>= src.mInt; return;
 
 					case Op_UShrEq: {
-						// TODO: ushr types
-						auto tmp = cast(uword)t->stack[dest].mInt;
-						tmp >>= cast(uword)src.mInt;
+						auto tmp = cast(uint64_t)t->stack[dest].mInt;
+						tmp >>= cast(uint64_t)src.mInt;
 						t->stack[dest].mInt = cast(crocint)tmp;
 						return;
 					}

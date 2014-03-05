@@ -1233,8 +1233,7 @@ namespace croc
 			if(!e->op1->isInt() || !e->op2->isInt())
 				c.semException(e->location, "Bitwise unsigned right-shift must be performed on integers");
 
-			// TODO: ushr types
-			return new(c) IntExp(e->location, cast(uword)e->op1->asInt() >> cast(uword)e->op2->asInt());
+			return new(c) IntExp(e->location, cast(uint64_t)e->op1->asInt() >> cast(uint64_t)e->op2->asInt());
 		}
 
 		return e;

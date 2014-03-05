@@ -53,24 +53,6 @@ namespace croc
 	:\
 		(cast(uword)(c - 'a' + 10)))
 
-	template<typename T>
-	struct unsignedIntBigEnoughToHoldCrocint
-	{
-
-	};
-
-	template<>
-	struct unsignedIntBigEnoughToHoldCrocint<int32_t>
-	{
-		typedef uint32_t type;
-	};
-
-	template<>
-	struct unsignedIntBigEnoughToHoldCrocint<int64_t>
-	{
-		typedef uint64_t type;
-	};
-
 	// =================================================================================================================
 	// Public
 	// =================================================================================================================
@@ -318,7 +300,7 @@ namespace croc
 	{
 		ret = 0;
 
-		unsignedIntBigEnoughToHoldCrocint<crocint>::type r = 0;
+		uint64_t r = 0;
 
 		for(auto c: str)
 		{
