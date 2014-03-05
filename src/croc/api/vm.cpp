@@ -138,7 +138,7 @@ extern "C"
 		// Finish up the safe libs.
 		initHashLib(*t);
 		initMathLib(*t);
-		// initObjectLib(*t);
+		initObjectLib(*t);
 		// initMemblockLib(*t);
 		// initTextLib(*t); // depends on memblock
 		// initStreamLib(*t); // depends on math, object, text

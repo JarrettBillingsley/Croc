@@ -96,6 +96,7 @@ set(croc_SRC
 	croc/stdlib/hash.cpp
 	croc/stdlib/math.cpp
 	croc/stdlib/modules.cpp
+	croc/stdlib/object.cpp
 	croc/stdlib/string.cpp
 	croc/stdlib/string_stringbuffer.cpp
 	croc/types.cpp
