@@ -139,7 +139,7 @@ extern "C"
 		initHashLib(*t);
 		initMathLib(*t);
 		initObjectLib(*t);
-		// initMemblockLib(*t);
+		initMemblockLib(*t);
 		// initTextLib(*t); // depends on memblock
 		// initStreamLib(*t); // depends on math, object, text
 		// initArrayLib(*t);
