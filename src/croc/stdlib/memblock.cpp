@@ -5,8 +5,9 @@
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
+#include "croc/util/array.hpp"
 
-#define checkMemblockParam(t, n) (croc_ex_checkParam((t), (n), CrocType_Memblock), getMemblock(Thread::from((t)), 0))
+#define checkMemblockParam(t, n) (croc_ex_checkParam((t), (n), CrocType_Memblock), getMemblock(Thread::from((t)), (n)))
 
 namespace croc
 {
@@ -221,28 +222,61 @@ namespace croc
 		return 1;
 	}
 
-	word_t _findItem(CrocThread* t)
+	template<bool reverse>
+	word_t _commonFindItem(CrocThread* t)
 	{
-		(void)t;
-		return 0;
+		// Source (search) memblock
+		auto src = checkMemblockParam(t, 0)->data;
+
+		// Item to search for
+		auto item = croc_ex_checkIntParam(t, 1);
+
+		if(item < 0 || item > 255)
+			croc_eh_throwStd(t, "RangeError", "Invalid search value: %" CROC_INTEGER_FORMAT, item);
+
+		// Start index
+		auto start = croc_ex_optIntParam(t, 2, reverse ? (src.length - 1) : 0);
+
+		if(start < 0)
+			start += src.length;
+
+		if(start < 0 || start > src.length)
+			croc_eh_throwStd(t, "BoundsError", "Invalid start index %" CROC_INTEGER_FORMAT, start);
+
+		// Search
+		if(reverse)
+			croc_pushInt(t, arrFindElemRev(src, cast(uint8_t)item, start));
+		else
+			croc_pushInt(t, arrFindElem(src, cast(uint8_t)item, start));
+
+		return 1;
 	}
 
-	word_t _rfindItem(CrocThread* t)
+	template<bool reverse>
+	word_t _commonFind(CrocThread* t)
 	{
-		(void)t;
-		return 0;
-	}
+		// Source (search) memblock
+		auto src = checkMemblockParam(t, 0)->data;
 
-	word_t _find(CrocThread* t)
-	{
-		(void)t;
-		return 0;
-	}
+		// Pattern to search for
+		auto pat = checkMemblockParam(t, 1)->data;
 
-	word_t _rfind(CrocThread* t)
-	{
-		(void)t;
-		return 0;
+		// Start index
+		auto start = croc_ex_optIntParam(t, 2, reverse ? (src.length - 1) : 0);
+
+		if(start < 0)
+			start += src.length;
+
+		if(start < 0 || start > src.length)
+			croc_eh_throwStd(t, "BoundsError", "Invalid start index %" CROC_INTEGER_FORMAT, start);
+
+		// Search
+		if(reverse)
+			croc_pushInt(t, arrFindSubRev(src, pat, start));
+		else
+			croc_pushInt(t, arrFindSub(src, pat, start));
+
+		return 1;
 	}
 
 	word_t _opEquals(CrocThread* t)
@@ -376,41 +410,41 @@ namespace croc
 
 	const CrocRegisterFunc _methodFuncs[] =
 	{
-		{"toString",      0, &_toString          },
-		{"dup",           0, &_dup               },
-		{"ownData",       0, &_ownData           },
-		{"fill",          1, &_fill              },
-		{"fillSlice",     3, &_fillSlice         },
-		{"readInt8",      1, &_rawRead<int8_t>   },
-		{"readInt16",     1, &_rawRead<int16_t>  },
-		{"readInt32",     1, &_rawRead<int32_t>  },
-		{"readInt64",     1, &_rawRead<int64_t>  },
-		{"readUInt8",     1, &_rawRead<uint8_t>  },
-		{"readUInt16",    1, &_rawRead<uint16_t> },
-		{"readUInt32",    1, &_rawRead<uint32_t> },
-		{"readUInt64",    1, &_rawRead<uint64_t> },
-		{"readFloat32",   1, &_rawRead<float>    },
-		{"readFloat64",   1, &_rawRead<double>   },
-		{"writeInt8",     2, &_rawWrite<int8_t>  },
-		{"writeInt16",    2, &_rawWrite<int16_t> },
-		{"writeInt32",    2, &_rawWrite<int32_t> },
-		{"writeInt64",    2, &_rawWrite<int64_t> },
-		{"writeUInt8",    2, &_rawWrite<uint8_t> },
-		{"writeUInt16",   2, &_rawWrite<uint16_t>},
-		{"writeUInt32",   2, &_rawWrite<uint32_t>},
-		{"writeUInt64",   2, &_rawWrite<uint64_t>},
-		{"writeFloat32",  2, &_rawWrite<float>   },
-		{"writeFloat64",  2, &_rawWrite<double>  },
-		{"copy",          4, &_copy              },
-		{"compare",       4, &_compare           },
-		// {"findItem",      2, &_findItem          },
-		// {"rfindItem",     2, &_rfindItem         },
-		// {"find",          2, &_find              },
-		// {"rfind",         2, &_rfind             },
-		{"opEquals",      1, &_opEquals          },
-		{"opCmp",         1, &_opCmp             },
-		{"opCat",         1, &_opCat             },
-		{"opCatAssign",  -1, &_opCatAssign       },
+		{"toString",      0, &_toString             },
+		{"dup",           0, &_dup                  },
+		{"ownData",       0, &_ownData              },
+		{"fill",          1, &_fill                 },
+		{"fillSlice",     3, &_fillSlice            },
+		{"readInt8",      1, &_rawRead<int8_t>      },
+		{"readInt16",     1, &_rawRead<int16_t>     },
+		{"readInt32",     1, &_rawRead<int32_t>     },
+		{"readInt64",     1, &_rawRead<int64_t>     },
+		{"readUInt8",     1, &_rawRead<uint8_t>     },
+		{"readUInt16",    1, &_rawRead<uint16_t>    },
+		{"readUInt32",    1, &_rawRead<uint32_t>    },
+		{"readUInt64",    1, &_rawRead<uint64_t>    },
+		{"readFloat32",   1, &_rawRead<float>       },
+		{"readFloat64",   1, &_rawRead<double>      },
+		{"writeInt8",     2, &_rawWrite<int8_t>     },
+		{"writeInt16",    2, &_rawWrite<int16_t>    },
+		{"writeInt32",    2, &_rawWrite<int32_t>    },
+		{"writeInt64",    2, &_rawWrite<int64_t>    },
+		{"writeUInt8",    2, &_rawWrite<uint8_t>    },
+		{"writeUInt16",   2, &_rawWrite<uint16_t>   },
+		{"writeUInt32",   2, &_rawWrite<uint32_t>   },
+		{"writeUInt64",   2, &_rawWrite<uint64_t>   },
+		{"writeFloat32",  2, &_rawWrite<float>      },
+		{"writeFloat64",  2, &_rawWrite<double>     },
+		{"copy",          4, &_copy                 },
+		{"compare",       4, &_compare              },
+		{"findItem",      2, &_commonFindItem<false>},
+		{"rfindItem",     2, &_commonFindItem<true> },
+		{"find",          2, &_commonFind<false>    },
+		{"rfind",         2, &_commonFind<true>     },
+		{"opEquals",      1, &_opEquals             },
+		{"opCmp",         1, &_opCmp                },
+		{"opCat",         1, &_opCat                },
+		{"opCatAssign",  -1, &_opCatAssign          },
 		{nullptr, 0, nullptr}
 	};
 

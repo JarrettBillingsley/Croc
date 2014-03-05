@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "croc/types.hpp"
+
 namespace croc
 {
 	namespace
@@ -185,6 +187,190 @@ namespace croc
 			arr.ptr[i] = arr.ptr[j];
 			arr.ptr[j] = tmp;
 		}
+	}
+
+	template<typename T>
+	uword arrFindElem(DArray<T> arr, T v, uword start = 0)
+	{
+		uword i = start;
+
+		for(auto &val: arr.slice(start, arr.length))
+		{
+			if(val == v)
+				return i;
+			i++;
+		}
+
+		return arr.length;
+	}
+
+	template<typename T>
+	uword arrFindElem(DArray<T> arr, T v, std::function<bool(T, T)> eq, uword start = 0)
+	{
+		uword i = start;
+
+		for(auto &val: arr.slice(start, arr.length))
+		{
+			if(eq(val, v))
+				return i;
+			i++;
+		}
+
+		return arr.length;
+	}
+
+	template<typename T>
+	uword arrFindElemRev(DArray<T> arr, T v, uword start)
+	{
+		uword i = start;
+
+		for(auto &val: arr.slice(0, start + 1).reverse())
+		{
+			if(val == v)
+				return i;
+			i--;
+		}
+
+		return arr.length;
+	}
+
+	template<typename T>
+	uword arrFindElemRev(DArray<T> arr, T v, std::function<bool(T, T)> eq, uword start)
+	{
+		uword i = start;
+
+		for(auto &val: arr.slice(0, start + 1).reverse())
+		{
+			if(eq(val, v))
+				return i;
+			i--;
+		}
+
+		return arr.length;
+	}
+
+	template<typename T>
+	inline uword arrFindElemRev(DArray<T> arr, T v)
+	{
+		return arrFindElemRev(arr, v, arr.length);
+	}
+
+	template<typename T>
+	inline uword arrFindElemRev(DArray<T> arr, T v, std::function<bool(T, T)> eq)
+	{
+		return arrFindElemRev(arr, v, eq, arr.length);
+	}
+
+	template<typename T>
+	uword arrFindSub(DArray<T> arr, DArray<T> sub, uword start = 0)
+	{
+		if(arr.length == 0 || sub.length == 0 || sub.length > arr.length)
+			return arr.length;
+
+		auto maxPos = arr.length - sub.length;
+
+		if(start > maxPos)
+			return arr.length;
+
+		for(auto pos = arrFindElem(arr, sub[0], start);
+			pos <= maxPos;
+			pos = arrFindElem(arr, sub[0], pos + 1))
+		{
+			if(arr.slice(pos, pos + sub.length) == sub)
+				return pos;
+		}
+
+		return arr.length;
+	}
+
+	template<typename T>
+	uword arrFindSub(DArray<T> arr, DArray<T> sub, std::function<bool(T, T)> eq, uword start = 0)
+	{
+		if(arr.length == 0 || sub.length == 0 || sub.length > arr.length)
+			return arr.length;
+
+		auto maxPos = arr.length - sub.length;
+
+		if(start > maxPos)
+			return arr.length;
+
+		for(auto pos = arrFindElem(arr, sub[0], eq, start);
+			pos <= maxPos;
+			pos = arrFindElem(arr, sub[0], eq, pos + 1))
+		{
+			uword i = 0;
+			for(auto &l: arr.slice(pos, pos + sub.length))
+			{
+				if(!eq(l, sub[i++]))
+					goto _notEquals;
+			}
+			return pos;
+		_notEquals:;
+		}
+
+		return arr.length;
+	}
+
+	template<typename T>
+	uword arrFindSubRev(DArray<T> arr, DArray<T> sub, uword start)
+	{
+		if(arr.length == 0 || sub.length == 0 || sub.length > arr.length)
+			return arr.length;
+
+		auto maxPos = arr.length - sub.length;
+
+		if(start > maxPos)
+			start = maxPos;
+
+		for(auto pos = arrFindElemRev(arr, sub[0], start);
+			pos != arr.length;
+			pos = arrFindElemRev(arr, sub[0], pos - 1))
+		{
+			if(arr.slice(pos, pos + sub.length) == sub)
+				return pos;
+		}
+
+		return arr.length;
+	}
+
+	template<typename T>
+	uword arrFindSubRev(DArray<T> arr, DArray<T> sub, std::function<bool(T, T)> eq, uword start)
+	{
+		if(arr.length == 0 || sub.length == 0 || sub.length > arr.length)
+			return arr.length;
+
+		auto maxPos = arr.length - sub.length;
+
+		if(start > maxPos)
+			start = maxPos;
+
+		for(auto pos = arrFindElemRev(arr, sub[0], eq, start);
+			pos != arr.length;
+			pos = arrFindElemRev(arr, sub[0], eq, pos - 1))
+		{
+			uword i = 0;
+			for(auto &l: arr.slice(pos, pos + sub.length))
+			{
+				if(!eq(l, sub[i++]))
+					goto _notEquals;
+			}
+			return pos;
+		_notEquals:;
+		}
+
+		return arr.length;
+	}
+
+	template<typename T>
+	inline uword arrFindSubRev(DArray<T> arr, DArray<T> sub)
+	{
+		return arrFindSubRev(arr, sub, arr.length);
+	}
+
+	template<typename T>
+	inline uword arrFindSubRev(DArray<T> arr, DArray<T> sub, std::function<bool(T, T)> eq)
+	{
+		return arrFindSubRev(arr, sub, eq, arr.length);
 	}
 }
 
