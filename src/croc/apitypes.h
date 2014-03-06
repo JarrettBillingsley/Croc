@@ -13,9 +13,6 @@ The underlying C type used to store the Croc 'int' type, which is equivalent to 
 */
 typedef int64_t crocint_t;
 
-/* TODO:staticassert */
-/* static assert((cast(crocint)-1) < (cast(crocint)0), "crocint must be signed"); */
-
 /**
 The underlying C type used to store the Croc 'float' type, which is equivalent to 'double'.
 */

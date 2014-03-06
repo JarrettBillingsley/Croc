@@ -229,10 +229,6 @@ FIVE SHORTS:
 	};
 #undef POOP
 
-	// TODO:staticassert
-	// Make sure we don't add too many instructions!
-	// static assert(Op.max <= Instruction.opcodeMax, "Too many opcodes");
-
 	extern const char* OpNames[];
 
 	enum Comparison
@@ -286,7 +282,7 @@ FIVE SHORTS:
 		uint16_t uimm;
 	};
 
-	// TODO:staticassert
-	// static assert(Instruction.sizeof == 2);
+	static_assert(sizeof(Instruction) == 2, "Instruction is not 2 bytes");
+	static_assert(Op_NUM_OPCODES - 1 <= INST_OPCODE_MAX, "Too many opcodes");
 }
 #endif
