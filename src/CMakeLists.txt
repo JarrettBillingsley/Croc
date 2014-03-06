@@ -101,6 +101,7 @@ set(croc_SRC
 	croc/stdlib/object.cpp
 	croc/stdlib/string.cpp
 	croc/stdlib/string_stringbuffer.cpp
+	croc/stdlib/text.cpp
 	croc/types.cpp
 	croc/types.hpp
 	croc/types/array.cpp
@@ -127,6 +128,7 @@ set(croc_SRC
 
 set(croc_CROCSRC
 	croc/stdlib/hash_weaktables.croc
+	croc/stdlib/text.croc
 )
 
 set(croc_API

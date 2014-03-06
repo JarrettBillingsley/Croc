@@ -25,9 +25,9 @@ namespace croc
 	template<typename T>
 	inline T max(T a, T b) { if(a > b) return a; else return b; }
 
-	inline DArray<const char> atoda(const char* str)
+	inline DArray<const unsigned char> atoda(const char* str)
 	{
-		return DArray<const char>::n(str, strlen(str));
+		return DArray<const unsigned char>::n(cast(const unsigned char*)str, strlen(str));
 	}
 }
 

@@ -43,10 +43,10 @@ If no fmt string is given:
 
 namespace croc
 {
-	const char* Spaces_ = "                                                                ";
+	const uchar* Spaces_ = cast(const uchar*)"                                                                ";
 	const crocstr Spaces = {Spaces_, 64};
-	const char* Lowercase = "0123456789abcdef";
-	const char* Uppercase = "0123456789ABCDEF";
+	const uchar* Lowercase = cast(const uchar*)"0123456789abcdef";
+	const uchar* Uppercase = cast(const uchar*)"0123456789ABCDEF";
 
 	namespace
 	{
@@ -54,11 +54,11 @@ namespace croc
 		{
 			while(n > Spaces.length)
 			{
-				croc_pushStringn(t, Spaces.ptr, Spaces.length);
+				croc_pushStringn(t, cast(const char*)Spaces.ptr, Spaces.length);
 				n -= Spaces.length;
 			}
 
-			croc_pushStringn(t, Spaces.ptr, n);
+			croc_pushStringn(t, cast(const char*)Spaces.ptr, n);
 		}
 
 		word doInt(CrocThread* t, crocint v, crocstr fmt)
@@ -109,7 +109,7 @@ namespace croc
 				croc_eh_throwStd(t, "ValueError", "invalid integer format string");
 
 			auto vm = Thread::from(t)->vm;
-			auto outbuf = DArray<char>::n(vm->formatBuf, CROC_FORMAT_BUF_SIZE / 2);
+			auto outbuf = ustring::n(vm->formatBuf, CROC_FORMAT_BUF_SIZE / 2);
 
 			// conservatively add 2 for 0x
 			if((width + 2) > outbuf.length)
@@ -163,7 +163,7 @@ namespace croc
 				total += 2;
 			}
 
-			return croc_pushStringn(t, dest, total);
+			return croc_pushStringn(t, cast(const char*)dest, total);
 		}
 
 		word doFloat(CrocThread* t, crocfloat v, crocstr fmt)
@@ -214,8 +214,8 @@ namespace croc
 				croc_eh_throwStd(t, "ValueError", "invalid float format string");
 
 			auto vm = Thread::from(t)->vm;
-			auto outbuf = DArray<char>::n(vm->formatBuf, CROC_FORMAT_BUF_SIZE / 2);
-			auto cfmt = DArray<char>::n(vm->formatBuf + (CROC_FORMAT_BUF_SIZE / 2), CROC_FORMAT_BUF_SIZE / 2);
+			auto outbuf = ustring::n(vm->formatBuf, CROC_FORMAT_BUF_SIZE / 2);
+			auto cfmt = ustring::n(vm->formatBuf + (CROC_FORMAT_BUF_SIZE / 2), CROC_FORMAT_BUF_SIZE / 2);
 
 			auto offs = 0;
 			cfmt[offs++] = '%';
@@ -226,12 +226,12 @@ namespace croc
 
 			cfmt[offs++] = '\0';
 
-			auto len = snprintf(outbuf.ptr, outbuf.length, cfmt.ptr, v);
+			auto len = snprintf(cast(char*)outbuf.ptr, outbuf.length, cast(const char*)cfmt.ptr, v);
 
 			if(len < 0 || cast(uword)len >= outbuf.length)
 				croc_eh_throwStd(t, "ValueError", "error formatting float");
 
-			return croc_pushStringn(t, outbuf.ptr, len);
+			return croc_pushStringn(t, cast(const char*)outbuf.ptr, len);
 		}
 
 		void output(CrocThread* t, bool isRaw, word slot, word alignment, bool haveFmt, crocstr fmt)
@@ -252,7 +252,7 @@ namespace croc
 
 						pushed = croc_dup(t, slot);
 						croc_pushNull(t);
-						croc_pushStringn(t, fmt.ptr, fmt.length);
+						croc_pushStringn(t, cast(const char*)fmt.ptr, fmt.length);
 						croc_methodCall(t, -3, "toStringFmt", 1);
 				}
 			}
@@ -294,7 +294,7 @@ namespace croc
 
 			if(fmtBegin > begin)
 			{
-				croc_pushStringn(t, formatStr.ptr + begin, fmtBegin - begin);
+				croc_pushStringn(t, cast(const char*)(formatStr.ptr + begin), fmtBegin - begin);
 				begin = fmtBegin;
 			}
 

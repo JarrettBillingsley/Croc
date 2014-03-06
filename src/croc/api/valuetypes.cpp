@@ -25,15 +25,15 @@ extern "C"
 	word_t croc_pushStringn(CrocThread* t_, const char* v, uword_t len)
 	{
 		auto t = Thread::from(t_);
-		return push(t, Value::from(String::create(t->vm, crocstr::n(v, len))));
+		return push(t, Value::from(String::create(t->vm, crocstr::n(cast(const unsigned char*)v, len))));
 	}
 
 	word_t croc_pushChar(CrocThread* t_, crocchar_t c)
 	{
 		auto t = Thread::from(t_);
-		char outbuf[4];
-		auto buf = DArray<char>::n(outbuf, 4);
-		DArray<char> s;
+		uchar outbuf[4];
+		auto buf = ustring::n(outbuf, 4);
+		ustring s;
 
 		if(encodeUtf8Char(buf, c, s) != UtfError_OK)
 			croc_eh_throwStd(t_, "UnicodeError", "Invalid Unicode codepoint U+%.6x", cast(uint32_t)c);
@@ -55,18 +55,18 @@ extern "C"
 		auto t = Thread::from(t_);
 		va_list argsDup;
 		va_copy(argsDup, args);
-		auto len = vsnprintf(t->vm->formatBuf, CROC_FORMAT_BUF_SIZE, fmt, argsDup);
+		auto len = vsnprintf(cast(char*)t->vm->formatBuf, CROC_FORMAT_BUF_SIZE, fmt, argsDup);
 		word_t ret;
 
 		if(len >= 0 && len < CROC_FORMAT_BUF_SIZE)
-			ret = croc_pushStringn(t_, t->vm->formatBuf, len);
+			ret = croc_pushStringn(t_, cast(const char*)t->vm->formatBuf, len);
 		else
 		{
-			auto arr = DArray<char>::alloc(t->vm->mem, len + 1); // +1 for terminating \0
-			vsnprintf(arr.ptr, len, fmt, args);
+			auto arr = ustring::alloc(t->vm->mem, len + 1); // +1 for terminating \0
+			vsnprintf(cast(char*)arr.ptr, len, fmt, args);
 
 			// TODO: memory leak if string is not valid UTF-8
-			ret = croc_pushStringn(t_, arr.ptr, len);
+			ret = croc_pushStringn(t_, cast(const char*)arr.ptr, len);
 			arr.free(t->vm->mem);
 		}
 
@@ -137,7 +137,7 @@ extern "C"
 		if(str->cpLength != 1)
 			croc_eh_throwStd(t_, "ValueError", "%s - string must be one codepoint long", __FUNCTION__);
 
-		auto ptr = str->toCString();
+		auto ptr = str->toUString();
 		return fastDecodeUtf8Char(ptr);
 	}
 
@@ -154,7 +154,7 @@ extern "C"
 		API_CHECK_PARAM(ret, slot, String, "slot");
 		auto str = ret->toDArray();
 		*len = str.length;
-		return str.ptr;
+		return cast(const char*)str.ptr;
 	}
 
 	void* croc_getNativeobj(CrocThread* t_, word_t slot)

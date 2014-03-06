@@ -157,13 +157,13 @@ namespace croc
 			nextToken();
 	}
 
-	const char* Lexer::beginCapture()
+	const uchar* Lexer::beginCapture()
 	{
 		mCaptureEnd = mTok.startChar;
 		return mCaptureEnd;
 	}
 
-	crocstr Lexer::endCapture(const char* captureStart)
+	crocstr Lexer::endCapture(const uchar* captureStart)
 	{
 		return mCompiler.newString(strTrimWS(crocstr::n(captureStart, mCaptureEnd - captureStart)));
 	}
@@ -183,7 +183,7 @@ namespace croc
 	}
 	}
 
-	int Lexer::lookupKeyword(char* str)
+	int Lexer::lookupKeyword(uchar* str)
 	{
 		auto ptr = cast(const char**)bsearch(cast(const void*)str, cast(const void*)Token::KeywordStrings,
 			Token::NUM_KEYWORDS, sizeof(const char*), &compareFunc);
@@ -194,7 +194,7 @@ namespace croc
 			return -1;
 	}
 
-	crocchar Lexer::readChar(const char*& pos)
+	crocchar Lexer::readChar(const uchar*& pos)
 	{
 		if(mSourcePtr >= mSourceEnd)
 		{
@@ -332,7 +332,7 @@ namespace croc
 	bool Lexer::readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret)
 	{
 		auto beginning = mLoc;
-		char buf[128];
+		uchar buf[128];
 		uword i = 0;
 
 		auto add = [&](crocchar c)
@@ -505,9 +505,9 @@ namespace croc
 		{
 			add(0);
 			char* check;
-			fret = strtod(buf, &check);
+			fret = strtod(cast(const char*)buf, &check);
 
-			if(check != (buf + i - 1)) // -1 since i was incremented after adding the trailing \0
+			if(cast(uchar*)check != (buf + i - 1)) // -1 since i was incremented after adding the trailing \0
 				mCompiler.lexException(beginning, "Invalid floating point literal");
 
 			return false;
@@ -615,11 +615,11 @@ namespace croc
 	{
 		auto beginning = mLoc;
 
-		List<char, 64> buf(mCompiler);
+		List<uchar, 64> buf(mCompiler);
 		auto delimiter = mCharacter;
 		assert(delimiter < 0x7f);
-		char utfbuf[4];
-		auto tmp = DArray<char>();
+		uchar utfbuf[4];
+		auto tmp = ustring();
 
 		// Skip opening quote
 		nextChar();
@@ -643,7 +643,7 @@ namespace croc
 
 					auto loc = mLoc;
 
-					if(encodeUtf8Char(DArray<char>::n(utfbuf, 4), readEscapeSequence(beginning), tmp) != UtfError_OK)
+					if(encodeUtf8Char(ustring::n(utfbuf, 4), readEscapeSequence(beginning), tmp) != UtfError_OK)
 						mCompiler.lexException(loc, "Invalid escape sequence");
 
 					buf.add(tmp);
@@ -669,7 +669,7 @@ namespace croc
 
 						auto loc = mLoc;
 
-						if(encodeUtf8Char(DArray<char>::n(utfbuf, 4), mCharacter, tmp) != UtfError_OK)
+						if(encodeUtf8Char(ustring::n(utfbuf, 4), mCharacter, tmp) != UtfError_OK)
 							mCompiler.lexException(loc, "Invalid character");
 
 						buf.add(tmp);
@@ -725,7 +725,7 @@ namespace croc
 			while(IS_WHITESPACE() && !IS_EOL())
 				nextChar();
 
-			List<char, 64> buf(mCompiler);
+			List<uchar, 64> buf(mCompiler);
 
 			while(!IS_EOL())
 			{
@@ -753,7 +753,7 @@ namespace croc
 			if(!IS_DECIMALDIGIT())
 				mCompiler.lexException(mLoc, "Line number expected");
 
-			List<char, 16> lineBuf(mCompiler);
+			List<uchar, 16> lineBuf(mCompiler);
 			auto lineNumLoc = mLoc;
 
 			while(IS_DECIMALDIGIT() || mCharacter == '_')
@@ -787,7 +787,7 @@ namespace croc
 				auto fileNameLoc = mLoc;
 				nextChar();
 
-				List<char, 32> fileBuf(mCompiler);
+				List<uchar, 32> fileBuf(mCompiler);
 
 				while(mCharacter != '"')
 				{
@@ -835,7 +835,7 @@ namespace croc
 
 			auto loc = mLoc;
 
-			List<char, 64> buf(mCompiler);
+			List<uchar, 64> buf(mCompiler);
 			uword nesting = 1;
 
 			auto trimTrailingWS = [&]()
@@ -1193,11 +1193,11 @@ namespace croc
 					}
 					else if(IS_IDENTSTART())
 					{
-						List<char, 32> buf(mCompiler);
+						List<uchar, 32> buf(mCompiler);
 
 						do
 						{
-							buf.add(cast(char)mCharacter);
+							buf.add(cast(uchar)mCharacter);
 							nextChar();
 						} while(IS_IDENTCONT());
 

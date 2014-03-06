@@ -8,7 +8,7 @@ namespace croc
 	// UTF-8
 	// =================================================================================================================
 
-	size_t findCharFast(DArray<const char> str, char ch)
+	size_t findCharFast(custring str, uchar ch)
 	{
 		if(str.length)
 		{
@@ -46,7 +46,7 @@ namespace croc
 		return str.length;
 	}
 
-	size_t strLocate(DArray<const char> source, DArray<const char> match, size_t start)
+	size_t strLocate(custring source, custring match, size_t start)
 	{
 		if(match.length == 1)
 			return strLocateChar(source, match[0], start);
@@ -54,25 +54,25 @@ namespace croc
 			return strLocatePattern(source, match, start);
 	}
 
-	size_t strLocateChar(DArray<const char> source, char match, size_t start)
+	size_t strLocateChar(custring source, uchar match, size_t start)
 	{
 		if(start > source.length)
 			start = source.length;
 
-		return findCharFast(DArray<const char>::n(source.ptr + start, source.length - start), match) + start;
+		return findCharFast(custring::n(source.ptr + start, source.length - start), match) + start;
 	}
 
-	size_t strLocatePattern(DArray<const char> source, DArray<const char> match, size_t start)
+	size_t strLocatePattern(custring source, custring match, size_t start)
 	{
 		size_t idx;
-		const char* p = source.ptr + start;
+		const uchar* p = source.ptr + start;
 		size_t extent = source.length - start - match.length + 1;
 
 		if(match.length && extent <= source.length)
 		{
 			while(extent)
 			{
-				idx = findCharFast(DArray<const char>::n(p, extent), match[0]);
+				idx = findCharFast(custring::n(p, extent), match[0]);
 
 				if(idx == extent)
 					break;
@@ -92,7 +92,7 @@ namespace croc
 		return source.length;
 	}
 
-	size_t strRLocate(DArray<const char> source, DArray<const char> match, size_t start)
+	size_t strRLocate(custring source, custring match, size_t start)
 	{
 		if(match.length == 1)
 			return strRLocateChar(source, match[0], start);
@@ -100,7 +100,7 @@ namespace croc
 			return strRLocatePattern(source, match, start);
 	}
 
-	size_t strRLocateChar(DArray<const char> source, char match, size_t start)
+	size_t strRLocateChar(custring source, uchar match, size_t start)
 	{
 		if(start > source.length)
 			start = source.length;
@@ -114,7 +114,7 @@ namespace croc
 		return source.length;
 	}
 
-	size_t strRLocatePattern(DArray<const char> source, DArray<const char> match, size_t start)
+	size_t strRLocatePattern(custring source, custring match, size_t start)
 	{
 		if(start > source.length)
 			start = source.length;
@@ -136,12 +136,12 @@ namespace croc
 		return source.length;
 	}
 
-	bool strEqFast(const char* s1, const char* s2, size_t length)
+	bool strEqFast(const uchar* s1, const uchar* s2, size_t length)
 	{
 		return strMismatchFast(s1, s2, length) == length;
 	}
 
-	size_t strMismatchFast(const char* s1, const char* s2, size_t length)
+	size_t strMismatchFast(const uchar* s1, const uchar* s2, size_t length)
 	{
 		if(length)
 		{
@@ -172,7 +172,7 @@ namespace croc
 #define IS_WHITESPACE(c)\
 	((c) <= 32 && ((c) == ' ' || (c) == '\t' || (c) == '\v' || (c) == '\r' || (c) == '\n' || (c) == '\f'))
 
-	DArray<const char> strTrimWS(DArray<const char> str)
+	custring strTrimWS(custring str)
 	{
 		if(str.length == 0)
 			return str;
@@ -183,10 +183,10 @@ namespace croc
 		for(auto c = head[0]; head < tail && IS_WHITESPACE(c); c = (++head)[0]) {}
 		for(auto c = tail[-1]; tail > head && IS_WHITESPACE(c); c = (--tail)[-1]) {}
 
-		return DArray<const char>::n(head, tail - head);
+		return custring::n(head, tail - head);
 	}
 
-	DArray<const char> strTrimlWS(DArray<const char> str)
+	custring strTrimlWS(custring str)
 	{
 		if(str.length == 0)
 			return str;
@@ -196,10 +196,10 @@ namespace croc
 
 		for(auto c = head[0]; head < tail && IS_WHITESPACE(c); c = (++head)[0]) {}
 
-		return DArray<const char>::n(head, tail - head);
+		return custring::n(head, tail - head);
 	}
 
-	DArray<const char> strTrimrWS(DArray<const char> str)
+	custring strTrimrWS(custring str)
 	{
 		if(str.length == 0)
 			return str;
@@ -209,20 +209,20 @@ namespace croc
 
 		for(auto c = tail[-1]; tail > head && IS_WHITESPACE(c); c = (--tail)[-1]) {}
 
-		return DArray<const char>::n(head, tail - head);
+		return custring::n(head, tail - head);
 	}
 
 	// =================================================================================================================
 	// Delimiters
 
-	void delimiters(DArray<const char> str, DArray<const char> set, std::function<void(DArray<const char>)> dg)
+	void delimiters(custring str, custring set, std::function<void(custring)> dg)
 	{
-		delimitersBreak(str, set, [&](DArray<const char> s) { dg(s); return true; });
+		delimitersBreak(str, set, [&](custring s) { dg(s); return true; });
 	}
 
-	void delimitersBreak(DArray<const char> str, DArray<const char> set, std::function<bool(DArray<const char>)> dg)
+	void delimitersBreak(custring str, custring set, std::function<bool(custring)> dg)
 	{
-		const char* pos;
+		const uchar* pos;
 		size_t mark = 0;
 		auto end = str.ptr + str.length;
 		auto next = str.ptr;
@@ -231,7 +231,7 @@ namespace croc
 		{
 			auto ch = set[0];
 
-			while((pos = cast(const char*)memchr(next, ch, end - next)) != nullptr)
+			while((pos = cast(const uchar*)memchr(next, ch, end - next)) != nullptr)
 			{
 				if(!dg(str.slice(mark, pos - str.ptr)))
 					return;
@@ -264,24 +264,24 @@ namespace croc
 	// =================================================================================================================
 	// Patterns
 
-	void patterns(DArray<const char> str, DArray<const char> pat, std::function<void(DArray<const char>)> dg)
+	void patterns(custring str, custring pat, std::function<void(custring)> dg)
 	{
-		patternsRepBreak(str, pat, DArray<const char>(), [&](DArray<const char> s) { dg(s); return true; });
+		patternsRepBreak(str, pat, custring(), [&](custring s) { dg(s); return true; });
 	}
 
-	void patternsBreak(DArray<const char> str, DArray<const char> pat, std::function<bool(DArray<const char>)> dg)
+	void patternsBreak(custring str, custring pat, std::function<bool(custring)> dg)
 	{
-		patternsRepBreak(str, pat, DArray<const char>(), dg);
+		patternsRepBreak(str, pat, custring(), dg);
 	}
 
-	void patternsRep(DArray<const char> str, DArray<const char> pat, DArray<const char> rep,
-		std::function<void(DArray<const char>)> dg)
+	void patternsRep(custring str, custring pat, custring rep,
+		std::function<void(custring)> dg)
 	{
-		patternsRepBreak(str, pat, rep, [&](DArray<const char> s) { dg(s); return true; });
+		patternsRepBreak(str, pat, rep, [&](custring s) { dg(s); return true; });
 	}
 
-	void patternsRepBreak(DArray<const char> str, DArray<const char> pat, DArray<const char> rep,
-		std::function<bool(DArray<const char>)> dg)
+	void patternsRepBreak(custring str, custring pat, custring rep,
+		std::function<bool(custring)> dg)
 	{
 		size_t pos;
 		size_t mark = 0;
@@ -304,19 +304,19 @@ namespace croc
 	// =================================================================================================================
 	// lines
 
-	void lines(DArray<const char> str, std::function<void(DArray<const char>)> dg)
+	void lines(custring str, std::function<void(custring)> dg)
 	{
-		linesBreak(str, [&](DArray<const char> s) { dg(s); return true; });
+		linesBreak(str, [&](custring s) { dg(s); return true; });
 	}
 
-	void linesBreak(DArray<const char> str, std::function<bool(DArray<const char>)> dg)
+	void linesBreak(custring str, std::function<bool(custring)> dg)
 	{
-		const char* pos;
+		const uchar* pos;
 		size_t mark = 0;
 		auto end = str.ptr + str.length;
 		auto next = str.ptr;
 
-		while((pos = cast(const char*)memchr(next, '\n', end - next)) != nullptr)
+		while((pos = cast(const uchar*)memchr(next, '\n', end - next)) != nullptr)
 		{
 			auto end = pos;
 
@@ -338,7 +338,7 @@ namespace croc
 	// UTF-32
 	// =================================================================================================================
 
-	size_t findCharFast(DArray<const uint32_t> str, uint32_t ch)
+	size_t findCharFast(cdstring str, dchar ch)
 	{
 		for(auto p = str.ptr, e = str.ptr + str.length; p < e; p++)
 		{
@@ -349,7 +349,7 @@ namespace croc
 		return str.length;
 	}
 
-	size_t strLocate(DArray<const uint32_t> source, DArray<const uint32_t> match, size_t start)
+	size_t strLocate(cdstring source, cdstring match, size_t start)
 	{
 		if(match.length == 1)
 			return strLocateChar(source, match[0], start);
@@ -357,25 +357,25 @@ namespace croc
 			return strLocatePattern(source, match, start);
 	}
 
-	size_t strLocateChar(DArray<const uint32_t> source, uint32_t match, size_t start)
+	size_t strLocateChar(cdstring source, dchar match, size_t start)
 	{
 		if(start > source.length)
 			start = source.length;
 
-		return findCharFast(DArray<const uint32_t>::n(source.ptr + start, source.length - start), match) + start;
+		return findCharFast(cdstring::n(source.ptr + start, source.length - start), match) + start;
 	}
 
-	size_t strLocatePattern(DArray<const uint32_t> source, DArray<const uint32_t> match, size_t start)
+	size_t strLocatePattern(cdstring source, cdstring match, size_t start)
 	{
 		size_t idx;
-		const uint32_t* p = source.ptr + start;
+		const dchar* p = source.ptr + start;
 		size_t extent = source.length - start - match.length + 1;
 
 		if(match.length && extent <= source.length)
 		{
 			while(extent)
 			{
-				idx = findCharFast(DArray<const uint32_t>::n(p, extent), match[0]);
+				idx = findCharFast(cdstring::n(p, extent), match[0]);
 
 				if(idx == extent)
 					break;
@@ -395,7 +395,7 @@ namespace croc
 		return source.length;
 	}
 
-	size_t strRLocate(DArray<const uint32_t> source, DArray<const uint32_t> match, size_t start)
+	size_t strRLocate(cdstring source, cdstring match, size_t start)
 	{
 		if(match.length == 1)
 			return strRLocateChar(source, match[0], start);
@@ -403,7 +403,7 @@ namespace croc
 			return strRLocatePattern(source, match, start);
 	}
 
-	size_t strRLocateChar(DArray<const uint32_t> source, uint32_t match, size_t start)
+	size_t strRLocateChar(cdstring source, dchar match, size_t start)
 	{
 		if(start > source.length)
 			start = source.length;
@@ -417,7 +417,7 @@ namespace croc
 		return source.length;
 	}
 
-	size_t strRLocatePattern(DArray<const uint32_t> source, DArray<const uint32_t> match, size_t start)
+	size_t strRLocatePattern(cdstring source, cdstring match, size_t start)
 	{
 		if(start > source.length)
 			start = source.length;
@@ -439,12 +439,12 @@ namespace croc
 		return source.length;
 	}
 
-	bool strEqFast(const uint32_t* s1, const uint32_t* s2, size_t length)
+	bool strEqFast(const dchar* s1, const dchar* s2, size_t length)
 	{
 		return strMismatchFast(s1, s2, length) == length;
 	}
 
-	size_t strMismatchFast(const uint32_t* s1, const uint32_t* s2, size_t length)
+	size_t strMismatchFast(const dchar* s1, const dchar* s2, size_t length)
 	{
 		auto i = length;
 
@@ -457,7 +457,7 @@ namespace croc
 		return length;
 	}
 
-	DArray<const uint32_t> strTrimWS(DArray<const uint32_t> str)
+	cdstring strTrimWS(cdstring str)
 	{
 		if(str.length == 0)
 			return str;
@@ -468,10 +468,10 @@ namespace croc
 		for(auto c = head[0]; head < tail && IS_WHITESPACE(c); c = (++head)[0]) {}
 		for(auto c = tail[-1]; tail > head && IS_WHITESPACE(c); c = (--tail)[-1]) {}
 
-		return DArray<const uint32_t>::n(head, tail - head);
+		return cdstring::n(head, tail - head);
 	}
 
-	DArray<const uint32_t> strTrimlWS(DArray<const uint32_t> str)
+	cdstring strTrimlWS(cdstring str)
 	{
 		if(str.length == 0)
 			return str;
@@ -481,10 +481,10 @@ namespace croc
 
 		for(auto c = head[0]; head < tail && IS_WHITESPACE(c); c = (++head)[0]) {}
 
-		return DArray<const uint32_t>::n(head, tail - head);
+		return cdstring::n(head, tail - head);
 	}
 
-	DArray<const uint32_t> strTrimrWS(DArray<const uint32_t> str)
+	cdstring strTrimrWS(cdstring str)
 	{
 		if(str.length == 0)
 			return str;
@@ -494,20 +494,20 @@ namespace croc
 
 		for(auto c = tail[-1]; tail > head && IS_WHITESPACE(c); c = (--tail)[-1]) {}
 
-		return DArray<const uint32_t>::n(head, tail - head);
+		return cdstring::n(head, tail - head);
 	}
 
 	// =================================================================================================================
 	// Delimiters
 
-	void delimiters(DArray<const uint32_t> str, DArray<const uint32_t> set,
-		std::function<void(DArray<const uint32_t>)> dg)
+	void delimiters(cdstring str, cdstring set,
+		std::function<void(cdstring)> dg)
 	{
-		delimitersBreak(str, set, [&](DArray<const uint32_t> s) { dg(s); return true; });
+		delimitersBreak(str, set, [&](cdstring s) { dg(s); return true; });
 	}
 
-	void delimitersBreak(DArray<const uint32_t> str, DArray<const uint32_t> set,
-		std::function<bool(DArray<const uint32_t>)> dg)
+	void delimitersBreak(cdstring str, cdstring set,
+		std::function<bool(cdstring)> dg)
 	{
 		size_t pos;
 		size_t mark = 0;
@@ -548,26 +548,26 @@ namespace croc
 	// =================================================================================================================
 	// Patterns
 
-	void patterns(DArray<const uint32_t> str, DArray<const uint32_t> pat,
-		std::function<void(DArray<const uint32_t>)> dg)
+	void patterns(cdstring str, cdstring pat,
+		std::function<void(cdstring)> dg)
 	{
-		patternsRepBreak(str, pat, DArray<const uint32_t>(), [&](DArray<const uint32_t> s) { dg(s); return true; });
+		patternsRepBreak(str, pat, cdstring(), [&](cdstring s) { dg(s); return true; });
 	}
 
-	void patternsBreak(DArray<const uint32_t> str, DArray<const uint32_t> pat,
-		std::function<bool(DArray<const uint32_t>)> dg)
+	void patternsBreak(cdstring str, cdstring pat,
+		std::function<bool(cdstring)> dg)
 	{
-		patternsRepBreak(str, pat, DArray<const uint32_t>(), dg);
+		patternsRepBreak(str, pat, cdstring(), dg);
 	}
 
-	void patternsRep(DArray<const uint32_t> str, DArray<const uint32_t> pat, DArray<const uint32_t> rep,
-		std::function<void(DArray<const uint32_t>)> dg)
+	void patternsRep(cdstring str, cdstring pat, cdstring rep,
+		std::function<void(cdstring)> dg)
 	{
-		patternsRepBreak(str, pat, rep, [&](DArray<const uint32_t> s) { dg(s); return true; });
+		patternsRepBreak(str, pat, rep, [&](cdstring s) { dg(s); return true; });
 	}
 
-	void patternsRepBreak(DArray<const uint32_t> str, DArray<const uint32_t> pat, DArray<const uint32_t> rep,
-		std::function<bool(DArray<const uint32_t>)> dg)
+	void patternsRepBreak(cdstring str, cdstring pat, cdstring rep,
+		std::function<bool(cdstring)> dg)
 	{
 		size_t pos;
 		size_t mark = 0;
@@ -590,12 +590,12 @@ namespace croc
 	// =================================================================================================================
 	// lines
 
-	void lines(DArray<const uint32_t> str, std::function<void(DArray<const uint32_t>)> dg)
+	void lines(cdstring str, std::function<void(cdstring)> dg)
 	{
-		linesBreak(str, [&](DArray<const uint32_t> s) { dg(s); return true; });
+		linesBreak(str, [&](cdstring s) { dg(s); return true; });
 	}
 
-	void linesBreak(DArray<const uint32_t> str, std::function<bool(DArray<const uint32_t>)> dg)
+	void linesBreak(cdstring str, std::function<bool(cdstring)> dg)
 	{
 		size_t pos;
 		size_t mark = 0;

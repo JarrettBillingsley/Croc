@@ -275,7 +275,7 @@ namespace croc
 			printf("\"");
 
 			uword_t n;
-			auto s = croc_getStringn(t, v, &n);
+			auto s = cast(const uchar*)croc_getStringn(t, v, &n);
 			auto end = s + n;
 
 			while(s < end)

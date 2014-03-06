@@ -73,7 +73,7 @@ namespace croc
 
 		l.expect(Token::Module);
 
-		List<char, 32> name(c);
+		List<uchar, 32> name(c);
 		name.add(parseName());
 
 		while(l.type() == Token::Dot)
@@ -578,18 +578,18 @@ namespace croc
 						objTypes.add(parseIdentList(t));
 					}
 					else
-					if(strcmp(t.stringValue.ptr, "bool") == 0)      addConstraint(CrocType_Bool); else
-					if(strcmp(t.stringValue.ptr, "int") == 0)       addConstraint(CrocType_Int); else
-					if(strcmp(t.stringValue.ptr, "float") == 0)     addConstraint(CrocType_Float); else
-					if(strcmp(t.stringValue.ptr, "string") == 0)    addConstraint(CrocType_String); else
-					if(strcmp(t.stringValue.ptr, "table") == 0)     addConstraint(CrocType_Table); else
-					if(strcmp(t.stringValue.ptr, "array") == 0)     addConstraint(CrocType_Array); else
-					if(strcmp(t.stringValue.ptr, "memblock") == 0)  addConstraint(CrocType_Memblock); else
-					if(strcmp(t.stringValue.ptr, "thread") == 0)    addConstraint(CrocType_Thread); else
-					if(strcmp(t.stringValue.ptr, "nativeobj") == 0) addConstraint(CrocType_Nativeobj); else
-					if(strcmp(t.stringValue.ptr, "weakref") == 0)   addConstraint(CrocType_Weakref); else
-					if(strcmp(t.stringValue.ptr, "funcdef") == 0)   addConstraint(CrocType_Funcdef); else
-					if(strcmp(t.stringValue.ptr, "instance") == 0)
+					if(strcmp(cast(const char*)t.stringValue.ptr, "bool") == 0)      addConstraint(CrocType_Bool); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "int") == 0)       addConstraint(CrocType_Int); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "float") == 0)     addConstraint(CrocType_Float); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "string") == 0)    addConstraint(CrocType_String); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "table") == 0)     addConstraint(CrocType_Table); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "array") == 0)     addConstraint(CrocType_Array); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "memblock") == 0)  addConstraint(CrocType_Memblock); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "thread") == 0)    addConstraint(CrocType_Thread); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "nativeobj") == 0) addConstraint(CrocType_Nativeobj); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "weakref") == 0)   addConstraint(CrocType_Weakref); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "funcdef") == 0)   addConstraint(CrocType_Funcdef); else
+					if(strcmp(cast(const char*)t.stringValue.ptr, "instance") == 0)
 					{
 						addConstraint(CrocType_Instance);
 
@@ -645,7 +645,7 @@ namespace croc
 				l.expect(Token::Null);
 				ret = cast(uint32_t)TypeMask::NotNull;
 			}
-			else if(l.type() == Token::Ident && strcmp(l.tok().stringValue.ptr, "any") == 0)
+			else if(l.type() == Token::Ident && strcmp(cast(const char*)l.tok().stringValue.ptr, "any") == 0)
 			{
 				l.next();
 				ret = cast(uint32_t)TypeMask::Any;
@@ -880,7 +880,7 @@ namespace croc
 		auto addField = [&](Decorator* deco, Identifier* name, Expression* v, FuncLiteralExp* func, crocstr preDocs,
 			CompileLoc preDocsLoc)
 		{
-			croc_pushStringn(t, name->name.ptr, name->name.length);
+			croc_pushStringn(t, cast(const char*)name->name.ptr, name->name.length);
 
 			if(croc_in(t, -1, fieldMap))
 			{
@@ -1247,7 +1247,7 @@ namespace croc
 		}
 		else
 		{
-			List<char, 32> name(c);
+			List<uchar, 32> name(c);
 
 			name.add(parseName());
 
@@ -1436,11 +1436,11 @@ namespace croc
 
 		ScopeAction type;
 
-		if(strcmp(id.stringValue.ptr, "exit") == 0)
+		if(strcmp(cast(const char*)id.stringValue.ptr, "exit") == 0)
 			type = ScopeAction::Exit;
-		else if(strcmp(id.stringValue.ptr, "success") == 0)
+		else if(strcmp(cast(const char*)id.stringValue.ptr, "success") == 0)
 			type = ScopeAction::Success;
-		else if(strcmp(id.stringValue.ptr, "failure") == 0)
+		else if(strcmp(cast(const char*)id.stringValue.ptr, "failure") == 0)
 			type = ScopeAction::Failure;
 		else
 		{
@@ -2716,8 +2716,8 @@ namespace croc
 		if(mCurrentClassName.length > 0 && isPrivateFieldName(fieldName))
 		{
 			auto t = *c.thread();
-			croc_pushStringn(t, mCurrentClassName.ptr, mCurrentClassName.length);
-			croc_pushStringn(t, fieldName.ptr, fieldName.length);
+			croc_pushStringn(t, cast(const char*)mCurrentClassName.ptr, mCurrentClassName.length);
+			croc_pushStringn(t, cast(const char*)fieldName.ptr, fieldName.length);
 			croc_cat(t, 2);
 			auto ret = c.newString(croc_getString(t, -1));
 			croc_popTop(t);

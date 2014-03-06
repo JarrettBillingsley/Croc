@@ -12,8 +12,8 @@
 
 #define BUFFERLENGTH 120
 #define PUSHFMT(...)\
-	push(t, Value::from(String::create(t->vm, DArray<const char>::n(buffer,\
-		snprintf(buffer, BUFFERLENGTH, __VA_ARGS__)))));
+	push(t, Value::from(String::create(t->vm, crocstr::n(buffer,\
+		snprintf(cast(char*)buffer, BUFFERLENGTH, __VA_ARGS__)))));
 
 namespace croc
 {
@@ -53,7 +53,7 @@ namespace croc
 
 	word toStringImpl(Thread* t, Value v, bool raw)
 	{
-		char buffer[BUFFERLENGTH];
+		uchar buffer[BUFFERLENGTH];
 
 		// ORDER CROCTYPE
 		if(v.type < CrocType_FirstRefType)
@@ -1120,13 +1120,13 @@ namespace croc
 
 	void stringConcat(Thread* t, Value first, DArray<Value> vals, uword len, uword cpLen)
 	{
-		auto tmpBuffer = DArray<char>::alloc(t->vm->mem, len);
+		auto tmpBuffer = ustring::alloc(t->vm->mem, len);
 		uword i = 0;
 
 		auto add = [&tmpBuffer, &i](Value& v)
 		{
 			auto s = v.mString->toDArray();
-			tmpBuffer.slicea(i, i + s.length, DArray<char>::n(cast(char*)s.ptr, s.length));
+			tmpBuffer.slicea(i, i + s.length, ustring::n(cast(uchar*)s.ptr, s.length));
 			i += s.length;
 		};
 

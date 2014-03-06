@@ -3,6 +3,7 @@
 
 #include "croc/compiler/types.hpp"
 #include "croc/types.hpp"
+#include "croc/util/utf.hpp"
 
 namespace croc
 {
@@ -143,7 +144,7 @@ namespace croc
 		crocstr postComment;
 		CompileLoc preCommentLoc;
 		CompileLoc postCommentLoc;
-		const char* startChar;
+		const uchar* startChar;
 
 		static const char* KeywordStrings[];
 		static const char* Strings[];
@@ -184,10 +185,10 @@ namespace croc
 		Compiler& mCompiler;
 		CompileLoc mLoc;
 		crocstr mSource;
-		const char* mSourcePtr;
-		const char* mSourceEnd;
-		const char* mCharPos;
-		const char* mLookaheadCharPos;
+		const uchar* mSourcePtr;
+		const uchar* mSourceEnd;
+		const uchar* mCharPos;
+		const uchar* mLookaheadCharPos;
 
 		crocchar mCharacter;
 		crocchar mLookaheadCharacter;
@@ -198,7 +199,7 @@ namespace croc
 		crocstr mLinePragmaFile;
 		uword mLinePragmaLine;
 
-		const char* mCaptureEnd;
+		const uchar* mCaptureEnd;
 
 		Token mTok;
 		Token mPeekTok;
@@ -238,12 +239,12 @@ namespace croc
 		void statementTerm();
 		Token& peek();
 		void next();
-		const char* beginCapture();
-		crocstr endCapture(const char* captureStart);
+		const uchar* beginCapture();
+		crocstr endCapture(const uchar* captureStart);
 
 	private:
-		static int lookupKeyword(char* str);
-		crocchar readChar(const char*& pos);
+		static int lookupKeyword(uchar* str);
+		crocchar readChar(const uchar*& pos);
 		crocchar lookaheadChar();
 		void nextChar();
 		void nextLine(bool readMultiple = true);

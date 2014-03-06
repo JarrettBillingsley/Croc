@@ -1304,7 +1304,7 @@ namespace croc
 
 		// Const fold
 		List<Expression*> newOperands(c);
-		List<char, 64> tempStr(c);
+		List<uchar, 64> tempStr(c);
 
 		auto ops = e->operands;
 
@@ -1497,7 +1497,7 @@ namespace croc
 			if(e->op->isString())
 			{
 				auto s = e->op->asString();
-				croc_pushStringn(*c.thread(), s.ptr, s.length);
+				croc_pushStringn(*c.thread(), cast(const char*)s.ptr, s.length);
 				auto len = croc_len(*c.thread(), -1);
 				croc_popTop(*c.thread());
 				return new(c) IntExp(e->location, len);

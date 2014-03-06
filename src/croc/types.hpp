@@ -25,7 +25,8 @@ namespace croc
 	typedef crocint_t crocint;
 	typedef crocfloat_t crocfloat;
 	typedef crocchar_t crocchar;
-	typedef DArray<const char> crocstr;
+	typedef DArray<const unsigned char> crocstr;
+	typedef DArray<unsigned char> mcrocstr;
 
 	enum CrocLocation : int
 	{
@@ -190,9 +191,14 @@ namespace croc
 			return cast(const char*)(this + 1);
 		}
 
+		inline const unsigned char* toUString() const
+		{
+			return cast(const unsigned char*)(this + 1);
+		}
+
 		inline crocstr toDArray() const
 		{
-			return crocstr::n(toCString(), length);
+			return crocstr::n(toUString(), length);
 		}
 
 		inline void setData(crocstr data)
@@ -695,7 +701,7 @@ namespace croc
 		uint64_t currentRef;
 		String* ctorString; // also stored in metaStrings, don't have to scan it as a root
 		String* finalizerString; // also stored in metaStrings, don't have to scan it as a root
-		char formatBuf[CROC_FORMAT_BUF_SIZE];
+		unsigned char formatBuf[CROC_FORMAT_BUF_SIZE];
 		RNG rng;
 
 		inline void disableGC() { this->mem.gcDisabled++; }

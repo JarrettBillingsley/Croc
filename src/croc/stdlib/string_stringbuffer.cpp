@@ -222,10 +222,10 @@ namespace croc
 		croc_ex_buffer_init(t, &b);
 		auto data = mb->data.template as<const dchar>().slice(cast(uword)lo, cast(uword)hi);
 		auto destSize = fastUtf32GetUtf8Size(data);
-		auto dest = croc_ex_buffer_prepare(&b, destSize);
-		DArray<const dchar> remaining;
-		DArray<char> dummy;
-		auto ok = Utf32ToUtf8(data, DArray<char>::n(dest, destSize), remaining, dummy);
+		auto dest = cast(uchar*)croc_ex_buffer_prepare(&b, destSize);
+		cdstring remaining;
+		ustring dummy;
+		auto ok = Utf32ToUtf8(data, ustring::n(dest, destSize), remaining, dummy);
 		assert(ok == UtfError_OK && remaining.length == 0);
 #ifdef NDEBUG
 		(void)ok;

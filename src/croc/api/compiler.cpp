@@ -57,7 +57,7 @@ extern "C"
 		Compiler c(t);
 		crocstr modNameStr;
 		auto ret = c.compileModule(src->toDArray(), atoda(name), modNameStr);
-		*modName = modNameStr.ptr;
+		*modName = cast(const char*)modNameStr.ptr;
 		croc_insertAndPop(t_, -2);
 		return (ret >= 0) ? ret - 1 : ret;
 	}

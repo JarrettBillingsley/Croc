@@ -69,7 +69,7 @@ namespace croc
 	Given the value of an initial UTF-8 code unit, returns how many bytes long this character is, or 0 if this is an invalid
 	initial code unit.
 	*/
-	size_t utf8SequenceLength(uint8_t firstByte)
+	size_t utf8SequenceLength(uchar firstByte)
 	{
 		return Utf8CharLengths[firstByte];
 	}
@@ -97,9 +97,9 @@ namespace croc
 		One of the members of UtfError. If it is UtfError_BadChar, out will be set to the (invalid) character that was
 		decoded.
 	*/
-	UtfError decodeUtf8Char(const char*& s, const char* end, dchar& out)
+	UtfError decodeUtf8Char(const uchar*& s, const uchar* end, dchar& out)
 	{
-		dchar c = *cast(uchar*)s;
+		dchar c = *s;
 
 		if(c < 0x80)
 		{
@@ -108,7 +108,7 @@ namespace croc
 			return UtfError_OK;
 		}
 
-		size_t len = Utf8CharLengths[cast(unsigned char)c];
+		size_t len = Utf8CharLengths[cast(uchar)c];
 
 		if(len == 0)
 			return UtfError_BadEncoding;
@@ -120,8 +120,8 @@ namespace croc
 		for(size_t i = 1; i < len; i++)
 		{
 			// This looks wrong, but it's not! The "continuation" bits are removed by the UTF8MagicSubtraction step.
-			c = (c << 6) + cast(uchar)s[i];
-			mask = (mask << 1) | Utf8InvalidTailBits[cast(uchar)s[i] >> 6];
+			c = (c << 6) + s[i];
+			mask = (mask << 1) | Utf8InvalidTailBits[s[i] >> 6];
 		}
 
 		if(mask)
@@ -242,9 +242,9 @@ namespace croc
 		s = pointer to the codepoint to be skipped. Will be advanced by this function, though never past end.
 		end = pointer to the end of the string.
 	*/
-	void skipBadUtf8Char(const char*& s, const char* end)
+	void skipBadUtf8Char(const uchar*& s, const uchar* end)
 	{
-		size_t len = Utf8CharLengths[*cast(uchar*)s];
+		size_t len = Utf8CharLengths[*s];
 
 		if(len == 0)
 			s++;
@@ -309,7 +309,7 @@ namespace croc
 	Returns:
 		true if the given string is valid UTF-8, false, otherwise.
 	*/
-	bool verifyUtf8(DArray<const char> str, size_t& cpLen)
+	bool verifyUtf8(custring str, size_t& cpLen)
 	{
 		cpLen = 0;
 		dchar c;
@@ -320,7 +320,7 @@ namespace croc
 		{
 			cpLen++;
 
-			if((*cast(uchar*)s) < 0x80)
+			if(*s < 0x80)
 				s++;
 			else
 			{
@@ -384,7 +384,7 @@ namespace croc
 	-----
 	*/
 	#define MAKE_TO_UTF8(name, type, NEXTCHAR)\
-		UtfError name(DArray<const type> str, DArray<char> buf, DArray<const type>& remaining, DArray<char>& output)\
+		UtfError name(DArray<const type> str, ustring buf, DArray<const type>& remaining, ustring& output)\
 		{\
 			auto src = str.ptr;\
 			auto end = src + str.length;\
@@ -404,7 +404,7 @@ namespace croc
 				if(ok != UtfError_OK)\
 				{\
 					remaining = str.slice(srcSave - str.ptr, str.length);\
-					output = DArray<char>();\
+					output = ustring();\
 					return ok;\
 				}\
 	\
@@ -476,10 +476,10 @@ namespace croc
 	Returns:
 		One of the members of UtfError. If buf is too small to hold the encoded character, returns UtfError_Truncated.
 	*/
-	UtfError encodeUtf8Char(DArray<char> buf, dchar c, DArray<char>& ret)
+	UtfError encodeUtf8Char(ustring buf, dchar c, ustring& ret)
 	{
-		auto str = DArray<const dchar>::n(&c, 1);
-		auto remaining = DArray<const dchar>();
+		auto str = cdstring::n(&c, 1);
+		cdstring remaining;
 
 		auto ok = Utf32ToUtf8(str, buf, remaining, ret);
 
@@ -517,9 +517,9 @@ namespace croc
 	}
 	-----
 	*/
-	dchar fastDecodeUtf8Char(const char*& s)
+	dchar fastDecodeUtf8Char(const uchar*& s)
 	{
-		dchar c = *cast(uchar*)s;
+		dchar c = *s;
 
 		if(c < 0x80)
 		{
@@ -530,7 +530,7 @@ namespace croc
 		size_t len = Utf8CharLengths[cast(unsigned char)c];
 
 		for(size_t i = 1; i < len; i++)
-			c = (c << 6) + cast(uchar)s[i];
+			c = (c << 6) + s[i];
 
 		s += len;
 		c -= Utf8MagicSubtraction[len];
@@ -563,9 +563,9 @@ namespace croc
 	}
 	-----
 	*/
-	dchar fastReverseUtf8Char(const char*& s)
+	dchar fastReverseUtf8Char(const uchar*& s)
 	{
-		dchar c = *cast(uchar*)(--s);
+		dchar c = *(--s);
 
 		if(c < 0x80)
 			return c;
@@ -575,14 +575,14 @@ namespace croc
 		while(*s & 0x80)
 		{
 			s--;
-			c += *cast(uchar*)s << (6 * len);
+			c += *s << (6 * len);
 			len++;
 
 			if((*s & 0xC0) == 0xC0)
 				break;
 		}
 
-		assert(len == Utf8CharLengths[*cast(uchar*)s]);
+		assert(len == Utf8CharLengths[*s]);
 		return c - Utf8MagicSubtraction[len];
 	}
 
@@ -590,7 +590,7 @@ namespace croc
 	Assuming that s points into well-formed UTF-8, moves s backwards, if necessary, to place it at the beginning of a
 	multibyte character. If s is already pointing to the beginning of a character, it is left unchanged.
 	*/
-	void fastAlignUtf8(const char*& s)
+	void fastAlignUtf8(const uchar*& s)
 	{
 		while((*s & 0xC0) == 0x80)
 			s--;
@@ -634,7 +634,7 @@ namespace croc
 
 	*/
 	template<bool swap = false>
-	DArray<wchar> Utf8ToUtf16(DArray<const char> str, DArray<wchar> buf, DArray<const char>& remaining)
+	wstring Utf8ToUtf16(custring str, wstring buf, custring& remaining)
 	{
 		auto src = str.ptr;
 		auto end = src + str.length;
@@ -643,12 +643,12 @@ namespace croc
 
 		while(src < end && dest < destEnd)
 		{
-			if(*cast(uchar*)src < 0x80)
+			if(*src < 0x80)
 			{
 				if(swap)
-					*dest++ = cast(wchar)(*cast(uchar*)src++ << 8);
+					*dest++ = cast(wchar)(*src++ << 8);
 				else
-					*dest++ = *cast(uchar*)(src++);
+					*dest++ = *(src++);
 			}
 			else
 			{
@@ -689,8 +689,8 @@ namespace croc
 		return buf.slice(0, dest - buf.ptr);
 	}
 
-	template DArray<wchar> Utf8ToUtf16<true>(DArray<const char> str, DArray<wchar> buf, DArray<const char>& remaining);
-	template DArray<wchar> Utf8ToUtf16<false>(DArray<const char> str, DArray<wchar> buf, DArray<const char>& remaining);
+	template wstring Utf8ToUtf16<true>(custring str, wstring buf, custring& remaining);
+	template wstring Utf8ToUtf16<false>(custring str, wstring buf, custring& remaining);
 
 	/**
 	Same as above, but byte-swaps the output.
@@ -701,7 +701,7 @@ namespace croc
 	Same as above, but for transcoding to UTF-32 instead.
 	*/
 	template<bool swap = false>
-	DArray<dchar> Utf8ToUtf32(DArray<const char> str, DArray<dchar> buf, DArray<const char>& remaining)
+	dstring Utf8ToUtf32(custring str, dstring buf, custring& remaining)
 	{
 		auto src = str.ptr;
 		auto end = src + str.length;
@@ -712,8 +712,8 @@ namespace croc
 		{
 			if(swap)
 			{
-				if(*cast(uchar*)src < 0x80)
-					*dest++ = *cast(uchar*)(src++) << 24;
+				if(*src < 0x80)
+					*dest++ = *(src++) << 24;
 				else
 				{
 					auto c = fastDecodeUtf8Char(src);
@@ -722,8 +722,8 @@ namespace croc
 			}
 			else
 			{
-				if(*cast(uchar*)src < 0x80)
-					*dest++ = *cast(uchar*)(src++);
+				if(*src < 0x80)
+					*dest++ = *(src++);
 				else
 					*dest++ = fastDecodeUtf8Char(src);
 			}
@@ -733,8 +733,8 @@ namespace croc
 		return buf.slice(0, dest - buf.ptr);
 	}
 
-	template DArray<dchar> Utf8ToUtf32<true>(DArray<const char> str, DArray<dchar> buf, DArray<const char>& remaining);
-	template DArray<dchar> Utf8ToUtf32<false>(DArray<const char> str, DArray<dchar> buf, DArray<const char>& remaining);
+	template dstring Utf8ToUtf32<true>(custring str, dstring buf, custring& remaining);
+	template dstring Utf8ToUtf32<false>(custring str, dstring buf, custring& remaining);
 
 	/**
 	Same as above, but byte-swaps the output.
@@ -747,22 +747,22 @@ namespace croc
 	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
 	traversal of the string.
 	*/
-	DArray<const char> utf8Slice(DArray<const char> str, size_t lo, size_t hi)
+	custring utf8Slice(custring str, size_t lo, size_t hi)
 	{
 		if(lo == hi)
-			return DArray<const char>();
+			return custring();
 
-		auto s = cast(uchar*)str.ptr;
+		auto s = str.ptr;
 
 		for(size_t i = 0; i < lo; i++)
-			s += Utf8CharLengths[*cast(uchar*)s];
+			s += Utf8CharLengths[*s];
 
-		size_t realLo = cast(size_t)(s - cast(uchar*)str.ptr);
+		size_t realLo = cast(size_t)(s - str.ptr);
 
 		for(size_t i = lo; i < hi; i++)
-			s += Utf8CharLengths[*cast(uchar*)s];
+			s += Utf8CharLengths[*s];
 
-		return str.slice(realLo, cast(size_t)(s - cast(uchar*)str.ptr));
+		return str.slice(realLo, cast(size_t)(s - str.ptr));
 	}
 
 	/**
@@ -771,12 +771,12 @@ namespace croc
 	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
 	traversal of the string.
 	*/
-	dchar utf8CharAt(DArray<const char> str, size_t idx)
+	dchar utf8CharAt(custring str, size_t idx)
 	{
 		auto s = str.ptr;
 
 		for(size_t i = 0; i < idx; i++)
-			s += Utf8CharLengths[*cast(uchar*)s];
+			s += Utf8CharLengths[*s];
 
 		return fastDecodeUtf8Char(s);
 	}
@@ -787,12 +787,12 @@ namespace croc
 	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
 	traversal of the string.
 	*/
-	size_t utf8CPIdxToByte(DArray<const char> str, size_t fake)
+	size_t utf8CPIdxToByte(custring str, size_t fake)
 	{
 		auto s = str.ptr;
 
 		for(size_t i = 0; i < fake; i++)
-			s += Utf8CharLengths[*cast(uchar*)s];
+			s += Utf8CharLengths[*s];
 
 		return s - str.ptr;
 	}
@@ -805,13 +805,13 @@ namespace croc
 	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
 	traversal of the string.
 	*/
-	size_t utf8ByteIdxToCP(DArray<const char> str, size_t fake)
+	size_t utf8ByteIdxToCP(custring str, size_t fake)
 	{
 		auto fakeEnd = str.ptr + fake;
 		size_t ret = 0;
 
 		for(auto s = str.ptr; s < fakeEnd; ret++)
-			s += Utf8CharLengths[*cast(uchar*)s];
+			s += Utf8CharLengths[*s];
 
 		return ret;
 	}
@@ -822,7 +822,7 @@ namespace croc
 	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
 	traversal of the string.
 	*/
-	size_t fastUtf8CPLength(DArray<const char> str)
+	size_t fastUtf8CPLength(custring str)
 	{
 		return utf8ByteIdxToCP(str, str.length);
 	}
@@ -830,7 +830,7 @@ namespace croc
 	/**
 	Given a valid UTF-32 string, get how many bytes it would take to encode it as UTF-8.
 	*/
-	size_t fastUtf32GetUtf8Size(DArray<const dchar> str)
+	size_t fastUtf32GetUtf8Size(cdstring str)
 	{
 		size_t ret = 0;
 

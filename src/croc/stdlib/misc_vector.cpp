@@ -129,22 +129,22 @@ namespace croc
 		{
 			if(typeCode[0] == 'i')
 			{
-				if(strcmp(typeCode.ptr, "i8")  == 0) return &_typeStructs[TypeCode_i8];
-				if(strcmp(typeCode.ptr, "i16") == 0) return &_typeStructs[TypeCode_i16];
-				if(strcmp(typeCode.ptr, "i32") == 0) return &_typeStructs[TypeCode_i32];
-				if(strcmp(typeCode.ptr, "i64") == 0) return &_typeStructs[TypeCode_i64];
+				if(strcmp(cast(const char*)typeCode.ptr, "i8")  == 0) return &_typeStructs[TypeCode_i8];
+				if(strcmp(cast(const char*)typeCode.ptr, "i16") == 0) return &_typeStructs[TypeCode_i16];
+				if(strcmp(cast(const char*)typeCode.ptr, "i32") == 0) return &_typeStructs[TypeCode_i32];
+				if(strcmp(cast(const char*)typeCode.ptr, "i64") == 0) return &_typeStructs[TypeCode_i64];
 			}
 			else if(typeCode[0] == 'u')
 			{
-				if(strcmp(typeCode.ptr, "u8")  == 0) return &_typeStructs[TypeCode_u8];
-				if(strcmp(typeCode.ptr, "u16") == 0) return &_typeStructs[TypeCode_u16];
-				if(strcmp(typeCode.ptr, "u32") == 0) return &_typeStructs[TypeCode_u32];
-				if(strcmp(typeCode.ptr, "u64") == 0) return &_typeStructs[TypeCode_u64];
+				if(strcmp(cast(const char*)typeCode.ptr, "u8")  == 0) return &_typeStructs[TypeCode_u8];
+				if(strcmp(cast(const char*)typeCode.ptr, "u16") == 0) return &_typeStructs[TypeCode_u16];
+				if(strcmp(cast(const char*)typeCode.ptr, "u32") == 0) return &_typeStructs[TypeCode_u32];
+				if(strcmp(cast(const char*)typeCode.ptr, "u64") == 0) return &_typeStructs[TypeCode_u64];
 			}
 			else if(typeCode[0] == 'f')
 			{
-				if(strcmp(typeCode.ptr, "f32") == 0) return &_typeStructs[TypeCode_f32];
-				if(strcmp(typeCode.ptr, "f64") == 0) return &_typeStructs[TypeCode_f64];
+				if(strcmp(cast(const char*)typeCode.ptr, "f32") == 0) return &_typeStructs[TypeCode_f32];
+				if(strcmp(cast(const char*)typeCode.ptr, "f64") == 0) return &_typeStructs[TypeCode_f64];
 			}
 		}
 
@@ -239,7 +239,7 @@ namespace croc
 \
 		croc_pushGlobal(t, "Vector");\
 		croc_pushNull(t);\
-		croc_pushStringn(t, type.ptr, type.length);\
+		croc_pushStringn(t, cast(const char*)type.ptr, type.length);\
 		croc_pushInt(t, size);\
 		croc_call(t, -4, 1);\
 \
@@ -282,12 +282,12 @@ namespace croc
 					strcmp(type, "u64") == 0)
 				))
 			{
-				_intRangeImpl(t, crocstr::n(type, typeLen));
+				_intRangeImpl(t, crocstr::n(cast(const uchar*)type, typeLen));
 				return 1;
 			}
 			else if(type[0] == 'f' && (strcmp(type, "f32") == 0 || strcmp(type, "f64") == 0))
 			{
-				_floatRangeImpl(t, crocstr::n(type, typeLen));
+				_floatRangeImpl(t, crocstr::n(cast(const uchar*)type, typeLen));
 				return 1;
 			}
 		}

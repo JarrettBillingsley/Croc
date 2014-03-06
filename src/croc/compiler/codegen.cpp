@@ -204,14 +204,14 @@ namespace croc
 		{
 			if(auto n = AST_AS(IdentExp, exp))
 			{
-				croc_pushString(*c.thread(), n->name->name.ptr);
+				croc_pushString(*c.thread(), cast(const char*)n->name->name.ptr);
 				return 1;
 			}
 			else if(auto n = AST_AS(DotExp, exp))
 			{
 				auto ret = work(n->op);
 				croc_pushString(*c.thread(), ".");
-				croc_pushString(*c.thread(), AST_AS(StringExp, n->name)->value.ptr);
+				croc_pushString(*c.thread(), cast(const char*)AST_AS(StringExp, n->name)->value.ptr);
 				return ret + 2;
 			}
 			else

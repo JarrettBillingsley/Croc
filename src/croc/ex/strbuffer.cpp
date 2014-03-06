@@ -26,7 +26,7 @@ extern "C"
 		if(b->pos == 0)
 			return;
 
-		croc_pushStringn(b->t, b->data, b->pos);
+		croc_pushStringn(b->t, cast(const char*)b->data, b->pos);
 		b->pos = 0;
 		addPiece(b);
 	}
@@ -44,9 +44,9 @@ extern "C"
 		assert(b->slot != 0);
 		assert(b->buffer == 0);
 
-		char outbuf_[4];
-		auto outbuf = DArray<char>::n(outbuf_, 4);
-		DArray<char> s;
+		uchar outbuf_[4];
+		auto outbuf = ustring::n(outbuf_, 4);
+		ustring s;
 
 		if(encodeUtf8Char(outbuf, c, s) != UtfError_OK)
 			croc_eh_throwStd(b->t, "UnicodeError", "Invalid character U+%.6x", cast(unsigned int)c);
@@ -54,7 +54,7 @@ extern "C"
 		if(b->pos + s.length - 1 >= CROC_STR_BUFFER_DATA_LENGTH)
 			flush(b);
 
-		DArray<char>::n(b->data + b->pos, s.length).slicea(s);
+		ustring::n(b->data + b->pos, s.length).slicea(s);
 		b->pos += s.length;
 	}
 
@@ -80,7 +80,7 @@ extern "C"
 			}
 		}
 
-		DArray<char>::n(b->data + b->pos, len).slicea(DArray<char>::n(cast(char*)s, len));
+		ustring::n(b->data + b->pos, len).slicea(ustring::n(cast(uchar*)s, len));
 		b->pos += len;
 	}
 
@@ -105,7 +105,7 @@ extern "C"
 			flush(b);
 		}
 
-		DArray<char>::n(b->data + b->pos, str.length).slicea(DArray<char>::n(cast(char*)str.ptr, str.length));
+		ustring::n(b->data + b->pos, str.length).slicea(str);
 		b->pos += str.length;
 		croc_popTop(b->t);
 	}
@@ -123,7 +123,7 @@ extern "C"
 		if(croc_isNull(t, b->slot))
 		{
 			croc_popTop(t);
-			croc_pushStringn(t, b->data, b->pos);
+			croc_pushStringn(t, cast(const char*)b->data, b->pos);
 		}
 		else
 		{
@@ -158,7 +158,7 @@ extern "C"
 				flush(b);
 
 			b->buffer = -size;
-			return b->data + b->pos;
+			return cast(char*)(b->data + b->pos);
 		}
 		else
 		{

@@ -97,7 +97,7 @@ typedef struct CrocStrBuffer
 	word_t slot;
 	word_t buffer;
 	uword_t pos;
-	char data[CROC_STR_BUFFER_DATA_LENGTH];
+	unsigned char data[CROC_STR_BUFFER_DATA_LENGTH];
 } CrocStrBuffer;
 
 void   CROCAPI(buffer_init)        (CrocThread* t, CrocStrBuffer* b);

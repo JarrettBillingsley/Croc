@@ -15,12 +15,12 @@ namespace croc
 	{
 	crocstr checkCrocstrParam(CrocThread* t, word_t slot)
 	{
-		auto ret = crocstr();
-		ret.ptr = croc_ex_checkStringParamn(t, slot, &ret.length);
+		crocstr ret;
+		ret.ptr = cast(const uchar*)croc_ex_checkStringParamn(t, slot, &ret.length);
 		return ret;
 	}
 
-#define pushCrocstr(t, str) croc_pushStringn((t), (str).ptr, (str).length)
+#define pushCrocstr(t, str) croc_pushStringn((t), cast(const char*)(str).ptr, (str).length)
 
 	const uword VSplitMax = 20;
 
@@ -62,7 +62,7 @@ namespace croc
 		if(totalLen > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "ValueError", "Resulting string is too long");
 
-		auto buf = DArray<char>::alloc(Thread::from(t)->vm->mem, cast(uword)totalLen);
+		auto buf = ustring::alloc(Thread::from(t)->vm->mem, cast(uword)totalLen);
 		uword pos = 0;
 
 		i = 0;
@@ -132,9 +132,9 @@ namespace croc
 			croc_eh_throwStd(t, "RangeError", "base must be in the range [2 .. 36]");
 
 		char* endptr;
-		auto ret = strtol(src.ptr, &endptr, base);
+		auto ret = strtol(cast(const char*)src.ptr, &endptr, base);
 
-		if(endptr != src.ptr + src.length)
+		if(cast(const uchar*)endptr != src.ptr + src.length)
 			croc_eh_throwStd(t, "ValueError", "invalid integer");
 
 		croc_pushInt(t, ret);
@@ -149,9 +149,9 @@ namespace croc
 			croc_eh_throwStd(t, "ValueError", "cannot convert empty string to float");
 
 		char* endptr;
-		auto ret = strtod(src.ptr, &endptr);
+		auto ret = strtod(cast(const char*)src.ptr, &endptr);
 
-		if(endptr != src.ptr + src.length)
+		if(cast(const uchar*)endptr != src.ptr + src.length)
 			croc_eh_throwStd(t, "ValueError", "invalid float");
 
 		croc_pushFloat(t, ret);
@@ -238,8 +238,7 @@ namespace croc
 
 	word_t _reverse(CrocThread* t)
 	{
-		uword srcByteLen;
-		auto src = croc_ex_checkStringParamn(t, 0, &srcByteLen);
+		auto src = checkCrocstrParam(t, 0);
 
 		if(croc_len(t, 0) <= 1)
 		{
@@ -251,37 +250,37 @@ namespace croc
 		char* b;
 		auto tmp = DArray<char>();
 
-		if(srcByteLen <= 256)
+		if(src.length <= 256)
 			b = buf;
 		else
 		{
-			tmp = DArray<char>::alloc(Thread::from(t)->vm->mem, srcByteLen);
+			tmp = DArray<char>::alloc(Thread::from(t)->vm->mem, src.length);
 			b = tmp.ptr;
 		}
 
-		const char* s = src + srcByteLen;
+		auto s = src.ptr + src.length;
 		auto prevS = s;
 
-		for(s--, fastAlignUtf8(s); s >= src; prevS = s, s--, fastAlignUtf8(s))
+		for(s--, fastAlignUtf8(s); s >= src.ptr; prevS = s, s--, fastAlignUtf8(s))
 		{
 			for(auto p = s; p < prevS; )
 				*b++ = *p++;
 
-			if(s == src)
+			if(s == src.ptr)
 				break; // have to break to not read out of bounds
 		}
 
 		if(tmp.ptr)
 		{
-			assert(cast(uword)(b - tmp.ptr) == srcByteLen);
-			croc_pushStringn(t, tmp.ptr, srcByteLen);
+			assert(cast(uword)(b - tmp.ptr) == src.length);
+			croc_pushStringn(t, tmp.ptr, src.length);
 			// XXX: this might not run if croc_pushStringn fails, but it would only fail in an OOM situation, so..?
 			tmp.free(Thread::from(t)->vm->mem);
 		}
 		else
 		{
-			assert(cast(uword)(b - buf) == srcByteLen);
-			croc_pushStringn(t, buf, srcByteLen);
+			assert(cast(uword)(b - buf) == src.length);
+			croc_pushStringn(t, buf, src.length);
 		}
 
 		return 1;
@@ -455,7 +454,7 @@ namespace croc
 
 		patternsRep(src, from, to, [&](crocstr piece)
 		{
-			croc_ex_buffer_addStringn(&buf, piece.ptr, piece.length);
+			croc_ex_buffer_addStringn(&buf, cast(const char*)piece.ptr, piece.length);
 		});
 
 		croc_ex_buffer_finish(&buf);
@@ -474,7 +473,7 @@ namespace croc
 		if(realIdx >= str.length)
 			return 0;
 
-		const char* ptr = str.ptr + realIdx;
+		auto ptr = str.ptr + realIdx;
 		auto oldPtr = ptr;
 		fastDecodeUtf8Char(ptr);
 
@@ -482,7 +481,7 @@ namespace croc
 		croc_setUpval(t, 0);
 
 		croc_pushInt(t, fakeIdx);
-		croc_pushStringn(t, oldPtr, ptr - oldPtr);
+		croc_pushStringn(t, cast(const char*)oldPtr, ptr - oldPtr);
 		return 2;
 	}
 
@@ -498,7 +497,7 @@ namespace croc
 		if(realIdx <= 0)
 			return 0;
 
-		const char* ptr = str.ptr + realIdx;
+		auto ptr = str.ptr + realIdx;
 		auto oldPtr = ptr;
 		fastReverseUtf8Char(ptr);
 
@@ -506,7 +505,7 @@ namespace croc
 		croc_setUpval(t, 0);
 
 		croc_pushInt(t, fakeIdx);
-		croc_pushStringn(t, ptr, oldPtr - ptr);
+		croc_pushStringn(t, cast(const char*)ptr, oldPtr - ptr);
 		return 2;
 	}
 

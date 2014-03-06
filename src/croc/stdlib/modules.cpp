@@ -20,7 +20,7 @@ namespace croc
 	bool isLoading(CrocThread* t, crocstr name)
 	{
 		auto loading = croc_ex_pushRegistryVar(t, Loading);
-		croc_pushStringn(t, name.ptr, name.length);
+		croc_pushStringn(t, cast(const char*)name.ptr, name.length);
 		auto ret = croc_hasFieldStk(t, loading, -1);
 		croc_pop(t, 2);
 		return ret;
@@ -29,7 +29,7 @@ namespace croc
 	void setLoading(CrocThread* t, crocstr name, bool loading)
 	{
 		auto loadingTab = croc_ex_pushRegistryVar(t, Loading);
-		croc_pushStringn(t, name.ptr, name.length);
+		croc_pushStringn(t, cast(const char*)name.ptr, name.length);
 
 		if(loading)
 			croc_pushBool(t, true);
@@ -43,7 +43,7 @@ namespace croc
 	void setLoaded(CrocThread* t, crocstr name, word reg)
 	{
 		auto loaded = croc_pushGlobal(t, "loaded");
-		croc_pushStringn(t, name.ptr, name.length);
+		croc_pushStringn(t, cast(const char*)name.ptr, name.length);
 		croc_dup(t, reg);
 		croc_fieldaStk(t, loaded);
 		croc_popTop(t);
@@ -56,7 +56,7 @@ namespace croc
 
 			for(; idx != name.length; idx = strLocateChar(name, '.', idx + 1))
 			{
-				croc_pushStringn(t, name.ptr, idx);
+				croc_pushStringn(t, cast(const char*)name.ptr, idx);
 				croc_pushBool(t, true);
 				croc_fieldaStk(t, prefixes);
 			}
@@ -71,7 +71,7 @@ namespace croc
 
 		for(auto idx = strLocateChar(name, '.'); idx != name.length; idx = strLocateChar(name, '.', idx + 1))
 		{
-			croc_pushStringn(t, name.ptr, idx);
+			croc_pushStringn(t, cast(const char*)name.ptr, idx);
 
 			if(croc_hasFieldStk(t, loaded, -1))
 				croc_eh_throwStd(t, "ImportException",
@@ -82,12 +82,12 @@ namespace croc
 		}
 
 		croc_ex_pushRegistryVar(t, Prefixes);
-		croc_pushStringn(t, name.ptr, name.length);
+		croc_pushStringn(t, cast(const char*)name.ptr, name.length);
 
 		if(croc_hasFieldStk(t, -2, -1))
 			croc_eh_throwStd(t, "ImportException",
 				"Attempting to import module '%.*s', but other modules use that name as a prefix",
-				name.length, name.ptr);
+				name.length, cast(const char*)name.ptr);
 
 		croc_pop(t, 3);
 	}
@@ -109,7 +109,7 @@ namespace croc
 		{
 			if(foundSplit)
 			{
-				croc_pushStringn(t, segment.ptr, segment.length);
+				croc_pushStringn(t, cast(const char*)segment.ptr, segment.length);
 				croc_namespace_newWithParent(t, ns, croc_getString(t, -1));
 				croc_swapTop(t);
 				croc_dup(t, -2);
@@ -118,7 +118,7 @@ namespace croc
 			}
 			else
 			{
-				croc_pushStringn(t, segment.ptr, segment.length);
+				croc_pushStringn(t, cast(const char*)segment.ptr, segment.length);
 
 				if(croc_hasFieldStk(t, ns, -1))
 				{
@@ -126,7 +126,8 @@ namespace croc
 
 					if(!croc_isNamespace(t, -1))
 						croc_eh_throwStd(t, "ImportException",
-							"Error loading module '%.*s': conflicts with existing global", name.length, name.ptr);
+							"Error loading module '%.*s': conflicts with existing global",
+							name.length, cast(const char*)name.ptr);
 
 					croc_insertAndPop(t, ns);
 				}
@@ -184,7 +185,7 @@ namespace croc
 		// Add it to the globals
 		if(foundSplit)
 		{
-			croc_pushStringn(t, childName.ptr, childName.length);
+			croc_pushStringn(t, cast(const char*)childName.ptr, childName.length);
 			croc_dup(t, firstChild);
 			croc_fieldaStk(t, firstParent);
 		}
@@ -213,7 +214,7 @@ namespace croc
 			{
 				auto reg = croc_idxi(t, loaders, i);
 				croc_pushNull(t);
-				croc_pushStringn(t, name.ptr, name.length);
+				croc_pushStringn(t, cast(const char*)name.ptr, name.length);
 				croc_call(t, reg, 1);
 
 				if(croc_isFuncdef(t, reg) || croc_isFunction(t, reg))
@@ -263,7 +264,7 @@ namespace croc
 			return 1;
 
 		croc_pop(t, 2);
-		return commonLoad(t, crocstr::n(name, nameLen));
+		return commonLoad(t, crocstr::n(cast(const uchar*)name, nameLen));
 	}
 
 	word_t _reload(CrocThread* t)
@@ -280,7 +281,7 @@ namespace croc
 				nameLen, name);
 
 		croc_pop(t, 2);
-		return commonLoad(t, crocstr::n(name, nameLen));
+		return commonLoad(t, crocstr::n(cast(uchar*)name, nameLen));
 	}
 
 	word_t _runMain(CrocThread* t)
