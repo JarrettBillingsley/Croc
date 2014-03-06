@@ -16,6 +16,15 @@ namespace croc
 		return a < b ? -1 : a > b ? 1 : 0;
 	}
 
+	template<typename T>
+	inline T abs(T t) { if(t < 0) return -t; else return t; }
+
+	template<typename T>
+	inline T min(T a, T b) { if(a < b) return a; else return b; }
+
+	template<typename T>
+	inline T max(T a, T b) { if(a > b) return a; else return b; }
+
 	inline DArray<const char> atoda(const char* str)
 	{
 		return DArray<const char>::n(str, strlen(str));

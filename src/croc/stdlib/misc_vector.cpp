@@ -201,9 +201,6 @@ namespace croc
 		return croc_call(t, -5, 1);
 	}
 
-	template<typename T>
-	inline T abs(T t) { if(t < 0) return -t; else return t; }
-
 #define IMOD(a, b) ((a) % (b))
 #define FMOD(a, b) (fmod((a), (b)))
 

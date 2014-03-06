@@ -142,7 +142,7 @@ extern "C"
 		initMemblockLib(*t);
 		// initTextLib(*t); // depends on memblock
 		// initStreamLib(*t); // depends on math, object, text
-		// initArrayLib(*t);
+		initArrayLib(*t);
 		// initAsciiLib(*t);
 		// CompilerLib.init(*t);
 		// initConsoleLib(*t); // depends on stream
