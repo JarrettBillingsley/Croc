@@ -828,6 +828,34 @@ namespace croc
 	}
 
 	/**
+	Given a valid UTF-16 string, get how many bytes it would take to encode it as UTF-8.
+	*/
+	size_t fastUtf16GetUtf8Size(cwstring str)
+	{
+		size_t ret = 0;
+
+		for(auto p = str.ptr, e = p + str.length; p < e; )
+		{
+			dchar ch;
+			auto ok = decodeUtf16Char(p, e, ch);
+			assert(ok == UtfError_OK);
+#ifdef NDEBUG
+			(void)ok
+#endif
+			if(ch < 0x80)
+				ret++;
+			else if(ch < 0x800)
+				ret += 2;
+			else if(ch < 0x10000)
+				ret += 3;
+			else
+				ret += 4;
+		}
+
+		return ret;
+	}
+
+	/**
 	Given a valid UTF-32 string, get how many bytes it would take to encode it as UTF-8.
 	*/
 	size_t fastUtf32GetUtf8Size(cdstring str)
@@ -844,6 +872,26 @@ namespace croc
 				ret += 3;
 			else
 				ret += 4;
+		}
+
+		return ret;
+	}
+
+	/**
+	Given a valid UTF-8 string, count how many UTF-16 code units it would take to encode it.
+	*/
+	size_t fastUtf8GetUtf16Size(custring str)
+	{
+		size_t ret = 0;
+
+		for(auto p = str.ptr, e = p + str.length; p < e; )
+		{
+			auto ch = fastDecodeUtf8Char(p);
+
+			if(ch < 0x10000)
+				ret++;
+			else
+				ret += 2;
 		}
 
 		return ret;

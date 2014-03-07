@@ -68,7 +68,9 @@ namespace croc
 	size_t utf8CPIdxToByte(custring str, size_t fake);
 	size_t utf8ByteIdxToCP(custring str, size_t fake);
 	size_t fastUtf8CPLength(custring str);
+	size_t fastUtf16GetUtf8Size(cwstring str);
 	size_t fastUtf32GetUtf8Size(cdstring str);
+	size_t fastUtf8GetUtf16Size(custring str);
 
 	struct DcharIterator
 	{

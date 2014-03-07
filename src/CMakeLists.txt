@@ -93,6 +93,8 @@ set(croc_SRC
 	croc/stdlib/hash.cpp
 	croc/stdlib/helpers/format.cpp
 	croc/stdlib/helpers/format.hpp
+	croc/stdlib/helpers/oscompat.cpp
+	croc/stdlib/helpers/oscompat.hpp
 	croc/stdlib/math.cpp
 	croc/stdlib/memblock.cpp
 	croc/stdlib/misc.cpp
