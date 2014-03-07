@@ -101,6 +101,7 @@ set(croc_SRC
 	croc/stdlib/misc_vector.cpp
 	croc/stdlib/modules.cpp
 	croc/stdlib/object.cpp
+	croc/stdlib/stream.cpp
 	croc/stdlib/string.cpp
 	croc/stdlib/string_stringbuffer.cpp
 	croc/stdlib/text.cpp
@@ -130,6 +131,7 @@ set(croc_SRC
 
 set(croc_CROCSRC
 	croc/stdlib/hash_weaktables.croc
+	croc/stdlib/stream.croc
 	croc/stdlib/text.croc
 )
 

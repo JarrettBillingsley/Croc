@@ -45,7 +45,7 @@ int main(int argc, char** argv)
 		printf("%#04x, ", c);
 	}
 
-	printf("\n};\n\nconst size_t %s_length = %d;\n", name, i);
+	printf("\n\t0\n};\n\nconst size_t %s_length = %d;\n", name, i);
 	fclose(fp);
 	free(name);
 

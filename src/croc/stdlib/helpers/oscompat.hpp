@@ -11,6 +11,8 @@
 
 namespace croc
 {
+	namespace oscompat
+	{
 #ifdef _WIN32
 	typedef HANDLE FileHandle;
 	const FileHandle InvalidHandle = INVALID_HANDLE_VALUE;
@@ -65,8 +67,6 @@ namespace croc
 
 	static_assert(sizeof(FileHandle) <= sizeof(void*), "Can't fit file handle into a nativeobj");
 
-	namespace oscompat
-	{
 	// Most of these functions have some kind of "invalid" return value. If that's returned, then the error message will
 	// be sitting on top of the thread's stack.
 
