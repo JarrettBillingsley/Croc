@@ -63,6 +63,8 @@ namespace croc
 	};
 #endif
 
+	static_assert(sizeof(FileHandle) <= sizeof(void*), "Can't fit file handle into a nativeobj");
+
 	namespace oscompat
 	{
 	// Most of these functions have some kind of "invalid" return value. If that's returned, then the error message will
@@ -81,6 +83,7 @@ namespace croc
 	FileHandle getStderr(CrocThread* t);
 
 	// General-purpose
+	bool isValidHandle(FileHandle f);
 	int64_t read(CrocThread* t, FileHandle f, DArray<uint8_t> data);
 	int64_t write(CrocThread* t, FileHandle f, DArray<uint8_t> data);
 	uint64_t seek(CrocThread* t, FileHandle f, uint64_t pos, Whence whence);

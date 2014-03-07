@@ -129,6 +129,22 @@ namespace croc
 		return ret;
 	}
 
+	bool isValidHandle(FileHandle f)
+	{
+		bool ret = true;
+		DWORD dummy;
+
+		if(!GetHandleInformation(f, &dummy))
+		{
+			if(GetLastError() == ERROR_INVALID_HANDLE)
+				ret = false;
+
+			SetLastError(ERROR_SUCCESS);
+		}
+
+		return ret;
+	}
+
 	int64_t read(CrocThread* t, FileHandle f, DArray<uint8_t> data)
 	{
 		DWORD bytesRead;
@@ -189,6 +205,21 @@ namespace croc
 	}
 #else
 #error "Unimplemented"
+
+	bool isValidHandle(FileHandle f)
+	{
+		bool ret = true;
+
+		if(fcntl(f, F_GETFL) == -1)
+		{
+			if(errno == EBADF)
+				ret = false;
+
+			errno = 0;
+		}
+
+		return ret;
+	}
 #endif
 	}
 }
