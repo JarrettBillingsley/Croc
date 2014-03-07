@@ -1,5 +1,5 @@
-#ifndef CROC_UTF_HPP
-#define CROC_UTF_HPP
+#ifndef CROC_UTIL_UTF_HPP
+#define CROC_UTIL_UTF_HPP
 
 namespace croc
 {
