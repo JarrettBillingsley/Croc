@@ -8,7 +8,7 @@
 #include "croc/internal/calls.hpp"
 #include "croc/internal/interpreter.hpp"
 #include "croc/internal/stack.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 #define BUFFERLENGTH 120
 #define PUSHFMT(...)\

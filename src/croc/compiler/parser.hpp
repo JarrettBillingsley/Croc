@@ -6,7 +6,7 @@
 #include "croc/compiler/ast.hpp"
 #include "croc/compiler/lexer.hpp"
 #include "croc/compiler/types.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

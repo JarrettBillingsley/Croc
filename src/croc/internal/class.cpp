@@ -2,7 +2,7 @@
 #include "croc/api.h"
 #include "croc/internal/basic.hpp"
 #include "croc/internal/class.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

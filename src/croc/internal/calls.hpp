@@ -2,7 +2,7 @@
 #define CROC_INTERNAL_CALLS_HPP
 
 #include "croc/base/metamethods.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

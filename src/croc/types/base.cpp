@@ -1,7 +1,7 @@
 #include "croc/base/hash.hpp"
 #include "croc/base/sanity.hpp"
 #include "croc/apitypes.h"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

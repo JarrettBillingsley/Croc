@@ -4,7 +4,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 #include "croc/util/array.hpp"
 
 #define checkMemblockParam(t, n) (croc_ex_checkParam((t), (n), CrocType_Memblock), getMemblock(Thread::from((t)), (n)))

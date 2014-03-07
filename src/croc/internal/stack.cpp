@@ -1,6 +1,6 @@
 
 #include "croc/api.h"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

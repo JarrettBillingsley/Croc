@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 #include "croc/api.h"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 #include "croc/base/gc.hpp"
 #include "croc/api/apichecks.hpp"
 #include "croc/internal/eh.hpp"

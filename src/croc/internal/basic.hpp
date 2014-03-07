@@ -1,7 +1,7 @@
 #ifndef CROC_INTERNAL_BASIC_HPP
 #define CROC_INTERNAL_BASIC_HPP
 
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

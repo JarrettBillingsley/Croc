@@ -1,6 +1,6 @@
 
 #include "croc/base/writebarrier.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 #define SCRIPT_CLOSURE_EXTRA_SIZE(numUpvals) (sizeof(Upval*) * (numUpvals))
 #define NATIVE_CLOSURE_EXTRA_SIZE(numUpvals) (sizeof(Value) * (numUpvals))

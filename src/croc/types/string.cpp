@@ -2,7 +2,7 @@
 #include <functional>
 
 #include "croc/api.h"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 #include "croc/util/misc.hpp"
 #include "croc/util/str.hpp"
 #include "croc/util/utf.hpp"

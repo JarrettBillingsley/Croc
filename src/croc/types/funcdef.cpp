@@ -1,4 +1,4 @@
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

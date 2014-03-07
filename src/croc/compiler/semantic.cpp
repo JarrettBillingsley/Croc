@@ -5,7 +5,7 @@
 #include "croc/compiler/astvisitor.hpp"
 #include "croc/compiler/semantic.hpp"
 #include "croc/compiler/types.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 #include "croc/util/str.hpp"
 
 #define VISIT(e)               do { e = visit(e);                     } while(false)

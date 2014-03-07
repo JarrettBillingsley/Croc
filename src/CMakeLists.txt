@@ -102,9 +102,9 @@ set(croc_SRC
 	croc/stdlib/string.cpp
 	croc/stdlib/string_stringbuffer.cpp
 	croc/stdlib/text.cpp
-	croc/types.cpp
-	croc/types.hpp
 	croc/types/array.cpp
+	croc/types/base.cpp
+	croc/types/base.hpp
 	croc/types/class.cpp
 	croc/types/funcdef.cpp
 	croc/types/function.cpp

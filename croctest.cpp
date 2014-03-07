@@ -4,7 +4,7 @@
 #include "croc/api.h"
 
 #include "croc/util/str.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 word_t println(CrocThread* t)
 {

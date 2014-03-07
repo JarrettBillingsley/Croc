@@ -1,7 +1,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/variables.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

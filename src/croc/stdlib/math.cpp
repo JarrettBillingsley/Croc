@@ -5,7 +5,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

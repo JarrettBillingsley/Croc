@@ -3,7 +3,7 @@
 
 #include "croc/apitypes.h"
 #include "croc/compiler/types.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 inline void* operator new(croc::uword size, croc::Compiler& c)
 {

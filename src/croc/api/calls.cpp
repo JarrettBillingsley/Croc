@@ -4,7 +4,7 @@
 #include "croc/internal/calls.hpp"
 #include "croc/internal/eh.hpp"
 #include "croc/internal/stack.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 #define COMMON_CALL_GUNK()\
 	auto t = Thread::from(t_);\

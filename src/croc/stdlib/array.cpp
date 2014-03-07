@@ -4,7 +4,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 #include "croc/util/array.hpp"
 
 namespace croc

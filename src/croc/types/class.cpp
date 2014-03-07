@@ -2,7 +2,7 @@
 #include "croc/base/hash.hpp"
 #include "croc/base/memory.hpp"
 #include "croc/base/writebarrier.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 #define REMOVEKEYREF(mem, slot)\
 	do {\

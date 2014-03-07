@@ -9,7 +9,7 @@
 
 #include "croc/base/memory.hpp"
 #include "croc/base/gcobject.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 #define WRITE_BARRIER(mem, srcObj)\
 	assert((srcObj)->type != CrocType_Array && (srcObj)->type != CrocType_Table);\

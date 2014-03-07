@@ -1,5 +1,5 @@
-#ifndef CROC_TYPES_HPP
-#define CROC_TYPES_HPP
+#ifndef CROC_TYPES_BASE_HPP
+#define CROC_TYPES_BASE_HPP
 
 #include <setjmp.h>
 #include <stddef.h>

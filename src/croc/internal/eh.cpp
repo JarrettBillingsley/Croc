@@ -8,7 +8,7 @@
 #include "croc/internal/debug.hpp"
 #include "croc/internal/eh.hpp"
 #include "croc/internal/stack.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

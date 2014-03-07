@@ -6,7 +6,7 @@
 #include "croc/internal/format.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/all.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 #include "croc/util/str.hpp"
 
 namespace croc

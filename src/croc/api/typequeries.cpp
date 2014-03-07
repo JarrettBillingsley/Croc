@@ -3,7 +3,7 @@
 #include "croc/api/apichecks.hpp"
 #include "croc/internal/basic.hpp"
 #include "croc/internal/stack.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

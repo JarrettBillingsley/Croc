@@ -5,7 +5,7 @@
 #include "croc/internal/eh.hpp"
 #include "croc/internal/gc.hpp"
 #include "croc/internal/stack.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 namespace croc
 {

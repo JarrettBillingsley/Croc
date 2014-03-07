@@ -13,7 +13,7 @@
 #include "croc/internal/stack.hpp"
 #include "croc/internal/thread.hpp"
 #include "croc/internal/variables.hpp"
-#include "croc/types.hpp"
+#include "croc/types/base.hpp"
 
 #define GetRS()\
 	do {\
