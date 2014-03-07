@@ -88,6 +88,7 @@ set(croc_SRC
 	croc/internal/variables.hpp
 	croc/stdlib/all.hpp
 	croc/stdlib/array.cpp
+	croc/stdlib/ascii.cpp
 	croc/stdlib/console.cpp
 	croc/stdlib/exceptions.cpp
 	croc/stdlib/gc.cpp
