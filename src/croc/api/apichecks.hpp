@@ -1,5 +1,5 @@
-#ifndef CROC_INTERNAL_APICHECKS_HPP
-#define CROC_INTERNAL_APICHECKS_HPP
+#ifndef CROC_API_APICHECKS_HPP
+#define CROC_API_APICHECKS_HPP
 
 #include "croc/internal/stack.hpp"
 

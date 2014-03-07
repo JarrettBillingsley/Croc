@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 set(croc_SRC
+	croc/api/apichecks.hpp
 	croc/api/array.cpp
 	croc/api/basic.cpp
 	croc/api/calls.cpp
@@ -65,7 +66,6 @@ set(croc_SRC
 	croc/ex/strbuffer.cpp
 	croc/ext/jhash.cpp
 	croc/ext/jhash.hpp
-	croc/internal/apichecks.hpp
 	croc/internal/basic.cpp
 	croc/internal/basic.hpp
 	croc/internal/calls.cpp
@@ -156,7 +156,7 @@ foreach(crocsrc ${croc_CROCSRC})
 	endif()
 
 	get_filename_component(outpath "${outfileNative}" PATH)
-	message("outpath: ${outpath}")
+	# message("outpath: ${outpath}")
 	file(MAKE_DIRECTORY "${outpath}")
 
 	# message("in: ${infileNative}, out: ${outfileNative}")

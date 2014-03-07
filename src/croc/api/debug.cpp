@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #include "croc/api.h"
-#include "croc/internal/apichecks.hpp"
+#include "croc/api/apichecks.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types.hpp"
 

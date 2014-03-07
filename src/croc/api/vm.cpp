@@ -11,7 +11,7 @@
 #include "croc/api.h"
 #include "croc/types.hpp"
 #include "croc/base/gc.hpp"
-#include "croc/internal/apichecks.hpp"
+#include "croc/api/apichecks.hpp"
 #include "croc/internal/eh.hpp"
 #include "croc/internal/gc.hpp"
 #include "croc/internal/stack.hpp"
