@@ -8,6 +8,15 @@ namespace croc
 {
 	namespace oscompat
 	{
+	void throwIOEx(CrocThread* t)
+	{
+		croc_eh_pushStd(t, "IOException");
+		croc_pushNull(t);
+		croc_moveToTop(t, -3);
+		croc_call(t, -3, 1);
+		croc_eh_throw(t);
+	}
+
 #ifdef _WIN32
 	void pushSystemErrorMsg(CrocThread* t)
 	{

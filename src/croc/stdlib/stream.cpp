@@ -55,15 +55,6 @@ namespace croc
 		return 0;
 	}
 
-	void throwIOEx(CrocThread* t)
-	{
-		croc_eh_pushStd(t, "IOException");
-		croc_pushNull(t);
-		croc_moveToTop(t, -3);
-		croc_call(t, -3, 1);
-		croc_eh_throw(t);
-	}
-
 	word_t _nativeStreamRead(CrocThread* t)
 	{
 		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, 1);
@@ -78,7 +69,7 @@ namespace croc
 			auto numRead = oscompat::read(t, handle, DArray<uint8_t>::n(dest, size));
 
 			if(numRead == -1)
-				throwIOEx(t);
+				oscompat::throwIOEx(t);
 
 			if(numRead == 0)
 				break; // EOF
@@ -110,7 +101,7 @@ namespace croc
 			auto numWritten = oscompat::write(t, handle, DArray<uint8_t>::n(src, size));
 
 			if(numWritten == -1)
-				throwIOEx(t);
+				oscompat::throwIOEx(t);
 			else if(numWritten == 0)
 			{
 				croc_pushGlobal(t, "EOFException");
@@ -140,7 +131,7 @@ namespace croc
 		auto offs = oscompat::seek(t, handle, offset, realWhence);
 
 		if(offs == cast(uint64_t)-1)
-			throwIOEx(t);
+			oscompat::throwIOEx(t);
 
 		croc_pushInt(t, cast(crocint)offs);
 		return 1;
@@ -151,7 +142,7 @@ namespace croc
 		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, 1);
 
 		if(!oscompat::flush(t, handle))
-			throwIOEx(t);
+			oscompat::throwIOEx(t);
 
 		return 0;
 	}
@@ -161,7 +152,7 @@ namespace croc
 		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, 1);
 
 		if(!oscompat::close(t, handle))
-			throwIOEx(t);
+			oscompat::throwIOEx(t);
 
 		return 0;
 	}

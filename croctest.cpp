@@ -6,28 +6,6 @@
 #include "croc/util/str.hpp"
 #include "croc/types/base.hpp"
 
-word_t println(CrocThread* t)
-{
-	auto size = croc_getStackSize(t);
-
-	for(unsigned int i = 1; i < size; i++)
-	{
-		croc_pushToString(t, i);
-		printf("%s", croc_getString(t, -1));
-		croc_popTop(t);
-	}
-
-	printf("\n");
-
-	return 0;
-}
-
-word_t nasty(CrocThread* t)
-{
-	croc_eh_throwStd(t, "StateError", "YOU'RE MEAN!");
-	return 0;
-}
-
 word_t newThread(CrocThread* t)
 {
 	croc_ex_checkParam(t, 1, CrocType_Function);
@@ -37,8 +15,6 @@ word_t newThread(CrocThread* t)
 
 const CrocRegisterFunc _stupidFuncs[] =
 {
-	{"println",   -1, &println  },
-	{"nasty",      0, &nasty    },
 	{"newThread",  1, &newThread},
 	{nullptr, 0, nullptr}
 };

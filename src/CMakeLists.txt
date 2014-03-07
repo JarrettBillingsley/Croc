@@ -88,6 +88,7 @@ set(croc_SRC
 	croc/internal/variables.hpp
 	croc/stdlib/all.hpp
 	croc/stdlib/array.cpp
+	croc/stdlib/console.cpp
 	croc/stdlib/exceptions.cpp
 	croc/stdlib/gc.cpp
 	croc/stdlib/hash.cpp
@@ -130,6 +131,7 @@ set(croc_SRC
 )
 
 set(croc_CROCSRC
+	croc/stdlib/console.croc
 	croc/stdlib/hash_weaktables.croc
 	croc/stdlib/stream.croc
 	croc/stdlib/text.croc

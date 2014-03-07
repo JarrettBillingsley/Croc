@@ -70,6 +70,8 @@ namespace croc
 	// Most of these functions have some kind of "invalid" return value. If that's returned, then the error message will
 	// be sitting on top of the thread's stack.
 
+	void throwIOEx(CrocThread* t);
+
 	// Misc OS stuff
 	void pushSystemErrorMsg(CrocThread* t);
 
