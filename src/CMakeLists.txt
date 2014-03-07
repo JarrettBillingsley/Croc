@@ -76,8 +76,6 @@ set(croc_SRC
 	croc/internal/debug.hpp
 	croc/internal/eh.cpp
 	croc/internal/eh.hpp
-	croc/internal/format.cpp
-	croc/internal/format.hpp
 	croc/internal/gc.cpp
 	croc/internal/gc.hpp
 	croc/internal/interpreter.cpp
@@ -93,6 +91,8 @@ set(croc_SRC
 	croc/stdlib/exceptions.cpp
 	croc/stdlib/gc.cpp
 	croc/stdlib/hash.cpp
+	croc/stdlib/helpers/format.cpp
+	croc/stdlib/helpers/format.hpp
 	croc/stdlib/math.cpp
 	croc/stdlib/memblock.cpp
 	croc/stdlib/misc.cpp

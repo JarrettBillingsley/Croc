@@ -3,8 +3,8 @@
 #include <limits>
 
 #include "croc/api.h"
-#include "croc/internal/format.hpp"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/helpers/format.hpp"
 #include "croc/types/base.hpp"
 #include "croc/util/str.hpp"
 
