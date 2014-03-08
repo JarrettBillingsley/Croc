@@ -31,7 +31,7 @@ word_t mainStuff(CrocThread* t)
 	croc_fielda(t, -2, "path");
 	croc_popTop(t);
 
-	croc_ex_importModule(t, "samples.simple");
+	croc_ex_import(t, "samples.simple");
 	croc_pushNull(t);
 	croc_ex_lookup(t, "modules.runMain");
 	croc_swapTopWith(t, -3);

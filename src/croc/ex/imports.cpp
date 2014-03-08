@@ -8,15 +8,15 @@ namespace croc
 {
 extern "C"
 {
-	word_t croc_ex_importModule(CrocThread* t, const char* name)
+	word_t croc_ex_import(CrocThread* t, const char* name)
 	{
 		croc_pushString(t, name);
-		croc_ex_importModuleStk(t, -1);
+		croc_ex_importStk(t, -1);
 		croc_insertAndPop(t, -2);
 		return croc_getStackSize(t) - 1;
 	}
 
-	word_t croc_ex_importModuleStk(CrocThread* t_, word_t name)
+	word_t croc_ex_importStk(CrocThread* t_, word_t name)
 	{
 		auto t = Thread::from(t_);
 		name = croc_absIndex(t_, name);
@@ -29,26 +29,30 @@ extern "C"
 		return croc_getStackSize(t_) - 1;
 	}
 
-	word_t croc_ex_importModuleFromString(CrocThread* t, const char* name, const char* src, const char* srcName)
+	word_t croc_ex_importFromStringStk(CrocThread* t_, const char* name, const char* srcName)
 	{
+		auto t = Thread::from(t_);
+		API_CHECK_PARAM(_, -1, String, "source");
+		(void)_;
+
 		if(name == nullptr)
-			croc_eh_throwStd(t, "ApiError", "'name' is null");
+			croc_eh_throwStd(t_, "ApiError", "'name' is null");
 
 		if(srcName == nullptr)
 			srcName = name;
 
-		croc_ex_lookup(t, "modules.customLoaders");
-		croc_pushString(t, src);
+		croc_ex_lookup(t_, "modules.customLoaders");
+		croc_insert(t_, -2);
 		const char* modName;
-		croc_compiler_compileModuleEx(t, srcName, &modName);
+		croc_compiler_compileModuleEx(t_, srcName, &modName);
 
 		if(strcmp(name, modName) != 0)
-			croc_eh_throwStd(t, "ImportException",
+			croc_eh_throwStd(t_, "ImportException",
 				"Import name (%s) does not match name given in module statement (%s)", name, modName);
 
-		croc_fielda(t, -2, modName);
-		croc_popTop(t);
-		return croc_ex_importModule(t, modName);
+		croc_fielda(t_, -2, modName);
+		croc_popTop(t_);
+		return croc_ex_import(t_, modName);
 	}
 }
 }

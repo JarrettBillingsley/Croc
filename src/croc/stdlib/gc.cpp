@@ -110,6 +110,6 @@ namespace croc
 	void initGCLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "gc", &loader);
-		croc_ex_importModuleNoNS(t, "gc");
+		croc_ex_importNoNS(t, "gc");
 	}
 }

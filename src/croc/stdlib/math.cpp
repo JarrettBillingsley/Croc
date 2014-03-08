@@ -276,6 +276,6 @@ namespace croc
 	void initMathLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "math", &loader);
-		croc_ex_importModuleNoNS(t, "math");
+		croc_ex_importNoNS(t, "math");
 	}
 }

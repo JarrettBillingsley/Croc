@@ -15,18 +15,24 @@ extern "C" {
 // =====================================================================================================================
 // Imports
 
-word_t CROCAPI(importModule)           (CrocThread* t, const char* name);
-word_t CROCAPI(importModuleStk)        (CrocThread* t, word_t name);
-word_t CROCAPI(importModuleFromString) (CrocThread* t, const char* name, const char* src, const char* srcName);
+word_t CROCAPI(import)              (CrocThread* t, const char* name);
+word_t CROCAPI(importStk)           (CrocThread* t, word_t name);
+word_t CROCAPI(importFromStringStk) (CrocThread* t, const char* name, const char* srcName);
 
-#define croc_ex_importModuleNoNS(t, name)\
-	(croc_ex_importModule((t), (name)), croc_pop(t, 1))
+#define croc_ex_importFromString(t, name, src, srcName)\
+	(croc_pushString((t), (src)), croc_ex_importFromStringStk((t), (name), (srcName)))
 
-#define croc_ex_importModuleNoNSStk(t, name)\
-	(croc_ex_importModuleStk((t), (name)), croc_pop(t, 1))
+#define croc_ex_importNoNS(t, name)\
+	(croc_ex_import((t), (name)), croc_pop((t), 1))
 
-#define croc_ex_importModuleFromStringNoNS(t, name, src, srcName)\
-	(croc_ex_importModuleFromString((t), (name), (src), (srcName)), croc_pop(t, 1))
+#define croc_ex_importNoNSStk(t, name)\
+	(croc_ex_importStk((t), (name)), croc_pop((t), 1))
+
+#define croc_ex_importFromStringNoNS(t, name, src, srcName)\
+	(croc_ex_importFromString((t), (name), (src), (srcName)), croc_pop((t), 1))
+
+#define croc_ex_importFromStringNoNSStk(t, name, srcName)\
+	(croc_ex_importFromStringStk((t), (name), (src), (srcName)), croc_pop((t), 1))
 
 // =====================================================================================================================
 // Compilation

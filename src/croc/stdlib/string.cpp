@@ -591,6 +591,6 @@ namespace croc
 	void initStringLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "string", &loader);
-		croc_ex_importModuleNoNS(t, "string");
+		croc_ex_importNoNS(t, "string");
 	}
 }

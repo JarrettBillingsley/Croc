@@ -344,6 +344,6 @@ namespace croc
 	void initExceptionsLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "exceptions", &loader);
-		croc_ex_importModuleNoNS(t, "exceptions");
+		croc_ex_importNoNS(t, "exceptions");
 	}
 }
