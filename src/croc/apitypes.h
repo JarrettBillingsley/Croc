@@ -187,10 +187,9 @@ typedef enum CrocCompilerFlags
 	CrocCompilerFlags_TypeConstraints = 1,
 	CrocCompilerFlags_Asserts = 2,
 	CrocCompilerFlags_Debug = 4,
-	CrocCompilerFlags_DocTable = 8,
-	CrocCompilerFlags_DocDecorators = 16,
+	CrocCompilerFlags_Docs = 8,
 	CrocCompilerFlags_All = CrocCompilerFlags_TypeConstraints | CrocCompilerFlags_Asserts | CrocCompilerFlags_Debug,
-	CrocCompilerFlags_AllDocs = CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators
+	CrocCompilerFlags_AllDocs = CrocCompilerFlags_All | CrocCompilerFlags_Docs
 } CrocCompilerFlags;
 
 /* */

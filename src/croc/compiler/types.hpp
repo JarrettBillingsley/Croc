@@ -86,6 +86,7 @@ namespace croc
 		bool mIsEof;
 		bool mIsLoneStmt;
 		bool mDanglingDoc;
+		bool mLeaveDocTable;
 		word mStringTab;
 
 		BumpAllocator<CROC_COMPILER_PAGE_SIZE> mNodes;
@@ -101,9 +102,10 @@ namespace croc
 
 		inline bool asserts()         { return (mFlags & CrocCompilerFlags_Asserts) != 0; }
 		inline bool typeConstraints() { return (mFlags & CrocCompilerFlags_TypeConstraints) != 0; }
-		inline bool docComments()     { return (mFlags & (CrocCompilerFlags_DocTable | CrocCompilerFlags_DocDecorators)) != 0; }
-		inline bool docTable()        { return (mFlags & CrocCompilerFlags_DocTable) != 0; }
-		inline bool docDecorators()   { return (mFlags & CrocCompilerFlags_DocDecorators) != 0; }
+		inline bool docComments()     { return mLeaveDocTable || (mFlags & CrocCompilerFlags_Docs) != 0; }
+		inline bool docTable()        { return mLeaveDocTable; }
+		inline bool docDecorators()   { return (mFlags & CrocCompilerFlags_Docs) != 0; }
+		inline void leaveDocTable(bool l) { mLeaveDocTable = l; }
 
 		void lexException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
 		void synException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);

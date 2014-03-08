@@ -49,28 +49,53 @@ extern "C"
 		return ret;
 	}
 
+	namespace
+	{
+		int commonCompileModule(CrocThread* t_, const char* name, const char** modName, bool leaveDocTable)
+		{
+			auto t = Thread::from(t_);
+			API_CHECK_NUM_PARAMS(1);
+			API_CHECK_PARAM(src, -1, String, "source code");
+			Compiler c(t);
+			crocstr modNameStr;
+			c.leaveDocTable(leaveDocTable);
+			auto ret = c.compileModule(src->toDArray(), atoda(name), modNameStr);
+			*modName = cast(const char*)modNameStr.ptr;
+			croc_insertAndPop(t_, -2);
+			return (ret >= 0) ? ret - 1 : ret;
+		}
+
+		int commonCompileStmts(CrocThread* t_, const char* name, bool leaveDocTable)
+		{
+			auto t = Thread::from(t_);
+			API_CHECK_NUM_PARAMS(1);
+			API_CHECK_PARAM(src, -1, String, "source code");
+			Compiler c(t);
+			c.leaveDocTable(leaveDocTable);
+			auto ret = c.compileStmts(src->toDArray(), atoda(name));
+			croc_insertAndPop(t_, -2);
+			return (ret >= 0) ? ret - 1 : ret;
+		}
+	}
+
 	int croc_compiler_compileModule(CrocThread* t_, const char* name, const char** modName)
 	{
-		auto t = Thread::from(t_);
-		API_CHECK_NUM_PARAMS(1);
-		API_CHECK_PARAM(src, -1, String, "source code");
-		Compiler c(t);
-		crocstr modNameStr;
-		auto ret = c.compileModule(src->toDArray(), atoda(name), modNameStr);
-		*modName = cast(const char*)modNameStr.ptr;
-		croc_insertAndPop(t_, -2);
-		return (ret >= 0) ? ret - 1 : ret;
+		return commonCompileModule(t_, name, modName, false);
 	}
 
 	int croc_compiler_compileStmts(CrocThread* t_, const char* name)
 	{
-		auto t = Thread::from(t_);
-		API_CHECK_NUM_PARAMS(1);
-		API_CHECK_PARAM(src, -1, String, "source code");
-		Compiler c(t);
-		auto ret = c.compileStmts(src->toDArray(), atoda(name));
-		croc_insertAndPop(t_, -2);
-		return (ret >= 0) ? ret - 1 : ret;
+		return commonCompileStmts(t_, name, false);
+	}
+
+	int croc_compiler_compileModuleDT(CrocThread* t_, const char* name, const char** modName)
+	{
+		return commonCompileModule(t_, name, modName, true);
+	}
+
+	int croc_compiler_compileStmtsDT(CrocThread* t_, const char* name)
+	{
+		return commonCompileStmts(t_, name, true);
 	}
 
 	int croc_compiler_compileExpr(CrocThread* t_, const char* name)

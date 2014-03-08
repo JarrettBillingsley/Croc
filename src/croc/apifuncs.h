@@ -334,11 +334,13 @@ void      CROCAPI(cateq)           (CrocThread* t, word_t dest, uword_t num);
 // =====================================================================================================================
 // Compiler interface
 
-uword_t CROCAPI(compiler_setFlags)      (CrocThread* t, uword_t flags);
-uword_t CROCAPI(compiler_getFlags)      (CrocThread* t);
-int     CROCAPI(compiler_compileModule) (CrocThread* t, const char* name, const char** modName);
-int     CROCAPI(compiler_compileStmts)  (CrocThread* t, const char* name);
-int     CROCAPI(compiler_compileExpr)   (CrocThread* t, const char* name);
+uword_t CROCAPI(compiler_setFlags)        (CrocThread* t, uword_t flags);
+uword_t CROCAPI(compiler_getFlags)        (CrocThread* t);
+int     CROCAPI(compiler_compileModule)   (CrocThread* t, const char* name, const char** modName);
+int     CROCAPI(compiler_compileStmts)    (CrocThread* t, const char* name);
+int     CROCAPI(compiler_compileExpr)     (CrocThread* t, const char* name);
+int     CROCAPI(compiler_compileModuleDT) (CrocThread* t, const char* name, const char** modName);
+int     CROCAPI(compiler_compileStmtsDT)  (CrocThread* t, const char* name);
 
 #define croc_compiler_compileModuleEx(t, name, modName)\
 	do {\
@@ -360,6 +362,21 @@ int     CROCAPI(compiler_compileExpr)   (CrocThread* t, const char* name);
 		if(croc_compiler_compileExpr(_compilerThread_, (name)) < 0)\
 			croc_eh_throw(_compilerThread_);\
 	} while(0)
+
+#define croc_compiler_compileModuleDTEx(t, name, modName)\
+	do {\
+		CrocThread* _compilerThread_ = (t);\
+		if(croc_compiler_compileModuleDT(_compilerThread_, (name), (modName)) < 0)\
+			croc_eh_throw(_compilerThread_);\
+	} while(0)
+
+#define croc_compiler_compileStmtsDTEx(t, name)\
+	do {\
+		CrocThread* _compilerThread_ = (t);\
+		if(croc_compiler_compileStmtsDT(_compilerThread_, (name)) < 0)\
+			croc_eh_throw(_compilerThread_);\
+	} while(0)
+
 
 #ifdef __cplusplus
 } /* extern "C" */

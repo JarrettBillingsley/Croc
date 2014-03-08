@@ -21,7 +21,7 @@ const CrocRegisterFunc _stupidFuncs[] =
 
 word_t mainStuff(CrocThread* t)
 {
-	croc_compiler_setFlags(t, CrocCompilerFlags_All | CrocCompilerFlags_DocDecorators);
+	croc_compiler_setFlags(t, CrocCompilerFlags_AllDocs);
 	croc_ex_registerGlobals(t, _stupidFuncs);
 
 	croc_pushGlobal(t, "modules");
