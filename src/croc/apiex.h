@@ -40,7 +40,6 @@ CROCAPI word_t croc_ex_importFromStringNSStk (CrocThread* t, const char* name, c
 CROCAPI word_t  croc_ex_loadStringWithEnvStk (CrocThread* t, const char* name);
 CROCAPI void    croc_ex_runStringWithEnvStk  (CrocThread* t, const char* name);
 CROCAPI uword_t croc_ex_evalWithEnvStk       (CrocThread* t, word_t numReturns);
-CROCAPI void    croc_ex_runFile              (CrocThread* t, const char* filename, uword_t numParams);
 CROCAPI void    croc_ex_runModule            (CrocThread* t, const char* moduleName, uword_t numParams);
 
 #define croc_ex_loadString(t, code, name)\
