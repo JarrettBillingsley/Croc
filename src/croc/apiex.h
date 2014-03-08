@@ -5,7 +5,7 @@
 
 #include "croc/apitypes.h"
 
-#define CROCAPI(f) croc_ex_##f
+#define CROCAPI
 #define CROCPRINT(a, b) __attribute__((format(printf, a, b)))
 
 #ifdef __cplusplus
@@ -15,81 +15,93 @@ extern "C" {
 // =====================================================================================================================
 // Imports
 
-word_t CROCAPI(import)              (CrocThread* t, const char* name);
-word_t CROCAPI(importStk)           (CrocThread* t, word_t name);
-word_t CROCAPI(importFromStringStk) (CrocThread* t, const char* name, const char* srcName);
+CROCAPI word_t croc_ex_importNS              (CrocThread* t, const char* name);
+CROCAPI word_t croc_ex_importNSStk           (CrocThread* t, word_t name);
+CROCAPI word_t croc_ex_importFromStringNSStk (CrocThread* t, const char* name, const char* srcName);
+
+#define croc_ex_importFromStringNS(t, name, src, srcName)\
+	(croc_pushString((t), (src)), croc_ex_importFromStringNSStk((t), (name), (srcName)))
+
+#define croc_ex_import(t, name)\
+	(croc_ex_importNS((t), (name)), croc_pop((t), 1))
+
+#define croc_ex_importStk(t, name)\
+	(croc_ex_importNSStk((t), (name)), croc_pop((t), 1))
 
 #define croc_ex_importFromString(t, name, src, srcName)\
-	(croc_pushString((t), (src)), croc_ex_importFromStringStk((t), (name), (srcName)))
+	(croc_ex_importFromStringNS((t), (name), (src), (srcName)), croc_pop((t), 1))
 
-#define croc_ex_importNoNS(t, name)\
-	(croc_ex_import((t), (name)), croc_pop((t), 1))
-
-#define croc_ex_importNoNSStk(t, name)\
-	(croc_ex_importStk((t), (name)), croc_pop((t), 1))
-
-#define croc_ex_importFromStringNoNS(t, name, src, srcName)\
-	(croc_ex_importFromString((t), (name), (src), (srcName)), croc_pop((t), 1))
-
-#define croc_ex_importFromStringNoNSStk(t, name, srcName)\
-	(croc_ex_importFromStringStk((t), (name), (src), (srcName)), croc_pop((t), 1))
+#define croc_ex_importFromStringStk(t, name, srcName)\
+	(croc_ex_importFromStringNSStk((t), (name), (src), (srcName)), croc_pop((t), 1))
 
 // =====================================================================================================================
 // Compilation
 
-word_t  CROCAPI(loadStringNamed)        (CrocThread* t, const char* code, const char* name);
-word_t  CROCAPI(loadStringWithEnvNamed) (CrocThread* t, const char* code, const char* name);
-void    CROCAPI(runStringNamed)         (CrocThread* t, const char* code, const char* name);
-void    CROCAPI(runStringWithEnvNamed)  (CrocThread* t, const char* code, const char* name);
-uword_t CROCAPI(eval)                   (CrocThread* t, const char* code, word_t numReturns);
-uword_t CROCAPI(evalWithEnv)            (CrocThread* t, const char* code, word_t numReturns);
-void    CROCAPI(runFile)                (CrocThread* t, const char* filename, uword_t numParams);
-void    CROCAPI(runModule)              (CrocThread* t, const char* moduleName, uword_t numParams);
+CROCAPI word_t  croc_ex_loadStringWithEnvStk (CrocThread* t, const char* name);
+CROCAPI void    croc_ex_runStringWithEnvStk  (CrocThread* t, const char* name);
+CROCAPI uword_t croc_ex_evalWithEnvStk       (CrocThread* t, word_t numReturns);
+CROCAPI void    croc_ex_runFile              (CrocThread* t, const char* filename, uword_t numParams);
+CROCAPI void    croc_ex_runModule            (CrocThread* t, const char* moduleName, uword_t numParams);
 
-#define croc_ex_loadString(t, code)\
-	(croc_ex_loadStringNamed((t), (code), "<loaded from string>"))
+#define croc_ex_loadString(t, code, name)\
+	(croc_pushString((t), (code)), croc_pushCurEnvironment(t), croc_ex_loadStringWithEnvStk((t), (name)))
 
-#define croc_ex_loadStringWithEnv(t, code)\
-	(croc_ex_loadStringWithEnvNamed((t), (code), "<loaded from string>"))
+#define croc_ex_loadStringStk(t, name)\
+	(croc_pushCurEnvironment(t), croc_ex_loadStringWithEnvStk((t), (name)))
 
-#define croc_ex_runString(t, code)\
-	(croc_ex_runStringNamed((t), (code), "<loaded from string>"))
+#define croc_ex_loadStringWithEnv(t, code, name)\
+	(croc_pushString((t), (code)), croc_swapTop(t), croc_ex_loadStringWithEnvStk((t), (name)))
 
-#define croc_ex_runStringWithEnv(t, code)\
-	(croc_ex_runStringWithEnvNamed((t), (code), "<loaded from string>"))
+#define croc_ex_runString(t, code, name)\
+	(croc_pushString((t), (code)), croc_pushCurEnvironment(t), croc_ex_runStringWithEnvStk((t), (name)))
+
+#define croc_ex_runStringStk(t, name)\
+	(croc_pushCurEnvironment(t), croc_ex_runStringWithEnvStk((t), (name)))
+
+#define croc_ex_runStringWithEnv(t, code, name)\
+	(croc_pushString((t), (code)), croc_swapTop(t), croc_ex_runStringWithEnvStk((t), (name)))
+
+#define croc_ex_eval(t, code, numReturns)\
+	(croc_pushString((t), (code)), croc_pushCurEnvironment(t), croc_ex_evalWithEnvStk((t), (numReturns)))
+
+#define croc_ex_evalStk(t, numReturns)\
+	(croc_pushCurEnvironment(t), croc_ex_evalWithEnvStk((t), (numReturns)))
+
+#define croc_ex_evalWithEnv(t, code, numReturns)\
+	(croc_pushString((t), (code)), croc_swapTop(t), croc_ex_evalWithEnvStk((t), (numReturns)))
 
 // =====================================================================================================================
 // Common tasks
 
-word_t CROCAPI(lookup)          (CrocThread* t, const char* name);
-word_t CROCAPI(pushRegistryVar) (CrocThread* t, const char* name);
-void   CROCAPI(setRegistryVar)  (CrocThread* t, const char* name);
+CROCAPI word_t croc_ex_lookup          (CrocThread* t, const char* name);
+CROCAPI word_t croc_ex_pushRegistryVar (CrocThread* t, const char* name);
+CROCAPI void   croc_ex_setRegistryVar  (CrocThread* t, const char* name);
 
 // =====================================================================================================================
 // Parameter checking
 
-void        CROCAPI(checkAnyParam)        (CrocThread* t, word_t index);
-int         CROCAPI(checkBoolParam)       (CrocThread* t, word_t index);
-crocint_t   CROCAPI(checkIntParam)        (CrocThread* t, word_t index);
-crocfloat_t CROCAPI(checkFloatParam)      (CrocThread* t, word_t index);
-crocfloat_t CROCAPI(checkNumParam)        (CrocThread* t, word_t index);
-const char* CROCAPI(checkStringParam)     (CrocThread* t, word_t index);
-const char* CROCAPI(checkStringParamn)    (CrocThread* t, word_t index, uword_t* len);
-crocchar_t  CROCAPI(checkCharParam)       (CrocThread* t, word_t index);
-void        CROCAPI(checkInstParam)       (CrocThread* t, word_t index, const char* name);
-void        CROCAPI(checkInstParamSlot)   (CrocThread* t, word_t index, word_t classIndex);
-void        CROCAPI(checkParam)           (CrocThread* t, word_t index, CrocType type);
+CROCAPI void        croc_ex_checkAnyParam        (CrocThread* t, word_t index);
+CROCAPI int         croc_ex_checkBoolParam       (CrocThread* t, word_t index);
+CROCAPI crocint_t   croc_ex_checkIntParam        (CrocThread* t, word_t index);
+CROCAPI crocfloat_t croc_ex_checkFloatParam      (CrocThread* t, word_t index);
+CROCAPI crocfloat_t croc_ex_checkNumParam        (CrocThread* t, word_t index);
+CROCAPI const char* croc_ex_checkStringParam     (CrocThread* t, word_t index);
+CROCAPI const char* croc_ex_checkStringParamn    (CrocThread* t, word_t index, uword_t* len);
+CROCAPI crocchar_t  croc_ex_checkCharParam       (CrocThread* t, word_t index);
+CROCAPI void        croc_ex_checkInstParam       (CrocThread* t, word_t index, const char* name);
+CROCAPI void        croc_ex_checkInstParamSlot   (CrocThread* t, word_t index, word_t classIndex);
+CROCAPI void        croc_ex_checkParam           (CrocThread* t, word_t index, CrocType type);
 
-int         CROCAPI(optBoolParam)         (CrocThread* t, word_t index, int def);
-crocint_t   CROCAPI(optIntParam)          (CrocThread* t, word_t index, crocint_t def);
-crocfloat_t CROCAPI(optFloatParam)        (CrocThread* t, word_t index, crocfloat_t def);
-crocfloat_t CROCAPI(optNumParam)          (CrocThread* t, word_t index, crocfloat_t def);
-const char* CROCAPI(optStringParam)       (CrocThread* t, word_t index, const char* def);
-const char* CROCAPI(optStringParamn)      (CrocThread* t, word_t index, const char* def, uword_t* len);
-crocchar_t  CROCAPI(optCharParam)         (CrocThread* t, word_t index, crocchar_t def);
-int         CROCAPI(optParam)             (CrocThread* t, word_t index, CrocType type);
+CROCAPI int         croc_ex_optBoolParam         (CrocThread* t, word_t index, int def);
+CROCAPI crocint_t   croc_ex_optIntParam          (CrocThread* t, word_t index, crocint_t def);
+CROCAPI crocfloat_t croc_ex_optFloatParam        (CrocThread* t, word_t index, crocfloat_t def);
+CROCAPI crocfloat_t croc_ex_optNumParam          (CrocThread* t, word_t index, crocfloat_t def);
+CROCAPI const char* croc_ex_optStringParam       (CrocThread* t, word_t index, const char* def);
+CROCAPI const char* croc_ex_optStringParamn      (CrocThread* t, word_t index, const char* def, uword_t* len);
+CROCAPI crocchar_t  croc_ex_optCharParam         (CrocThread* t, word_t index, crocchar_t def);
+CROCAPI int         croc_ex_optParam             (CrocThread* t, word_t index, CrocType type);
 
-word_t      CROCAPI(paramTypeError)       (CrocThread* t, word_t index, const char* expected);
+CROCAPI word_t      croc_ex_paramTypeError       (CrocThread* t, word_t index, const char* expected);
 
 // =====================================================================================================================
 // StrBuffer
@@ -106,21 +118,21 @@ typedef struct CrocStrBuffer
 	unsigned char data[CROC_STR_BUFFER_DATA_LENGTH];
 } CrocStrBuffer;
 
-void   CROCAPI(buffer_init)        (CrocThread* t, CrocStrBuffer* b);
-void   CROCAPI(buffer_addChar)     (CrocStrBuffer* b, crocchar_t c);
-void   CROCAPI(buffer_addString)   (CrocStrBuffer* b, const char* s);
-void   CROCAPI(buffer_addStringn)  (CrocStrBuffer* b, const char* s, uword_t len);
-void   CROCAPI(buffer_addTop)      (CrocStrBuffer* b);
-word_t CROCAPI(buffer_finish)      (CrocStrBuffer* b);
-void   CROCAPI(buffer_start)       (CrocStrBuffer* b);
-char*  CROCAPI(buffer_prepare)     (CrocStrBuffer* b, uword_t size);
-void   CROCAPI(buffer_addPrepared) (CrocStrBuffer* b);
+CROCAPI void   croc_ex_buffer_init        (CrocThread* t, CrocStrBuffer* b);
+CROCAPI void   croc_ex_buffer_addChar     (CrocStrBuffer* b, crocchar_t c);
+CROCAPI void   croc_ex_buffer_addString   (CrocStrBuffer* b, const char* s);
+CROCAPI void   croc_ex_buffer_addStringn  (CrocStrBuffer* b, const char* s, uword_t len);
+CROCAPI void   croc_ex_buffer_addTop      (CrocStrBuffer* b);
+CROCAPI word_t croc_ex_buffer_finish      (CrocStrBuffer* b);
+CROCAPI void   croc_ex_buffer_start       (CrocStrBuffer* b);
+CROCAPI char*  croc_ex_buffer_prepare     (CrocStrBuffer* b, uword_t size);
+CROCAPI void   croc_ex_buffer_addPrepared (CrocStrBuffer* b);
 
 // =====================================================================================================================
 // Exception handling
 
-void CROCAPI(throwNamedException)  (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
-void CROCAPI(vthrowNamedException) (CrocThread* t, const char* exName, const char* fmt, va_list args);
+CROCAPI void croc_ex_throwNamedException  (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
+CROCAPI void croc_ex_vthrowNamedException (CrocThread* t, const char* exName, const char* fmt, va_list args);
 
 // TODO: come up with something for this? macros?
 // void croctry(CrocThread* t, void delegate() try_, void delegate(CrocException, word_t) catch_, void delegate() finally_ = null)
@@ -150,17 +162,17 @@ void CROCAPI(vthrowNamedException) (CrocThread* t, const char* exName, const cha
 // =====================================================================================================================
 // Doc comments
 
-void   CROCAPI(processDocComment)    (CrocThread* t, const char* comment);
-void   CROCAPI(processDocCommentn)   (CrocThread* t, const char* comment, uword_t len);
-word_t CROCAPI(parseDocCommentText)  (CrocThread* t, const char* comment);
-word_t CROCAPI(parseDocCommentTextn) (CrocThread* t, const char* comment, uword_t len);
+CROCAPI void   croc_ex_processDocComment    (CrocThread* t, const char* comment);
+CROCAPI void   croc_ex_processDocCommentn   (CrocThread* t, const char* comment, uword_t len);
+CROCAPI word_t croc_ex_parseDocCommentText  (CrocThread* t, const char* comment);
+CROCAPI word_t croc_ex_parseDocCommentTextn (CrocThread* t, const char* comment, uword_t len);
 
 // =====================================================================================================================
 // JSON
 
-word_t CROCAPI(fromJSON)  (CrocThread* t, const char* source);
-word_t CROCAPI(fromJSONn) (CrocThread* t, const char* source, uword_t len);
-void   CROCAPI(toJSON)    (CrocThread* t, word_t root, int pretty, void(*output)(const char*, uword_t), void(*nl)());
+CROCAPI word_t croc_ex_fromJSON  (CrocThread* t, const char* source);
+CROCAPI word_t croc_ex_fromJSONn (CrocThread* t, const char* source, uword_t len);
+CROCAPI void   croc_ex_toJSON    (CrocThread* t, word_t root, int pretty, void(*output)(const char*, uword_t), void(*nl)());
 
 // =====================================================================================================================
 // Library helpers
@@ -208,18 +220,18 @@ typedef struct CrocDoc
 	uword_t mDittoDepth;
 } CrocDoc;
 
-void CROCAPI(makeModule)      (CrocThread* t, const char* name, CrocNativeFunc loader);
-void CROCAPI(registerGlobal)  (CrocThread* t, CrocRegisterFunc f);
-void CROCAPI(registerField)   (CrocThread* t, CrocRegisterFunc f);
-void CROCAPI(registerMethod)  (CrocThread* t, CrocRegisterFunc f);
-void CROCAPI(registerGlobals) (CrocThread* t, const CrocRegisterFunc* funcs);
-void CROCAPI(registerFields)  (CrocThread* t, const CrocRegisterFunc* funcs);
-void CROCAPI(registerMethods) (CrocThread* t, const CrocRegisterFunc* funcs);
+CROCAPI void croc_ex_makeModule      (CrocThread* t, const char* name, CrocNativeFunc loader);
+CROCAPI void croc_ex_registerGlobal  (CrocThread* t, CrocRegisterFunc f);
+CROCAPI void croc_ex_registerField   (CrocThread* t, CrocRegisterFunc f);
+CROCAPI void croc_ex_registerMethod  (CrocThread* t, CrocRegisterFunc f);
+CROCAPI void croc_ex_registerGlobals (CrocThread* t, const CrocRegisterFunc* funcs);
+CROCAPI void croc_ex_registerFields  (CrocThread* t, const CrocRegisterFunc* funcs);
+CROCAPI void croc_ex_registerMethods (CrocThread* t, const CrocRegisterFunc* funcs);
 
-void CROCAPI(doc_init)            (CrocThread* t, CrocDoc* d, const char* file);
-void CROCAPI(doc_push)            (CrocDoc* d, CrocDocTable* docs);
-void CROCAPI(doc_popNamed)        (CrocDoc* d, word_t idx, const char* parentField);
-void CROCAPI(doc_mergeModuleDocs) (CrocDoc* d);
+CROCAPI void croc_ex_doc_init            (CrocThread* t, CrocDoc* d, const char* file);
+CROCAPI void croc_ex_doc_push            (CrocDoc* d, CrocDocTable* docs);
+CROCAPI void croc_ex_doc_popNamed        (CrocDoc* d, word_t idx, const char* parentField);
+CROCAPI void croc_ex_doc_mergeModuleDocs (CrocDoc* d);
 
 #define croc_ex_doc_pop(d, idx) (croc_ex_doc_popNamed((d), (idx), "children"))
 #define croc_ex_doc_pushPopNamed(d, docs, parentField)\
@@ -227,19 +239,19 @@ void CROCAPI(doc_mergeModuleDocs) (CrocDoc* d);
 #define croc_ex_doc_pushPop(d, docs)\
 	(croc_ex_doc_push((d), (docs)), croc_ex_doc_pop((d), -1))
 
-void CROCAPI(docGlobals) (CrocThread* t, CrocDoc* doc, CrocDocTable* docs);
-void CROCAPI(docFields)  (CrocThread* t, CrocDoc* doc, CrocDocTable* docs);
+CROCAPI void croc_ex_docGlobals (CrocThread* t, CrocDoc* doc, CrocDocTable* docs);
+CROCAPI void croc_ex_docFields  (CrocThread* t, CrocDoc* doc, CrocDocTable* docs);
 
 // =====================================================================================================================
 // Serialization
 
 // TODO: these should take parameters which can be wrapped by stream.NativeStream, whatever that type may be.
-// void   CROCAPI(serializeGraph)     (CrocThread* t, word_t idx, word_t trans, OutputStream output);
-// word_t CROCAPI(deserializeGraph)   (CrocThread* t, word_t trans, InputStream input);
-// void   CROCAPI(serializeModule)    (CrocThread* t, word_t idx, const char* name, OutputStream output);
-// void   CROCAPI(serializeModulen)   (CrocThread* t, word_t idx, const char* name, uword_t len, OutputStream output);
-// word_t CROCAPI(deserializeModule)  (CrocThread* t, const char** name, InputStream input);
-// word_t CROCAPI(deserializeModulen) (CrocThread* t, const char** name, uword_t* len, InputStream input);
+// CROCAPI void   croc_ex_serializeGraph     (CrocThread* t, word_t idx, word_t trans, OutputStream output);
+// CROCAPI word_t croc_ex_deserializeGraph   (CrocThread* t, word_t trans, InputStream input);
+// CROCAPI void   croc_ex_serializeModule    (CrocThread* t, word_t idx, const char* name, OutputStream output);
+// CROCAPI void   croc_ex_serializeModulen   (CrocThread* t, word_t idx, const char* name, uword_t len, OutputStream output);
+// CROCAPI word_t croc_ex_deserializeModule  (CrocThread* t, const char** name, InputStream input);
+// CROCAPI word_t croc_ex_deserializeModulen (CrocThread* t, const char** name, uword_t* len, InputStream input);
 
 #ifdef __cplusplus
 } /* extern "C" */

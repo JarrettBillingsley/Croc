@@ -278,6 +278,6 @@ namespace croc
 	void initObjectLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "object", &loader);
-		croc_ex_importNoNS(t, "object");
+		croc_ex_import(t, "object");
 	}
 }

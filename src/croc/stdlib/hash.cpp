@@ -506,6 +506,6 @@ namespace croc
 	void initHashLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "hash", &loader);
-		croc_ex_importNoNS(t, "hash");
+		croc_ex_import(t, "hash");
 	}
 }

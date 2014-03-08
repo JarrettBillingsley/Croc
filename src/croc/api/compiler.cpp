@@ -61,7 +61,7 @@ extern "C"
 			c.leaveDocTable(leaveDocTable);
 			auto ret = c.compileModule(src->toDArray(), atoda(name), modNameStr);
 			*modName = cast(const char*)modNameStr.ptr;
-			croc_insertAndPop(t_, -2);
+			croc_remove(t_, (ret >= 0 && leaveDocTable) ? -3 : -2);
 			return (ret >= 0) ? ret - 1 : ret;
 		}
 
@@ -73,7 +73,7 @@ extern "C"
 			Compiler c(t);
 			c.leaveDocTable(leaveDocTable);
 			auto ret = c.compileStmts(src->toDArray(), atoda(name));
-			croc_insertAndPop(t_, -2);
+			croc_remove(t_, (ret >= 0 && leaveDocTable) ? -3 : -2);
 			return (ret >= 0) ? ret - 1 : ret;
 		}
 	}

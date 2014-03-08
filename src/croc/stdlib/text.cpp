@@ -530,7 +530,7 @@ namespace croc
 			croc_ex_registerFields(t, _globalFuncs);
 		croc_newGlobal(t, "_texttmp");
 
-		croc_ex_importFromStringNoNS(t, "text", text_croc_text, "text.croc");
+		croc_ex_importFromString(t, "text", text_croc_text, "text.croc");
 
 		croc_pushGlobal(t, "_G");
 		croc_pushString(t, "_texttmp");

@@ -1125,6 +1125,6 @@ namespace croc
 	void initArrayLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "array", &loader);
-		croc_ex_importNoNS(t, "array");
+		croc_ex_import(t, "array");
 	}
 }

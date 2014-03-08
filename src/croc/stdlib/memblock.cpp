@@ -468,6 +468,6 @@ namespace croc
 	void initMemblockLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "memblock", &loader);
-		croc_ex_importNoNS(t, "memblock");
+		croc_ex_import(t, "memblock");
 	}
 }

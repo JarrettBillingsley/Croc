@@ -261,6 +261,6 @@ namespace croc
 	void initAsciiLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "ascii", &loader);
-		croc_ex_importNoNS(t, "ascii");
+		croc_ex_import(t, "ascii");
 	}
 }

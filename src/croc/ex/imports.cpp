@@ -8,15 +8,15 @@ namespace croc
 {
 extern "C"
 {
-	word_t croc_ex_import(CrocThread* t, const char* name)
+	word_t croc_ex_importNS(CrocThread* t, const char* name)
 	{
 		croc_pushString(t, name);
-		croc_ex_importStk(t, -1);
+		croc_ex_importNSStk(t, -1);
 		croc_insertAndPop(t, -2);
 		return croc_getStackSize(t) - 1;
 	}
 
-	word_t croc_ex_importStk(CrocThread* t_, word_t name)
+	word_t croc_ex_importNSStk(CrocThread* t_, word_t name)
 	{
 		auto t = Thread::from(t_);
 		name = croc_absIndex(t_, name);
@@ -29,7 +29,7 @@ extern "C"
 		return croc_getStackSize(t_) - 1;
 	}
 
-	word_t croc_ex_importFromStringStk(CrocThread* t_, const char* name, const char* srcName)
+	word_t croc_ex_importFromStringNSStk(CrocThread* t_, const char* name, const char* srcName)
 	{
 		auto t = Thread::from(t_);
 		API_CHECK_PARAM(_, -1, String, "source");
@@ -52,7 +52,7 @@ extern "C"
 
 		croc_fielda(t_, -2, modName);
 		croc_popTop(t_);
-		return croc_ex_import(t_, modName);
+		return croc_ex_importNS(t_, modName);
 	}
 }
 }

@@ -177,7 +177,7 @@ namespace croc
 			croc_ex_registerFields(t, _funcs);
 		croc_newGlobal(t, "_streamtmp");
 
-		croc_ex_importFromStringNoNS(t, "stream", stream_croc_text, "stream.croc");
+		croc_ex_importFromString(t, "stream", stream_croc_text, "stream.croc");
 
 		croc_pushGlobal(t, "_G");
 		croc_pushString(t, "_streamtmp");
