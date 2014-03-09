@@ -836,11 +836,11 @@ namespace croc
 
 		for(auto p = str.ptr, e = p + str.length; p < e; )
 		{
-			dchar ch;
+			dchar ch = 0;
 			auto ok = decodeUtf16Char(p, e, ch);
 			assert(ok == UtfError_OK);
 #ifdef NDEBUG
-			(void)ok
+			(void)ok;
 #endif
 			if(ch < 0x80)
 				ret++;

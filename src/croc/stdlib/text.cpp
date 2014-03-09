@@ -523,8 +523,13 @@ namespace croc
 
 	void initTextLib(CrocThread* t)
 	{
-		uint8_t test[2] = {1, 0};
-		isLittleEndian = *(cast(uint16_t*)test) == 1;
+		union
+		{
+			uint32_t i;
+			char c[4];
+		} test = {0x01020304};
+
+		isLittleEndian = test.c[0] == 4;
 
 		croc_table_new(t, 0);
 			croc_ex_registerFields(t, _globalFuncs);

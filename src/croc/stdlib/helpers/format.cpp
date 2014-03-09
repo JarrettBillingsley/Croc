@@ -1,5 +1,6 @@
 
 #include <functional>
+#include <stdio.h>
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"

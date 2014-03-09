@@ -189,7 +189,7 @@ extern "C"
 		if(vm->mem.totalBytes != 0)
 		{
 			LEAK_DETECT(vm->mem.leaks.dumpBlocks());
-			printf("There are %u total unfreed bytes!\n", vm->mem.totalBytes);
+			fprintf(stderr, "There are %u total unfreed bytes!\n", vm->mem.totalBytes);
 		}
 
 		LEAK_DETECT(vm->mem.leaks.cleanup());
