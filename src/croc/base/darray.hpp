@@ -184,6 +184,11 @@ namespace croc
 				return DArray<T>();
 		}
 
+		inline DArray<T> sliceToEnd(size_t lo) const
+		{
+			return slice(lo, length);
+		}
+
 		inline void fill(T val)
 		{
 			for(auto &v: *this)

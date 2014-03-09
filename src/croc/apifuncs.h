@@ -332,13 +332,15 @@ CROCAPI void      croc_cateq           (CrocThread* t, word_t dest, uword_t num)
 // =====================================================================================================================
 // Compiler interface
 
-CROCAPI uword_t croc_compiler_setFlags        (CrocThread* t, uword_t flags);
-CROCAPI uword_t croc_compiler_getFlags        (CrocThread* t);
-CROCAPI int     croc_compiler_compileModule   (CrocThread* t, const char* name, const char** modName);
-CROCAPI int     croc_compiler_compileStmts    (CrocThread* t, const char* name);
-CROCAPI int     croc_compiler_compileExpr     (CrocThread* t, const char* name);
-CROCAPI int     croc_compiler_compileModuleDT (CrocThread* t, const char* name, const char** modName);
-CROCAPI int     croc_compiler_compileStmtsDT  (CrocThread* t, const char* name);
+CROCAPI uword_t croc_compiler_setFlags             (CrocThread* t, uword_t flags);
+CROCAPI uword_t croc_compiler_getFlags             (CrocThread* t);
+CROCAPI int     croc_compiler_compileModule        (CrocThread* t, const char* name, const char** modName);
+CROCAPI int     croc_compiler_compileStmts         (CrocThread* t, const char* name);
+CROCAPI int     croc_compiler_compileExpr          (CrocThread* t, const char* name);
+CROCAPI int     croc_compiler_compileModuleDT      (CrocThread* t, const char* name, const char** modName);
+CROCAPI int     croc_compiler_compileStmtsDT       (CrocThread* t, const char* name);
+CROCAPI word_t  croc_compiler_processDocComment    (CrocThread* t);
+CROCAPI word_t  croc_compiler_parseDocCommentText  (CrocThread* t);
 
 #define croc_compiler_compileModuleEx(t, name, modName)\
 	do {\

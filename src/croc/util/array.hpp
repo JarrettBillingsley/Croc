@@ -372,6 +372,18 @@ namespace croc
 	{
 		return arrFindSubRev(arr, sub, eq, arr.length);
 	}
+
+	template<typename T>
+	inline bool arrStartsWith(DArray<T> arr, DArray<T> other)
+	{
+		return arr.length >= other.length && arr.slice(0, other.length) == other;
+	}
+
+	template<typename T>
+	inline bool arrEndsWith(DArray<T> arr, DArray<T> other)
+	{
+		return arr.length >= other.length && arr.slice(arr.length - other.length, arr.length) == other;
+	}
 }
 
 #endif

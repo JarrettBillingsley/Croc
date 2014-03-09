@@ -1,5 +1,6 @@
 
 #include "croc/api.h"
+#include "croc/compiler/docparser.hpp"
 #include "croc/compiler/types.hpp"
 #include "croc/api/apichecks.hpp"
 #include "croc/internal/stack.hpp"
@@ -108,6 +109,29 @@ extern "C"
 		auto ret = c.compileExpr(src->toDArray(), atoda(name));
 		croc_insertAndPop(t_, -2);
 		return (ret >= 0) ? ret - 1 : ret;
+	}
+
+	word_t croc_compiler_processDocComment(CrocThread* t_)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(2);
+		API_CHECK_PARAM(src, -1, String, "comment source");
+		API_CHECK_PARAM(_, -2, Table, "doctable");
+		(void)_;
+		croc_swapTop(t_);
+		processComment(t_, src->toDArray());
+		croc_remove(t_, -2);
+		return croc_getStackSize(t_) - 1;
+	}
+
+	word_t croc_compiler_parseDocCommentText(CrocThread* t_)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_NUM_PARAMS(1);
+		API_CHECK_PARAM(src, -1, String, "comment source");
+		parseCommentText(t_, src->toDArray());
+		croc_remove(t_, -2);
+		return croc_getStackSize(t_) - 1;
 	}
 }
 }

@@ -159,14 +159,6 @@ CROCAPI void croc_ex_vthrowNamedException (CrocThread* t, const char* exName, co
 // }
 
 // =====================================================================================================================
-// Doc comments
-
-CROCAPI void   croc_ex_processDocComment    (CrocThread* t, const char* comment);
-CROCAPI void   croc_ex_processDocCommentn   (CrocThread* t, const char* comment, uword_t len);
-CROCAPI word_t croc_ex_parseDocCommentText  (CrocThread* t, const char* comment);
-CROCAPI word_t croc_ex_parseDocCommentTextn (CrocThread* t, const char* comment, uword_t len);
-
-// =====================================================================================================================
 // JSON
 
 CROCAPI word_t croc_ex_fromJSON  (CrocThread* t, const char* source);
