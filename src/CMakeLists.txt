@@ -109,6 +109,7 @@ set(croc_SRC
 	croc/stdlib/string.cpp
 	croc/stdlib/string_stringbuffer.cpp
 	croc/stdlib/text.cpp
+	croc/stdlib/thread.cpp
 	croc/types/array.cpp
 	croc/types/base.cpp
 	croc/types/base.hpp

@@ -150,7 +150,7 @@ extern "C"
 		// JSONLib.init(*t); // depends on stream
 		// initPathLib(*t);
 		// initSerializationLib(*t); // depends on .. lots of libs :P
-		// ThreadLib.init(*t);
+		initThreadLib(*t);
 		// TimeLib.init(*t);
 		// initDoctoolsLibs(*t);
 
