@@ -80,6 +80,21 @@ namespace croc
 		return 1;
 	}
 
+	word_t _funcdefClose(CrocThread* t)
+	{
+		croc_ex_checkParam(t, 0, CrocType_Funcdef);
+
+		if(croc_ex_optParam(t, 1, CrocType_Namespace))
+		{
+			croc_dup(t, 1);
+			croc_function_newScriptWithEnv(t, 0);
+		}
+		else
+			croc_function_newScript(t, 0);
+
+		return 1;
+	}
+
 	// =================================================================================================================
 	// Weak reference stuff
 
@@ -517,6 +532,7 @@ namespace croc
 		{"isVararg",    0, &_funcdefIsVararg   },
 		{"isCacheable", 0, &_funcdefIsCacheable},
 		{"isCached",    0, &_funcdefIsCached   },
+		{"close",       1, &_funcdefClose      },
 		{nullptr, 0, nullptr}
 	};
 
