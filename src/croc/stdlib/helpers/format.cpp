@@ -44,8 +44,7 @@ If no fmt string is given:
 
 namespace croc
 {
-	const uchar* Spaces_ = cast(const uchar*)"                                                                ";
-	const crocstr Spaces = {Spaces_, 64};
+	const crocstr Spaces = ATODA("                                                                ");
 	const uchar* Lowercase = cast(const uchar*)"0123456789abcdef";
 	const uchar* Uppercase = cast(const uchar*)"0123456789ABCDEF";
 

@@ -29,6 +29,8 @@ namespace croc
 	{
 		return DArray<const unsigned char>::n(cast(const unsigned char*)str, strlen(str));
 	}
+
+#define ATODA(lit) (DArray<const unsigned char>{cast(const unsigned char*)(lit), (sizeof(lit) / sizeof(char)) - 1})
 }
 
 #endif

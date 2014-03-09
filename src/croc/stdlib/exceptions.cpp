@@ -310,7 +310,7 @@ namespace croc
 
 			croc_ex_registerMethods(t, _throwableMethods);
 
-			*t_->vm->stdExceptions.insert(t_->vm->mem, String::create(t_->vm, atoda("Throwable"))) = getClass(t_, -1);
+			*t_->vm->stdExceptions.insert(t_->vm->mem, String::create(t_->vm, ATODA("Throwable"))) = getClass(t_, -1);
 		croc_newGlobal(t, "Throwable");
 
 #define POOP(NAME, _)\

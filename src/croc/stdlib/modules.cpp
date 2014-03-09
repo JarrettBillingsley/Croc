@@ -105,7 +105,7 @@ namespace croc
 		crocstr childName;
 		bool foundSplit = false;
 
-		delimiters(name, atoda("."), [&](crocstr segment)
+		delimiters(name, ATODA("."), [&](crocstr segment)
 		{
 			if(foundSplit)
 			{
@@ -330,7 +330,7 @@ namespace croc
 
 		word_t ret = 0;
 
-		delimitersBreak(atoda(paths), atoda(";"), [&](crocstr path) -> bool
+		delimitersBreak(atoda(paths), ATODA(";"), [&](crocstr path) -> bool
 		{
 			char filenameBuf[FILENAME_MAX + 1];
 

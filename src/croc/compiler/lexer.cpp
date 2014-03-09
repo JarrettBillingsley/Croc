@@ -72,7 +72,7 @@ namespace croc
 
 		nextChar();
 
-		if(mSource.length >= 2 && mSource.slice(0, 2) == atoda("#!"))
+		if(mSource.length >= 2 && mSource.slice(0, 2) == ATODA("#!"))
 			while(!IS_EOL())
 				nextChar();
 

@@ -17,7 +17,7 @@ extern "C"
 		bool isFirst = true;
 		word_t idx;
 
-		delimiters(crocstr::n(cast(uchar*)name, len), atoda("."), [&](crocstr segment)
+		delimiters(crocstr::n(cast(uchar*)name, len), ATODA("."), [&](crocstr segment)
 		{
 			if(segment.length == 0)
 				croc_eh_throwStd(t, "ApiError", "The name '%s' is not formatted correctly", name);

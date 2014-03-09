@@ -35,7 +35,7 @@ extern "C"
 
 		if(ex == nullptr)
 		{
-			auto check = t->vm->stdExceptions.lookup(String::create(t->vm, atoda("ApiError")));
+			auto check = t->vm->stdExceptions.lookup(String::create(t->vm, ATODA("ApiError")));
 
 			if(check == nullptr)
 			{

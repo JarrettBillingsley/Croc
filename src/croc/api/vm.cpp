@@ -90,15 +90,15 @@ extern "C"
 		for(uword i = 0; i < MM_NUMMETAMETHODS; i++)
 			vm->metaStrings[i] = String::create(vm, atoda(MetaNames[i]));
 
-		vm->ctorString = String::create(vm, atoda("constructor"));
-		vm->finalizerString = String::create(vm, atoda("finalizer"));
+		vm->ctorString = String::create(vm, ATODA("constructor"));
+		vm->finalizerString = String::create(vm, ATODA("finalizer"));
 		vm->metaStrings[vm->metaStrings.length - 2] = vm->ctorString;
 		vm->metaStrings[vm->metaStrings.length - 1] = vm->finalizerString;
 
 		vm->curThread = vm->mainThread;
-		vm->globals = Namespace::create(vm->mem, String::create(vm, atoda("")));
-		vm->registry = Namespace::create(vm->mem, String::create(vm, atoda("<registry>")));
-		vm->unhandledEx = Function::create(vm->mem, vm->globals, String::create(vm, atoda("defaultUnhandledEx")), 1, defaultUnhandledEx, 0);
+		vm->globals = Namespace::create(vm->mem, String::create(vm, ATODA("")));
+		vm->registry = Namespace::create(vm->mem, String::create(vm, ATODA("<registry>")));
+		vm->unhandledEx = Function::create(vm->mem, vm->globals, String::create(vm, ATODA("defaultUnhandledEx")), 1, defaultUnhandledEx, 0);
 		vm->ehFrames = DArray<EHFrame>::alloc(vm->mem, 10);
 		vm->rng.seed();
 
@@ -108,7 +108,7 @@ extern "C"
 
 #ifdef CROC_BUILTIN_DOCS
 		// TODO:docs
-		Compiler.setDefaultFlags(t, Compiler.AllDocs);
+		croc_compiler_setFlags(*t, CrocCompilerFlags_AllDocs);
 #endif
 		// Core libs
 		initModulesLib(*t);
@@ -150,7 +150,7 @@ extern "C"
 
 #ifdef CROC_BUILTIN_DOCS
 		// TODO:docs
-		Compiler.setDefaultFlags(t, Compiler.All);
+		croc_compiler_setFlags(*t, CrocCompilerFlags_All);
 #endif
 		// Done, turn the GC back on and clear out any garbage we made.
 		vm->enableGC();
