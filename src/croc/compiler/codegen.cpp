@@ -41,8 +41,7 @@ namespace croc
 			if(!failed)
 			{
 				croc_popTop(*c.thread()); // dummy null
-				push(c.thread(), Value::from(fb_.toFuncDef()));
-				croc_insertAndPop(*c.thread(), -2);
+				fb_.toFuncDef();
 			}
 		}
 
@@ -90,8 +89,7 @@ namespace croc
 			if(!failed)
 			{
 				croc_popTop(*c.thread()); // dummy null
-				push(c.thread(), Value::from(fb_.toFuncDef()));
-				croc_insertAndPop(*c.thread(), -2);
+				fb_.toFuncDef();
 			}
 		}
 
@@ -133,7 +131,7 @@ namespace croc
 			fb = fb->parent();
 
 			if(!failed)
-				croc_popTop(*c.thread()); // dummy null
+				croc_remove(*c.thread(), -2); // dummy null
 		}
 
 		if(failed)

@@ -17,6 +17,7 @@ extern "C"
 
 		if(croc_in(t, -1, reg))
 		{
+			croc_dupTop(t);
 			croc_fieldStk(t, reg);
 			ret = cast(uword)croc_getInt(t, -1);
 			croc_popTop(t);

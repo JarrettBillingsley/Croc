@@ -144,7 +144,7 @@ extern "C"
 		initStreamLib(*t); // depends on math, object, text
 		initArrayLib(*t);
 		initAsciiLib(*t);
-		// CompilerLib.init(*t);
+		initCompilerLib(*t);
 		initConsoleLib(*t); // depends on stream
 		// initEnvLib(*t);
 		// JSONLib.init(*t); // depends on stream

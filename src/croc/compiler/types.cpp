@@ -205,14 +205,16 @@ namespace croc
 			auto mod = parser.parseModule();
 			modName = mod->name;
 
-			// if(docComments)
-			// {
+			if(docComments())
+			{
 			// 	DocGen doc(this);
 			// 	mod = doc.visit(mod);
 
-			// 	if(!docTable)
-			// 		croc_popTop(*t);
-			// }
+				croc_table_new(*t, 0); // temp
+
+				if(!docTable())
+					croc_popTop(*t);
+			}
 
 			Semantic sem(*this);
 			mod = sem.visit(mod);
@@ -230,14 +232,16 @@ namespace croc
 			Parser parser(*this, lexer);
 			auto stmts = parser.parseStatements(name);
 
-			// if(docComments)
-			// {
+			if(docComments())
+			{
 			// 	DocGen doc(this);
 			// 	stmts = doc.visitStatements(stmts);
 
-			// 	if(!docTable)
-			// 		croc_popTop(*t);
-			// }
+				croc_table_new(*t, 0); // temp
+
+				if(!docTable())
+					croc_popTop(*t);
+			}
 
 			Semantic sem(*this);
 			stmts = sem.visit(stmts);

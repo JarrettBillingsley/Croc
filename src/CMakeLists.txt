@@ -90,6 +90,7 @@ set(croc_SRC
 	croc/stdlib/all.hpp
 	croc/stdlib/array.cpp
 	croc/stdlib/ascii.cpp
+	croc/stdlib/compiler.cpp
 	croc/stdlib/console.cpp
 	croc/stdlib/exceptions.cpp
 	croc/stdlib/gc.cpp

@@ -872,24 +872,24 @@ namespace croc
 
 		l.expect(Token::LBrace);
 
-		auto t = *c.thread();
+		auto t = c.thread();
 
-		auto fieldMap = croc_table_new(t, 8);
+		auto fieldMap = croc_table_new(*t, 8);
 		List<NamespaceField> fields(c);
 
 		auto addField = [&](Decorator* deco, Identifier* name, Expression* v, FuncLiteralExp* func, crocstr preDocs,
 			CompileLoc preDocsLoc)
 		{
-			croc_pushStringn(t, cast(const char*)name->name.ptr, name->name.length);
+			croc_pushStringn(*t, cast(const char*)name->name.ptr, name->name.length);
 
-			if(croc_in(t, -1, fieldMap))
+			if(croc_in(*t, -1, fieldMap))
 			{
-				croc_popTop(t);
+				croc_popTop(*t);
 				c.semException(v->location, "Redeclaration of member '%s'", name->name.ptr);
 			}
 
-			croc_pushBool(t, true);
-			croc_idxa(t, fieldMap);
+			croc_pushBool(*t, true);
+			croc_idxa(*t, fieldMap);
 
 			if(deco != nullptr)
 				v = decoToExp(deco, v);
@@ -947,7 +947,7 @@ namespace croc
 			}
 		}
 
-		croc_popTop(t);
+		croc_popTop(*t);
 		auto endLocation = l.expect(Token::RBrace).loc;
 		return new(c) NamespaceDecl(location, endLocation, protection, deco, name, parent, fields.toArray());
 	}
@@ -2690,19 +2690,19 @@ namespace croc
 
 	Identifier* Parser::dummyForeachIndex(CompileLoc loc)
 	{
-		auto t = *c.thread();
-		croc_pushFormat(t, CROC_INTERNAL_NAME("dummy%u"), mDummyNameCounter++);
-		auto str = c.newString(croc_getString(t, -1));
-		croc_popTop(t);
+		auto t = c.thread();
+		croc_pushFormat(*t, CROC_INTERNAL_NAME("dummy%u"), mDummyNameCounter++);
+		auto str = c.newString(croc_getString(*t, -1));
+		croc_popTop(*t);
 		return new(c) Identifier(loc, str);
 	}
 
 	Identifier* Parser::dummyFuncLiteralName(CompileLoc loc)
 	{
-		auto t = *c.thread();
-		croc_pushFormat(t, "<literal at %s(%u:%u)>", loc.file.ptr, loc.line, loc.col);
-		auto str = c.newString(croc_getString(t, -1));
-		croc_popTop(t);
+		auto t = c.thread();
+		croc_pushFormat(*t, "<literal at %s(%u:%u)>", loc.file.ptr, loc.line, loc.col);
+		auto str = c.newString(croc_getString(*t, -1));
+		croc_popTop(*t);
 		return new(c) Identifier(loc, str);
 	}
 
@@ -2715,12 +2715,12 @@ namespace croc
 	{
 		if(mCurrentClassName.length > 0 && isPrivateFieldName(fieldName))
 		{
-			auto t = *c.thread();
-			croc_pushStringn(t, cast(const char*)mCurrentClassName.ptr, mCurrentClassName.length);
-			croc_pushStringn(t, cast(const char*)fieldName.ptr, fieldName.length);
-			croc_cat(t, 2);
-			auto ret = c.newString(croc_getString(t, -1));
-			croc_popTop(t);
+			auto t = c.thread();
+			croc_pushStringn(*t, cast(const char*)mCurrentClassName.ptr, mCurrentClassName.length);
+			croc_pushStringn(*t, cast(const char*)fieldName.ptr, fieldName.length);
+			croc_cat(*t, 2);
+			auto ret = c.newString(croc_getString(*t, -1));
+			croc_popTop(*t);
 			return ret;
 		}
 		else
