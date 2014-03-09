@@ -299,6 +299,26 @@ namespace croc
 		return 0;
 	}
 
+	word_t _newNamespace(CrocThread* t)
+	{
+		auto name = croc_ex_checkStringParam(t, 1);
+
+		if(croc_isValidIndex(t, 2))
+		{
+			if(croc_ex_optParam(t, 2, CrocType_Namespace))
+				croc_namespace_newWithParent(t, 2, name);
+			else
+				croc_namespace_newNoParent(t, name);
+		}
+		else
+		{
+			croc_pushEnvironment(t, 1);
+			croc_namespace_newWithParent(t, -1, name);
+		}
+
+		return 1;
+	}
+
 	word_t _tableIterator(CrocThread* t)
 	{
 		auto t_ = Thread::from(t);
@@ -443,17 +463,18 @@ namespace croc
 
 	const CrocRegisterFunc _globalFuncs[] =
 	{
-		{"dup",    1, &_dup            },
-		{"keys",   1, &_keys           },
-		{"values", 1, &_values         },
-		{"apply",  2, &_apply          },
-		{"map",    2, &_map            },
-		{"reduce", 3, &_reduce         },
-		{"filter", 2, &_filter         },
-		{"take",   1, &_takeImpl<false>},
-		{"pop",    1, &_takeImpl<true> },
-		{"clear",  1, &_clear          },
-		{"remove", 2, &_remove         },
+		{"dup",          1, &_dup            },
+		{"keys",         1, &_keys           },
+		{"values",       1, &_values         },
+		{"apply",        2, &_apply          },
+		{"map",          2, &_map            },
+		{"reduce",       3, &_reduce         },
+		{"filter",       2, &_filter         },
+		{"take",         1, &_takeImpl<false>},
+		{"pop",          1, &_takeImpl<true> },
+		{"clear",        1, &_clear          },
+		{"remove",       2, &_remove         },
+		{"newNamespace", 2, &_newNamespace   },
 		{nullptr, 0, nullptr}
 	};
 
