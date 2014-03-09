@@ -1,6 +1,6 @@
 
-#include "croc/compiler/ast.hpp"
 #include "croc/compiler/codegen.hpp"
+#include "croc/compiler/ast.hpp"
 #include "croc/compiler/lexer.hpp"
 #include "croc/compiler/parser.hpp"
 #include "croc/compiler/semantic.hpp"

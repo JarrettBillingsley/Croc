@@ -18,7 +18,7 @@ namespace croc
 		auto obj = getStringObj(Thread::from(t), idx);
 
 		if(obj->length != obj->cpLength)
-			croc_eh_throwStd(t, "ValueError", "Parameter %d is not an ASCII string", idx);
+			croc_eh_throwStd(t, "ValueError", "Parameter %" CROC_SSIZE_T_FORMAT " is not an ASCII string", idx);
 
 		return obj->toDArray();
 	}
@@ -83,7 +83,7 @@ namespace croc
 		if(start < 0)
 			start += src.length;
 
-		if(start < 0 || start >= src.length)
+		if(start < 0 || cast(uword)start >= src.length)
 			croc_eh_throwStd(t, "BoundsError", "Invalid start index %" CROC_INTEGER_FORMAT, start);
 
 		// Search
@@ -125,14 +125,14 @@ namespace croc
 		if(start < 0)
 			start += src.length;
 
-		if(start < 0 || start >= src.length)
+		if(start < 0 || cast(uword)start >= src.length)
 			croc_eh_throwStd(t, "BoundsError", "Invalid start index: %" CROC_INTEGER_FORMAT, start);
 
 		// Search
 		auto maxIdx = src.length - pat.length;
 		auto firstChar = tolower(pat[0]);
 
-		if(start > maxIdx)
+		if(cast(uword)start > maxIdx)
 			start = maxIdx;
 
 		for(auto i = cast(uword)start; ; i--)
@@ -211,8 +211,9 @@ namespace croc
 		if(idx < 0)\
 			idx += str.length;\
 \
-		if(idx < 0 || idx >= str.length)\
-			croc_eh_throwStd(t, "BoundsError", "Invalid index %" CROC_INTEGER_FORMAT " for string of length %u",\
+		if(idx < 0 || cast(uword)idx >= str.length)\
+			croc_eh_throwStd(t, "BoundsError",\
+				"Invalid index %" CROC_INTEGER_FORMAT " for string of length %" CROC_SIZE_T_FORMAT,\
 				idx, str.length);\
 \
 		croc_pushBool(t, cast(bool)func(str[cast(uword)idx]));\

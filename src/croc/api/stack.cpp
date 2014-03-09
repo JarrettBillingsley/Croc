@@ -142,7 +142,8 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(numSlots > (croc_getStackSize(t_) - 1))
-			croc_eh_throwStd(t_, "ApiError", "%s - Trying to rotate more values (%u) than can be rotated (%u)",
+			croc_eh_throwStd(t_, "ApiError",
+				"%s - Trying to rotate more values (%" CROC_SIZE_T_FORMAT ") than can be rotated (%" CROC_SIZE_T_FORMAT ")",
 				__FUNCTION__, numSlots, croc_getStackSize(t_) - 1);
 
 		if(numSlots == 0)

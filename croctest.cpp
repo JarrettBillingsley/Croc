@@ -18,7 +18,7 @@ int main()
 	croc_vm_loadUnsafeLibs(t, CrocUnsafeLib_ReallyAll);
 	croc_vm_loadAllAvailableAddons(t);
 
-	_try(t, "<main>", [](CrocThread* t)
+	_try(t, "<main>", [](CrocThread* t) -> word_t
 	{
 		croc_compiler_setFlags(t, CrocCompilerFlags_AllDocs);
 

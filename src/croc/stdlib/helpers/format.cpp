@@ -346,7 +346,8 @@ namespace croc
 				index = autoIndex++;
 
 			if(index >= endIndex)
-				croc_eh_throwStd(t, "ValueError", "invalid format string: parameter index (%u) is out of bounds",
+				croc_eh_throwStd(t, "ValueError",
+					"invalid format string: parameter index (%" CROC_SIZE_T_FORMAT ") is out of bounds",
 					index - startIndex - 1);
 
 			// check for alignment

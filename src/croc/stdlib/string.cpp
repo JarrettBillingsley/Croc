@@ -52,7 +52,7 @@ namespace croc
 			if(val.value.type == CrocType_String)
 				totalLen += val.value.mString->length;
 			else
-				croc_eh_throwStd(t, "TypeError", "Array element %u is not a string", i);
+				croc_eh_throwStd(t, "TypeError", "Array element %" CROC_SIZE_T_FORMAT " is not a string", i);
 
 			i++;
 		}
@@ -323,7 +323,8 @@ namespace croc
 			num++;
 
 			if(num > VSplitMax)
-				croc_eh_throwStd(t, "ValueError", "Too many (>%u) parts when splitting string", VSplitMax);
+				croc_eh_throwStd(t, "ValueError", "Too many (>%" CROC_SIZE_T_FORMAT ") parts when splitting string",
+					VSplitMax);
 		});
 
 		return num;
@@ -371,7 +372,8 @@ namespace croc
 				num++;
 
 				if(num > VSplitMax)
-					croc_eh_throwStd(t, "ValueError", "Too many (>%u) parts when splitting string", VSplitMax);
+					croc_eh_throwStd(t, "ValueError", "Too many (>%" CROC_SIZE_T_FORMAT ") parts when splitting string",
+						VSplitMax);
 			}
 		});
 
@@ -413,7 +415,8 @@ namespace croc
 			num++;
 
 			if(num > VSplitMax)
-				croc_eh_throwStd(t, "ValueError", "Too many (>%u) parts when splitting string", VSplitMax);
+				croc_eh_throwStd(t, "ValueError", "Too many (>%" CROC_SIZE_T_FORMAT ") parts when splitting string",
+					VSplitMax);
 		});
 
 		return num;
@@ -470,7 +473,7 @@ namespace croc
 		auto realIdx = croc_getInt(t, -1);
 		croc_popTop(t);
 
-		if(realIdx >= str.length)
+		if(cast(uword)realIdx >= str.length)
 			return 0;
 
 		auto ptr = str.ptr + realIdx;

@@ -17,7 +17,7 @@ namespace croc
 	{
 		auto size = croc_ex_checkIntParam(t, 1);
 
-		if(size < 0 || size > std::numeric_limits<uword>::max())
+		if(size < 0 || cast(uword)size > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid size (%" CROC_INTEGER_FORMAT ")", size);
 
 		bool haveFill = croc_isValidIndex(t, 2);
@@ -112,9 +112,10 @@ namespace croc
 		if(hi < 0)
 			hi += data.length;
 
-		if(lo < 0 || hi < lo || hi > data.length)
+		if(lo < 0 || hi < lo || cast(uword)hi > data.length)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid slice indices %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (memblock length: %u)",
+				"Invalid slice indices %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
+					" (memblock length: %" CROC_SIZE_T_FORMAT ")",
 				lo, hi, data.length);
 
 		data.slice(cast(uword)lo, cast(uword)hi).fill(val);
@@ -171,17 +172,19 @@ namespace croc
 		auto srcOffs = croc_ex_checkIntParam(t, 3);
 		auto size = croc_ex_checkIntParam(t, 4);
 
-		if(size < 0 || size > std::numeric_limits<uword>::max())
+		if(size < 0 || cast(uword)size > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError",  "Invalid size: %" CROC_INTEGER_FORMAT, size);
-		else if(dstOffs < 0 || dstOffs > dst.length)
+		else if(dstOffs < 0 || cast(uword)dstOffs > dst.length)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid destination offset %" CROC_INTEGER_FORMAT " (memblock length: %u)", dstOffs, dst.length);
-		else if(srcOffs < 0 || srcOffs > src.length)
+				"Invalid destination offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
+				dstOffs, dst.length);
+		else if(srcOffs < 0 || cast(uword)srcOffs > src.length)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid source offset %" CROC_INTEGER_FORMAT " (memblock length: %u)", srcOffs, src.length);
-		else if(dstOffs + size > dst.length)
+				"Invalid source offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
+				srcOffs, src.length);
+		else if(cast(uword)(dstOffs + size) > dst.length)
 			croc_eh_throwStd(t, "BoundsError", "Copy size exceeds size of destination memblock");
-		else if(srcOffs + size > src.length)
+		else if(cast(uword)(srcOffs + size) > src.length)
 			croc_eh_throwStd(t, "BoundsError", "Copy size exceeds size of source memblock");
 
 		auto srcPtr = src.ptr + srcOffs;
@@ -205,17 +208,19 @@ namespace croc
 		auto rhsOffs = croc_ex_checkIntParam(t, 3);
 		auto size = croc_ex_checkIntParam(t, 4);
 
-		if(size < 0 || size > std::numeric_limits<uword>::max())
+		if(size < 0 || cast(uword)size > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError",  "Invalid size: %" CROC_INTEGER_FORMAT, size);
-		else if(lhsOffs < 0 || lhsOffs > lhs.length)
+		else if(lhsOffs < 0 || cast(uword)lhsOffs > lhs.length)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid lhs offset %" CROC_INTEGER_FORMAT " (memblock length: %u)", lhsOffs, lhs.length);
-		else if(rhsOffs < 0 || rhsOffs > rhs.length)
+				"Invalid lhs offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
+				lhsOffs, lhs.length);
+		else if(rhsOffs < 0 || cast(uword)rhsOffs > rhs.length)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid rhs offset %" CROC_INTEGER_FORMAT " (memblock length: %u)", rhsOffs, rhs.length);
-		else if(lhsOffs + size > lhs.length)
+				"Invalid rhs offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
+				rhsOffs, rhs.length);
+		else if(cast(uword)(lhsOffs + size) > lhs.length)
 			croc_eh_throwStd(t, "BoundsError", "Size exceeds size of lhs memblock");
-		else if(rhsOffs + size > rhs.length)
+		else if(cast(uword)(rhsOffs + size) > rhs.length)
 			croc_eh_throwStd(t, "BoundsError", "Size exceeds size of rhs memblock");
 
 		croc_pushInt(t, lhs.slice(lhsOffs, lhsOffs + size).cmp(rhs.slice(rhsOffs, rhsOffs + size)));
@@ -360,7 +365,7 @@ namespace croc
 		auto mb = checkMemblockParam(t, 0);
 		auto index = croc_ex_checkIntParam(t, 1) + 1;
 
-		if(index >= mb->data.length)
+		if(cast(uword)index >= mb->data.length)
 			return 0;
 
 		croc_pushInt(t, index);

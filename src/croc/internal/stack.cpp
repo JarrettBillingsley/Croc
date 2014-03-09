@@ -31,7 +31,8 @@ namespace croc
 			fake += size;
 
 		if(fake < 0 || fake >= cast(word)size)
-			croc_eh_throwStd(*t, "ApiError", "Invalid stack index %d (stack size = %u)", fake, size);
+			croc_eh_throwStd(*t, "ApiError",
+				"Invalid stack index %" CROC_SSIZE_T_FORMAT " (stack size = %" CROC_SIZE_T_FORMAT ")", fake, size);
 
 		return cast(RelStack)fake;
 	}

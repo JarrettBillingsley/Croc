@@ -309,9 +309,9 @@ namespace croc
 						if(c <= 0x7f && isprint(c))
 							printf("%c", c);
 						else if(c <= 0xFFFF)
-							printf("\\u%4x", cast(uword)c);
+							printf("\\u%4x", cast(uint32_t)c);
 						else
-							printf("\\U%8x", cast(uword)c);
+							printf("\\U%8x", cast(uint32_t)c);
 						break;
 				}
 			}

@@ -66,7 +66,7 @@ namespace croc
 					if(GCOBJ_COLOR(slot) != GCFlags_Green)
 					{
 						slot->refCount--;
-						assert(slot->refCount != cast(uword)-1);
+						assert(slot->refCount != cast(uint32_t)-1);
 						markGray(slot);
 					}
 				});

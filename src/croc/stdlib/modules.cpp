@@ -76,7 +76,7 @@ namespace croc
 			if(croc_hasFieldStk(t, loaded, -1))
 				croc_eh_throwStd(t, "ImportException",
 					"Attempting to import module '%.*s', but there is already a module '%.*s'",
-					name.length, name.ptr, idx, name.ptr);
+					cast(int)name.length, name.ptr, cast(int)idx, name.ptr);
 
 			croc_popTop(t);
 		}
@@ -87,7 +87,7 @@ namespace croc
 		if(croc_hasFieldStk(t, -2, -1))
 			croc_eh_throwStd(t, "ImportException",
 				"Attempting to import module '%.*s', but other modules use that name as a prefix",
-				name.length, cast(const char*)name.ptr);
+				cast(int)name.length, cast(const char*)name.ptr);
 
 		croc_pop(t, 3);
 	}
@@ -97,7 +97,7 @@ namespace croc
 		if(croc_isFunction(t, reg) && !croc_function_isNative(t, reg))
 			croc_eh_throwStd(t, "ValueError",
 				"Error loading module '%.*s': top-level module function must be a native function",
-				name.length, name.ptr);
+				cast(int)name.length, name.ptr);
 
 		// Make the namespace
 		auto ns = croc_pushGlobal(t, "_G");
@@ -127,7 +127,7 @@ namespace croc
 					if(!croc_isNamespace(t, -1))
 						croc_eh_throwStd(t, "ImportException",
 							"Error loading module '%.*s': conflicts with existing global",
-							name.length, cast(const char*)name.ptr);
+							cast(int)name.length, cast(const char*)name.ptr);
 
 					croc_insertAndPop(t, ns);
 				}
@@ -173,7 +173,7 @@ namespace croc
 			auto slot = croc_eh_pushStd(t, "ImportException");
 			croc_pushNull(t);
 			croc_pushFormat(t, "Error loading module '%.*s': exception thrown from module's top-level function",
-				name.length, name.ptr);
+				cast(int)name.length, name.ptr);
 			croc_dup(t, funcSlot);
 			croc_call(t, slot, 1);
 			croc_eh_throw(t);
@@ -197,7 +197,8 @@ namespace croc
 	{
 		// Check to see if we're circularly importing
 		if(isLoading(t, name))
-			croc_eh_throwStd(t, "ImportException", "Module '%.*s' is being circularly imported", name.length, name.ptr);
+			croc_eh_throwStd(t, "ImportException", "Module '%.*s' is being circularly imported",
+				cast(int)name.length, name.ptr);
 
 		setLoading(t, name, true);
 
@@ -208,7 +209,7 @@ namespace croc
 
 			// Run through the loaders
 			auto loaders = croc_pushGlobal(t, "loaders");
-			auto num = croc_len(t, -1);
+			auto num = cast(uword)croc_len(t, -1);
 
 			for(uword i = 0; i < num; i++)
 			{
@@ -231,7 +232,8 @@ namespace croc
 				{
 					croc_pushTypeString(t, reg);
 					croc_eh_throwStd(t, "TypeError",
-						"modules.loaders[%u] expected to return a function, funcdef, namespace, or null, not '%s'",
+						"modules.loaders[%" CROC_SIZE_T_FORMAT
+							"] expected to return a function, funcdef, namespace, or null, not '%s'",
 						i, croc_getString(t, -1));
 				}
 
@@ -240,7 +242,7 @@ namespace croc
 
 			// Nothing worked :C
 			croc_eh_throwStd(t, "ImportException", "Error loading module '%.*s': could not find anything to load",
-				name.length, name.ptr);
+				cast(int)name.length, name.ptr);
 		});
 
 		setLoading(t, name, false);
@@ -278,7 +280,7 @@ namespace croc
 
 		if(croc_isNull(t, -1))
 			croc_eh_throwStd(t, "ImportException","Attempting to reload module '%.*s' which has not yet been loaded",
-				nameLen, name);
+				cast(int)nameLen, name);
 
 		croc_pop(t, 2);
 		return commonLoad(t, crocstr::n(cast(uchar*)name, nameLen));

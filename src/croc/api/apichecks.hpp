@@ -8,9 +8,9 @@
 		assert(t->stackIndex > t->stackBase);\
 		if((croc_getStackSize(*t) - 1) < (numParams))\
 			croc_eh_throwStd(*t, "ApiError",\
-				"%s - not enough parameters (expected %u, only have %u stack slots)",\
+				"%s - not enough parameters (expected %" CROC_SIZE_T_FORMAT ", only have %" CROC_SIZE_T_FORMAT " stack slots)",\
 				__FUNCTION__,\
-				(numParams),\
+				cast(uword)(numParams),\
 				croc_getStackSize(*t) - 1);\
 	} while(false)
 

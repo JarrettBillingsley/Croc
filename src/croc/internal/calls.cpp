@@ -270,7 +270,7 @@ namespace croc
 
 				if(cls->constructor == nullptr && numParams > 1)
 					croc_eh_throwStd(*t, "ParamError",
-						"Class '%s' has no constructor but was called with %u parameters",
+						"Class '%s' has no constructor but was called with %" CROC_SIZE_T_FORMAT " parameters",
 						cls->name->toCString(), numParams - 1);
 
 				auto inst = Instance::create(t->vm->mem, cls);
@@ -357,7 +357,8 @@ namespace croc
 	bool funcCallPrologue(Thread* t, Function* func, AbsStack returnSlot, word expectedResults, AbsStack paramSlot, uword numParams)
 	{
 		if(numParams > func->maxParams)
-			croc_eh_throwStd(*t, "ParamError", "Function %s expected at most %u parameters but was given %u",
+			croc_eh_throwStd(*t, "ParamError",
+				"Function %s expected at most %" CROC_SIZE_T_FORMAT " parameters but was given %" CROC_SIZE_T_FORMAT,
 				func->name->toCString(), func->maxParams - 1, numParams - 1);
 
 		if(!func->isNative)

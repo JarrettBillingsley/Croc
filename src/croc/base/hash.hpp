@@ -38,7 +38,7 @@ namespace croc
 	{
 		template<typename T> static inline hash_t toHash(const T* t)
 		{
-			return cast(hash_t)*t;
+			return *cast(hash_t*)t;
 		}
 	};
 

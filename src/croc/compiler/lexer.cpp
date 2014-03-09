@@ -285,7 +285,7 @@ namespace croc
 
 			assert(cast(uword)c < radix);
 
-			auto newValue = ret * radix + c;
+			crocint newValue = ret * radix + c;
 
 			if(newValue < ret)
 				return false;
@@ -514,9 +514,9 @@ namespace croc
 		}
 	}
 
-	uword Lexer::readHexDigits(uword num)
+	uint32_t Lexer::readHexDigits(uword num)
 	{
-		uword ret = 0;
+		uint32_t ret = 0;
 
 		for(uword i = 0; i < num; i++)
 		{
@@ -768,7 +768,7 @@ namespace croc
 			if(!convertInt(lineBuf.toArrayView(), lineNum, 10))
 				mCompiler.lexException(lineNumLoc, "Line number overflow");
 
-			if(lineNum < 1 || lineNum > std::numeric_limits<uword>::max())
+			if(lineNum < 1 || cast(uword)lineNum > std::numeric_limits<uword>::max())
 				mCompiler.lexException(lineNumLoc, "Invalid line number");
 
 			mLinePragmaLine = cast(uword)lineNum;

@@ -1,9 +1,9 @@
 #ifndef CROC_COMPILER_CODEGEN_HPP
 #define CROC_COMPILER_CODEGEN_HPP
 
+#include "croc/compiler/builder.hpp"
 #include "croc/compiler/ast.hpp"
 #include "croc/compiler/astvisitor.hpp"
-#include "croc/compiler/builder.hpp"
 #include "croc/compiler/types.hpp"
 
 // #define PRINTEXPSTACK

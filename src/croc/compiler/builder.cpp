@@ -1,10 +1,10 @@
 
+#include "croc/compiler/builder.hpp"
 #include <functional>
 
 #include "croc/api.h"
 #include "croc/base/opcodes.hpp"
 #include "croc/compiler/ast.hpp"
-#include "croc/compiler/builder.hpp"
 #include "croc/compiler/types.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
@@ -84,7 +84,7 @@ namespace croc
 			case ExpType::Yield:       return "Yield";
 			case ExpType::NeedsDest:   return "NeedsDest";
 			case ExpType::Conflict:    return "Conflict";
-			default: assert(false);
+			default: assert(false); return nullptr; // dummy
 		}
 	}
 #endif
@@ -134,7 +134,7 @@ namespace croc
 
 		for(uword i = mExpSP - 1; cast(word)i >= 0; i--)
 		{
-			printf("%u: ", i);
+			printf("%" CROC_SIZE_T_FORMAT ": ", i);
 			mExpStack[i].print();
 		}
 
@@ -235,7 +235,8 @@ namespace croc
 		if(index != -1)
 		{
 			auto l = mLocVars[index].location;
-			c.semException(ident->location, "Local '%s' conflicts with previous definition at %s(%u:%u)",
+			c.semException(ident->location,
+				"Local '%s' conflicts with previous definition at %s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT ")",
 				ident->name.ptr, l.file.ptr, l.line, l.col);
 		}
 
@@ -1964,7 +1965,7 @@ namespace croc
 #ifndef NDEBUG
 		if(check != (mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)))
 		{
-			printf("oh noes: %u %u\n", check, mExpSP - (numLhs + numLhs) - (ret ? 1 : 0));
+			printf("oh noes: %" CROC_SIZE_T_FORMAT " %" CROC_SIZE_T_FORMAT "\n", check, mExpSP - (numLhs + numLhs) - (ret ? 1 : 0));
 			assert(false);
 		}
 #endif

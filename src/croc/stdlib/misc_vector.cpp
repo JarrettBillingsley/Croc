@@ -172,7 +172,7 @@ namespace croc
 
 		auto size = croc_ex_checkIntParam(t, 2);
 
-		if(size < 0 || size > std::numeric_limits<uword>::max())
+		if(size < 0 || cast(uword)size > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid size (%" CROC_INTEGER_FORMAT ")", size);
 
 		croc_memblock_new(t, cast(uword)size * kind->itemSize);
@@ -234,7 +234,7 @@ namespace croc
 		if(mod(range, step) != 0)\
 			size++;\
 \
-		if(size > std::numeric_limits<uword>::max())\
+		if(cast(uword)size > std::numeric_limits<uword>::max())\
 			croc_eh_throwStd(t, "RangeError", "Vector is too big (%" CROC_INTEGER_FORMAT " items)", size);\
 \
 		croc_pushGlobal(t, "Vector");\
@@ -349,10 +349,10 @@ namespace croc
 		if(hi < 0)
 			hi += m.itemLength;
 
-		if(lo < 0 || lo > hi || hi > m.itemLength)
+		if(lo < 0 || lo > hi || cast(uword)hi > m.itemLength)
 			croc_eh_throwStd(t, "BoundsError",
 				"Invalid slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
-				" (length: %u)",
+				" (length: %" CROC_SIZE_T_FORMAT ")",
 				lo, hi, m.itemLength);
 
 		auto ret = croc_array_new(t, cast(uword)(hi - lo));
@@ -622,8 +622,9 @@ namespace croc
 			idx += len;
 
 		// Yes, > and not >=, because you can insert at "one past" the end of the Vector.
-		if(idx < 0 || idx > len)
-			croc_eh_throwStd(t, "BoundsError", "Invalid index: %" CROC_INTEGER_FORMAT " (length: %u)", idx, len);
+		if(idx < 0 || cast(uword)idx > len)
+			croc_eh_throwStd(t, "BoundsError",
+				"Invalid index: %" CROC_INTEGER_FORMAT " (length: %" CROC_SIZE_T_FORMAT ")", idx, len);
 
 		auto doResize = [&](uint64_t otherLen)
 		{
@@ -641,7 +642,7 @@ namespace croc
 
 			m.itemLength = cast(uword)totalLen;
 
-			if(idx < oldLen)
+			if(cast(uword)idx < oldLen)
 			{
 				auto end = idx + otherLen;
 				auto numLeft = oldLen - idx;
@@ -719,16 +720,16 @@ namespace croc
 		if(hi < 0)
 			hi += m.itemLength;
 
-		if(lo < 0 || lo > hi || hi > m.itemLength)
+		if(lo < 0 || lo > hi || cast(uword)hi > m.itemLength)
 			croc_eh_throwStd(t, "BoundsError", "Invalid indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
-				" (length: %u)",
+				" (length: %" CROC_SIZE_T_FORMAT ")",
 				lo, hi, m.itemLength);
 
 		if(lo != hi)
 		{
 			auto isize = m.kind->itemSize;
 
-			if(hi < m.itemLength)
+			if(cast(uword)hi < m.itemLength)
 				memmove(&m.data->data[cast(uword)lo * isize], &m.data->data[cast(uword)hi * isize],
 					cast(uword)((m.itemLength - hi) * isize));
 
@@ -757,14 +758,14 @@ namespace croc
 		if(index < 0)
 			index += m.itemLength;
 
-		if(index < 0 || index >= m.itemLength)
+		if(index < 0 || cast(uword)index >= m.itemLength)
 			croc_eh_throwStd(t, "BoundsError", "Invalid index: %" CROC_INTEGER_FORMAT, index);
 
 		push(Thread::from(t), _rawIndex(m, cast(uword)index));
 
 		auto isize = m.kind->itemSize;
 
-		if(index < m.itemLength - 1)
+		if(cast(uword)index < m.itemLength - 1)
 			memmove(&m.data->data[cast(uword)index * isize], &m.data->data[(cast(uword)index + 1) * isize],
 				cast(uword)((m.itemLength - index - 1) * isize));
 
@@ -867,9 +868,10 @@ namespace croc
 		if(hi < 0)
 			hi += m.itemLength;
 
-		if(lo < 0 || lo > hi || hi > m.itemLength)
+		if(lo < 0 || lo > hi || cast(uword)hi > m.itemLength)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid destination slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (length: %u)",
+				"Invalid destination slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
+					" (length: %" CROC_SIZE_T_FORMAT ")",
 				lo, hi, m.itemLength);
 
 		auto other = _getMembers(t, 3);
@@ -887,13 +889,15 @@ namespace croc
 		if(hi2 < 0)
 			hi2 += other.itemLength;
 
-		if(lo2 < 0 || lo2 > hi2 || hi2 > other.itemLength)
+		if(lo2 < 0 || lo2 > hi2 || cast(uword)hi2 > other.itemLength)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid source slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (length: %u)",
+				"Invalid source slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
+					" (length: %" CROC_SIZE_T_FORMAT ")",
 				lo2, hi2, other.itemLength);
 
 		if((hi - lo) != (hi2 - lo2))
-			croc_eh_throwStd(t, "ValueError", "Destination length (%u) and source length(%u) do not match",
+			croc_eh_throwStd(t, "ValueError",
+				"Destination length (%" CROC_SIZE_T_FORMAT ") and source length(%" CROC_SIZE_T_FORMAT ") do not match",
 				cast(uword)(hi - lo), cast(uword)(hi2 - lo2));
 
 		auto isize = m.kind->itemSize;
@@ -923,7 +927,8 @@ namespace croc
 					m.kind->name, other.kind->name);
 
 			if(other.itemLength != (hi - lo))
-				croc_eh_throwStd(t, "ValueError", "Length of destination (%u) and length of source (%u) do not match",
+				croc_eh_throwStd(t, "ValueError",
+					"Length of destination (%" CROC_SIZE_T_FORMAT ") and length of source (%" CROC_SIZE_T_FORMAT ") do not match",
 					hi - lo, other.itemLength);
 
 			if(m.data == other.data)
@@ -998,9 +1003,9 @@ namespace croc
 		}
 		else if(croc_isArray(t, filler))
 		{
-			if(croc_len(t, filler) != (hi - lo))
+			if(cast(uword)croc_len(t, filler) != (hi - lo))
 				croc_eh_throwStd(t, "ValueError",
-					"Length of destination (%u) and length of array (%" CROC_INTEGER_FORMAT ") do not match",
+					"Length of destination (%" CROC_SIZE_T_FORMAT ") and length of array (%" CROC_INTEGER_FORMAT ") do not match",
 					hi - lo, croc_len(t, filler));
 
 			auto t_ = Thread::from(t);
@@ -1014,7 +1019,8 @@ namespace croc
 					if(!croc_isInt(t, -1))
 					{
 						croc_pushTypeString(t, -1);
-						croc_eh_throwStd(t, "ValueError", "array element %u expected to be 'int', not '%s'",
+						croc_eh_throwStd(t, "ValueError",
+							"array element %" CROC_SIZE_T_FORMAT " expected to be 'int', not '%s'",
 							ai, croc_getString(t, -1));
 					}
 
@@ -1031,7 +1037,8 @@ namespace croc
 					if(!croc_isNum(t, -1))
 					{
 						croc_pushTypeString(t, -1);
-						croc_eh_throwStd(t, "ValueError", "array element %u expected to be 'int' or 'float', not '%s'",
+						croc_eh_throwStd(t, "ValueError",
+							"array element %" CROC_SIZE_T_FORMAT " expected to be 'int' or 'float', not '%s'",
 							ai, croc_getString(t, -1));
 					}
 
@@ -1068,7 +1075,7 @@ namespace croc
 		if(hi < 0)
 			hi += m.itemLength;
 
-		if(lo < 0 || lo > hi || hi > m.itemLength)
+		if(lo < 0 || lo > hi || cast(uword)hi > m.itemLength)
 			croc_eh_throwStd(t, "BoundsError",
 				"Invalid range indices (%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT ")", lo, hi);
 
@@ -1150,7 +1157,7 @@ namespace croc
 		if(!m.data->ownData)
 			croc_eh_throwStd(t, "ValueError", "Attempting to change the length of a Vector which does not own its data");
 
-		if(len < 0 || len > std::numeric_limits<uword>::max())
+		if(len < 0 || cast(uword)len > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid new length: %" CROC_INTEGER_FORMAT, len);
 
 		push(Thread::from(t), Value::from(m.data));
@@ -1166,8 +1173,9 @@ namespace croc
 		if(idx < 0)
 			idx += m.itemLength;
 
-		if(idx < 0 || idx >= m.itemLength)
-			croc_eh_throwStd(t, "BoundsError", "Invalid index %" CROC_INTEGER_FORMAT " for Vector of length %u",
+		if(idx < 0 || cast(uword)idx >= m.itemLength)
+			croc_eh_throwStd(t, "BoundsError",
+				"Invalid index %" CROC_INTEGER_FORMAT " for Vector of length %" CROC_SIZE_T_FORMAT,
 				idx, m.itemLength);
 
 		push(Thread::from(t), _rawIndex(m, cast(uword)idx));
@@ -1182,8 +1190,9 @@ namespace croc
 		if(idx < 0)
 			idx += m.itemLength;
 
-		if(idx < 0 || idx >= m.itemLength)
-			croc_eh_throwStd(t, "BoundsError", "Invalid index %" CROC_INTEGER_FORMAT " for Vector of length %u",
+		if(idx < 0 || cast(uword)idx >= m.itemLength)
+			croc_eh_throwStd(t, "BoundsError",
+				"Invalid index %" CROC_INTEGER_FORMAT " for Vector of length %" CROC_SIZE_T_FORMAT,
 				idx, m.itemLength);
 
 		if(m.kind->code <= TypeCode_u64)
@@ -1207,9 +1216,10 @@ namespace croc
 		if(hi < 0)
 			hi += m.itemLength;
 
-		if(lo < 0 || lo > hi || hi > m.itemLength)
+		if(lo < 0 || lo > hi || cast(uword)hi > m.itemLength)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid slice indices %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " for Vector of length %u",
+				"Invalid slice indices %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
+					" for Vector of length %" CROC_SIZE_T_FORMAT,
 				lo, hi, m.itemLength);
 
 		croc_pushGlobal(t, "Vector");
@@ -1625,7 +1635,7 @@ namespace croc
 		auto m = _getMembers(t);
 		auto index = croc_ex_checkIntParam(t, 1) + 1;
 
-		if(index >= m.itemLength)
+		if(cast(uword)index >= m.itemLength)
 			return 0;
 
 		croc_pushInt(t, index);

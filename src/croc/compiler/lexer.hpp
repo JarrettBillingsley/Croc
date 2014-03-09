@@ -251,7 +251,7 @@ namespace croc
 		bool convertInt(crocstr str, crocint& ret, uword radix);
 		bool convertUInt(crocstr str, crocint& ret, uword radix);
 		bool readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret);
-		uword readHexDigits(uword num);
+		uint32_t readHexDigits(uword num);
 		crocchar readEscapeSequence(CompileLoc beginning);
 		crocstr readStringLiteral(bool escape);
 		void addComment(crocstr str, CompileLoc location);

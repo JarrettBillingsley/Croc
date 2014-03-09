@@ -63,7 +63,7 @@ namespace croc
 				fprintf(stderr, "refcount %u, flags %03x, ", obj->refCount, obj->gcflags);
 			}
 
-			fprintf(stderr, "length %u bytes, type ", block.len);
+			fprintf(stderr, "length %" CROC_SIZE_T_FORMAT " bytes, type ", block.len);
 			dumpTypeName(block.ti);
 			fprintf(stderr, "\n");
 		}

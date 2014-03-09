@@ -88,12 +88,12 @@ extern "C"
 				{
 					croc_pushToStringRaw(*t, i);
 					croc_pushTypeString(*t, i);
-					printf("[%3u:%4d]: '%s': %s\n",
+					printf("[%3" CROC_SIZE_T_FORMAT ":%4" CROC_SSIZE_T_FORMAT "]: '%s': %s\n",
 						i, cast(word)i - cast(word)tmp, croc_getString(*t, -2), croc_getString(*t, -1));
 					croc_pop(*t, 2);
 				}
 				else
-					printf("[%3u:%4d]: %.16" CROC_HEX64_FORMAT ": %u\n",
+					printf("[%3" CROC_SIZE_T_FORMAT ":%4" CROC_SSIZE_T_FORMAT"]: %.16" CROC_HEX64_FORMAT ": %u\n",
 						i, cast(word)i - cast(word)tmp, *cast(uint64_t*)&t->stack[i].mInt, t->stack[i].type);
 			}
 
@@ -127,11 +127,11 @@ extern "C"
 			else
 				printf("Record %s\n", ar.func->name->toCString());
 
-			printf("\tBase: %u\n", ar.base);
-			printf("\tSaved Top: %u\n", ar.savedTop);
-			printf("\tVararg Base: %u\n", ar.vargBase);
-			printf("\tReturns Slot: %u\n", ar.returnSlot);
-			printf("\tExpected results: %u\n", ar.expectedResults);
+			printf("\tBase: %" CROC_SIZE_T_FORMAT "\n", ar.base);
+			printf("\tSaved Top: %" CROC_SIZE_T_FORMAT "\n", ar.savedTop);
+			printf("\tVararg Base: %" CROC_SIZE_T_FORMAT "\n", ar.vargBase);
+			printf("\tReturns Slot: %" CROC_SIZE_T_FORMAT "\n", ar.returnSlot);
+			printf("\tExpected results: %" CROC_SIZE_T_FORMAT "\n", ar.expectedResults);
 			printf("\tNative call depth incd: %s\n", ar.incdNativeDepth ? "true" : "false");
 		}
 

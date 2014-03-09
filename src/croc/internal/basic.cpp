@@ -1,5 +1,5 @@
 
-#include <cstdio>
+#include <stdio.h>
 #include <functional>
 #include <limits>
 
@@ -19,7 +19,7 @@ namespace croc
 {
 	bool validIndices(crocint lo, crocint hi, uword len)
 	{
-		return lo >= 0 && hi <= len && lo <= hi;
+		return lo >= 0 && cast(uword)hi <= len && lo <= hi;
 	}
 
 	bool correctIndices(crocint& loIndex, crocint& hiIndex, Value lo, Value hi, uword len)
@@ -102,7 +102,7 @@ namespace croc
 				else
 				{
 					auto sf = f->scriptFunc;
-					return croc_pushFormat(*t, "script %s %s(%s(%u:%u))",
+					return croc_pushFormat(*t, "script %s %s(%s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT "))",
 						typeToString(CrocType_Function),
 						f->name->toCString(),
 						sf->locFile->toCString(),
@@ -137,7 +137,7 @@ namespace croc
 			}
 			case CrocType_Funcdef: {
 				auto d = v.mFuncdef;
-				return croc_pushFormat(*t, "%s %s(%s(%u:%u))",
+				return croc_pushFormat(*t, "%s %s(%s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT "))",
 					typeToString(CrocType_Funcdef),
 					d->name->toCString(),
 					d->locFile->toCString(),
@@ -454,8 +454,10 @@ namespace croc
 				if(index < 0)
 					index += arr->length;
 
-				if(index < 0 || index >= arr->length)
-					croc_eh_throwStd(*t, "BoundsError", "Invalid array index %" CROC_INTEGER_FORMAT " (length is %u)", key.mInt, arr->length);
+				if(index < 0 || cast(uword)index >= arr->length)
+					croc_eh_throwStd(*t, "BoundsError",
+						"Invalid array index %" CROC_INTEGER_FORMAT " (length is %" CROC_SIZE_T_FORMAT")",
+						key.mInt, arr->length);
 
 				t->stack[dest] = arr->toDArray()[cast(uword)index].value;
 				return;
@@ -474,9 +476,9 @@ namespace croc
 				if(index < 0)
 					index += mb->data.length;
 
-				if(index < 0 || index >= mb->data.length)
+				if(index < 0 || cast(uword)index >= mb->data.length)
 					croc_eh_throwStd(*t, "BoundsError",
-						"Invalid memblock index %" CROC_INTEGER_FORMAT " (length is %u)",
+						"Invalid memblock index %" CROC_INTEGER_FORMAT " (length is %" CROC_SIZE_T_FORMAT ")",
 						key.mInt, mb->data.length);
 
 				t->stack[dest] = Value::from(cast(crocint)mb->data[cast(uword)index]);
@@ -496,8 +498,9 @@ namespace croc
 				if(index < 0)
 					index += str->cpLength;
 
-				if(index < 0 || index >= str->cpLength)
-					croc_eh_throwStd(*t, "BoundsError", "Invalid string index %" CROC_INTEGER_FORMAT " (length is %u)",
+				if(index < 0 || cast(uword)index >= str->cpLength)
+					croc_eh_throwStd(*t, "BoundsError",
+						"Invalid string index %" CROC_INTEGER_FORMAT " (length is %" CROC_SIZE_T_FORMAT ")",
 						key.mInt, str->cpLength);
 
 				auto s = str->toDArray();
@@ -547,8 +550,10 @@ namespace croc
 				if(index < 0)
 					index += arr->length;
 
-				if(index < 0 || index >= arr->length)
-					croc_eh_throwStd(*t, "BoundsError", "Invalid array index %" CROC_INTEGER_FORMAT " (length is %u)", key.mInt, arr->length);
+				if(index < 0 || cast(uword)index >= arr->length)
+					croc_eh_throwStd(*t, "BoundsError",
+						"Invalid array index %" CROC_INTEGER_FORMAT " (length is %" CROC_SIZE_T_FORMAT ")",
+						key.mInt, arr->length);
 
 				arr->idxa(t->vm->mem, cast(uword)index, value);
 				return;
@@ -567,8 +572,9 @@ namespace croc
 				if(index < 0)
 					index += mb->data.length;
 
-				if(index < 0 || index >= mb->data.length)
-					croc_eh_throwStd(*t, "BoundsError", "Invalid memblock index %" CROC_INTEGER_FORMAT " (length is %u)",
+				if(index < 0 || cast(uword)index >= mb->data.length)
+					croc_eh_throwStd(*t, "BoundsError",
+						"Invalid memblock index %" CROC_INTEGER_FORMAT " (length is %" CROC_SIZE_T_FORMAT ")",
 						key.mInt, mb->data.length);
 
 				if(value.type != CrocType_Int)
@@ -619,7 +625,7 @@ namespace croc
 
 			if(!validIndices(loIndex, hiIndex, len))
 				croc_eh_throwStd(*t, "BoundsError",
-					"Invalid slice indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT "] (%s length = %u)",
+					"Invalid slice indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT "] (%s length = %" CROC_SIZE_T_FORMAT ")",
 					loIndex, hiIndex, typeToString(type), len);
 
 			return true;
@@ -687,14 +693,16 @@ namespace croc
 
 				if(!validIndices(loIndex, hiIndex, arr->length))
 					croc_eh_throwStd(*t, "BoundsError",
-						"Invalid slice-assign indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT "] (array length = %u)",
+						"Invalid slice-assign indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
+							"] (array length = %" CROC_SIZE_T_FORMAT ")",
 						loIndex, hiIndex, arr->length);
 
 				if(value.type == CrocType_Array)
 				{
-					if((hiIndex - loIndex) != value.mArray->length)
+					if(cast(uword)(hiIndex - loIndex) != value.mArray->length)
 						croc_eh_throwStd(*t, "RangeError",
-							"Array slice-assign lengths do not match (destination is % " CROC_INTEGER_FORMAT ", source is %u)",
+							"Array slice-assign lengths do not match (destination is % " CROC_INTEGER_FORMAT
+								", source is %" CROC_SIZE_T_FORMAT ")",
 							hiIndex - loIndex, value.mArray->length);
 
 					return arr->sliceAssign(t->vm->mem, cast(uword)loIndex, cast(uword)hiIndex, value.mArray);
@@ -876,7 +884,7 @@ namespace croc
 
 				auto l = len.mInt;
 
-				if(l < 0 || l > std::numeric_limits<uword>::max())
+				if(l < 0 || cast(uword)l > std::numeric_limits<uword>::max())
 					croc_eh_throwStd(*t, "RangeError", "Invalid length (%" CROC_INTEGER_FORMAT ")", l);
 
 				dest.mArray->resize(t->vm->mem, cast(uword)l);
@@ -898,7 +906,7 @@ namespace croc
 
 				auto l = len.mInt;
 
-				if(l < 0 || l > std::numeric_limits<uword>::max())
+				if(l < 0 || cast(uword)l > std::numeric_limits<uword>::max())
 					croc_eh_throwStd(*t, "RangeError", "Invalid length (%" CROC_INTEGER_FORMAT ")", l);
 
 				mb->resize(t->vm->mem, cast(uword)l);

@@ -135,7 +135,8 @@ namespace croc
 
 			if(ar.numTailcalls > 0)
 			{
-				croc_pushFormat(*t, "<%u tailcall%s>", ar.numTailcalls, ar.numTailcalls == 1 ? "" : "s");
+				croc_pushFormat(*t,
+					"<%" CROC_SIZE_T_FORMAT " tailcall%s>", ar.numTailcalls, ar.numTailcalls == 1 ? "" : "s");
 				croc_eh_pushLocationObject(*t, croc_getString(*t, -1), -1, CrocLocation_Script);
 				croc_cateq(*t, ret, 1);
 				croc_popTop(*t);

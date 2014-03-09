@@ -1,6 +1,8 @@
 #ifndef CROC_COMPILER_BUILDER_HPP
 #define CROC_COMPILER_BUILDER_HPP
 
+#include <stdio.h>
+
 #include "croc/compiler/ast.hpp"
 #include "croc/compiler/types.hpp"
 #include "croc/types/base.hpp"
@@ -113,7 +115,8 @@ namespace croc
 #ifndef NDEBUG
 		void print()
 		{
-			printf("%s: %u, %u, regAfter %u\n", expTypeToString(type), index, index2, regAfter);
+			printf("%s: %" CROC_SIZE_T_FORMAT ", %" CROC_SIZE_T_FORMAT ", regAfter %" CROC_SIZE_T_FORMAT "\n",
+				expTypeToString(type), index, index2, regAfter);
 		}
 #endif
 	};

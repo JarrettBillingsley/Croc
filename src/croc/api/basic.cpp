@@ -15,7 +15,7 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(numContainerVals < 1 || numContainerVals > 3)
-			croc_eh_throwStd(t_, "RangeError", "%s - numSlots may only be 1, 2, or 3, not %u",
+			croc_eh_throwStd(t_, "RangeError", "%s - numSlots may only be 1, 2, or 3, not %" CROC_SIZE_T_FORMAT,
 				__FUNCTION__, numContainerVals);
 
 		API_CHECK_NUM_PARAMS(numContainerVals);
@@ -113,7 +113,8 @@ extern "C"
 		auto diff = cast(word_t)croc_getStackSize(t_) - *state;
 
 		if(diff != 0)
-			croc_eh_throwStd(t_, "ApiError", "%s - stack size changed by %d slots between begin and end of foreach",
+			croc_eh_throwStd(t_, "ApiError",
+				"%s - stack size changed by %" CROC_SSIZE_T_FORMAT " slots between begin and end of foreach",
 				__FUNCTION__, diff);
 
 		croc_pop(t_, 3);

@@ -90,7 +90,8 @@ namespace croc
 			else { assert(false); type = CrocType_Null; } // dummy
 
 			if(!(p.typeMask & (1 << type)))
-				c.semException(p.defValue->location, "Parameter %u: Default parameter of type '%s' is not allowed",
+				c.semException(p.defValue->location,
+					"Parameter %" CROC_SIZE_T_FORMAT ": Default parameter of type '%s' is not allowed",
 					i - 1, typeToString(type));
 
 			i++;
@@ -131,7 +132,7 @@ namespace croc
 			VISIT(s->msg);
 		else
 		{
-			croc_pushFormat(*c.thread(), "Assertion failure at %s(%u:%u)",
+			croc_pushFormat(*c.thread(), "Assertion failure at %s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT ")",
 				s->location.file.ptr, s->location.line, s->location.col);
 			auto str = c.newString(croc_getString(*c.thread(), -1));
 			croc_popTop(*c.thread());
@@ -599,7 +600,8 @@ namespace croc
 							if(loVal == lo2Val ||
 								(loVal < lo2Val && (lo2Val - loVal) <= (hiVal - loVal)) ||
 								(loVal > lo2Val && (loVal - lo2Val) <= (hi2Val - lo2Val)))
-								c.semException(lo2->location, "case range overlaps range at %s(%u:%u)",
+								c.semException(lo2->location,
+									"case range overlaps range at %s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT ")",
 									lo->location.file.ptr, lo->location.line, lo->location.col);
 						}
 					}
@@ -610,7 +612,8 @@ namespace croc
 							if(cond.exp->isConstant() &&
 								((cond.exp->isInt() && cond.exp->asInt() >= loVal && cond.exp->asInt() <= hiVal) ||
 								(cond.exp->isFloat() && cond.exp->asFloat() >= loVal && cond.exp->asFloat() <= hiVal)))
-								c.semException(cond.exp->location, "case value overlaps range at %s(%u:%u)",
+								c.semException(cond.exp->location,
+									"case value overlaps range at %s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT ")",
 									lo->location.file.ptr, lo->location.line, lo->location.col);
 						}
 					}
@@ -640,7 +643,8 @@ namespace croc
 								(hiVal >= lo2Val && hiVal <= hi2Val) ||
 								(lo2Val >= loVal && lo2Val <= hiVal) ||
 								(hi2Val >= loVal && hi2Val <= hiVal))
-								c.semException(lo2->location, "case range overlaps range at %s(%u:%u)",
+								c.semException(lo2->location,
+									"case range overlaps range at %s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT ")",
 									lo->location.file.ptr, lo->location.line, lo->location.col);
 						}
 					}
@@ -650,7 +654,8 @@ namespace croc
 						{
 							if(cond.exp->isConstant() && cond.exp->isString() &&
 								cond.exp->asString() >= loVal && cond.exp->asString() <= hiVal)
-								c.semException(cond.exp->location, "case value overlaps range at %s(%u:%u)",
+								c.semException(cond.exp->location,
+									"case value overlaps range at %s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT ")",
 									lo->location.file.ptr, lo->location.line, lo->location.col);
 						}
 					}
@@ -1563,7 +1568,7 @@ namespace croc
 			if(idx < 0)
 				idx += strLen;
 
-			if(idx < 0 || idx >= strLen)
+			if(idx < 0 || cast(uword)idx >= strLen)
 				c.semException(e->location, "Invalid string index");
 
 			auto offs = utf8CPIdxToByte(str, cast(uword)idx);
@@ -1617,7 +1622,7 @@ namespace croc
 			if(h < 0)
 				h += strLen;
 
-			if(l > h || l < 0 || l > strLen || h < 0 || h > strLen)
+			if(l > h || l < 0 || cast(uword)l > strLen || h < 0 || cast(uword)h > strLen)
 				c.semException(e->location, "Invalid slice indices");
 
 			return new(c) StringExp(e->location, c.newString(utf8Slice(str, cast(uword)l, cast(uword)h)));

@@ -73,7 +73,7 @@ namespace croc
 
 			if(numRead == 0)
 				break; // EOF
-			else if(numRead < size)
+			else if(cast(uword)numRead < size)
 			{
 				size -= numRead;
 				break;

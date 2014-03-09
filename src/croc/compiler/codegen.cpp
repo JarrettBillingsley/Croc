@@ -198,7 +198,7 @@ namespace croc
 
 	word Codegen::dottedNameToString(Expression* exp)
 	{
-		std::function<word(Expression*)> work = [&](Expression* exp)
+		std::function<word(Expression*)> work = [&](Expression* exp) -> word
 		{
 			if(auto n = AST_AS(IdentExp, exp))
 			{
@@ -442,7 +442,8 @@ namespace croc
 				if(n1->name == d->names[j]->name)
 				{
 					auto loc = d->names[j]->location;
-					c.semException(n1->location, "Variable '%s' conflicts with previous definition at %s(%u:%u)",
+					c.semException(n1->location,
+						"Variable '%s' conflicts with previous definition at %s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT ")",
 						n1->name.ptr, loc.file.ptr, loc.line, loc.col);
 				}
 			}

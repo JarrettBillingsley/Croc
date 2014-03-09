@@ -15,14 +15,15 @@ extern "C"
 			return croc_eh_throwStd(t, "TypeError", "Expected type '%s' for 'this', not '%s'",
 				expected, croc_getString(t, -1));
 		else
-			return croc_eh_throwStd(t, "TypeError", "Expected type '%s' for parameter %u, not '%s'",
+			return croc_eh_throwStd(t, "TypeError", "Expected type '%s' for parameter %" CROC_SIZE_T_FORMAT ", not '%s'",
 				expected, index, croc_getString(t, -1));
 	}
 
 	void croc_ex_checkAnyParam(CrocThread* t, word_t index)
 	{
 		if(!croc_isValidIndex(t, index))
-			croc_eh_throwStd(t, "ParamError", "Too few parameters (expected at least %u, got %u)",
+			croc_eh_throwStd(t, "ParamError",
+				"Too few parameters (expected at least %" CROC_SIZE_T_FORMAT ", got %" CROC_SIZE_T_FORMAT ")",
 				index, croc_getStackSize(t) - 1);
 	}
 
@@ -106,7 +107,8 @@ extern "C"
 				croc_eh_throwStd(t, "TypeError", "Expected instance of class %s for 'this', not %s",
 					name, croc_getString(t, -1));
 			else
-				croc_eh_throwStd(t, "TypeError", "Expected instance of class %s for parameter %u, not %s",
+				croc_eh_throwStd(t, "TypeError",
+					"Expected instance of class %s for parameter %" CROC_SIZE_T_FORMAT ", not %s",
 					name, index, croc_getString(t, -1));
 		}
 
@@ -126,7 +128,8 @@ extern "C"
 				croc_eh_throwStd(t, "TypeError", "Expected instance of class %s for 'this', not %s",
 					name, croc_getString(t, -1));
 			else
-				croc_eh_throwStd(t, "TypeError", "Expected instance of class %s for parameter %u, not %s",
+				croc_eh_throwStd(t, "TypeError",
+					"Expected instance of class %s for parameter %" CROC_SIZE_T_FORMAT ", not %s",
 					name, index, croc_getString(t, -1));
 		}
 	}

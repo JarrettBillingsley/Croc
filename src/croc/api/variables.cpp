@@ -29,7 +29,7 @@ extern "C"
 		auto func = t->currentAR->func;
 
 		if(idx >= func->nativeUpvals().length)
-			croc_eh_throwStd(t_, "BoundsError", "%s - Invalid upvalue index %u (only have %u)",
+			croc_eh_throwStd(t_, "BoundsError", "%s - Invalid upvalue index %" CROC_SIZE_T_FORMAT " (only have %" CROC_SIZE_T_FORMAT ")",
 				__FUNCTION__, idx, func->nativeUpvals().length);
 
 		func->setNativeUpval(t->vm->mem, idx, *getValue(t, -1));
@@ -51,7 +51,7 @@ extern "C"
 		auto upvals = t->currentAR->func->nativeUpvals();
 
 		if(idx >= upvals.length)
-			croc_eh_throwStd(t_, "BoundsError", "%s - Invalid upvalue index %u (only have %u)",
+			croc_eh_throwStd(t_, "BoundsError", "%s - Invalid upvalue index %" CROC_SIZE_T_FORMAT " (only have %" CROC_SIZE_T_FORMAT ")",
 				__FUNCTION__, idx, upvals.length);
 
 		return push(t, upvals[idx]);

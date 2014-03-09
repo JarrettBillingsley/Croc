@@ -23,10 +23,21 @@
 #define CROC_INTEGER_FORMAT "I64d"
 #define CROC_UINTEGER_FORMAT "I64u"
 #define CROC_HEX64_FORMAT "I64x"
+
+#ifdef _WIN64
+# define CROC_SIZE_T_FORMAT "I64u"
+# define CROC_SSIZE_T_FORMAT "I64d"
+#else
+# define CROC_SIZE_T_FORMAT "u"
+# define CROC_SSIZE_T_FORMAT "d"
+#endif
+
 #else
 #define CROC_INTEGER_FORMAT "lld"
 #define CROC_UINTEGER_FORMAT "llu"
 #define CROC_HEX64_FORMAT "llx"
+#define CROC_SIZE_T_FORMAT "zu"
+#define CROC_SSIZE_T_FORMAT "z"
 #endif
 
 #define CROC_FORMAT_BUF_SIZE 256

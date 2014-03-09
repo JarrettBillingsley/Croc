@@ -18,7 +18,7 @@ namespace croc
 		auto length = croc_ex_checkIntParam(t, 1);
 		auto haveFill = croc_isValidIndex(t, 2);
 
-		if(length < 0 || length > std::numeric_limits<uword>::max())
+		if(length < 0 || cast(uword)length > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid length: %" CROC_INTEGER_FORMAT, length);
 
 		croc_array_new(t, cast(uword)length);
@@ -38,17 +38,17 @@ namespace croc
 		auto length2 = croc_ex_checkIntParam(t, 2);
 		auto haveFill = croc_isValidIndex(t, 3);
 
-		if(length1 <= 0 || length1 > std::numeric_limits<uword>::max())
+		if(length1 <= 0 || cast(uword)length1 > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid first dimension length: %" CROC_INTEGER_FORMAT, length1);
 
-		if(length2 < 0 || length2 > std::numeric_limits<uword>::max())
+		if(length2 < 0 || cast(uword)length2 > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid second dimension length: %" CROC_INTEGER_FORMAT, length2);
 
 		croc_array_new(t, cast(uword)length1);
 
 		if(haveFill)
 		{
-			for(uword i = 0; i < length1; i++)
+			for(uword i = 0; i < cast(uword)length1; i++)
 			{
 				croc_array_new(t, cast(uword)length2);
 				croc_dup(t, 3);
@@ -58,7 +58,7 @@ namespace croc
 		}
 		else
 		{
-			for(uword i = 0; i < length1; i++)
+			for(uword i = 0; i < cast(uword)length1; i++)
 			{
 				croc_array_new(t, cast(uword)length2);
 				croc_idxai(t, -2, i);
@@ -75,24 +75,24 @@ namespace croc
 		auto length3 = croc_ex_checkIntParam(t, 3);
 		auto haveFill = croc_isValidIndex(t, 4);
 
-		if(length1 <= 0 || length1 > std::numeric_limits<uword>::max())
+		if(length1 <= 0 || cast(uword)length1 > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid first dimension length: %" CROC_INTEGER_FORMAT, length1);
 
-		if(length2 <= 0 || length2 > std::numeric_limits<uword>::max())
+		if(length2 <= 0 || cast(uword)length2 > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid second dimension length: %" CROC_INTEGER_FORMAT, length2);
 
-		if(length3 < 0 || length3 > std::numeric_limits<uword>::max())
+		if(length3 < 0 || cast(uword)length3 > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid third dimension length: %" CROC_INTEGER_FORMAT, length3);
 
 		croc_array_new(t, cast(uword)length1);
 
 		if(haveFill)
 		{
-			for(uword i = 0; i < length1; i++)
+			for(uword i = 0; i < cast(uword)length1; i++)
 			{
 				croc_array_new(t, cast(uword)length2);
 
-				for(uword j = 0; j < length2; j++)
+				for(uword j = 0; j < cast(uword)length2; j++)
 				{
 					croc_array_new(t, cast(uword)length3);
 					croc_dup(t, 4);
@@ -105,11 +105,11 @@ namespace croc
 		}
 		else
 		{
-			for(uword i = 0; i < length1; i++)
+			for(uword i = 0; i < cast(uword)length1; i++)
 			{
 				croc_array_new(t, cast(uword)length2);
 
-				for(uword j = 0; j < length2; j++)
+				for(uword j = 0; j < cast(uword)length2; j++)
 				{
 					croc_array_new(t, cast(uword)length3);
 					croc_idxai(t, -2, j);
@@ -146,7 +146,7 @@ namespace croc
 		if((range % step) != 0)
 			size++;
 
-		if(size > std::numeric_limits<uword>::max())
+		if(cast(uword)size > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Array is too big");
 
 		croc_array_new(t, cast(uword)size);
@@ -286,7 +286,7 @@ namespace croc
 		CrocStrBuffer buf;
 		croc_ex_buffer_init(t, &buf);
 		croc_ex_buffer_addChar(&buf, '[');
-		auto length = croc_len(t, 0);
+		auto length = cast(uword)croc_len(t, 0);
 
 		for(uword i = 0; i < length; i++)
 		{
@@ -610,7 +610,7 @@ namespace croc
 		if(index < 0)
 			index += data.length;
 
-		if(index < 0 || index >= data.length)
+		if(index < 0 || cast(uword)index >= data.length)
 			croc_eh_throwStd(t, "BoundsError", "Invalid array index: %" CROC_INTEGER_FORMAT, index);
 
 		auto t_ = Thread::from(t);
@@ -635,13 +635,13 @@ namespace croc
 		if(index < 0)
 			index += data.length;
 
-		if(index < 0 || index > data.length)
+		if(index < 0 || cast(uword)index > data.length)
 			croc_eh_throwStd(t, "BoundsError", "Invalid array index: %" CROC_INTEGER_FORMAT, index);
 
 		arr->resize(Thread::from(t)->vm->mem, data.length + 1);
 		data = arr->toDArray(); // might have been invalidated
 
-		for(uword i = data.length - 1; i > index; i--)
+		for(uword i = data.length - 1; i > cast(uword)index; i--)
 			data[i] = data[i - 1];
 
 		croc_dup(t, 2);
@@ -659,10 +659,10 @@ namespace croc
 		if(idx1 < 0) idx1 += data.length;
 		if(idx2 < 0) idx2 += data.length;
 
-		if(idx1 < 0 || idx1 >= data.length)
+		if(idx1 < 0 || cast(uword)idx1 >= data.length)
 			croc_eh_throwStd(t, "BoundsError", "Invalid array index: %" CROC_INTEGER_FORMAT, idx1);
 
-		if(idx2 < 0 || idx2 >= data.length)
+		if(idx2 < 0 || cast(uword)idx2 >= data.length)
 			croc_eh_throwStd(t, "BoundsError", "Invalid array index: %" CROC_INTEGER_FORMAT, idx2);
 
 		if(idx1 != idx2)

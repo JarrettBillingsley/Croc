@@ -60,8 +60,8 @@ namespace croc
 
 			while(size > l)
 			{
-				if(l & (1 << ((sizeof(uword) * 8) - 1)))
-					croc_eh_throwStd(t, "RangeError", "StringBuffer too big (%u elements)", size);
+				if(l & (1ULL << ((sizeof(uword) * 8) - 1)))
+					croc_eh_throwStd(t, "RangeError", "StringBuffer too big (%" CROC_SIZE_T_FORMAT " elements)", size);
 
 				l <<= 1;
 			}
@@ -160,7 +160,7 @@ namespace croc
 			{
 				auto l = croc_getInt(t, 1);
 
-				if(l < 0 || l > std::numeric_limits<uword>::max())
+				if(l < 0 || cast(uword)l > std::numeric_limits<uword>::max())
 					croc_eh_throwStd(t, "RangeError", "Invalid length: %" CROC_INTEGER_FORMAT, l);
 
 				cpLen = cast(uword)l;
@@ -213,9 +213,10 @@ namespace croc
 		if(hi < 0)
 			hi += len;
 
-		if(lo < 0 || lo > hi || hi > len)
+		if(lo < 0 || lo > hi || cast(uword)hi > len)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (buffer length: %u)",
+				"Invalid slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
+					" (buffer length: %" CROC_SIZE_T_FORMAT ")",
 				lo, hi, len);
 
 		CrocStrBuffer b;
@@ -247,7 +248,7 @@ namespace croc
 			croc_pushBool(t, true);
 		else if(croc_isString(t, 1))
 		{
-			if(len != croc_len(t, 1))
+			if(len != cast(uword)croc_len(t, 1))
 				croc_pushBool(t, false);
 			else
 			{
@@ -299,7 +300,7 @@ namespace croc
 			croc_pushInt(t, 0);
 		else if(croc_isString(t, 1))
 		{
-			auto otherLen = croc_len(t, 1);
+			auto otherLen = cast(uword)croc_len(t, 1);
 			auto l = len < otherLen ? len : otherLen;
 
 			auto data = mb->data.template as<dchar>();
@@ -353,7 +354,7 @@ namespace croc
 		auto mb = _getData(t);
 		auto newLen = croc_ex_checkIntParam(t, 1);
 
-		if(newLen < 0 || newLen > std::numeric_limits<uword>::max())
+		if(newLen < 0 || cast(uword)newLen > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid length: %" CROC_INTEGER_FORMAT, newLen);
 
 		auto oldLen = _getLength(t);
@@ -379,8 +380,9 @@ namespace croc
 		if(index < 0)
 			index += len;
 
-		if(index < 0 || index >= len)
-			croc_eh_throwStd(t, "BoundsError", "Invalid index: %" CROC_INTEGER_FORMAT " (buffer length: %u)",
+		if(index < 0 || cast(uword)index >= len)
+			croc_eh_throwStd(t, "BoundsError", "Invalid index: %" CROC_INTEGER_FORMAT
+					" (buffer length: %" CROC_SIZE_T_FORMAT ")",
 				index, len);
 
 		croc_pushChar(t, mb->data.template as<dchar>()[cast(uword)index]);
@@ -397,8 +399,9 @@ namespace croc
 		if(index < 0)
 			index += len;
 
-		if(index < 0 || index >= len)
-			croc_eh_throwStd(t, "BoundsError", "Invalid index: %" CROC_INTEGER_FORMAT " (buffer length: %u)",
+		if(index < 0 || cast(uword)index >= len)
+			croc_eh_throwStd(t, "BoundsError", "Invalid index: %" CROC_INTEGER_FORMAT
+					" (buffer length: %" CROC_SIZE_T_FORMAT ")",
 				index, len);
 
 		mb->data.template as<dchar>()[cast(uword)index] = ch;
@@ -567,9 +570,10 @@ namespace croc
 		if(hi < 0)
 			hi += len;
 
-		if(lo < 0 || lo > hi || hi > len)
+		if(lo < 0 || lo > hi || cast(uword)hi > len)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (buffer length: %u)",
+				"Invalid slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
+					" (buffer length: %" CROC_SIZE_T_FORMAT ")",
 				lo, hi, len);
 
 		auto newStr = mb->data.template as<dchar>().slice(cast(uword)lo, cast(uword)hi);
@@ -596,7 +600,9 @@ namespace croc
 			auto otherLen = _getLength(t, filler);
 
 			if(otherLen != (hi - lo))
-				croc_eh_throwStd(t, "ValueError", "Length of destination (%u) and length of source (%u) do not match",
+				croc_eh_throwStd(t, "ValueError",
+					"Length of destination (%" CROC_SIZE_T_FORMAT ") and length of source (%" CROC_SIZE_T_FORMAT
+						") do not match",
 					hi - lo, otherLen);
 
 			mb->data.template as<dchar>().slicea(lo, hi, other.slice(0, otherLen));
@@ -629,7 +635,8 @@ namespace croc
 
 			if(cpLen != (hi - lo))
 				croc_eh_throwStd(t, "ValueError",
-					"Length of destination (%u) and length of source string (%u) do not match",
+					"Length of destination (%" CROC_SIZE_T_FORMAT ") and length of source string (%" CROC_SIZE_T_FORMAT
+						") do not match",
 					hi - lo, cpLen);
 
 			_toUtf32(getCrocstr(Thread::from(t), filler), mb->data.template as<dchar>().slice(lo, hi));
@@ -643,7 +650,8 @@ namespace croc
 				croc_idxi(t, filler, ai);
 
 				if(!croc_isChar(t, -1))
-					croc_eh_throwStd(t, "TypeError", "array element %u expected to be a one-character string", i);
+					croc_eh_throwStd(t, "TypeError", "array element %" CROC_SIZE_T_FORMAT
+						" expected to be a one-character string", i);
 
 				data[ai] = croc_getChar(t, -1);
 				croc_popTop(t);
@@ -678,9 +686,10 @@ namespace croc
 		if(hi < 0)
 			hi += len;
 
-		if(lo < 0 || lo > hi || hi > len)
+		if(lo < 0 || lo > hi || cast(uword)hi > len)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid range indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (buffer length: %u)",
+				"Invalid range indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
+					" (buffer length: %" CROC_SIZE_T_FORMAT ")",
 				lo, hi, len);
 
 		_fillImpl(t, mb, 3, cast(uword)lo, cast(uword)hi);
@@ -702,9 +711,10 @@ namespace croc
 		if(hi < 0)
 			hi += len;
 
-		if(lo < 0 || lo > hi || hi > len)
+		if(lo < 0 || lo > hi || cast(uword)hi > len)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid range indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (buffer length: %u)",
+				"Invalid range indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
+					" (buffer length: %" CROC_SIZE_T_FORMAT ")",
 				lo, hi, len);
 
 		mb->data.template as<dchar>().slice(cast(uword)lo, cast(uword)hi).fill(ch);
@@ -722,8 +732,9 @@ namespace croc
 			idx += len;
 
 		// yes, greater, because it's possible to insert at one past the end of the buffer (it appends)
-		if(idx < 0 || idx > len)
-			croc_eh_throwStd(t, "BoundsError", "Invalid index: %" CROC_INTEGER_FORMAT " (length: %u)", idx, len);
+		if(idx < 0 || cast(uword)idx > len)
+			croc_eh_throwStd(t, "BoundsError",
+				"Invalid index: %" CROC_INTEGER_FORMAT " (length: %" CROC_SIZE_T_FORMAT ")", idx, len);
 
 		auto doResize = [&](crocint otherLen)
 		{
@@ -739,7 +750,7 @@ namespace croc
 
 			auto tmp = mb->data.template as<dchar>().slice(0, cast(uword)totalLen);
 
-			if(idx < oldLen)
+			if(cast(uword)idx < oldLen)
 			{
 				auto end = idx + otherLen;
 				auto numLeft = oldLen - idx;
@@ -821,13 +832,15 @@ namespace croc
 		if(hi < 0)
 			hi += len;
 
-		if(lo < 0 || lo > hi || hi > len)
+		if(lo < 0 || lo > hi || cast(uword)hi > len)
 			croc_eh_throwStd(t, "BoundsError",
-				"Invalid indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (length: %u)", lo, hi, len);
+				"Invalid indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
+					" (length: %" CROC_SIZE_T_FORMAT ")",
+				lo, hi, len);
 
 		if(lo != hi)
 		{
-			if(hi < len)
+			if(cast(uword)hi < len)
 				memmove(&mb->data[cast(uword)lo * sizeof(dchar)], &mb->data[cast(uword)hi * sizeof(dchar)],
 					cast(uword)((len - hi) * sizeof(dchar)));
 
@@ -943,7 +956,8 @@ namespace croc
 			if(num > VSplitMax)
 			{
 				tmp.free(Thread::from(t)->vm->mem);
-				croc_eh_throwStd(t, "ValueError", "Too many (>%u) parts when splitting", VSplitMax);
+				croc_eh_throwStd(t, "ValueError", "Too many (>%" CROC_SIZE_T_FORMAT ") parts when splitting",
+					VSplitMax);
 			}
 		});
 
@@ -995,7 +1009,8 @@ namespace croc
 				num++;
 
 				if(num > VSplitMax)
-					croc_eh_throwStd(t, "ValueError", "Too many (>%u) parts when splitting", VSplitMax);
+					croc_eh_throwStd(t, "ValueError", "Too many (>%" CROC_SIZE_T_FORMAT ") parts when splitting",
+						VSplitMax);
 			}
 		});
 
@@ -1037,7 +1052,8 @@ namespace croc
 			num++;
 
 			if(num > VSplitMax)
-				croc_eh_throwStd(t, "ValueError", "Too many (>%u) parts when splitting", VSplitMax);
+				croc_eh_throwStd(t, "ValueError", "Too many (>%" CROC_SIZE_T_FORMAT ") parts when splitting",
+					VSplitMax);
 		});
 
 		return num;
@@ -1367,7 +1383,7 @@ namespace croc
 		auto mb = _getData(t);
 		auto index = croc_ex_checkIntParam(t, 1) + 1;
 
-		if(index >= _getLength(t))
+		if(cast(uword)index >= _getLength(t))
 			return 0;
 
 		croc_pushInt(t, index);

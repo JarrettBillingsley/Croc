@@ -37,7 +37,7 @@ namespace croc
 		{
 			auto lim = croc_ex_checkIntParam(t, 2);
 
-			if(lim < 0 || lim > std::numeric_limits<uword_t>::max())
+			if(lim < 0 || cast(uword)lim > std::numeric_limits<uword_t>::max())
 				croc_eh_throwStd(t, "RangeError", "Invalid limit (%" CROC_INTEGER_FORMAT ")", lim);
 
 			croc_pushInt(t, croc_gc_setLimit(t, limType, cast(uword_t)lim));

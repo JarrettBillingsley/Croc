@@ -885,9 +885,10 @@ namespace croc
 					if(index < 0)
 						index += numVarargs;
 
-					if(index < 0 || index >= numVarargs)
+					if(index < 0 || cast(uword)index >= numVarargs)
 						croc_eh_throwStd(*t, "BoundsError",
-							"Invalid 'vararg' index: %" CROC_INTEGER_FORMAT " (only have %d)", index, numVarargs);
+							"Invalid 'vararg' index: %" CROC_INTEGER_FORMAT " (only have %" CROC_SIZE_T_FORMAT ")",
+							index, numVarargs);
 
 					t->stack[stackBase + rd] = t->stack[t->currentAR->vargBase + cast(uword)index];
 					break;
@@ -910,9 +911,10 @@ namespace croc
 					if(index < 0)
 						index += numVarargs;
 
-					if(index < 0 || index >= numVarargs)
+					if(index < 0 || cast(uword)index >= numVarargs)
 						croc_eh_throwStd(*t, "BoundsError",
-							"Invalid 'vararg' index: %" CROC_INTEGER_FORMAT " (only have %d)", index, numVarargs);
+							"Invalid 'vararg' index: %" CROC_INTEGER_FORMAT " (only have %" CROC_SIZE_T_FORMAT ")",
+							index, numVarargs);
 
 					t->stack[t->currentAR->vargBase + cast(uword)index] = *RT;
 					break;
@@ -935,7 +937,7 @@ namespace croc
 							croc_getString(*t, -2), croc_getString(*t, -1));
 					}
 
-					if(lo > hi || lo < 0 || lo > numVarargs || hi < 0 || hi > numVarargs)
+					if(lo > hi || lo < 0 || cast(uword)lo > numVarargs || hi < 0 || cast(uword)hi > numVarargs)
 						croc_eh_throwStd(*t, "BoundsError",
 							"Invalid vararg slice indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT "]",
 							lo, hi);
@@ -990,7 +992,8 @@ namespace croc
 								croc_eh_throwStd(*t, "TypeError", "'this' parameter: type '%s' is not allowed",
 									croc_getString(*t, -1));
 							else
-								croc_eh_throwStd(*t, "TypeError", "Parameter %u: type '%s' is not allowed",
+								croc_eh_throwStd(*t, "TypeError",
+									"Parameter %" CROC_SIZE_T_FORMAT ": type '%s' is not allowed",
 									idx, croc_getString(*t, -1));
 						}
 
@@ -1033,7 +1036,7 @@ namespace croc
 						croc_eh_throwStd(*t, "TypeError", "'this' parameter: type '%s' is not allowed",
 							croc_getString(*t, -1));
 					else
-						croc_eh_throwStd(*t, "TypeError", "Parameter %u: type '%s' is not allowed",
+						croc_eh_throwStd(*t, "TypeError", "Parameter %d: type '%s' is not allowed",
 							rd, croc_getString(*t, -1));
 
 					break;
@@ -1046,7 +1049,8 @@ namespace croc
 						croc_eh_throwStd(*t, "TypeError", "'this' parameter: type '%s' does not satisfy constraint '%s'",
 							croc_getString(*t, -1), RS->mString->toCString());
 					else
-						croc_eh_throwStd(*t, "TypeError", "Parameter %u: type '%s' does not satisfy constraint '%s'",
+						croc_eh_throwStd(*t, "TypeError",
+							"Parameter %d: type '%s' does not satisfy constraint '%s'",
 							rd, croc_getString(*t, -1), RS->mString->toCString());
 					break;
 				}

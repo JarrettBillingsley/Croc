@@ -83,9 +83,10 @@ namespace croc
 	auto errors = checkErrorsParam(t, 4);\
 	if(lo < 0) lo += data.length;\
 	if(hi < 0) hi += data.length;\
-	if(lo < 0 || lo > hi || hi > data.length)\
+	if(lo < 0 || lo > hi || cast(uword)hi > data.length)\
 		croc_eh_throwStd(t, "BoundsError",\
-			"Invalid slice indices(%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT ") for memblock of length %u",\
+			"Invalid slice indices(%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT ") for memblock of length %"\
+				CROC_SIZE_T_FORMAT,\
 			lo, hi, data.length);\
 	auto mb = data.slice(cast(uword)lo, cast(uword)hi);
 
@@ -360,7 +361,7 @@ namespace croc
 
 		// this initial sizing might not be enough.. but it's probably enough for most text. only trans-BMP chars will
 		// need more room
-		croc_lenai(t, 2, max(croc_len(t, 2), start + strCPLen * sizeof(wchar)));
+		croc_lenai(t, 2, max(cast(uword)croc_len(t, 2), cast(uword)(start + strCPLen * sizeof(wchar))));
 		auto dest = wstring::n(cast(wchar*)(croc_memblock_getData(t, 2) + start), strCPLen);
 
 		custring remaining;

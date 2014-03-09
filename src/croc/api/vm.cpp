@@ -1,11 +1,5 @@
 
-#include <functional>
-#include <iostream>
-#include <fstream>
-#include "croc/base/opcodes.hpp"
-
-
-
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "croc/api.h"
@@ -189,7 +183,7 @@ extern "C"
 		if(vm->mem.totalBytes != 0)
 		{
 			LEAK_DETECT(vm->mem.leaks.dumpBlocks());
-			fprintf(stderr, "There are %u total unfreed bytes!\n", vm->mem.totalBytes);
+			fprintf(stderr, "There are %" CROC_SIZE_T_FORMAT " total unfreed bytes!\n", vm->mem.totalBytes);
 		}
 
 		LEAK_DETECT(vm->mem.leaks.cleanup());

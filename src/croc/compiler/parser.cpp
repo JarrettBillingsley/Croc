@@ -2691,7 +2691,7 @@ namespace croc
 	Identifier* Parser::dummyForeachIndex(CompileLoc loc)
 	{
 		auto t = c.thread();
-		croc_pushFormat(*t, CROC_INTERNAL_NAME("dummy%u"), mDummyNameCounter++);
+		croc_pushFormat(*t, CROC_INTERNAL_NAME("dummy%" CROC_SIZE_T_FORMAT), mDummyNameCounter++);
 		auto str = c.newString(croc_getString(*t, -1));
 		croc_popTop(*t);
 		return new(c) Identifier(loc, str);
@@ -2700,7 +2700,8 @@ namespace croc
 	Identifier* Parser::dummyFuncLiteralName(CompileLoc loc)
 	{
 		auto t = c.thread();
-		croc_pushFormat(*t, "<literal at %s(%u:%u)>", loc.file.ptr, loc.line, loc.col);
+		croc_pushFormat(*t,
+			"<literal at %s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT ")>", loc.file.ptr, loc.line, loc.col);
 		auto str = c.newString(croc_getString(*t, -1));
 		croc_popTop(*t);
 		return new(c) Identifier(loc, str);
