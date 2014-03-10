@@ -74,9 +74,9 @@ namespace croc
 			contents()
 		{}
 
-		crocstr typeString()
+		const char* typeString()
 		{
-			return atoda(strings[type]);
+			return strings[type];
 		}
 
 		bool isSubStructure()
@@ -506,7 +506,7 @@ namespace croc
 				nextLine();
 			}
 
-			error("{} block has no matching '{}'", kind, endCommand);
+			error("%s block has no matching '%s'", kind, endCommand);
 		}
 
 		// =============================================================================================================
@@ -739,9 +739,9 @@ public:
 		// =============================================================================================================
 		// Error handling
 private:
-		void error(const char* msg, ...);
-		void error(uword line, uword col, const char* msg, ...);
-		void errorHere(const char* msg, ...);
+		void error(const char* msg, ...) CROCPRINT(2, 3);
+		void error(uword line, uword col, const char* msg, ...) CROCPRINT(4, 5);
+		void errorHere(const char* msg, ...) CROCPRINT(2, 3);
 	};
 
 	struct CommentParser
@@ -1479,12 +1479,12 @@ private:
 			}
 
 			if(idx == numParams)
-				error("Function has no parameter named '{}'", paramName);
+				error("Function has no parameter named '%.*s'", cast(int)paramName.length, paramName.ptr);
 
 			// param doctable is sitting on the stack where params used to be
 
 			if(croc_hasField(t, params, "docs"))
-				error("Parameter '{}' has already been documented", paramName);
+				error("Parameter '%.*s' has already been documented", cast(int)paramName.length, paramName.ptr);
 
 			croc_array_new(t, 0);
 			croc_dupTop(t);
@@ -1658,7 +1658,7 @@ private:
 		// =============================================================================================================
 		// Error handling
 
-		void error(const char* msg, ...)
+		void error(const char* msg, ...) CROCPRINT(2, 3)
 		{
 			va_list args;
 			va_start(args, msg);
@@ -1666,7 +1666,7 @@ private:
 			va_end(args);
 		}
 
-		void error(uword line, uword col, const char* msg, ...)
+		void error(uword line, uword col, const char* msg, ...) CROCPRINT(4, 5)
 		{
 			va_list args;
 			va_start(args, msg);

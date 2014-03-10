@@ -168,48 +168,12 @@ CROCAPI void   croc_ex_toJSON    (CrocThread* t, word_t root, int pretty, void(*
 // =====================================================================================================================
 // Library helpers
 
-#define CROC_LINE_PRAGMA(n) "//#line " #n "\n"
-#define CROC_LINE_PRAGMA_FILE(n, file) "//#line " #n " \"" file "\"\n"
-
 typedef struct CrocRegisterFunc
 {
 	const char* name;
 	word_t maxParams;
 	CrocNativeFunc func;
 } CrocRegisterFunc;
-
-typedef struct CrocDocParam
-{
-	const char* name;
-	const char* type;
-	const char* value;
-} CrocDocParam;
-
-typedef struct CrocDocExtra
-{
-	const char* name;
-	const char* value;
-} CrocDocExtra;
-
-typedef struct CrocDocTable
-{
-	const char* kind;
-	const char* name;
-	const char* docs;
-
-	uword_t line;
-
-	CrocDocParam* params;
-	CrocDocExtra* extra;
-} CrocDocTable;
-
-typedef struct CrocDoc
-{
-	CrocThread* t;
-	const char* mFile;
-	crocint_t mStartIdx;
-	uword_t mDittoDepth;
-} CrocDoc;
 
 CROCAPI void croc_ex_makeModule      (CrocThread* t, const char* name, CrocNativeFunc loader);
 CROCAPI void croc_ex_registerGlobal  (CrocThread* t, CrocRegisterFunc f);
@@ -219,10 +183,21 @@ CROCAPI void croc_ex_registerGlobals (CrocThread* t, const CrocRegisterFunc* fun
 CROCAPI void croc_ex_registerFields  (CrocThread* t, const CrocRegisterFunc* funcs);
 CROCAPI void croc_ex_registerMethods (CrocThread* t, const CrocRegisterFunc* funcs);
 
+typedef struct CrocDoc
+{
+	CrocThread* t;
+	const char* mFile;
+	crocint_t mStartIdx;
+	uword_t mDittoDepth;
+} CrocDoc;
+
 CROCAPI void croc_ex_doc_init            (CrocThread* t, CrocDoc* d, const char* file);
-CROCAPI void croc_ex_doc_push            (CrocDoc* d, CrocDocTable* docs);
+CROCAPI void croc_ex_doc_push            (CrocDoc* d, const char* docString);
 CROCAPI void croc_ex_doc_popNamed        (CrocDoc* d, word_t idx, const char* parentField);
 CROCAPI void croc_ex_doc_mergeModuleDocs (CrocDoc* d);
+
+CROCAPI void croc_ex_docGlobals (CrocThread* t, CrocDoc* doc, const char** docStrings);
+CROCAPI void croc_ex_docFields  (CrocThread* t, CrocDoc* doc, const char** docStrings);
 
 #define croc_ex_doc_pop(d, idx) (croc_ex_doc_popNamed((d), (idx), "children"))
 #define croc_ex_doc_pushPopNamed(d, docs, parentField)\
@@ -230,8 +205,25 @@ CROCAPI void croc_ex_doc_mergeModuleDocs (CrocDoc* d);
 #define croc_ex_doc_pushPop(d, docs)\
 	(croc_ex_doc_push((d), (docs)), croc_ex_doc_pop((d), -1))
 
-CROCAPI void croc_ex_docGlobals (CrocThread* t, CrocDoc* doc, CrocDocTable* docs);
-CROCAPI void croc_ex_docFields  (CrocThread* t, CrocDoc* doc, CrocDocTable* docs);
+#define STRINGIFY2(X) #X
+#define STRINGIFY(X) STRINGIFY2(X)
+#define CROC_DOC_HEADER(type, name) "!" STRINGIFY(__LINE__) " " type " " name
+
+#define CROC_DOC_MODULE(name)      CROC_DOC_HEADER("module",    name) "\n"
+#define CROC_DOC_FUNC(name)        CROC_DOC_HEADER("function",  name) "\n"
+#define CROC_DOC_CLASS(name)       CROC_DOC_HEADER("class",     name) "\n"
+#define CROC_DOC_NS(name)          CROC_DOC_HEADER("namespace", name) "\n"
+#define CROC_DOC_FIELD(name)       CROC_DOC_HEADER("field",     name) "\n"
+#define CROC_DOC_FIELDV(name, val) CROC_DOC_HEADER("field",     name) "=" val "\n"
+#define CROC_DOC_VAR(name)         CROC_DOC_HEADER("global",    name) "\n"
+#define CROC_DOC_VARV(name, val)   CROC_DOC_HEADER("global",    name) "=" val "\n"
+
+#define CROC_DOC_BASE(name)              "!base " name "\n"
+#define CROC_DOC_PARAMANY(name)          "!param " name ":any\n"
+#define CROC_DOC_PARAMANYD(name, def)    "!param " name ":any=" def "\n"
+#define CROC_DOC_PARAM(name, type)       "!param " name ":" type "\n"
+#define CROC_DOC_PARAMD(name, type, def) "!param " name ":" type "=" def "\n"
+#define CROC_DOC_VARARG                  CROC_DOC_PARAM("vararg", "vararg")
 
 // =====================================================================================================================
 // Serialization
