@@ -9,6 +9,7 @@ namespace croc
 	RelStack   fakeToRel    (Thread* t, word fake);
 	AbsStack   fakeToAbs    (Thread* t, word fake);
 	word       push         (Thread* t, Value val);
+	word       pushCrocstr  (CrocThread* t, crocstr s);
 	Value*     getValue     (Thread* t, word slot);
 	String*    getStringObj (Thread* t, word slot);
 	crocstr    getCrocstr   (Thread* t, word slot);

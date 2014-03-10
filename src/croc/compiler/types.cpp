@@ -1,6 +1,7 @@
 
 #include "croc/compiler/codegen.hpp"
 #include "croc/compiler/ast.hpp"
+#include "croc/compiler/docgen.hpp"
 #include "croc/compiler/lexer.hpp"
 #include "croc/compiler/parser.hpp"
 #include "croc/compiler/semantic.hpp"
@@ -207,10 +208,8 @@ namespace croc
 
 			if(docComments())
 			{
-			// 	DocGen doc(this);
-			// 	mod = doc.visit(mod);
-
-				croc_table_new(*t, 0); // temp
+				DocGen doc(*this);
+				mod = doc.visit(mod);
 
 				if(!docTable())
 					croc_popTop(*t);
@@ -234,10 +233,8 @@ namespace croc
 
 			if(docComments())
 			{
-			// 	DocGen doc(this);
-			// 	stmts = doc.visitStatements(stmts);
-
-				croc_table_new(*t, 0); // temp
+				DocGen doc(*this);
+				stmts = doc.visitStatements(stmts);
 
 				if(!docTable())
 					croc_popTop(*t);

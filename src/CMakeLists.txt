@@ -51,6 +51,8 @@ set(croc_SRC
 	croc/compiler/builder.hpp
 	croc/compiler/codegen.cpp
 	croc/compiler/codegen.hpp
+	croc/compiler/docgen.cpp
+	croc/compiler/docgen.hpp
 	croc/compiler/docparser.cpp
 	croc/compiler/docparser.hpp
 	croc/compiler/lexer.cpp

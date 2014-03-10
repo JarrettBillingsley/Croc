@@ -50,6 +50,11 @@ namespace croc
 		return cast(word)(t->stackIndex - 1 - t->stackBase);
 	}
 
+	word pushCrocstr(CrocThread* t, crocstr s)
+	{
+		return croc_pushStringn(t, cast(const char*)s.ptr, s.length);
+	}
+
 	Value* getValue(Thread* t, word slot)
 	{
 		return &t->stack[fakeToAbs(t, slot)];
