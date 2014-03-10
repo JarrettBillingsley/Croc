@@ -96,6 +96,7 @@ set(croc_SRC
 	croc/stdlib/ascii.cpp
 	croc/stdlib/compiler.cpp
 	croc/stdlib/console.cpp
+	croc/stdlib/docs.cpp
 	croc/stdlib/exceptions.cpp
 	croc/stdlib/gc.cpp
 	croc/stdlib/hash.cpp
@@ -140,6 +141,7 @@ set(croc_SRC
 
 set(croc_CROCSRC
 	croc/stdlib/console.croc
+	croc/stdlib/docs.croc
 	croc/stdlib/hash_weaktables.croc
 	croc/stdlib/stream.croc
 	croc/stdlib/text.croc
