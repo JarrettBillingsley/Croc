@@ -186,24 +186,20 @@ CROCAPI void croc_ex_registerMethods (CrocThread* t, const CrocRegisterFunc* fun
 typedef struct CrocDoc
 {
 	CrocThread* t;
-	const char* mFile;
-	crocint_t mStartIdx;
-	uword_t mDittoDepth;
+	const char* file;
+	crocint_t startIdx;
+	uword_t dittoDepth;
 } CrocDoc;
 
 CROCAPI void croc_ex_doc_init            (CrocThread* t, CrocDoc* d, const char* file);
+CROCAPI void croc_ex_doc_finish          (CrocDoc* d);
 CROCAPI void croc_ex_doc_push            (CrocDoc* d, const char* docString);
 CROCAPI void croc_ex_doc_popNamed        (CrocDoc* d, word_t idx, const char* parentField);
 CROCAPI void croc_ex_doc_mergeModuleDocs (CrocDoc* d);
-
-CROCAPI void croc_ex_docGlobals (CrocThread* t, CrocDoc* doc, const char** docStrings);
-CROCAPI void croc_ex_docFields  (CrocThread* t, CrocDoc* doc, const char** docStrings);
+CROCAPI void croc_ex_docGlobals          (CrocDoc* d, const char** docStrings);
+CROCAPI void croc_ex_docFields           (CrocDoc* d, const char** docStrings);
 
 #define croc_ex_doc_pop(d, idx) (croc_ex_doc_popNamed((d), (idx), "children"))
-#define croc_ex_doc_pushPopNamed(d, docs, parentField)\
-	(croc_ex_doc_push((d), (docs)), croc_ex_doc_popNamed((d), -1, (parentField)))
-#define croc_ex_doc_pushPop(d, docs)\
-	(croc_ex_doc_push((d), (docs)), croc_ex_doc_pop((d), -1))
 
 #define STRINGIFY2(X) #X
 #define STRINGIFY(X) STRINGIFY2(X)

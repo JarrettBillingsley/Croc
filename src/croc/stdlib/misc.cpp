@@ -578,6 +578,31 @@ namespace croc
 		{"toFloat",     1, &_toFloat    },
 		{nullptr, 0, nullptr}
 	};
+
+	const char* _moduleDocs =
+	CROC_DOC_MODULE("Base Library")
+	R"(The base library is a set of functions dealing with some language aspects which aren't covered by the syntax of
+	the language, as well as miscellaneous functions that don't really fit anywhere else. The base library is always
+	loaded when you create an instance of the Croc VM.)";
+
+	const char* _docs[] =
+	{
+		CROC_DOC_FUNC("weakref")
+		CROC_DOC_PARAMANY("obj")
+		R"(This function is used to create weak reference objects. If the given object is a value type (null, bool,
+		int, or float), it simply returns them as-is. Otherwise returns a weak reference object that refers to the
+		object. For each object, there will be exactly one weak reference object that refers to it. This means that
+		if two objects are identical, their weak references will be identical and vice versa.)",
+
+		CROC_DOC_FUNC("deref")
+		CROC_DOC_PARAM("obj", "null|bool|int|float|weakref")
+		R"(The parameter types for this might look a bit odd, but it's because this function acts as the inverse of
+		\link{weakref}. If you pass a value type into the function, it will return it as-is. Otherwise, it will
+		dereference the weak reference and return that object. If the object that the weak reference referred to has
+		been collected, it will return \tt{null}.)",
+
+		nullptr
+	};
 	}
 
 	void initMiscLib(CrocThread* t)
@@ -600,5 +625,17 @@ namespace croc
 		croc_newGlobal(t, "dumpVal");
 
 		initMiscLib_Vector(t);
+	}
+
+	void docMiscLib(CrocThread* t)
+	{
+		CrocDoc doc;
+		croc_ex_doc_init(t, &doc, __FILE__);
+		croc_ex_doc_push(&doc, _moduleDocs);
+		croc_ex_docGlobals(&doc, _docs);
+		croc_pushGlobal(t, "_G");
+		croc_ex_doc_pop(&doc, -1);
+		croc_popTop(t);
+		croc_ex_doc_finish(&doc);
 	}
 }

@@ -65,6 +65,7 @@ set(croc_SRC
 	croc/compiler/types.cpp
 	croc/ex/common.cpp
 	croc/ex/compilation.cpp
+	croc/ex/docs.cpp
 	croc/ex/imports.cpp
 	croc/ex/library.cpp
 	croc/ex/paramchecks.cpp

@@ -103,8 +103,11 @@ namespace croc
 		ATODA("history"),
 		ATODA("license"),
 		ATODA("notes"),
+		ATODA("param"), // duplicated in FuncSectionNames
+		ATODA("returns"), // duplicated in FuncSectionNames
 		ATODA("see"),
 		ATODA("since"),
+		ATODA("throws"), // duplicated in FuncSectionNames
 		ATODA("todo"),
 		ATODA("version"),
 		ATODA("warnings"),
