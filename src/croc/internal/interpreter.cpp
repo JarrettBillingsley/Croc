@@ -323,6 +323,7 @@ namespace croc
 	_reentry:
 		Value* RS;
 		Value* RT;
+		assert(!t->currentAR->func->isNative);
 		auto stackBase = t->stackBase;
 		auto constTable = t->currentAR->func->scriptFunc->constants;
 		auto env = t->currentAR->func->environment;
@@ -788,6 +789,7 @@ namespace croc
 
 						auto tc = prevAR->numTailcalls + 1;
 						t->currentAR->expectedResults = prevAR->expectedResults;
+						t->currentAR->incdNativeDepth = prevAR->incdNativeDepth;
 						*prevAR = *t->currentAR;
 						prevAR->numTailcalls = tc;
 						prevAR->base -= diff;
