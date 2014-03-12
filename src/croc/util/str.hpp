@@ -32,11 +32,8 @@ namespace croc
 
 	void patterns(custring str, custring pat, std::function<void(custring)> dg);
 	void patternsBreak(custring str, custring pat, std::function<bool(custring)> dg);
-
-	void patternsRep(custring str, custring pat, custring rep,
-		std::function<void(custring)> dg);
-	void patternsRepBreak(custring str, custring pat, custring rep,
-		std::function<bool(custring)> dg);
+	void patternsRep(custring str, custring pat, custring rep, std::function<void(custring)> dg);
+	void patternsRepBreak(custring str, custring pat, custring rep, std::function<bool(custring)> dg);
 
 	void lines(custring str, std::function<void(custring)> dg);
 	void linesBreak(custring str, std::function<bool(custring)> dg);
@@ -57,19 +54,13 @@ namespace croc
 	cdstring strTrimlWS(cdstring str);
 	cdstring strTrimrWS(cdstring str);
 
-	void delimiters(cdstring str, cdstring set,
-		std::function<void(cdstring)> dg);
-	void delimitersBreak(cdstring str, cdstring set,
-		std::function<bool(cdstring)> dg);
+	void delimiters(cdstring str, cdstring set, std::function<void(cdstring)> dg);
+	void delimitersBreak(cdstring str, cdstring set, std::function<bool(cdstring)> dg);
 
-	void patterns(cdstring str, cdstring pat,
-		std::function<void(cdstring)> dg);
-	void patternsBreak(cdstring str, cdstring pat,
-		std::function<bool(cdstring)> dg);
-	void patternsRep(cdstring str, cdstring pat, cdstring rep,
-		std::function<void(cdstring)> dg);
-	void patternsRepBreak(cdstring str, cdstring pat, cdstring rep,
-		std::function<bool(cdstring)> dg);
+	void patterns(cdstring str, cdstring pat, std::function<void(cdstring)> dg);
+	void patternsBreak(cdstring str, cdstring pat, std::function<bool(cdstring)> dg);
+	void patternsRep(cdstring str, cdstring pat, cdstring rep, std::function<void(cdstring)> dg);
+	void patternsRepBreak(cdstring str, cdstring pat, cdstring rep, std::function<bool(cdstring)> dg);
 
 	void lines(cdstring str, std::function<void(cdstring)> dg);
 	void linesBreak(cdstring str, std::function<bool(cdstring)> dg);

@@ -64,27 +64,30 @@ namespace croc
 
 	size_t strLocatePattern(custring source, custring match, size_t start)
 	{
-		size_t idx;
-		const uchar* p = source.ptr + start;
-		size_t extent = source.length - start - match.length + 1;
-
-		if(match.length && extent <= source.length)
+		if(source.length)
 		{
-			while(extent)
+			size_t idx;
+			const uchar* p = source.ptr + start;
+			size_t extent = source.length - start - match.length + 1;
+
+			if(match.length && extent <= source.length)
 			{
-				idx = findCharFast(custring::n(p, extent), match[0]);
-
-				if(idx == extent)
-					break;
-
-				p += idx;
-
-				if(strEqFast(p, match.ptr, match.length))
-					return p - source.ptr;
-				else
+				while(extent)
 				{
-					extent -= idx + 1;
-					++p;
+					idx = findCharFast(custring::n(p, extent), match[0]);
+
+					if(idx == extent)
+						break;
+
+					p += idx;
+
+					if(strEqFast(p, match.ptr, match.length))
+						return p - source.ptr;
+					else
+					{
+						extent -= idx + 1;
+						++p;
+					}
 				}
 			}
 		}
@@ -222,6 +225,9 @@ namespace croc
 
 	void delimitersBreak(custring str, custring set, std::function<bool(custring)> dg)
 	{
+		if(str.length == 0)
+			return;
+
 		const uchar* pos;
 		size_t mark = 0;
 		auto end = str.ptr + str.length;
@@ -280,9 +286,11 @@ namespace croc
 		patternsRepBreak(str, pat, rep, [&](custring s) { dg(s); return true; });
 	}
 
-	void patternsRepBreak(custring str, custring pat, custring rep,
-		std::function<bool(custring)> dg)
+	void patternsRepBreak(custring str, custring pat, custring rep, std::function<bool(custring)> dg)
 	{
+		if(str.length == 0)
+			return;
+
 		size_t pos;
 		size_t mark = 0;
 
@@ -367,27 +375,30 @@ namespace croc
 
 	size_t strLocatePattern(cdstring source, cdstring match, size_t start)
 	{
-		size_t idx;
-		const dchar* p = source.ptr + start;
-		size_t extent = source.length - start - match.length + 1;
-
-		if(match.length && extent <= source.length)
+		if(source.length)
 		{
-			while(extent)
+			size_t idx;
+			const dchar* p = source.ptr + start;
+			size_t extent = source.length - start - match.length + 1;
+
+			if(match.length && extent <= source.length)
 			{
-				idx = findCharFast(cdstring::n(p, extent), match[0]);
-
-				if(idx == extent)
-					break;
-
-				p += idx;
-
-				if(strEqFast(p, match.ptr, match.length))
-					return p - source.ptr;
-				else
+				while(extent)
 				{
-					extent -= idx + 1;
-					++p;
+					idx = findCharFast(cdstring::n(p, extent), match[0]);
+
+					if(idx == extent)
+						break;
+
+					p += idx;
+
+					if(strEqFast(p, match.ptr, match.length))
+						return p - source.ptr;
+					else
+					{
+						extent -= idx + 1;
+						++p;
+					}
 				}
 			}
 		}
@@ -500,15 +511,16 @@ namespace croc
 	// =================================================================================================================
 	// Delimiters
 
-	void delimiters(cdstring str, cdstring set,
-		std::function<void(cdstring)> dg)
+	void delimiters(cdstring str, cdstring set, std::function<void(cdstring)> dg)
 	{
 		delimitersBreak(str, set, [&](cdstring s) { dg(s); return true; });
 	}
 
-	void delimitersBreak(cdstring str, cdstring set,
-		std::function<bool(cdstring)> dg)
+	void delimitersBreak(cdstring str, cdstring set, std::function<bool(cdstring)> dg)
 	{
+		if(str.length == 0)
+			return;
+
 		size_t pos;
 		size_t mark = 0;
 
@@ -548,27 +560,26 @@ namespace croc
 	// =================================================================================================================
 	// Patterns
 
-	void patterns(cdstring str, cdstring pat,
-		std::function<void(cdstring)> dg)
+	void patterns(cdstring str, cdstring pat, std::function<void(cdstring)> dg)
 	{
 		patternsRepBreak(str, pat, cdstring(), [&](cdstring s) { dg(s); return true; });
 	}
 
-	void patternsBreak(cdstring str, cdstring pat,
-		std::function<bool(cdstring)> dg)
+	void patternsBreak(cdstring str, cdstring pat, std::function<bool(cdstring)> dg)
 	{
 		patternsRepBreak(str, pat, cdstring(), dg);
 	}
 
-	void patternsRep(cdstring str, cdstring pat, cdstring rep,
-		std::function<void(cdstring)> dg)
+	void patternsRep(cdstring str, cdstring pat, cdstring rep, std::function<void(cdstring)> dg)
 	{
 		patternsRepBreak(str, pat, rep, [&](cdstring s) { dg(s); return true; });
 	}
 
-	void patternsRepBreak(cdstring str, cdstring pat, cdstring rep,
-		std::function<bool(cdstring)> dg)
+	void patternsRepBreak(cdstring str, cdstring pat, cdstring rep, std::function<bool(cdstring)> dg)
 	{
+		if(str.length == 0)
+			return;
+
 		size_t pos;
 		size_t mark = 0;
 
