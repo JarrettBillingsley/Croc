@@ -490,7 +490,7 @@ namespace croc
 
 	word_t _find(CrocThread* t)
 	{
-		auto data = checkArrayParam(t, 0)->data;
+		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkAnyParam(t, 1);
 		auto searchedType = croc_type(t, 1);
 
@@ -521,7 +521,7 @@ namespace croc
 
 	word_t _findIf(CrocThread* t)
 	{
-		auto data = checkArrayParam(t, 0)->data;
+		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
 		auto t_ = Thread::from(t);
 		uword i = 0;
@@ -556,7 +556,7 @@ namespace croc
 
 	word_t _bsearch(CrocThread* t)
 	{
-		auto data = checkArrayParam(t, 0)->data;
+		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkAnyParam(t, 1);
 
 		uword lo = 0;
@@ -601,7 +601,7 @@ namespace croc
 	word_t _pop(CrocThread* t)
 	{
 		auto arr = checkArrayParam(t, 0);
-		auto data = arr->data;
+		auto data = arr->toDArray();
 		crocint index = croc_ex_optIntParam(t, 1, -1);
 
 		if(data.length == 0)
@@ -892,7 +892,7 @@ namespace croc
 
 	word_t _count(CrocThread* t)
 	{
-		auto arr = checkArrayParam(t, 0)->data;
+		auto arr = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkAnyParam(t, 1);
 		auto t_ = Thread::from(t);
 		auto searched = *getValue(t_, 1);
@@ -941,7 +941,7 @@ namespace croc
 
 	word_t _countIf(CrocThread* t)
 	{
-		auto arr = checkArrayParam(t, 0)->data;
+		auto arr = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
 		uword count = 0;
 		auto t_ = Thread::from(t);
