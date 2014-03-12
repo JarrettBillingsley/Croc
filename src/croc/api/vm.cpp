@@ -107,7 +107,6 @@ extern "C"
 		croc_newGlobal(*t, "_G");
 
 #ifdef CROC_BUILTIN_DOCS
-		// TODO:docs
 		croc_compiler_setFlags(*t, CrocCompilerFlags_AllDocs);
 #endif
 		// Core libs
@@ -121,13 +120,12 @@ extern "C"
 		initDocsLib(*t); // implicitly depends on the stringlib because of how ex_doccomments is implemented
 
 #ifdef CROC_BUILTIN_DOCS
-		// TODO:docs
 		// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later.. OR IS IT)
-		docModulesLib(*t);
-		docExceptionsLib(*t);
-		docGCLib(*t);
+		// docModulesLib(*t);
+		// docExceptionsLib(*t);
+		// docGCLib(*t);
 		docMiscLib(*t);
-		docStringLib(*t);
+		// docStringLib(*t);
 #endif
 		// Finish up the safe libs.
 		initHashLib(*t);
@@ -149,7 +147,6 @@ extern "C"
 		initDoctoolsLibs(*t);
 
 #ifdef CROC_BUILTIN_DOCS
-		// TODO:docs
 		croc_compiler_setFlags(*t, CrocCompilerFlags_All);
 #endif
 		// Done, turn the GC back on and clear out any garbage we made.

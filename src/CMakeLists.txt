@@ -106,6 +106,8 @@ set(croc_SRC
 	croc/stdlib/helpers/format.hpp
 	croc/stdlib/helpers/oscompat.cpp
 	croc/stdlib/helpers/oscompat.hpp
+	croc/stdlib/helpers/register.cpp
+	croc/stdlib/helpers/register.hpp
 	croc/stdlib/math.cpp
 	croc/stdlib/memblock.cpp
 	croc/stdlib/misc.cpp
@@ -204,8 +206,10 @@ if(NOT DEFINED CROC_BUILD_BITS)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions -Wno-pedantic-ms-format -fmax-errors=2 -m${CROC_BUILD_BITS}")
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DCROC_STOMP_MEMORY -DCROC_LEAK_DETECTOR")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pedantic-ms-format -fmax-errors=2 -m${CROC_BUILD_BITS}")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCROC_BUILTIN_DOCS=1")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DCROC_STOMP_MEMORY=1 -DCROC_LEAK_DETECTOR=1")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-rtti -O3")
 elseif(MSVC)
 	message(FATAL_ERROR "VC not supported yet")
@@ -214,3 +218,4 @@ else()
 endif()
 
 add_library(croc ${croc_ALLSRC})
+add_dependencies(croc ConvertCrocFiles)

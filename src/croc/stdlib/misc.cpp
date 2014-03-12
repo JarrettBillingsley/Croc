@@ -4,6 +4,7 @@
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/all.hpp"
+#include "croc/stdlib/helpers/register.hpp"
 #include "croc/types/base.hpp"
 
 namespace croc
@@ -13,74 +14,129 @@ namespace croc
 	// =================================================================================================================
 	// Function metatable
 
-	word_t _functionIsNative(CrocThread* t)
+DBeginList(_funcMetatable)
+	Docstr(DFunc("isNative")
+	R"(\returns a bool telling if the function is implemented in native code or in Croc.)"),
+
+	"isNative", 0, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Function);
 		croc_pushBool(t, croc_function_isNative(t, 0));
 		return 1;
 	}
 
-	word_t _functionNumParams(CrocThread* t)
+DListSep()
+	Docstr(DFunc("numParams")
+	R"(\returns an integer telling how many \em{non-variadic} parameters the function takes.)"),
+
+	"numParams", 0, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Function);
 		croc_pushInt(t, croc_function_getNumParams(t, 0));
 		return 1;
 	}
 
-	word_t _functionMaxParams(CrocThread* t)
+DListSep()
+	Docstr(DFunc("maxParams")
+	R"(\returns an integer of how many parameters this function this may be passed without throwing an error. Passing
+	more parameters than this will guarantee that an error is thrown. Variadic functions will simply return a very large
+	number from this method.)"),
+
+	"maxParams", 0, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Function);
 		croc_pushInt(t, croc_function_getMaxParams(t, 0));
 		return 1;
 	}
 
-	word_t _functionIsVararg(CrocThread* t)
+DListSep()
+	Docstr(DFunc("isVararg")
+	R"(\returns a bool telling whether or not the function takes variadic parameters.)"),
+
+	"isVararg", 0, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Function);
 		croc_pushBool(t, croc_function_isVararg(t, 0));
 		return 1;
 	}
 
-	word_t _functionIsCacheable(CrocThread* t)
+DListSep()
+	Docstr(DFunc("isCacheable")
+	R"(\returns a bool telling whether or not a function is cacheable. Cacheable functions are script functions which
+	have no upvalues, generally speaking. A cacheable function only has a single function closure object allocated for
+	it during its lifetime. Only script functions can be cacheable; native functions always return false.)"),
+
+	"isCacheable", 0, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Function);
 		auto f = getFunction(Thread::from(t), 0);
 		croc_pushBool(t, f->isNative ? false : f->scriptFunc->upvals.length == 0);
 		return 1;
 	}
+DEndList()
 
 	// =================================================================================================================
 	// Funcdef metatable
 
-	word_t _funcdefNumParams(CrocThread* t)
+DBeginList(_funcdefMetatable)
+	Docstr(DFunc("numParams")
+	R"(\returns an integer telling how many \em{non-variadic} parameters the function described by the funcdef
+	takes.)"),
+
+	"numParams", 0, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Funcdef);
 		croc_pushInt(t, getFuncdef(Thread::from(t), 0)->numParams);
 		return 1;
 	}
 
-	word_t _funcdefIsVararg(CrocThread* t)
+DListSep()
+	Docstr(DFunc("isVararg")
+	R"(\returns a bool telling whether or not the function described by the funcdef takes variadic parameters.)"),
+
+	"isVararg", 0, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Funcdef);
 		croc_pushBool(t, getFuncdef(Thread::from(t), 0)->isVararg);
 		return 1;
 	}
 
-	word_t _funcdefIsCacheable(CrocThread* t)
+DListSep()
+	Docstr(DFunc("isCacheable")
+	R"(\returns a bool telling whether or not a funcdef is cacheable. Funcdefs are cacheable if they have no upvals.)"),
+
+	"isCacheable", 0, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Funcdef);
 		croc_pushBool(t, getFuncdef(Thread::from(t), 0)->upvals.length == 0);
 		return 1;
 	}
 
-	word_t _funcdefIsCached(CrocThread* t)
+DListSep()
+	Docstr(DFunc("isCached")
+	R"(\returns a bool telling whether or not a funcdef has already been cached (that is, a function closure has been
+	created with it). Non-cacheable funcdefs always return \tt{false} for this.)"),
+
+	"isCached", 0, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Funcdef);
 		croc_pushBool(t, getFuncdef(Thread::from(t), 0)->cachedFunc != nullptr);
 		return 1;
 	}
 
-	word_t _funcdefClose(CrocThread* t)
+DListSep()
+	Docstr(DFunc("close") DParamD("env", "namespace", "null")
+	R"(Creates a function closure from this funcdef. The same rules about environment namespace apply here as elsewhere:
+	if you try to close the closure with a different namespace than it was initially closed with, it will fail.
+
+	The funcdef may also not have any upvalues.
+
+	\param[env] is the environment namespace that the closure will use. If you pass none, it will use the environment
+	of the function that called this method.
+
+	\returns the new closure.)"),
+
+	"close", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Funcdef);
 
@@ -94,18 +150,33 @@ namespace croc
 
 		return 1;
 	}
+DEndList()
 
 	// =================================================================================================================
 	// Weak reference stuff
 
-	word_t _weakref(CrocThread* t)
+DBeginList(_weakrefFuncs)
+	Docstr(DFunc("weakref") DParamAny("obj")
+	R"(This function is used to create weak reference objects. If the given object is a value type (null, bool,
+	int, or float), it simply returns them as-is. Otherwise returns a weak reference object that refers to the
+	object. For each object, there will be exactly one weak reference object that refers to it. This means that
+	if two objects are identical, their weak references will be identical and vice versa.)"),
+
+	"weakref", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkAnyParam(t, 1);
 		croc_weakref_push(t, 1);
 		return 1;
 	}
 
-	word_t _deref(CrocThread* t)
+DListSep()
+	Docstr(DFunc("deref") DParam("obj", "null|bool|int|float|weakref")
+	R"(The parameter types for this might look a bit odd, but it's because this function acts as the inverse of
+	\link{weakref}. If you pass a value type into the function, it will return it as-is. Otherwise, it will
+	dereference the weak reference and return that object. If the object that the weak reference referred to has
+	been collected, it will return \tt{null}.)"),
+
+	"deref", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkAnyParam(t, 1);
 
@@ -127,6 +198,7 @@ namespace croc
 				return croc_ex_paramTypeError(t, 1, "null|bool|int|float|nativeobj|weakref");
 		}
 	}
+DEndList()
 
 	// =================================================================================================================
 	// Reflection-esque stuff
@@ -516,33 +588,6 @@ namespace croc
 	// =================================================================================================================
 	// Registration
 
-	const CrocRegisterFunc _funcMetatable[] =
-	{
-		{"isNative",    0, &_functionIsNative   },
-		{"numParams",   0, &_functionNumParams  },
-		{"maxParams",   0, &_functionMaxParams  },
-		{"isVararg",    0, &_functionIsVararg   },
-		{"isCacheable", 0, &_functionIsCacheable},
-		{nullptr, 0, nullptr}
-	};
-
-	const CrocRegisterFunc _funcdefMetatable[] =
-	{
-		{"numParams",   0, &_funcdefNumParams  },
-		{"isVararg",    0, &_funcdefIsVararg   },
-		{"isCacheable", 0, &_funcdefIsCacheable},
-		{"isCached",    0, &_funcdefIsCached   },
-		{"close",       1, &_funcdefClose      },
-		{nullptr, 0, nullptr}
-	};
-
-	const CrocRegisterFunc _weakrefFuncs[] =
-	{
-		{"weakref", 1, &_weakref},
-		{"deref",   1, &_deref  },
-		{nullptr, 0, nullptr}
-	};
-
 	const CrocRegisterFunc _reflFuncs[] =
 	{
 		{"typeof",      1, &_typeof     },
@@ -579,43 +624,29 @@ namespace croc
 		{nullptr, 0, nullptr}
 	};
 
+// #ifdef CROC_BUILTIN_DOCS
 	const char* _moduleDocs =
-	CROC_DOC_MODULE("Base Library")
+	Docstr(DModule("Base Library")
 	R"(The base library is a set of functions dealing with some language aspects which aren't covered by the syntax of
 	the language, as well as miscellaneous functions that don't really fit anywhere else. The base library is always
-	loaded when you create an instance of the Croc VM.)";
+	loaded when you create an instance of the Croc VM.)");
+// #endif
 
-	const char* _docs[] =
-	{
-		CROC_DOC_FUNC("weakref")
-		CROC_DOC_PARAMANY("obj")
-		R"(This function is used to create weak reference objects. If the given object is a value type (null, bool,
-		int, or float), it simply returns them as-is. Otherwise returns a weak reference object that refers to the
-		object. For each object, there will be exactly one weak reference object that refers to it. This means that
-		if two objects are identical, their weak references will be identical and vice versa.)",
-
-		CROC_DOC_FUNC("deref")
-		CROC_DOC_PARAM("obj", "null|bool|int|float|weakref")
-		R"(The parameter types for this might look a bit odd, but it's because this function acts as the inverse of
-		\link{weakref}. If you pass a value type into the function, it will return it as-is. Otherwise, it will
-		dereference the weak reference and return that object. If the object that the weak reference referred to has
-		been collected, it will return \tt{null}.)",
-
-		nullptr
-	};
 	}
 
 	void initMiscLib(CrocThread* t)
 	{
+		(void)_moduleDocs;
+
 		croc_namespace_new(t, "function");
-			croc_ex_registerFields(t, _funcMetatable);
+			registerFields(t, _funcMetatable);
 		croc_vm_setTypeMT(t, CrocType_Function);
 
 		croc_namespace_new(t, "funcdef");
-			croc_ex_registerFields(t, _funcdefMetatable);
+			registerFields(t, _funcdefMetatable);
 		croc_vm_setTypeMT(t, CrocType_Funcdef);
 
-		croc_ex_registerGlobals(t, _weakrefFuncs);
+		registerGlobals(t, _weakrefFuncs);
 		croc_ex_registerGlobals(t, _reflFuncs);
 		croc_ex_registerGlobals(t, _convFuncs);
 
@@ -627,15 +658,26 @@ namespace croc
 		initMiscLib_Vector(t);
 	}
 
+#ifdef CROC_BUILTIN_DOCS
 	void docMiscLib(CrocThread* t)
 	{
 		CrocDoc doc;
 		croc_ex_doc_init(t, &doc, __FILE__);
 		croc_ex_doc_push(&doc, _moduleDocs);
-		croc_ex_docGlobals(&doc, _docs);
+
+		croc_vm_pushTypeMT(t, CrocType_Function);
+			docFields(&doc, _funcMetatable);
+		croc_popTop(t);
+
+		croc_vm_pushTypeMT(t, CrocType_Funcdef);
+			docFields(&doc, _funcdefMetatable);
+		croc_popTop(t);
+
+		docGlobals(&doc, _weakrefFuncs);
 		croc_pushGlobal(t, "_G");
 		croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
 		croc_ex_doc_finish(&doc);
 	}
+#endif
 }
