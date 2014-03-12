@@ -113,7 +113,6 @@ namespace croc
 
 		// Okay, we can ditto.
 		d->dittoDepth++;
-		croc_lenai(t, dt, croc_len(t, dt) - 1);
 
 		if(!croc_hasField(t, prevTab, "dittos"))
 		{
@@ -391,7 +390,7 @@ extern "C"
 				case CrocType_Function:
 				case CrocType_Class:
 				case CrocType_Namespace: {
-					auto dittoed = croc_idxi(t, dt, -1);
+					auto dittoed = croc_idxi(t, dt, -2);
 
 					if(!croc_hasField(t, dittoed, parentField))
 						croc_eh_throwStd(t, "ApiError",
@@ -405,6 +404,8 @@ extern "C"
 
 					croc_idxi(t, -1, -1);
 					croc_insertAndPop(t, dittoed);
+
+					croc_lenai(t, dt, croc_len(t, dt) - 1); // remove ditto doctable
 
 					croc_pushGlobal(t, "_doc_");
 					croc_pushNull(t);
