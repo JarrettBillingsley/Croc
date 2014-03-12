@@ -45,9 +45,19 @@ namespace croc
 	void registerGlobals(CrocThread* t, const StdlibRegister* funcs);
 	void registerFields(CrocThread* t, const StdlibRegister* funcs);
 	void registerMethods(CrocThread* t, const StdlibRegister* funcs);
+	void registerGlobalUV(CrocThread* t, const StdlibRegister* func);
+	void registerFieldUV(CrocThread* t, const StdlibRegister* func);
+	void registerMethodUV(CrocThread* t, const StdlibRegister* func);
+	void registerGlobal(CrocThread* t, const StdlibRegister& func, uword numUVs);
+	void registerField(CrocThread* t, const StdlibRegister& func, uword numUVs);
+	void registerMethod(CrocThread* t, const StdlibRegister& func, uword numUVs);
 #ifdef CROC_BUILTIN_DOCS
 	void docGlobals(CrocDoc* d, const StdlibRegister* funcs);
 	void docFields(CrocDoc* d, const StdlibRegister* funcs);
+	void docGlobalUV(CrocDoc* d, const StdlibRegister* func);
+	void docFieldUV(CrocDoc* d, const StdlibRegister* func);
+	void docGlobal(CrocDoc* d, const StdlibRegister& func);
+	void docField(CrocDoc* d, const StdlibRegister& func);
 #endif
 }
 

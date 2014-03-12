@@ -175,13 +175,17 @@ typedef struct CrocRegisterFunc
 	CrocNativeFunc func;
 } CrocRegisterFunc;
 
-CROCAPI void croc_ex_makeModule      (CrocThread* t, const char* name, CrocNativeFunc loader);
-CROCAPI void croc_ex_registerGlobal  (CrocThread* t, CrocRegisterFunc f);
-CROCAPI void croc_ex_registerField   (CrocThread* t, CrocRegisterFunc f);
-CROCAPI void croc_ex_registerMethod  (CrocThread* t, CrocRegisterFunc f);
-CROCAPI void croc_ex_registerGlobals (CrocThread* t, const CrocRegisterFunc* funcs);
-CROCAPI void croc_ex_registerFields  (CrocThread* t, const CrocRegisterFunc* funcs);
-CROCAPI void croc_ex_registerMethods (CrocThread* t, const CrocRegisterFunc* funcs);
+CROCAPI void croc_ex_makeModule       (CrocThread* t, const char* name, CrocNativeFunc loader);
+CROCAPI void croc_ex_registerGlobalUV (CrocThread* t, CrocRegisterFunc f, uword_t numUpvals);
+CROCAPI void croc_ex_registerFieldUV  (CrocThread* t, CrocRegisterFunc f, uword_t numUpvals);
+CROCAPI void croc_ex_registerMethodUV (CrocThread* t, CrocRegisterFunc f, uword_t numUpvals);
+CROCAPI void croc_ex_registerGlobals  (CrocThread* t, const CrocRegisterFunc* funcs);
+CROCAPI void croc_ex_registerFields   (CrocThread* t, const CrocRegisterFunc* funcs);
+CROCAPI void croc_ex_registerMethods  (CrocThread* t, const CrocRegisterFunc* funcs);
+
+#define croc_ex_registerGlobal(t, f) croc_ex_registerGlobalUV((t), (f), 0)
+#define croc_ex_registerField(t, f) croc_ex_registerFieldUV((t), (f), 0)
+#define croc_ex_registerMethod(t, f) croc_ex_registerMethodUV((t), (f), 0)
 
 typedef struct CrocDoc
 {

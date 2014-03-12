@@ -8,9 +8,9 @@ extern "C"
 {
 	namespace
 	{
-	void pushRegisterFunc(CrocThread* t, CrocRegisterFunc& f)
+	void pushRegisterFunc(CrocThread* t, CrocRegisterFunc& f, uword_t numUpvals)
 	{
-		croc_function_new(t, f.name, f.maxParams, f.func, 0);
+		croc_function_new(t, f.name, f.maxParams, f.func, numUpvals);
 	}
 	}
 
@@ -28,21 +28,21 @@ extern "C"
 		croc_pop(t, 2);
 	}
 
-	void croc_ex_registerGlobal(CrocThread* t, CrocRegisterFunc f)
+	void croc_ex_registerGlobalUV(CrocThread* t, CrocRegisterFunc f, uword_t numUpvals)
 	{
-		pushRegisterFunc(t, f);
+		pushRegisterFunc(t, f, numUpvals);
 		croc_newGlobal(t, f.name);
 	}
 
-	void croc_ex_registerField(CrocThread* t, CrocRegisterFunc f)
+	void croc_ex_registerFieldUV(CrocThread* t, CrocRegisterFunc f, uword_t numUpvals)
 	{
-		pushRegisterFunc(t, f);
+		pushRegisterFunc(t, f, numUpvals);
 		croc_fielda(t, -2, f.name);
 	}
 
-	void croc_ex_registerMethod(CrocThread* t, CrocRegisterFunc f)
+	void croc_ex_registerMethodUV(CrocThread* t, CrocRegisterFunc f, uword_t numUpvals)
 	{
-		pushRegisterFunc(t, f);
+		pushRegisterFunc(t, f, numUpvals);
 		croc_class_addMethod(t, -2, f.name);
 	}
 

@@ -457,191 +457,188 @@ DEndList()
 	// =================================================================================================================
 	// Console IO
 
-	namespace
+	void outputString(CrocThread* t, word_t v)
 	{
-		void outputString(CrocThread* t, word_t v)
+		printf("\"");
+
+		uword_t n;
+		auto s = cast(const uchar*)croc_getStringn(t, v, &n);
+		auto end = s + n;
+
+		while(s < end)
 		{
-			printf("\"");
-
-			uword_t n;
-			auto s = cast(const uchar*)croc_getStringn(t, v, &n);
-			auto end = s + n;
-
-			while(s < end)
+			// TODO: make this faster for common case
+			switch(auto c = fastDecodeUtf8Char(s))
 			{
-				// TODO: make this faster for common case
-				switch(auto c = fastDecodeUtf8Char(s))
-				{
-					case '\'': printf("\\\'"); break;
-					case '\"': printf("\\\""); break;
-					case '\\': printf("\\\\"); break;
-					case '\n': printf("\\n");  break;
-					case '\r': printf("\\r");  break;
-					case '\t': printf("\\t");  break;
+				case '\'': printf("\\\'"); break;
+				case '\"': printf("\\\""); break;
+				case '\\': printf("\\\\"); break;
+				case '\n': printf("\\n");  break;
+				case '\r': printf("\\r");  break;
+				case '\t': printf("\\t");  break;
 
-					default:
-						if(c <= 0x7f && isprint(c))
-							printf("%c", c);
-						else if(c <= 0xFFFF)
-							printf("\\u%4x", cast(uint32_t)c);
-						else
-							printf("\\U%8x", cast(uint32_t)c);
-						break;
-				}
+				default:
+					if(c <= 0x7f && isprint(c))
+						printf("%c", c);
+					else if(c <= 0xFFFF)
+						printf("\\u%4x", cast(uint32_t)c);
+					else
+						printf("\\U%8x", cast(uint32_t)c);
+					break;
 			}
-
-			printf("\"");
 		}
 
-		void outputRepr(CrocThread* t, word_t v, word_t shown);
+		printf("\"");
+	}
 
-		void outputArray(CrocThread* t, word_t arr, word_t shown)
+	void outputRepr(CrocThread* t, word_t v, word_t shown);
+
+	void outputArray(CrocThread* t, word_t arr, word_t shown)
+	{
+		if(croc_in(t, arr, shown))
 		{
-			if(croc_in(t, arr, shown))
+			printf("[...]");
+			return;
+		}
+
+		croc_dup(t, arr);
+		croc_pushBool(t, true);
+		croc_idxa(t, shown);
+
+		printf("[");
+
+		auto length = croc_len(t, arr);
+
+		if(length > 0)
+		{
+			croc_pushInt(t, 0);
+			croc_idx(t, arr);
+			outputRepr(t, -1, shown);
+			croc_popTop(t);
+
+			for(uword i = 1; i < cast(uword)length; i++)
 			{
-				printf("[...]");
-				return;
-			}
+				if(croc_thread_hasPendingHalt(t))
+					croc_thread_halt(t);
 
-			croc_dup(t, arr);
-			croc_pushBool(t, true);
-			croc_idxa(t, shown);
-
-			printf("[");
-
-			auto length = croc_len(t, arr);
-
-			if(length > 0)
-			{
-				croc_pushInt(t, 0);
+				printf(", ");
+				croc_pushInt(t, i);
 				croc_idx(t, arr);
 				outputRepr(t, -1, shown);
 				croc_popTop(t);
+			}
+		}
 
-				for(uword i = 1; i < cast(uword)length; i++)
-				{
-					if(croc_thread_hasPendingHalt(t))
-						croc_thread_halt(t);
+		printf("]");
 
+		croc_dup(t, arr);
+		croc_pushNull(t);
+		croc_idxa(t, shown);
+	}
+
+	void outputTable(CrocThread* t, word_t tab, word_t shown)
+	{
+		if(croc_in(t, tab, shown))
+		{
+			printf("{...}");
+			return;
+		}
+
+		croc_dup(t, tab);
+		croc_pushBool(t, true);
+		croc_idxa(t, shown);
+
+		printf("{");
+
+		auto length = croc_len(t, tab);
+
+		if(length > 0)
+		{
+			auto t_ = Thread::from(t);
+			bool first = true;
+			for(auto node: getTable(t_, tab)->data)
+			{
+				if(first)
+					first = false;
+				else
 					printf(", ");
-					croc_pushInt(t, i);
-					croc_idx(t, arr);
-					outputRepr(t, -1, shown);
-					croc_popTop(t);
-				}
+
+				if(croc_thread_hasPendingHalt(t))
+					croc_thread_halt(t);
+
+				push(t_, node->key);
+				push(t_, node->value);
+				printf("[");
+				outputRepr(t, -2, shown);
+				printf("] = ");
+				outputRepr(t, -1, shown);
+				croc_pop(t, 2);
 			}
-
-			printf("]");
-
-			croc_dup(t, arr);
-			croc_pushNull(t);
-			croc_idxa(t, shown);
 		}
 
-		void outputTable(CrocThread* t, word_t tab, word_t shown)
+		printf("}");
+
+		croc_dup(t, tab);
+		croc_pushNull(t);
+		croc_idxa(t, shown);
+	}
+
+	void outputNamespace(CrocThread* t, word ns)
+	{
+		croc_pushToString(t, ns);
+		printf("%s { ", croc_getString(t, -1));
+		croc_popTop(t);
+
+		auto length = croc_len(t, ns);
+
+		if(length > 0)
 		{
-			if(croc_in(t, tab, shown))
+			auto t_ = Thread::from(t);
+			bool first = true;
+			for(auto node: getNamespace(t_, ns)->data)
 			{
-				printf("{...}");
-				return;
+				if(croc_thread_hasPendingHalt(t))
+					croc_thread_halt(t);
+
+				if(first)
+					first = false;
+				else
+					printf(", ");
+
+				auto s = node->key->toDArray();
+				printf("%.*s", cast(int)s.length, s.ptr);
 			}
-
-			croc_dup(t, tab);
-			croc_pushBool(t, true);
-			croc_idxa(t, shown);
-
-			printf("{");
-
-			auto length = croc_len(t, tab);
-
-			if(length > 0)
-			{
-				auto t_ = Thread::from(t);
-				bool first = true;
-				for(auto node: getTable(t_, tab)->data)
-				{
-					if(first)
-						first = false;
-					else
-						printf(", ");
-
-					if(croc_thread_hasPendingHalt(t))
-						croc_thread_halt(t);
-
-					push(t_, node->key);
-					push(t_, node->value);
-					printf("[");
-					outputRepr(t, -2, shown);
-					printf("] = ");
-					outputRepr(t, -1, shown);
-					croc_pop(t, 2);
-				}
-			}
-
-			printf("}");
-
-			croc_dup(t, tab);
-			croc_pushNull(t);
-			croc_idxa(t, shown);
 		}
 
-		void outputNamespace(CrocThread* t, word ns)
+		printf(" }");
+	}
+
+	void outputRepr(CrocThread* t, word_t v, word_t shown)
+	{
+		v = croc_absIndex(t, v);
+
+		if(croc_thread_hasPendingHalt(t))
+			croc_thread_halt(t);
+
+		switch(croc_type(t, v))
 		{
-			croc_pushToString(t, ns);
-			printf("%s { ", croc_getString(t, -1));
-			croc_popTop(t);
+			case CrocType_String:    outputString(t, v);       break;
+			case CrocType_Array:     outputArray(t, v, shown); break;
+			case CrocType_Namespace: outputNamespace(t, v);    break;
+			case CrocType_Table:     outputTable(t, v, shown); break;
 
-			auto length = croc_len(t, ns);
+			case CrocType_Weakref:
+				printf("weakref(");
+				croc_weakref_deref(t, v);
+				outputRepr(t, -1, shown);
+				croc_popTop(t);
+				printf(")");
+				break;
 
-			if(length > 0)
-			{
-				auto t_ = Thread::from(t);
-				bool first = true;
-				for(auto node: getNamespace(t_, ns)->data)
-				{
-					if(croc_thread_hasPendingHalt(t))
-						croc_thread_halt(t);
-
-					if(first)
-						first = false;
-					else
-						printf(", ");
-
-					auto s = node->key->toDArray();
-					printf("%.*s", cast(int)s.length, s.ptr);
-				}
-			}
-
-			printf(" }");
-		}
-
-		void outputRepr(CrocThread* t, word_t v, word_t shown)
-		{
-			v = croc_absIndex(t, v);
-
-			if(croc_thread_hasPendingHalt(t))
-				croc_thread_halt(t);
-
-			switch(croc_type(t, v))
-			{
-				case CrocType_String:    outputString(t, v);       break;
-				case CrocType_Array:     outputArray(t, v, shown); break;
-				case CrocType_Namespace: outputNamespace(t, v);    break;
-				case CrocType_Table:     outputTable(t, v, shown); break;
-
-				case CrocType_Weakref:
-					printf("weakref(");
-					croc_weakref_deref(t, v);
-					outputRepr(t, -1, shown);
-					croc_popTop(t);
-					printf(")");
-					break;
-
-				default:
-					croc_pushToString(t, v);
-					printf("%s", croc_getString(t, -1));
-					croc_popTop(t);
-			}
+			default:
+				croc_pushToString(t, v);
+				printf("%s", croc_getString(t, -1));
+				croc_popTop(t);
 		}
 	}
 
@@ -653,7 +650,18 @@ DEndList()
 		return 0;
 	}
 
-	word_t _dumpVal(CrocThread* t)
+const StdlibRegister _dumpVal =
+{
+	Docstr(DFunc("dumpVal") DParamAny("value") DParamD("printNewline", "bool", "true")
+	R"(Dumps an exhaustive string representation of the given value to the console. This will recurse (safely, you don't
+	need to worry about infinite recursion) into arrays and tables, as well as escape non-printable/non-ASCII characters
+	in strings. It will also print out the names of the fields in namespaces, though it won't recurse into them. It will
+	also display the contents of weakrefs. All other values will have \link{toString} called on them.
+
+	If the \tt{printNewline} parameter is passed \tt{false}, no newline will be printed after the dumped representation.
+	Defaults to \tt{true}.)"),
+
+	"dumpVal", 2, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkAnyParam(t, 1);
 		auto newline = croc_ex_optBoolParam(t, 2, true);
@@ -681,6 +689,7 @@ DEndList()
 
 		return 0;
 	}
+};
 	}
 
 	void initMiscLib(CrocThread* t)
@@ -699,8 +708,7 @@ DEndList()
 
 			croc_function_new(t, "dumpValWork", 2, &_dumpValWork, 0);
 			croc_table_new(t, 0);
-		croc_function_new(t, "dumpVal", 2, &_dumpVal, 2);
-		croc_newGlobal(t, "dumpVal");
+		registerGlobal(t, _dumpVal, 2);
 
 		initMiscLib_Vector(t);
 	}
@@ -728,6 +736,7 @@ DEndList()
 		docGlobals(&doc, _weakrefFuncs);
 		docGlobals(&doc, _reflFuncs);
 		docGlobals(&doc, _convFuncs);
+		docGlobal(&doc, _dumpVal);
 
 		croc_pushGlobal(t, "_G");
 		croc_ex_doc_pop(&doc, -1);
