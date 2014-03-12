@@ -98,7 +98,8 @@ extern "C"
 		vm->curThread = vm->mainThread;
 		vm->globals = Namespace::create(vm->mem, String::create(vm, ATODA("")));
 		vm->registry = Namespace::create(vm->mem, String::create(vm, ATODA("<registry>")));
-		vm->unhandledEx = Function::create(vm->mem, vm->globals, String::create(vm, ATODA("defaultUnhandledEx")), 1, defaultUnhandledEx, 0);
+		vm->unhandledEx = Function::create(vm->mem, vm->globals, String::create(vm, ATODA("defaultUnhandledEx")), 1,
+			defaultUnhandledEx, 0);
 		vm->ehFrames = DArray<EHFrame>::alloc(vm->mem, 10);
 		vm->rng.seed();
 
@@ -120,9 +121,10 @@ extern "C"
 		initDocsLib(*t); // implicitly depends on the stringlib because of how ex_doccomments is implemented
 
 #ifdef CROC_BUILTIN_DOCS
-		// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later.. OR IS IT)
+		// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the
+		// doclib and fixing things later.. OR IS IT)
 		docModulesLib(*t);
-		// docExceptionsLib(*t);
+		docExceptionsLib(*t);
 		// docGCLib(*t);
 		docMiscLib(*t);
 		// docStringLib(*t);

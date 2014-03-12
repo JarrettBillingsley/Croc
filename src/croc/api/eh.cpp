@@ -43,7 +43,7 @@ extern "C"
 				abort();
 			}
 
-			croc_eh_throwStd(*t, "ApiError", "Unknown standard exception type '%s'", exName);
+			croc_eh_throwStd(*t, "NameError", "Unknown standard exception type '%s'", exName);
 		}
 
 		return push(t, Value::from(*ex));

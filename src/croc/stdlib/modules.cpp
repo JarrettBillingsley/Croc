@@ -302,6 +302,7 @@ const char* _load_docs = Docstr(DFunc("load") DParam("name", "string")
 	\throws[exceptions.ImportException] if no means of loading the module could be found, or if a module loader was
 	found but failed when run. In the latter case, the exception that was thrown during module loading will be set as
 	the cause of the exception.)");
+
 	word_t _load(CrocThread* t)
 	{
 		uword_t nameLen;
@@ -322,6 +323,7 @@ const char* _reload_docs = Docstr(DFunc("reload") DParam("name", "string")
 	R"(Very similar to \link{modules.load}, but reloads an already-loaded module. This function replaces step 1 of
 	\link{modules.load}'s process with a check to see if the module has already been loaded; if it has, it continues
 	on with the process. If it hasn't been loaded, throws an error.)");
+
 	word_t _reload(CrocThread* t)
 	{
 		uword_t nameLen;
@@ -348,6 +350,7 @@ const char* _runMain_docs = Docstr(DFunc("runMain") DParam("ns", "namespace") DV
 
 	\param[ns] The namespace in which to look.
 	\param[vararg] The arguments that will be passed to the "main" function.)");
+
 	word_t _runMain(CrocThread* t)
 	{
 		croc_ex_checkParam(t, 1, CrocType_Namespace);
