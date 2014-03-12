@@ -118,14 +118,13 @@ extern "C"
 		// Safe libs
 		initMiscLib(*t);
 		initStringLib(*t);
-		initDocsLib(*t); // implicitly depends on the stringlib because of how ex_doccomments is implemented
+		initDocsLib(*t); // depends on the stringlib because of how the doc parser is implemented
 
 #ifdef CROC_BUILTIN_DOCS
-		// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the
-		// doclib and fixing things later.. OR IS IT)
+		// Go back and document the libs that we loaded before the doc lib
 		docModulesLib(*t);
 		docExceptionsLib(*t);
-		// docGCLib(*t);
+		docGCLib(*t);
 		docMiscLib(*t);
 		// docStringLib(*t);
 #endif
