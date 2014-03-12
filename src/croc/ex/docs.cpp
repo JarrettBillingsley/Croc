@@ -307,7 +307,10 @@ namespace croc
 			return true;
 		});
 
-		docString = strTrimWS(crocstr::n(firstDocLine.ptr, docString.ptr + docString.length - firstDocLine.ptr));
+		if(firstDocLine.length)
+			docString = strTrimWS(crocstr::n(firstDocLine.ptr, docString.ptr + docString.length - firstDocLine.ptr));
+		else
+			docString = crocstr();
 
 		if(docString == ATODA("ditto"))
 			doDitto(d, dt);
@@ -429,9 +432,7 @@ extern "C"
 				croc_pushNull(t);
 				croc_dup(t, idx);
 				croc_dup(t, docTab);
-				croc_call(t, -4, 1);
-				croc_swap(t, -1, idx);
-				croc_popTop(t);
+				croc_call(t, -4, 0);
 				break;
 
 			default:
@@ -501,20 +502,55 @@ extern "C"
 		croc_pop(t, 2);
 	}
 
+	namespace
+	{
+		void docGlobalImpl(CrocDoc* d, const char* str, uword dt)
+		{
+			croc_ex_doc_push(d, str);
+			croc_idxi(d->t, dt, -1);
+			croc_field(d->t, -1, "name");
+			croc_pushGlobalStk(d->t);
+			croc_ex_doc_pop(d, -1);
+			croc_pop(d->t, 2);
+		}
+
+		void docFieldImpl(CrocDoc* d, const char* str, uword dt, uword obj)
+		{
+			croc_ex_doc_push(d, str);
+			croc_idxi(d->t, dt, -1);
+			croc_field(d->t, -1, "name");
+			croc_fieldStk(d->t, obj);
+			croc_ex_doc_pop(d, -1);
+			croc_pop(d->t, 2);
+		}
+	}
+
+	void croc_ex_docGlobal(CrocDoc* d, const char* docString)
+	{
+		auto t = d->t;
+		auto dt = getDocTables(d);
+		docGlobalImpl(d, docString, dt);
+		assert(croc_getStackSize(t) - 1 == cast(uword)dt);
+		croc_popTop(t);
+	}
+
+	void croc_ex_docField(CrocDoc* d, const char* docString)
+	{
+		auto t = d->t;
+		auto obj = croc_getStackSize(t) - 1;
+		auto dt = getDocTables(d);
+		docFieldImpl(d, docString, dt, obj);
+		assert(croc_getStackSize(t) - 1 == cast(uword)dt);
+		croc_popTop(t);
+	}
+
 	void croc_ex_docGlobals(CrocDoc* d, const char** docStrings)
 	{
 		auto t = d->t;
 		auto dt = getDocTables(d);
 
 		for(auto str = *docStrings++; str != nullptr; str = *docStrings++)
-		{
-			croc_ex_doc_push(d, str);
-			croc_idxi(t, dt, -1);
-			croc_field(t, -1, "name");
-			croc_pushGlobalStk(t);
-			croc_ex_doc_pop(d, -1);
-			croc_pop(t, 2);
-		}
+			docGlobalImpl(d, str, dt);
 
 		assert(croc_getStackSize(t) - 1 == cast(uword)dt);
 		croc_popTop(t);
@@ -527,14 +563,7 @@ extern "C"
 		auto dt = getDocTables(d);
 
 		for(auto str = *docStrings++; str != nullptr; str = *docStrings++)
-		{
-			croc_ex_doc_push(d, str);
-			croc_idxi(t, dt, -1);
-			croc_field(t, -1, "name");
-			croc_fieldStk(t, obj);
-			croc_ex_doc_pop(d, -1);
-			croc_pop(t, 2);
-		}
+			docFieldImpl(d, str, dt, obj);
 
 		assert(croc_getStackSize(t) - 1 == cast(uword)dt);
 		croc_popTop(t);

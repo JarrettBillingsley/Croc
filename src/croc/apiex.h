@@ -196,6 +196,8 @@ CROCAPI void croc_ex_doc_finish          (CrocDoc* d);
 CROCAPI void croc_ex_doc_push            (CrocDoc* d, const char* docString);
 CROCAPI void croc_ex_doc_popNamed        (CrocDoc* d, word_t idx, const char* parentField);
 CROCAPI void croc_ex_doc_mergeModuleDocs (CrocDoc* d);
+CROCAPI void croc_ex_docGlobal           (CrocDoc* d, const char* docString);
+CROCAPI void croc_ex_docField            (CrocDoc* d, const char* docString);
 CROCAPI void croc_ex_docGlobals          (CrocDoc* d, const char** docStrings);
 CROCAPI void croc_ex_docFields           (CrocDoc* d, const char** docStrings);
 
@@ -225,6 +227,11 @@ CROCAPI void croc_ex_docFields           (CrocDoc* d, const char** docStrings);
 // Serialization
 
 // TODO: these should take parameters which can be wrapped by stream.NativeStream, whatever that type may be.
+// Helpful functions! On POSIX, use fileno(). On Windows:
+// extern "C" int _fileno(FILE* f);
+// extern "C" int _get_osfhandle(int h);
+// extern "C" void _close(int h); // should call this after getting? have to investigate
+
 // CROCAPI void   croc_ex_serializeGraph     (CrocThread* t, word_t idx, word_t trans, OutputStream output);
 // CROCAPI word_t croc_ex_deserializeGraph   (CrocThread* t, word_t trans, InputStream input);
 // CROCAPI void   croc_ex_serializeModule    (CrocThread* t, word_t idx, const char* name, OutputStream output);
