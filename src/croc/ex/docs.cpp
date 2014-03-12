@@ -210,8 +210,14 @@ namespace croc
 				// Fill in required fields and some type-specific fields
 				croc_pushString(t, d->file); croc_fielda(t, -2, "file");
 				croc_pushInt(t, lineNum);    croc_fielda(t, -2, "line");
-				pushCrocstr(t, kindStr);     croc_fielda(t, -2, "kind");
 				pushCrocstr(t, name);        croc_fielda(t, -2, "name");
+
+				if(kind == Kind::Global)
+					croc_pushString(t, "variable");
+				else
+					pushCrocstr(t, kindStr);
+
+				croc_fielda(t, -2, "kind");
 
 				if(line.length)
 				{
@@ -222,11 +228,23 @@ namespace croc
 				{
 					croc_array_new(t, 0);
 					croc_fielda(t, -2, "params");
+
+					if(croc_len(t, dt) <= 2) // module + function
+					{
+						croc_pushString(t, "global");
+						croc_fielda(t, -2, "protection");
+					}
 				}
 				else if(kind == Kind::Module || kind == Kind::Class || kind == Kind::Namespace)
 				{
 					croc_array_new(t, 0);
 					croc_fielda(t, -2, "children");
+
+					if(kind != Kind::Module)
+					{
+						croc_pushString(t, "global");
+						croc_fielda(t, -2, "protection");
+					}
 				}
 			}
 			else if((kind == Kind::Class || kind == Kind::Namespace) && arrStartsWith(line, ATODA("!base ")))

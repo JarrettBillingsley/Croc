@@ -491,6 +491,9 @@ function toHeader(doctable: table, parentFQN: string, full: bool = true)
 			break
 
 		case "function":
+			if(full && "protection" in doctable)
+				ret.append(doctable.protection, " ")
+
 			if(parentFQN !is "")
 				ret.append(parentFQN, ".")
 

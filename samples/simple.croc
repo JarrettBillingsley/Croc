@@ -2,5 +2,5 @@ module samples.simple
 
 function main()
 {
-	doctools.console.help(_G)
+
 }
