@@ -213,7 +213,11 @@ namespace croc
 				pushCrocstr(t, name);        croc_fielda(t, -2, "name");
 
 				if(kind == Kind::Global)
+				{
+					croc_pushString(t, "global");
+					croc_fielda(t, -2, "protection");
 					croc_pushString(t, "variable");
+				}
 				else
 					pushCrocstr(t, kindStr);
 

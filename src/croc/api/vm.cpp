@@ -121,7 +121,7 @@ extern "C"
 
 #ifdef CROC_BUILTIN_DOCS
 		// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later.. OR IS IT)
-		// docModulesLib(*t);
+		docModulesLib(*t);
 		// docExceptionsLib(*t);
 		// docGCLib(*t);
 		docMiscLib(*t);
