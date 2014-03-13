@@ -663,7 +663,7 @@ public:
 							}
 						}
 						else
-							error("Invalid command '%*.s'", cast(int)mTok.string.length, mTok.string.ptr);
+							error("Invalid command '%.*s'", cast(int)mTok.string.length, mTok.string.ptr);
 						return;
 					}
 					default:

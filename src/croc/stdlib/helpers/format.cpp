@@ -27,7 +27,7 @@ fmt is a type-specific string which specifies output
 			b/B binary
 			x/X hex
 	for floats:
-		[+| ][width][.[precision]][type]
+		[+| ][.[precision]][type]
 		type:
 			e/E
 			f
@@ -39,7 +39,7 @@ If no fmt string is given:
 	for non-raw output:
 		call toString(obj) and place that string into the output field.
 	for raw output:
-		call toString(obj, true) and place that string into the output field.
+		call rawToString(obj) and place that string into the output field.
 */
 
 namespace croc
@@ -182,10 +182,6 @@ namespace croc
 				if(*p == '+') p++;
 				else if(*p == ' ') p++;
 			}
-
-
-			// Width
-			while(p < e && isdigit(*p)) p++;
 
 			// Precision
 			if(p < e && *p == '.')

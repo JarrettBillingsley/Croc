@@ -120,6 +120,7 @@ class BasicConsoleOutputter : DocOutputter
 	_consecNewlines = 0
 	_alreadyIndented = false
 	_isSpecialSection = false
+	_inVerbatim = false
 
 	/**
 	\param[lineEnd] is the number of characters to which line will be wrapped. This simply calls \link{setLineLength}
@@ -294,10 +295,12 @@ class BasicConsoleOutputter : DocOutputter
 		:newline()
 		:outputText("-----")
 		:newline()
+		:_inVerbatim = true
 	}
 
 	override function endCode()
 	{
+		:_inVerbatim = false
 		:newline()
 		:outputText("-----")
 		:newline()
@@ -310,10 +313,12 @@ class BasicConsoleOutputter : DocOutputter
 		:newline()
 		:outputText("-----")
 		:newline()
+		:_inVerbatim = true
 	}
 
 	override function endVerbatim()
 	{
+		:_inVerbatim = false
 		:newline()
 		:outputText("-----")
 		:newline()
@@ -455,6 +460,14 @@ class BasicConsoleOutputter : DocOutputter
 
 	override function outputText(vararg)
 	{
+		if(:_inVerbatim)
+		{
+			for(i: 0 .. #vararg)
+				:_output.write(vararg[i])
+
+			return
+		}
+
 		for(i: 0 .. #vararg)
 		{
 			local s = vararg[i]

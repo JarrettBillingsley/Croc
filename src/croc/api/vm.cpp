@@ -126,7 +126,7 @@ extern "C"
 		docExceptionsLib(*t);
 		docGCLib(*t);
 		docMiscLib(*t);
-		// docStringLib(*t);
+		docStringLib(*t);
 #endif
 		// Finish up the safe libs.
 		initHashLib(*t);
