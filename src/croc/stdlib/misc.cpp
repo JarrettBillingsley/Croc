@@ -738,6 +738,8 @@ const StdlibRegister _dumpVal =
 		docGlobals(&doc, _convFuncs);
 		docGlobal(&doc, _dumpVal);
 
+		docMiscLib_Vector(t, &doc);
+
 		croc_pushGlobal(t, "_G");
 		croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
