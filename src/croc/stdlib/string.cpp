@@ -875,7 +875,7 @@ DEndList()
 		croc_popTop(t);
 
 		croc_pushGlobal(t, "string");
-		// docStringbuffer(t, &doc);
+		docStringLib_StringBuffer(t, &doc);
 		croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
 		croc_ex_doc_finish(&doc);
