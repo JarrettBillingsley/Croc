@@ -1,24 +1,13 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/helpers/register.hpp"
 #include "croc/types/base.hpp"
 
 namespace croc
 {
 	namespace
 	{
-	word_t _newClass(CrocThread* t)
-	{
-		auto name = croc_ex_checkStringParam(t, 1);
-		auto size = croc_getStackSize(t);
-
-		for(word slot = 2; slot < cast(word)size; slot++)
-			croc_ex_checkParam(t, slot, CrocType_Class);
-
-		croc_class_new(t, name, size - 2);
-		return 1;
-	}
-
 	word_t _classFieldsOfIter(CrocThread* t)
 	{
 		croc_pushUpval(t, 0);
@@ -67,22 +56,6 @@ namespace croc
 		return 0;
 	}
 
-	word_t _fieldsOf(CrocThread* t)
-	{
-		croc_ex_checkAnyParam(t, 1);
-		croc_dup(t, 1);
-		croc_pushInt(t, 0);
-
-		if(croc_isClass(t, 1))
-			croc_function_new(t, "fieldsOfClassIter", 1, &_classFieldsOfIter, 2);
-		else if(croc_isInstance(t, 1))
-			croc_function_new(t, "fieldsOfInstanceIter", 1, &_instanceFieldsOfIter, 2);
-		else
-			croc_ex_paramTypeError(t, 1, "class|instance");
-
-		return 1;
-	}
-
 	word_t _methodsOfIter(CrocThread* t)
 	{
 		croc_pushUpval(t, 0);
@@ -107,7 +80,85 @@ namespace croc
 		return 0;
 	}
 
-	word_t _methodsOf(CrocThread* t)
+DBeginList(_globalFuncs)
+	Docstr(DFunc("newClass") DParam("name", "string") DVararg
+	R"(A function for creating a class from a name and optional base classes. The built-in class declaration syntax in
+	Croc doesn't allow you to parameterize the name, so this function allows you to do so.
+
+	The varargs are the optional base classes, and they must all be of type \tt{class}. Of course, you can pass zero
+	base classes.)"),
+
+	"newClass", -1, [](CrocThread* t) -> word_t
+	{
+		auto name = croc_ex_checkStringParam(t, 1);
+		auto size = croc_getStackSize(t);
+
+		for(word slot = 2; slot < cast(word)size; slot++)
+			croc_ex_checkParam(t, slot, CrocType_Class);
+
+		croc_class_new(t, name, size - 2);
+		return 1;
+	}
+
+DListSep()
+	Docstr(DFunc("fieldsOf") DParam("value", "class|instance")
+	R"(Given a class or instance, returns an iterator function which iterates over all the fields in that object.
+
+	The iterator gives two indices: the name of the field, then its value. For example:
+
+\code
+class Base
+{
+	x = 5
+	y = 10
+}
+
+class Derived : Base
+{
+	override x = 20
+	z = 30
+}
+
+foreach(name, val; object.fieldsOf(Derived))
+	writefln("{} = {}", name, val)
+\endcode
+
+	This will print out (though not necessarily in this order):
+
+\verbatim
+x = 20
+y = 10
+z = 30
+\endverbatim
+
+	\param[value] is the class or instance whose fields you want to iterate over.
+	\returns an iterator function.)"),
+
+	"fieldsOf", 1, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkAnyParam(t, 1);
+		croc_dup(t, 1);
+		croc_pushInt(t, 0);
+
+		if(croc_isClass(t, 1))
+			croc_function_new(t, "fieldsOfClassIter", 1, &_classFieldsOfIter, 2);
+		else if(croc_isInstance(t, 1))
+			croc_function_new(t, "fieldsOfInstanceIter", 1, &_instanceFieldsOfIter, 2);
+		else
+			croc_ex_paramTypeError(t, 1, "class|instance");
+
+		return 1;
+	}
+
+DListSep()
+	Docstr(DFunc("methodsOf") DParam("value", "class|instance")
+	R"(Just like \link{fieldsOf}, but iterates over methods instead.
+
+	\param[value] is the class or instance whose methods you want to iterate over. If you pass an \tt{instance}, it will
+	just iterate over its class's methods instead (since instances don't store methods).
+	\returns an iterator function.)"),
+
+	"methodsOf", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkAnyParam(t, 1);
 
@@ -123,27 +174,13 @@ namespace croc
 		return 1;
 	}
 
-	word_t _rawSetField(CrocThread* t)
-	{
-		croc_ex_checkParam(t, 1, CrocType_Instance);
-		croc_ex_checkStringParam(t, 2);
-		croc_ex_checkAnyParam(t, 3);
-		croc_dup(t, 2);
-		croc_dup(t, 3);
-		croc_rawFieldaStk(t, 1);
-		return 0;
-	}
+DListSep()
+	Docstr(DFunc("addMethod") DParam("cls", "class") DParam("name", "string") DParamAny("value")
+	R"(Adds a new method to a class. The method can be any type, not just functions.
 
-	word_t _rawGetField(CrocThread* t)
-	{
-		croc_ex_checkParam(t, 1, CrocType_Instance);
-		croc_ex_checkStringParam(t, 2);
-		croc_dup(t, 2);
-		croc_rawFieldStk(t, 1);
-		return 1;
-	}
+	The class must not be frozen, and no method or field of the same name may exist.)"),
 
-	word_t _addMethod(CrocThread* t)
+	"addMethod", 3, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 1, CrocType_Class);
 		croc_ex_checkStringParam(t, 2);
@@ -154,7 +191,14 @@ namespace croc
 		return 0;
 	}
 
-	word_t _addField(CrocThread* t)
+DListSep()
+	Docstr(DFunc("addField") DParam("cls", "class") DParam("name", "string") DParamD("value", "any", "null")
+	R"(Adds a new field to a class.
+
+	The class must not be frozen, and no method or field of the same name may exist. The \tt{value} parameter is
+	optional.)"),
+
+	"addField", 3, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 1, CrocType_Class);
 		croc_ex_checkStringParam(t, 2);
@@ -168,7 +212,14 @@ namespace croc
 		return 0;
 	}
 
-	word_t _addMethodOverride(CrocThread* t)
+DListSep()
+	Docstr(DFunc("addMethodOverride") DParam("cls", "class") DParam("name", "string") DParamAny("value")
+	R"(Adds a new method to a class, overriding any existing method of the same name. Works just like the \tt{override}
+	keyword in an actual class declaration.
+
+	The class must not be frozen, and a method of the same name must exist.)"),
+
+	"addMethodOverride", 3, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 1, CrocType_Class);
 		croc_ex_checkStringParam(t, 2);
@@ -179,7 +230,14 @@ namespace croc
 		return 0;
 	}
 
-	word_t _addFieldOverride(CrocThread* t)
+DListSep()
+	Docstr(DFunc("addFieldOverride") DParam("cls", "class") DParam("name", "string") DParamD("value", "any", "null")
+	R"(Adds a new field to a class, overriding any existing field of the same name. Works just like the \tt{override}
+	keyword in an actual class declaration.
+
+	The class must not be frozen, and a field of the same name must exist. The \tt{value} parameter is optional.)"),
+
+	"addFieldOverride", 3, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 1, CrocType_Class);
 		croc_ex_checkStringParam(t, 2);
@@ -193,7 +251,13 @@ namespace croc
 		return 0;
 	}
 
-	word_t _removeMember(CrocThread* t)
+DListSep()
+	Docstr(DFunc("removeMember") DParam("cls", "class") DParam("name", "string")
+	R"(Removes a member (method or field) from a class.
+
+	The class must not be frozen, and there must be a member of the given name to remove.)"),
+
+	"removeMember", 2, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 1, CrocType_Class);
 		croc_ex_checkStringParam(t, 2);
@@ -202,7 +266,14 @@ namespace croc
 		return 0;
 	}
 
-	word_t _freeze(CrocThread* t)
+DListSep()
+	Docstr(DFunc("freeze") DParam("cls", "class")
+	R"(Forces a class to be frozen.
+
+	Normally classes are frozen when they are instantiated or derived from, but you can force them to be frozen with
+	this function to prevent any tampering.)"),
+
+	"freeze", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 1, CrocType_Class);
 		croc_class_freeze(t, 1);
@@ -210,14 +281,25 @@ namespace croc
 		return 1;
 	}
 
-	word_t _isFrozen(CrocThread* t)
+DListSep()
+	Docstr(DFunc("isFrozen") DParam("cls", "class")
+	R"(\returns a bool indicating whether or not the given class is frozen.)"),
+
+	"isFrozen", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 1, CrocType_Class);
 		croc_pushBool(t, croc_class_isFrozen(t, 1));
 		return 1;
 	}
 
-	word_t _isFinalizable(CrocThread* t)
+DListSep()
+	Docstr(DFunc("isFinalizable") DParam("value", "class|instance")
+	R"(\returns a bool indicating whether or not the given class or instance is finalizable.
+
+	\b{If \tt{value} is an unfrozen class, it will be frozen!} There is no way to be sure a class is finalizable without
+	freezing it first.)"),
+
+	"isFinalizable", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkAnyParam(t, 1);
 
@@ -234,7 +316,12 @@ namespace croc
 		return 1;
 	}
 
-	word_t _instanceOf(CrocThread* t)
+DListSep()
+	Docstr(DFunc("instanceOf") DParamAny("value") DParam("cls", "class")
+	R"(\returns \tt{true} if \tt{value} is an instance and it is an instance of \tt{cls}, and \tt{false} otherwise. In
+	other words, it returns \tt{isInstance(value) && value.super is cls}.)"),
+
+	"instanceOf", 2, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 2, CrocType_Class);
 
@@ -248,29 +335,11 @@ namespace croc
 
 		return 1;
 	}
-
-	const CrocRegisterFunc _globalFuncs[] =
-	{
-		{"newClass",          -1, &_newClass         },
-		{"fieldsOf",           1, &_fieldsOf         },
-		{"methodsOf",          1, &_methodsOf        },
-		{"rawSetField",        3, &_rawSetField      },
-		{"rawGetField",        2, &_rawGetField      },
-		{"addMethod",          3, &_addMethod        },
-		{"addField",           3, &_addField         },
-		{"addMethodOverride",  3, &_addMethodOverride},
-		{"addFieldOverride",   3, &_addFieldOverride },
-		{"removeMember",       2, &_removeMember     },
-		{"freeze",             1, &_freeze           },
-		{"isFrozen",           1, &_isFrozen         },
-		{"isFinalizable",      1, &_isFinalizable    },
-		{"instanceOf",         2, &_instanceOf       },
-		{nullptr, 0, nullptr}
-	};
+DEndList()
 
 	word loader(CrocThread* t)
 	{
-		croc_ex_registerGlobals(t, _globalFuncs);
+		registerGlobals(t, _globalFuncs);
 		return 0;
 	}
 	}
@@ -278,6 +347,19 @@ namespace croc
 	void initObjectLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "object", &loader);
-		croc_ex_import(t, "object");
+		croc_ex_importNS(t, "object");
+#ifdef CROC_BUILTIN_DOCS
+		CrocDoc doc;
+		croc_ex_doc_init(t, &doc, __FILE__);
+		croc_ex_doc_push(&doc,
+		DModule("object")
+		R"(The \tt{object} library provides access to aspects of the object model not covered by Croc's syntax. This
+		includes adding and removing fields and methods of classes and reflecting over the members of classes and
+		instances.)");
+			docFields(&doc, _globalFuncs);
+		croc_ex_doc_pop(&doc, -1);
+		croc_ex_doc_finish(&doc);
+#endif
+		croc_popTop(t);
 	}
 }

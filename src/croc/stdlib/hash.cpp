@@ -635,8 +635,9 @@ DEndList()
 	void initHashLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "hash", &loader);
+		croc_ex_importNS(t, "hash");
 #ifdef CROC_BUILTIN_DOCS
-		auto hash = croc_ex_importNS(t, "hash");
+		auto hash = croc_getStackSize(t) - 1;
 		CrocDoc doc;
 		croc_ex_doc_init(t, &doc, __FILE__);
 		croc_ex_doc_push(&doc,
@@ -665,12 +666,11 @@ DEndList()
 			croc_ex_doc_mergeModuleDocs(&doc);
 			croc_popTop(t);
 		croc_ex_doc_pop(&doc, -1);
+		croc_ex_doc_finish(&doc);
 
 		croc_pushString(t, "_subdocs");
 		croc_removeKey(t, hash);
-		croc_popTop(t);
-#else
-		croc_ex_import(t, "hash");
 #endif
+		croc_popTop(t);
 	}
 }

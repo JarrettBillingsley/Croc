@@ -476,8 +476,8 @@ DEndList()
 	void initMathLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "math", &loader);
-#ifdef CROC_BUILTIN_DOCS
 		croc_ex_importNS(t, "math");
+#ifdef CROC_BUILTIN_DOCS
 		CrocDoc doc;
 		croc_ex_doc_init(t, &doc, __FILE__);
 		croc_ex_doc_push(&doc,
@@ -486,9 +486,8 @@ DEndList()
 			croc_ex_docFields(&doc, _constDocs);
 			docFields(&doc, _globalFuncs);
 		croc_ex_doc_pop(&doc, -1);
-		croc_popTop(t);
-#else
-		croc_ex_import(t, "math");
+		croc_ex_doc_finish(&doc);
 #endif
+		croc_popTop(t);
 	}
 }

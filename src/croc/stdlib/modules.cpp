@@ -299,7 +299,7 @@ const char* _load_docs = Docstr(DFunc("load") DParam("name", "string")
 
 	\param[name] The name of the module to load, in dotted form (such as "foo.bar").
 	\returns The namespace of the module after it has been imported.
-	\throws[exceptions.ImportException] if no means of loading the module could be found, or if a module loader was
+	\throws[ImportException] if no means of loading the module could be found, or if a module loader was
 	found but failed when run. In the latter case, the exception that was thrown during module loading will be set as
 	the cause of the exception.)");
 
