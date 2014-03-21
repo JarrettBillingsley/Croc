@@ -1471,7 +1471,7 @@ private:
 
 				croc_field(t, -1, "name");
 
-				if(getCrocstr(Thread::from(t), -1) == paramName)
+				if(getCrocstr(t, -1) == paramName)
 				{
 					croc_popTop(t);
 					croc_insertAndPop(t, params);
@@ -1571,7 +1571,7 @@ private:
 
 			croc_idxi(t, span, 0);
 
-			if(getCrocstr(Thread::from(t), -1) == ATODA("link") && croc_len(t, span) == 2)
+			if(getCrocstr(t, -1) == ATODA("link") && croc_len(t, span) == 2)
 			{
 				croc_idxi(t, span, -1);
 				append(span);

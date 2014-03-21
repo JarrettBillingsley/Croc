@@ -121,7 +121,7 @@ namespace croc
 
 		if(croc_isString(t, idx))
 		{
-			auto str = getCrocstr(Thread::from(t), idx);
+			auto str = getCrocstr(t, idx);
 			auto strCPLen = cast(uword)croc_len(t, idx);
 
 			if(strCPLen <= buf.length)
@@ -201,7 +201,7 @@ namespace croc
 						") do not match",
 					hi - lo, cpLen);
 
-			_toUtf32(getCrocstr(Thread::from(t), filler), mb->data.template as<dchar>().slice(lo, hi));
+			_toUtf32(getCrocstr(t, filler), mb->data.template as<dchar>().slice(lo, hi));
 		}
 		else if(croc_isArray(t, filler))
 		{
@@ -289,7 +289,7 @@ DBeginList(_methods)
 		{
 			if(croc_isString(t, 1))
 			{
-				data = getCrocstr(Thread::from(t), 1);
+				data = getCrocstr(t, 1);
 				cpLen = cast(uword)croc_len(t, 1); // need codepoint length
 			}
 			else if(croc_isInt(t, 1))
@@ -409,7 +409,7 @@ DListSep()
 			else
 			{
 				auto data = mb->data.template as<dchar>();
-				auto other = getCrocstr(Thread::from(t), 1);
+				auto other = getCrocstr(t, 1);
 				uword pos = 0;
 
 				for(auto c: dcharsOf(other))
@@ -465,7 +465,7 @@ DListSep()
 			auto l = len < otherLen ? len : otherLen;
 
 			auto data = mb->data.template as<dchar>();
-			auto other = getCrocstr(Thread::from(t), 1);
+			auto other = getCrocstr(t, 1);
 			uword pos = 0;
 
 			for(auto c: dcharsOf(other))
@@ -645,7 +645,7 @@ DListSep()
 		if(croc_isString(t, 1))
 		{
 			auto dest = makeObj(croc_len(t, 1));
-			_toUtf32(getCrocstr(Thread::from(t), 1), dest);
+			_toUtf32(getCrocstr(t, 1), dest);
 		}
 		else if(croc_isInstanceOf(t, 1, -1))
 		{
@@ -655,7 +655,7 @@ DListSep()
 		else
 		{
 			croc_pushToString(t, 1);
-			auto s = getCrocstr(Thread::from(t), -1);
+			auto s = getCrocstr(t, -1);
 			auto dest = makeObj(croc_len(t, -1));
 			_toUtf32(s, dest);
 			croc_popTop(t);
@@ -696,12 +696,12 @@ DListSep()
 		if(croc_isString(t, 1))
 		{
 			auto dest = makeObj(croc_len(t, 1));
-			_toUtf32(getCrocstr(Thread::from(t), 1), dest);
+			_toUtf32(getCrocstr(t, 1), dest);
 		}
 		else
 		{
 			croc_pushToString(t, 1);
-			auto s = getCrocstr(Thread::from(t), -1);
+			auto s = getCrocstr(t, -1);
 			auto dest = makeObj(croc_len(t, -1));
 			_toUtf32(s, dest);
 			croc_popTop(t);
@@ -961,7 +961,7 @@ DListSep()
 
 			if(cpLen != 0)
 			{
-				auto str = getCrocstr(Thread::from(t), 2);
+				auto str = getCrocstr(t, 2);
 				auto tmp = doResize(cpLen);
 				_toUtf32(str, tmp);
 			}
@@ -996,7 +996,7 @@ DListSep()
 
 			if(cpLen != 0)
 			{
-				auto str = getCrocstr(Thread::from(t), -1);
+				auto str = getCrocstr(t, -1);
 				auto tmp = doResize(cpLen);
 				_toUtf32(str, tmp);
 			}

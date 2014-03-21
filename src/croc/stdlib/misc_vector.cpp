@@ -433,7 +433,7 @@ DBeginList(_methods)
 
 		croc_ex_checkStringParam(t, 1);
 
-		auto kind = _typeCodeToKind(getCrocstr(Thread::from(t), 1));
+		auto kind = _typeCodeToKind(getCrocstr(t, 1));
 
 		if(kind == nullptr)
 			croc_eh_throwStd(t, "ValueError", "Invalid type code '%s'", croc_getString(t, 1));
@@ -580,7 +580,7 @@ DListSep()
 		else
 		{
 			croc_ex_checkStringParam(t, 1);
-			auto ts = _typeCodeToKind(getCrocstr(Thread::from(t), 1));
+			auto ts = _typeCodeToKind(getCrocstr(t, 1));
 
 			if(ts == nullptr)
 				croc_eh_throwStd(t, "ValueError", "Invalid type code '%s'", croc_getString(t, 1));
@@ -1637,7 +1637,7 @@ DListSep()
 		croc_pushString(t, "string");
 		croc_call(t, -3, 1);
 
-		auto kind = _typeCodeToKind(getCrocstr(Thread::from(t), -1));
+		auto kind = _typeCodeToKind(getCrocstr(t, -1));
 		croc_popTop(t);
 
 		if(kind == nullptr)

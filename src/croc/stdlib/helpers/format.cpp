@@ -278,7 +278,7 @@ namespace croc
 	uword formatImpl(CrocThread* t, uword startIndex, uword numParams)
 	{
 		auto startSize = croc_getStackSize(t);
-		auto formatStr = getCrocstr(Thread::from(t), startIndex);
+		auto formatStr = getCrocstr(t, startIndex);
 		uword autoIndex = startIndex + 1;
 		uword endIndex = autoIndex + numParams;
 		uword begin = 0;

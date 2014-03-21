@@ -496,7 +496,7 @@ extern "C"
 
 		croc_field(t, subModule, "kind");
 
-		if(!croc_isString(t, -1) || getCrocstr(Thread::from(t), -1) != ATODA("module") || !croc_hasField(t, subModule, "children"))
+		if(!croc_isString(t, -1) || getCrocstr(t, -1) != ATODA("module") || !croc_hasField(t, subModule, "children"))
 			croc_eh_throwStd(t, "ApiError", "Sub-module doc table is malformed or not a module doc table");
 
 		croc_popTop(t);

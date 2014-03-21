@@ -466,7 +466,7 @@ namespace croc
 			switch(croc_type(t, slot))
 			{
 				case CrocType_Int:    return new(c) IntExp(loc, croc_getInt(t, slot));
-				case CrocType_String: return new(c) StringExp(loc, c.newString(getCrocstr(t_, slot)));
+				case CrocType_String: return new(c) StringExp(loc, c.newString(getCrocstr(t, slot)));
 
 				case CrocType_Table: {
 					List<TableCtorField> fields(c);
