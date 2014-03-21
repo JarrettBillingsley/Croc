@@ -108,13 +108,7 @@ DListSep()
 		}
 
 		// Start index
-		auto start = croc_ex_optIntParam(t, 3, 0);
-
-		if(start < 0)
-			start += src.length;
-
-		if(start < 0 || cast(uword)start >= src.length)
-			croc_eh_throwStd(t, "BoundsError", "Invalid start index %" CROC_INTEGER_FORMAT, start);
+		auto start = croc_ex_optIndexParam(t, 3, src.length, "start", 0);
 
 		// Search
 		auto maxIdx = src.length - pat.length;
@@ -163,13 +157,7 @@ DListSep()
 		}
 
 		// Start index
-		auto start = croc_ex_optIntParam(t, 3, src.length - 1);
-
-		if(start < 0)
-			start += src.length;
-
-		if(start < 0 || cast(uword)start >= src.length)
-			croc_eh_throwStd(t, "BoundsError", "Invalid start index: %" CROC_INTEGER_FORMAT, start);
+		auto start = croc_ex_optIndexParam(t, 3, src.length, "start", src.length - 1);
 
 		// Search
 		auto maxIdx = src.length - pat.length;
@@ -280,19 +268,7 @@ DListSep()
 	2, [](CrocThread* t) -> word_t\
 	{\
 		auto str = _checkAsciiString(t, 1);\
-		auto idx = croc_ex_optIntParam(t, 2, 0);\
-\
-		if(str.length == 0)\
-			croc_eh_throwStd(t, "ValueError", "String must be at least one character long");\
-\
-		if(idx < 0)\
-			idx += str.length;\
-\
-		if(idx < 0 || cast(uword)idx >= str.length)\
-			croc_eh_throwStd(t, "BoundsError",\
-				"Invalid index %" CROC_INTEGER_FORMAT " for string of length %" CROC_SIZE_T_FORMAT,\
-				idx, str.length);\
-\
+		auto idx = croc_ex_optIndexParam(t, 2, str.length, "character", 0);\
 		croc_pushBool(t, cast(bool)func(str[cast(uword)idx]));\
 		return 1;\
 	}

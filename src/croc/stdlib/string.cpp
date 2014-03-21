@@ -27,11 +27,8 @@ namespace croc
 	template<bool reverse>
 	word_t _commonFind(CrocThread* t)
 	{
-		// Source (search) string
 		auto src = checkCrocstrParam(t, 0);
 		auto srcCPLen = croc_len(t, 0);
-
-		// Pattern (searched) string
 		auto pat = checkCrocstrParam(t, 1);
 
 		if(pat.length == 0)
@@ -40,20 +37,12 @@ namespace croc
 			return 1;
 		}
 
-		// Start index
-		auto start = croc_ex_optIntParam(t, 2, reverse ? (srcCPLen - 1) : 0);
+		auto start = croc_ex_optIndexParam(t, 2, srcCPLen, "start", reverse ? (srcCPLen - 1) : 0);
 
-		if(start < 0)
-			start += srcCPLen;
-
-		if(start < 0 || start >= srcCPLen)
-			croc_eh_throwStd(t, "BoundsError", "Invalid start index %" CROC_INTEGER_FORMAT, start);
-
-		// Search
 		if(reverse)
-			croc_pushInt(t, utf8ByteIdxToCP(src, strRLocate(src, pat, utf8CPIdxToByte(src, cast(uword)start))));
+			croc_pushInt(t, utf8ByteIdxToCP(src, strRLocate(src, pat, utf8CPIdxToByte(src, start))));
 		else
-			croc_pushInt(t, utf8ByteIdxToCP(src, strLocate(src, pat, utf8CPIdxToByte(src, cast(uword)start))));
+			croc_pushInt(t, utf8ByteIdxToCP(src, strLocate(src, pat, utf8CPIdxToByte(src, start))));
 
 		return 1;
 	}
@@ -375,16 +364,8 @@ DListSep()
 	{
 		auto s = checkCrocstrParam(t, 0);
 		auto cpLen = croc_len(t, 0); // we want the CP length, not the byte length
-		auto idx = croc_ex_optIntParam(t, 1, 0);
-
-		if(idx < 0)
-			idx += cpLen;
-
-		if(idx < 0 || idx >= cpLen)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid index %" CROC_INTEGER_FORMAT " (string length: %" CROC_UINTEGER_FORMAT ")", idx, cpLen);
-
-		croc_pushInt(t, utf8CharAt(s, cast(uword)idx));
+		auto idx = croc_ex_optIndexParam(t, 1, cpLen, "codepoint", 0);
+		croc_pushInt(t, utf8CharAt(s, idx));
 		return 1;
 	}
 

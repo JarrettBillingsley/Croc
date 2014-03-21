@@ -679,17 +679,7 @@ DListSep()
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkAnyParam(t, 1);
 		auto searchedType = croc_type(t, 1);
-
-		auto start = croc_ex_optIntParam(t, 2, 0);
-
-		if(start < 0)
-			start += data.length;
-
-		if(start < 0 || start >= data.length)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid start index %" CROC_INTEGER_FORMAT " (array length: %" CROC_SIZE_T_FORMAT ")",
-				start, data.length);
-
+		auto start = croc_ex_optIndexParam(t, 2, data.length, "start", 0);
 		auto t_ = Thread::from(t);
 		uword i = start;
 
@@ -734,16 +724,7 @@ DListSep()
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
-		auto start = croc_ex_optIntParam(t, 2, 0);
-
-		if(start < 0)
-			start += data.length;
-
-		if(start < 0 || start >= data.length)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid start index %" CROC_INTEGER_FORMAT " (array length: %" CROC_SIZE_T_FORMAT ")",
-				start, data.length);
-
+		auto start = croc_ex_optIndexParam(t, 2, data.length, "start", 0);
 		auto t_ = Thread::from(t);
 		uword i = start;
 
@@ -845,17 +826,7 @@ DListSep()
 	{
 		auto arr = checkArrayParam(t, 0);
 		auto data = arr->toDArray();
-		crocint index = croc_ex_optIntParam(t, 1, -1);
-
-		if(data.length == 0)
-			croc_eh_throwStd(t, "ValueError", "Array is empty");
-
-		if(index < 0)
-			index += data.length;
-
-		if(index < 0 || cast(uword)index >= data.length)
-			croc_eh_throwStd(t, "BoundsError", "Invalid array index: %" CROC_INTEGER_FORMAT, index);
-
+		auto index = croc_ex_optIndexParam(t, 1, data.length, "array", -1);
 		auto t_ = Thread::from(t);
 		push(t_, data[index].value);
 		arr->idxa(t_->vm->mem, index, Value::nullValue); // to trigger write barrier
@@ -921,23 +892,14 @@ DListSep()
 	"swap", 2, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
-		crocint idx1 = croc_ex_checkIntParam(t, 1);
-		crocint idx2 = croc_ex_checkIntParam(t, 2);
-
-		if(idx1 < 0) idx1 += data.length;
-		if(idx2 < 0) idx2 += data.length;
-
-		if(idx1 < 0 || cast(uword)idx1 >= data.length)
-			croc_eh_throwStd(t, "BoundsError", "Invalid array index: %" CROC_INTEGER_FORMAT, idx1);
-
-		if(idx2 < 0 || cast(uword)idx2 >= data.length)
-			croc_eh_throwStd(t, "BoundsError", "Invalid array index: %" CROC_INTEGER_FORMAT, idx2);
+		auto idx1 = croc_ex_checkIndexParam(t, 1, data.length, "array");
+		auto idx2 = croc_ex_checkIndexParam(t, 2, data.length, "array");
 
 		if(idx1 != idx2)
 		{
-			auto tmp = data[cast(uword)idx1];
-			data[cast(uword)idx1] = data[cast(uword)idx2];
-			data[cast(uword)idx2] = tmp;
+			auto tmp = data[idx1];
+			data[idx1] = data[idx2];
+			data[idx2] = tmp;
 		}
 
 		croc_dup(t, 0);

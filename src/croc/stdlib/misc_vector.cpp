@@ -626,25 +626,12 @@ DListSep()
 	"toArray", 2, [](CrocThread* t) -> word_t
 	{
 		auto m = _getMembers(t);
-		auto lo = croc_ex_optIntParam(t, 1, 0);
-		auto hi = croc_ex_optIntParam(t, 2, m.itemLength);
-
-		if(lo < 0)
-			lo += m.itemLength;
-
-		if(hi < 0)
-			hi += m.itemLength;
-
-		if(lo < 0 || lo > hi || cast(uword)hi > m.itemLength)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
-				" (length: %" CROC_SIZE_T_FORMAT ")",
-				lo, hi, m.itemLength);
-
-		auto ret = croc_array_new(t, cast(uword)(hi - lo));
+		uword_t lo, hi;
+		lo = croc_ex_checkSliceParams(t, 1, m.itemLength, "slice", &hi);
+		auto ret = croc_array_new(t, hi - lo);
 		auto t_ = Thread::from(t);
 
-		for(uword i = cast(uword)lo, j = 0; i < cast(uword)hi; i++, j++)
+		for(uword i = lo, j = 0; i < hi; i++, j++)
 		{
 			push(t_, _rawIndex(m, i));
 			croc_idxai(t, ret, j);
@@ -1070,17 +1057,9 @@ DListSep()
 
 		auto lo = croc_ex_checkIntParam(t, 1);
 		auto hi = croc_ex_optIntParam(t, 2, lo + 1);
-
-		if(lo < 0)
-			lo += m.itemLength;
-
-		if(hi < 0)
-			hi += m.itemLength;
-
-		if(lo < 0 || lo > hi || cast(uword)hi > m.itemLength)
-			croc_eh_throwStd(t, "BoundsError", "Invalid indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
-				" (length: %" CROC_SIZE_T_FORMAT ")",
-				lo, hi, m.itemLength);
+		if(lo < 0) lo += m.itemLength;
+		if(hi < 0) hi += m.itemLength;
+		croc_ex_checkValidSlice(t, lo, hi, m.itemLength, "element");
 
 		if(lo != hi)
 		{
@@ -1123,21 +1102,14 @@ DListSep()
 		if(m.itemLength == 0)
 			croc_eh_throwStd(t, "ValueError", "Vector is empty");
 
-		auto index = croc_ex_optIntParam(t, 1, -1);
-
-		if(index < 0)
-			index += m.itemLength;
-
-		if(index < 0 || cast(uword)index >= m.itemLength)
-			croc_eh_throwStd(t, "BoundsError", "Invalid index: %" CROC_INTEGER_FORMAT, index);
-
-		push(Thread::from(t), _rawIndex(m, cast(uword)index));
+		auto index = croc_ex_optIndexParam(t, 1, m.itemLength, "element", m.itemLength - 1);
+		push(Thread::from(t), _rawIndex(m, index));
 
 		auto isize = m.kind->itemSize;
 
-		if(cast(uword)index < m.itemLength - 1)
-			memmove(&m.data->data[cast(uword)index * isize], &m.data->data[(cast(uword)index + 1) * isize],
-				cast(uword)((m.itemLength - index - 1) * isize));
+		if(index < m.itemLength - 1)
+			memmove(&m.data->data[index * isize], &m.data->data[(index + 1) * isize],
+				((m.itemLength - index - 1) * isize));
 
 		push(Thread::from(t), Value::from(m.data));
 		croc_lenai(t, -1, (m.itemLength - 1) * isize);
@@ -1264,55 +1236,27 @@ DListSep()
 	"copyRange", 5, [](CrocThread* t) -> word_t
 	{
 		auto m = _getMembers(t);
-		auto lo = croc_ex_optIntParam(t, 1, 0);
-		auto hi = croc_ex_optIntParam(t, 2, m.itemLength);
-
-		if(lo < 0)
-			lo += m.itemLength;
-
-		if(hi < 0)
-			hi += m.itemLength;
-
-		if(lo < 0 || lo > hi || cast(uword)hi > m.itemLength)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid destination slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
-					" (length: %" CROC_SIZE_T_FORMAT ")",
-				lo, hi, m.itemLength);
-
 		auto other = _getMembers(t, 3);
 
 		if(m.kind != other.kind)
 			croc_eh_throwStd(t, "ValueError", "Attempting to copy a Vector of type '%s' into a Vector of type '%s'",
 				other.kind->name, m.kind->name);
 
-		auto lo2 = croc_ex_optIntParam(t, 4, 0);
-		auto hi2 = croc_ex_optIntParam(t, 5, lo2 + (hi - lo));
-
-		if(lo2 < 0)
-			lo2 += other.itemLength;
-
-		if(hi2 < 0)
-			hi2 += other.itemLength;
-
-		if(lo2 < 0 || lo2 > hi2 || cast(uword)hi2 > other.itemLength)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid source slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
-					" (length: %" CROC_SIZE_T_FORMAT ")",
-				lo2, hi2, other.itemLength);
+		uword_t lo, hi, lo2, hi2;
+		lo = croc_ex_checkSliceParams(t, 1, m.itemLength, "destination", &hi);
+		lo2 = croc_ex_checkSliceParams(t, 4, other.itemLength, "source", &hi2);
 
 		if((hi - lo) != (hi2 - lo2))
 			croc_eh_throwStd(t, "ValueError",
 				"Destination length (%" CROC_SIZE_T_FORMAT ") and source length(%" CROC_SIZE_T_FORMAT ") do not match",
-				cast(uword)(hi - lo), cast(uword)(hi2 - lo2));
+				hi - lo, hi2 - lo2);
 
 		auto isize = m.kind->itemSize;
 
 		if(croc_is(t, 0, 3))
-			memmove(&m.data->data[cast(uword)lo * isize], &other.data->data[cast(uword)lo2 * isize],
-				cast(uword)(hi - lo) * isize);
+			memmove(&m.data->data[lo * isize], &other.data->data[lo2 * isize], (hi - lo) * isize);
 		else
-			memcpy(&m.data->data[cast(uword)lo * isize], &other.data->data[cast(uword)lo2 * isize],
-				cast(uword)(hi - lo) * isize);
+			memcpy(&m.data->data[lo * isize], &other.data->data[lo2 * isize], (hi - lo) * isize);
 
 		croc_dup(t, 0);
 		return 1;
@@ -1366,20 +1310,8 @@ DListSep()
 	"fillRange", 3, [](CrocThread* t) -> word_t
 	{
 		auto m = _getMembers(t);
-		auto lo = croc_ex_optIntParam(t, 1, 0);
-		auto hi = croc_ex_optIntParam(t, 2, m.itemLength);
-		croc_ex_checkAnyParam(t, 3);
-
-		if(lo < 0)
-			lo += m.itemLength;
-
-		if(hi < 0)
-			hi += m.itemLength;
-
-		if(lo < 0 || lo > hi || cast(uword)hi > m.itemLength)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid range indices (%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT ")", lo, hi);
-
+		uword_t lo, hi;
+		lo = croc_ex_checkSliceParams(t, 1, m.itemLength, "range", &hi);
 		_fillImpl(t, m, 3, cast(uword)lo, cast(uword)hi);
 		croc_dup(t, 0);
 		return 1;
@@ -1514,17 +1446,8 @@ DListSep()
 	"opIndex", 1, [](CrocThread* t) -> word_t
 	{
 		auto m = _getMembers(t);
-		auto idx = croc_ex_checkIntParam(t, 1);
-
-		if(idx < 0)
-			idx += m.itemLength;
-
-		if(idx < 0 || cast(uword)idx >= m.itemLength)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid index %" CROC_INTEGER_FORMAT " for Vector of length %" CROC_SIZE_T_FORMAT,
-				idx, m.itemLength);
-
-		push(Thread::from(t), _rawIndex(m, cast(uword)idx));
+		auto idx = croc_ex_checkIndexParam(t, 1, m.itemLength, "element");
+		push(Thread::from(t), _rawIndex(m, idx));
 		return 1;
 	}
 
@@ -1540,22 +1463,14 @@ DListSep()
 	"opIndexAssign", 2, [](CrocThread* t) -> word_t
 	{
 		auto m = _getMembers(t);
-		auto idx = croc_ex_checkIntParam(t, 1);
-
-		if(idx < 0)
-			idx += m.itemLength;
-
-		if(idx < 0 || cast(uword)idx >= m.itemLength)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid index %" CROC_INTEGER_FORMAT " for Vector of length %" CROC_SIZE_T_FORMAT,
-				idx, m.itemLength);
+		auto idx = croc_ex_checkIndexParam(t, 1, m.itemLength, "element");
 
 		if(m.kind->code <= TypeCode_u64)
 			croc_ex_checkIntParam(t, 2);
 		else
 			croc_ex_checkNumParam(t, 2);
 
-		_rawIndexAssign(m, cast(uword)idx, *getValue(Thread::from(t), 2));
+		_rawIndexAssign(m, idx, *getValue(Thread::from(t), 2));
 		return 0;
 	}
 
@@ -1575,21 +1490,8 @@ DListSep()
 	"opSlice", 2, [](CrocThread* t) -> word_t
 	{
 		auto m = _getMembers(t);
-		auto lo = croc_ex_optIntParam(t, 1, 0);
-		auto hi = croc_ex_optIntParam(t, 2, m.itemLength);
-
-		if(lo < 0)
-			lo += m.itemLength;
-
-		if(hi < 0)
-			hi += m.itemLength;
-
-		if(lo < 0 || lo > hi || cast(uword)hi > m.itemLength)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid slice indices %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
-					" for Vector of length %" CROC_SIZE_T_FORMAT,
-				lo, hi, m.itemLength);
-
+		uword_t lo, hi;
+		lo = croc_ex_checkSliceParams(t, 1, m.itemLength, "slice", &hi);
 		croc_pushGlobal(t, "Vector");
 		croc_pushNull(t);
 		croc_pushString(t, m.kind->name);
@@ -1597,9 +1499,7 @@ DListSep()
 		croc_call(t, -4, 1);
 		auto n = _getMembers(t, -1);
 		auto isize = m.kind->itemSize;
-
-		memcpy(n.data->data.ptr, m.data->data.ptr + (cast(uword)lo * isize), (cast(uword)hi - cast(uword)lo) * isize);
-
+		memcpy(n.data->data.ptr, m.data->data.ptr + (lo * isize), (hi - lo) * isize);
 		return 0;
 	}
 

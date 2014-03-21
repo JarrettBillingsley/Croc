@@ -66,29 +66,17 @@ namespace croc
 	auto strCPLen = cast(uword)croc_len(t, 1);\
 	croc_ex_checkParam(t, 2, CrocType_Memblock);\
 	auto destlen = croc_len(t, 2);\
-	auto start = croc_ex_checkIntParam(t, 3);\
-	auto errors = checkErrorsParam(t, 4);\
-	if(start < 0) start += destlen;\
-	if(start < 0 || start > destlen)\
-		croc_eh_throwStd(t, "BoundsError",\
-			"Invalid start index %" CROC_INTEGER_FORMAT " for memblock of length %" CROC_INTEGER_FORMAT,\
-			start, destlen);
+	auto start = croc_ex_checkIndexParam(t, 3, destlen, "start");\
+	auto errors = checkErrorsParam(t, 4);
 
 #define DECODE_RANGE_HEADER\
 	croc_ex_checkParam(t, 1, CrocType_Memblock);\
 	DArray<uint8_t> data;\
 	data.ptr = cast(uint8_t*)croc_memblock_getDatan(t, 1, &data.length);\
-	auto lo = croc_ex_checkIntParam(t, 2);\
-	auto hi = croc_ex_checkIntParam(t, 3);\
+	uword_t lo, hi;\
+	lo = croc_ex_checkSliceParams(t, 2, data.length, "slice", &hi);\
 	auto errors = checkErrorsParam(t, 4);\
-	if(lo < 0) lo += data.length;\
-	if(hi < 0) hi += data.length;\
-	if(lo < 0 || lo > hi || cast(uword)hi > data.length)\
-		croc_eh_throwStd(t, "BoundsError",\
-			"Invalid slice indices(%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT ") for memblock of length %"\
-				CROC_SIZE_T_FORMAT,\
-			lo, hi, data.length);\
-	auto mb = data.slice(cast(uword)lo, cast(uword)hi);
+	auto mb = data.slice(lo, hi);
 
 	word_t _asciiEncodeInternal(CrocThread* t)
 	{
@@ -361,7 +349,7 @@ namespace croc
 
 		// this initial sizing might not be enough.. but it's probably enough for most text. only trans-BMP chars will
 		// need more room
-		croc_lenai(t, 2, max(cast(uword)croc_len(t, 2), cast(uword)(start + strCPLen * sizeof(wchar))));
+		croc_lenai(t, 2, max(cast(uword)croc_len(t, 2), start + strCPLen * sizeof(wchar)));
 		auto dest = wstring::n(cast(wchar*)(croc_memblock_getData(t, 2) + start), strCPLen);
 
 		custring remaining;

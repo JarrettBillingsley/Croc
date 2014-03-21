@@ -77,25 +77,14 @@ DEndList()
 	template<bool reverse>
 	word_t _commonFindByte(CrocThread* t)
 	{
-		// Source (search) memblock
 		auto src = checkMemblockParam(t, 0)->data;
-
-		// Item to search for
 		auto item = croc_ex_checkIntParam(t, 1);
 
 		if(item < 0 || item > 255)
 			croc_eh_throwStd(t, "RangeError", "Invalid search value: %" CROC_INTEGER_FORMAT, item);
 
-		// Start index
-		auto start = croc_ex_optIntParam(t, 2, reverse ? (src.length - 1) : 0);
+		auto start = croc_ex_optIndexParam(t, 2, src.length, "start", reverse ? (src.length - 1) : 0);
 
-		if(start < 0)
-			start += src.length;
-
-		if(start < 0 || start > src.length)
-			croc_eh_throwStd(t, "BoundsError", "Invalid start index %" CROC_INTEGER_FORMAT, start);
-
-		// Search
 		if(reverse)
 			croc_pushInt(t, arrFindElemRev(src, cast(uint8_t)item, start));
 		else
@@ -107,22 +96,10 @@ DEndList()
 	template<bool reverse>
 	word_t _commonFind(CrocThread* t)
 	{
-		// Source (search) memblock
 		auto src = checkMemblockParam(t, 0)->data;
-
-		// Pattern to search for
 		auto pat = checkMemblockParam(t, 1)->data;
+		auto start = croc_ex_optIndexParam(t, 2, src.length, "start", reverse ? (src.length - 1) : 0);
 
-		// Start index
-		auto start = croc_ex_optIntParam(t, 2, reverse ? (src.length - 1) : 0);
-
-		if(start < 0)
-			start += src.length;
-
-		if(start < 0 || start > src.length)
-			croc_eh_throwStd(t, "BoundsError", "Invalid start index %" CROC_INTEGER_FORMAT, start);
-
-		// Search
 		if(reverse)
 			croc_pushInt(t, arrFindSubRev(src, pat, start));
 		else
@@ -258,23 +235,9 @@ DListSep()
 	"fillSlice", 3, [](CrocThread* t) -> word_t
 	{
 		auto data = checkMemblockParam(t, 0)->data;
-
-		auto lo = croc_ex_optIntParam(t, 1, 0);
-		auto hi = croc_ex_optIntParam(t, 2, data.length);
+		uword_t lo, hi;
+		lo = croc_ex_checkSliceParams(t, 1, data.length, "memblock", &hi);
 		auto val = cast(uint8_t)croc_ex_checkIntParam(t, 3);
-
-		if(lo < 0)
-			lo += data.length;
-
-		if(hi < 0)
-			hi += data.length;
-
-		if(lo < 0 || hi < lo || cast(uword)hi > data.length)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid slice indices %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT
-					" (memblock length: %" CROC_SIZE_T_FORMAT ")",
-				lo, hi, data.length);
-
 		data.slice(cast(uword)lo, cast(uword)hi).fill(val);
 		return 0;
 	}

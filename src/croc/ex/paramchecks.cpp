@@ -44,7 +44,7 @@ extern "C"
 
 	void croc_ex_checkValidSlice(CrocThread* t, crocint_t lo, crocint_t hi, uword_t length, const char* name)
 	{
-		if(lo > hi || hi > length)
+		if(lo < 0 || lo > hi || hi > length)
 			croc_ex_sliceIndexError(t, lo, hi, length, name);
 	}
 
