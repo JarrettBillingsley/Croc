@@ -66,8 +66,13 @@ namespace croc
 	auto strCPLen = cast(uword)croc_len(t, 1);\
 	croc_ex_checkParam(t, 2, CrocType_Memblock);\
 	auto destlen = croc_len(t, 2);\
-	auto start = croc_ex_checkIndexParam(t, 3, destlen, "start");\
-	auto errors = checkErrorsParam(t, 4);
+	auto start = croc_ex_checkIntParam(t, 3);\
+	auto errors = checkErrorsParam(t, 4);\
+	if(start < 0) start += destlen;\
+	if(start < 0 || start > destlen)\
+		croc_eh_throwStd(t, "BoundsError",\
+			"Invalid start index %" CROC_INTEGER_FORMAT " for memblock of length %" CROC_INTEGER_FORMAT,\
+			start, destlen);
 
 #define DECODE_RANGE_HEADER\
 	croc_ex_checkParam(t, 1, CrocType_Memblock);\
@@ -349,7 +354,7 @@ namespace croc
 
 		// this initial sizing might not be enough.. but it's probably enough for most text. only trans-BMP chars will
 		// need more room
-		croc_lenai(t, 2, max(cast(uword)croc_len(t, 2), start + strCPLen * sizeof(wchar)));
+		croc_lenai(t, 2, max(cast(uword)croc_len(t, 2), cast(uword)(start + strCPLen * sizeof(wchar))));
 		auto dest = wstring::n(cast(wchar*)(croc_memblock_getData(t, 2) + start), strCPLen);
 
 		custring remaining;
