@@ -4,6 +4,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/helpers/register.hpp"
 #include "croc/types/base.hpp"
 #include "croc/util/array.hpp"
 
@@ -13,7 +14,14 @@ namespace croc
 	{
 #define checkArrayParam(t, n) (croc_ex_checkParam((t), (n), CrocType_Array), getArray(Thread::from(t), (n)))
 
-	word_t _new(CrocThread* t)
+DBeginList(_globalFuncs)
+	Docstr(DFunc("new") DParam("size", "int") DParamD("fill", "any", "null")
+	R"(Creates an array object of length \tt{size}, filling it with the value \tt{fill} (which defaults to
+	\tt{null}).
+
+	\throws[RangeError] if \tt{size} is invalid.)"),
+
+	"new", 2, [](CrocThread* t) -> word_t
 	{
 		auto length = croc_ex_checkIntParam(t, 1);
 		auto haveFill = croc_isValidIndex(t, 2);
@@ -32,7 +40,14 @@ namespace croc
 		return 1;
 	}
 
-	word_t _new2D(CrocThread* t)
+DListSep()
+	Docstr(DFunc("new2D") DParam("size1", "int") DParam("size2", "int") DParamD("fill", "any", "null")
+	R"(Just like \link{new}, but creates an array of arrays. The outer array will have length \tt{size1}, and each of
+	its elements will be an array of length \tt{size2}. Each of the sub-arrays will be filled with \tt{fill}.
+
+	\throws[RangeError] if \tt{size1} or \tt{size2} is invalid.)"),
+
+	"new2D", 3, [](CrocThread* t) -> word_t
 	{
 		auto length1 = croc_ex_checkIntParam(t, 1);
 		auto length2 = croc_ex_checkIntParam(t, 2);
@@ -68,7 +83,16 @@ namespace croc
 		return 1;
 	}
 
-	word_t _new3D(CrocThread* t)
+DListSep()
+	Docstr(DFunc("new3D") DParam("size1", "int") DParam("size2", "int") DParam("size3", "int")
+		DParamD("fill", "any", "null")
+	R"(Just like \link{new2D}, but creates an array of arrays of arrays. The outer array has length \tt{size1}; its
+	elements will be arrays of length \tt{size2}; and those arrays' elements will be arrays of length \tt{size3}, all
+	filled with \tt{fill}.
+
+	\throws[RangeError] if \tt{size1}, \tt{size2}, or \tt{size3} is invalid.)"),
+
+	"new3D", 4, [](CrocThread* t) -> word_t
 	{
 		auto length1 = croc_ex_checkIntParam(t, 1);
 		auto length2 = croc_ex_checkIntParam(t, 2);
@@ -122,7 +146,26 @@ namespace croc
 		return 1;
 	}
 
-	word_t _range(CrocThread* t)
+DListSep()
+	Docstr(DFunc("range") DParam("val1", "int") DParamD("val2", "int", "null") DParamD("step", "int", "null")
+	R"(Creates a new array whose elements are a range of integers.
+
+	If only one argument is given, that argument specifies the noninclusive ending index, and the beginning index is
+	assumed to be 0 and the step to be 1. This means \tt{array.range(5)} will return \tt{[0, 1, 2, 3, 4]} and
+	\tt{array.range(-5)} will return \tt{[0, -1, -2, -3, -4]}.
+
+	If two arguments are given, the first is the beginning inclusive index and the second is the ending noninclusive
+	index. The step is again assumed to be 1. Examples: \tt{array.range(3, 8)} gives \tt{[3, 4, 5, 6, 7]};
+	\tt{array.range(2, -2)} gives \tt{[2, 1, 0, -1]}; and \tt{array.range(-10, -7)} gives \tt{[-10, -9, -8]}.
+
+	Lastly, if three arguments are given, the first is the beginning inclusive index, the second the ending noninclusive
+	index, and the third the step value. The step must be greater than 0; this function will automatically figure out
+	that it needs to subtract the step if the ending index is less than the beginning index. Example: \tt{array.range(1,
+	20, 4)} yields \tt{[1, 5, 9, 13, 17]} and \tt{array.range(10, 0, 2)} yields \tt{[10, 8, 6, 4, 2]}.
+
+	\throws[RangeError] if \tt{step <= 0} or if the resulting array would be too large.)"),
+
+	"range", 3, [](CrocThread* t) -> word_t
 	{
 		auto v1 = croc_ex_checkIntParam(t, 1);
 		crocint v2;
@@ -168,8 +211,16 @@ namespace croc
 
 		return 1;
 	}
+DEndList()
 
-	word_t _opEquals(CrocThread* t)
+DBeginList(_methodFuncs)
+	Docstr(DFunc("opEquals") DParam("other", "array")
+	R"(Compares two arrays for shallow equality.
+
+	Shallow equality means two arrays are equal if they are the same length, and for each index i, \tt{this[i] is
+	other[i]} is true. This does not call opEquals metamethods on any of this arrays' elements.)"),
+
+	"opEquals", 1, [](CrocThread* t) -> word_t
 	{
 		auto a = checkArrayParam(t, 0)->toDArray();
 		auto b = checkArrayParam(t, 1)->toDArray();
@@ -177,7 +228,28 @@ namespace croc
 		return 1;
 	}
 
-	word_t _sort(CrocThread* t)
+DListSep()
+	Docstr(DFunc("sort") DParamD("how", "function|string", "null")
+
+	R"(Sorts this array in-place. This is \b{not} a stable sort. This implementation uses smoothsort, which gives best-
+	case linear time, and average-case and worst-case O(\em{n} log \em{n}) time, using constant space.
+
+	All the elements must be comparable with one another, and any \b{\tt{opCmp}} metamethods will be called on the
+	elements.
+
+	\param[how] indicates how to sort this array:
+		\blist
+			\li If no value is given for this parameter, this array will be sorted in ascending order.
+			\li If the string \tt{"reverse"} is given, this array will be sorted in descending order.
+			\li Otherwise, this parameter must be a function which is treated as a sorting predicate. It should take two
+				arguments (which will be elements from this array), compare them, and return a comparison value (i.e.
+				negative int if the first is less than the second, positive int if greater, and 0 if equal).
+		\endlist
+
+	\returns this array.
+	\throws[TypeError] if \tt{how} was a function and it returned something other than an \tt{int}.)"),
+
+	"sort", 1, [](CrocThread* t) -> word_t
 	{
 		auto arr = checkArrayParam(t, 0);
 
@@ -247,7 +319,13 @@ namespace croc
 		return 1;
 	}
 
-	word_t _reverse(CrocThread* t)
+DListSep()
+	Docstr(DFunc("reverse")
+	R"(Reverses this array's elements in place.
+
+	\returns this array.)"),
+
+	"reverse", 0, [](CrocThread* t) -> word_t
 	{
 		auto arr = checkArrayParam(t, 0)->toDArray();
 		// No write barrier. Just moving items around.
@@ -256,7 +334,11 @@ namespace croc
 		return 1;
 	}
 
-	word_t _dup(CrocThread* t)
+DListSep()
+	Docstr(DFunc("dup")
+	R"(\returns a shallow copy of this array. Only the elements are copied, not any data that they point to.)"),
+
+	"dup", 0, [](CrocThread* t) -> word_t
 	{
 		auto src = checkArrayParam(t, 0);
 		croc_array_new(t, cast(uword)croc_len(t, 0));
@@ -266,7 +348,15 @@ namespace croc
 		return 1;
 	}
 
-	word_t _expand(CrocThread* t)
+DListSep()
+	Docstr(DFunc("expand")
+	R"(\returns all the elements of this array in order. In this way, you can "unpack" an array's values to pass as
+	separate parameters to a function, or as return values, etc.
+
+	\throws[ValueError] if this array is longer than 50 elements. Trying to return so many values can be a memory
+		problem (and usually indicates a bug).)"),
+
+	"expand", 0, [](CrocThread* t) -> word_t
 	{
 		auto arr = checkArrayParam(t, 0)->toDArray();
 
@@ -281,7 +371,16 @@ namespace croc
 		return arr.length;
 	}
 
-	word_t _toString(CrocThread* t)
+DListSep()
+	Docstr(DFunc("toString")
+	R"(Returns a nice string representation of this array. This will format this array into a string that looks like a
+	Croc expression, like "[1, 2, 3]". String elements will also be surrounded by double quotes.
+
+	Note that the elements of the array do not have their toString metamethods called, since that could lead to infinite
+	loops if this array references itself directly or indirectly. To get a more complete representation of an array,
+	look at the \link{dumpVal} function (though that only outputs to the console).)"),
+
+	"toString", 0, [](CrocThread* t) -> word_t
 	{
 		CrocStrBuffer buf;
 		croc_ex_buffer_init(t, &buf);
@@ -318,7 +417,19 @@ namespace croc
 		return 1;
 	}
 
-	word_t _apply(CrocThread* t)
+DListSep()
+	Docstr(DFunc("apply") DParam("func", "function")
+	R"(Iterates over this array, calling the function with each element of this array, and assigns the result of the
+	function back into the corresponding array element.
+
+	\examples "\tt{[1, 2, 3, 4, 5].apply(\\x -> x * x)}" will replace the values in the array with
+	"\tt{[1, 4, 9, 16, 25]}".
+
+	\param[func] should take one value and return one value.
+
+	\returns this array.)"),
+
+	"apply", 1, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
@@ -338,7 +449,14 @@ namespace croc
 		return 1;
 	}
 
-	word_t _map(CrocThread* t)
+DListSep()
+	Docstr(DFunc("map") DParam("func", "function")
+	R"(Same as \link{apply}, except this array is unmodified and the values returned by \tt{func} are put into a new
+	array of the same length.
+
+	\returns the new array.)"),
+
+	"map", 1, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
@@ -358,7 +476,26 @@ namespace croc
 		return 1;
 	}
 
-	word_t _reduce(CrocThread* t)
+DListSep()
+	Docstr(DFunc("reduce") DParam("func", "function") DParamD("start", "any", "null")
+
+	R"(Also known as \tt{fold} or \tt{foldl} (left fold) in many functional languages. This function takes a function
+	\tt{func} of two arguments which is expected to return a value. It treats this array as a list of operands, and uses
+	\tt{func} as if it were a left-associative binary operator between each pair of items in this array.
+
+	This sounds confusing, but it makes sense with a bit of illustration: "\tt{[1 2 3 4 5].reduce(\\a, b -> a + b)}"
+	will sum all the elements of the array and return 15, since it's like writing \tt{((((1 + 2) + 3) + 4) + 5)}. Notice
+	that the operations are always performed left-to-right.
+
+	This function optionally takes a "start value" which will be used as the very first item in the sequence. For
+	instance, "\tt{[1 2 3].reduce(\\a, b -> a + b, 10)}" will do the same thing as \tt{(((10 + 1) + 2) + 3)}. In the
+	event that the array's length is 0, the start value is simply returned as is.
+
+	\returns the calculated value.
+
+	\throws[ParamError] if \tt{#this == 0} and no value was passed for \tt{start}.)"),
+
+	"reduce", 2, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
@@ -399,7 +536,23 @@ namespace croc
 		return 1;
 	}
 
-	word_t _rreduce(CrocThread* t)
+DListSep()
+	Docstr(DFunc("rreduce") DParam("func", "function") DParamD("start", "any", "null")
+	R"(Similar to \link{reduce}, but treats \tt{func} as a right-associative operator, meaning it goes through this
+	array's elements in reverse order.
+
+	"\tt{[1 2 3 4 5].rreduce(\\a, b -> a + b)}" will still sum all the elements, because addition is commutative, but
+	the order in which this is done becomes \tt{(1 + (2 + (3 + (4 + 5))))}. Obviously if \tt{func} is not commutative,
+	\tt{reduce} and \tt{rreduce} will give different results.
+
+	\param[start] is treated as an optional \em{last} value, which means
+	"\tt{[1 2 3 4 5].rreduce(\\a, b -> a + b), 10}" is like writing \tt{(1 + (2 + (3 + (4 + (5 + 10)))))}.
+
+	\returns the calculated value.
+
+	\throws[ParamError] if \tt{#this == 0} and no value was passed for \tt{start}.)"),
+
+	"rreduce", 2, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
@@ -440,7 +593,22 @@ namespace croc
 		return 1;
 	}
 
-	word_t _filter(CrocThread* t)
+DListSep()
+	Docstr(DFunc("filter") DParam("func", "function")
+	R"(Creates a new array which holds only those elements for which the given function returned \tt{true} when called
+	with elements from the source array.
+
+	The function is passed two arguments, the index and the value, and should return a boolean value. \tt{true} means
+	the given element should be included in the result, and \tt{false} means it should be skipped.
+
+	"\tt{[1, 2, "hi", 4.5, 6].filter(\\i, v -> isInt(v))}" would result in the array "\tt{[1, 2, 6]}", as the filter
+	function only returns true for integral elements.
+
+	\returns the new array.
+
+	\throws[TypeError] if \tt{func} returns anything other than a bool.)"),
+
+	"filter", 1, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
@@ -488,16 +656,44 @@ namespace croc
 		return 1;
 	}
 
-	word_t _find(CrocThread* t)
+DListSep()
+	Docstr(DFunc("find") DParamAny("value") DParamD("start", "int", "0")
+	R"(Performs a linear search for \tt{value} in this array, starting at \tt{start} and going right.
+
+	This works by looping over this array's elements, and if the element is the same type as \tt{value}, it is compared
+	(calling \tt{opCmp} if necessary). The index of the first element that is the same type as \tt{value} and which
+	compares equal is returned.
+
+	This differs from "\tt{val in a}" in that 'in' only checks if \tt{val} is identical to any of the values in \tt{a};
+	it never calls \tt{opCmp} metamethods like this function does.
+
+	\param[value] is the value to search for.
+	\param[start] is the index where the search should begin. Can be negative to mean from the end of the array.
+
+	\returns \tt{#this} if it wasn't found, or the index if it was.
+
+	\throws[BoundsError] if \tt{start} is invalid.)"),
+
+	"find", 2, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkAnyParam(t, 1);
 		auto searchedType = croc_type(t, 1);
 
-		auto t_ = Thread::from(t);
-		uword i = 0;
+		auto start = croc_ex_optIntParam(t, 2, 0);
 
-		for(auto &v: data)
+		if(start < 0)
+			start += data.length;
+
+		if(start < 0 || start >= data.length)
+			croc_eh_throwStd(t, "BoundsError",
+				"Invalid start index %" CROC_INTEGER_FORMAT " (array length: %" CROC_SIZE_T_FORMAT ")",
+				start, data.length);
+
+		auto t_ = Thread::from(t);
+		uword i = start;
+
+		for(auto &v: data.sliceToEnd(start))
 		{
 			if(searchedType == v.value.type)
 			{
@@ -519,14 +715,39 @@ namespace croc
 		return 1;
 	}
 
-	word_t _findIf(CrocThread* t)
+DListSep()
+	Docstr(DFunc("findIf") DParam("pred", "function") DParamD("start", "int", "0")
+	R"(Performs a linear search starting at \tt{start} and going right for the first element which, when passed to
+	\tt{pred}, causes \tt{pred} to return \tt{true}. This is a generic form of \link{find}.
+
+	\param[pred] is the predicate function; it will be called with a single parameter (a value from this array) and
+		should return a bool saying whether or not it is the value being searched for.
+	\param[start] is the index where the search should begin. Can be negative to mean from the end of the array.
+
+	\returns \tt{#this} if nothing was found (\tt{pred} never returned \tt{true} for any element), or the index if
+	something was.
+
+	\throws[BoundsError] if \tt{start} is invalid.
+	\throws[TypeError] if \tt{pred} returns something other than a bool.)"),
+
+	"findIf", 2, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
-		auto t_ = Thread::from(t);
-		uword i = 0;
+		auto start = croc_ex_optIntParam(t, 2, 0);
 
-		for(auto &v: data)
+		if(start < 0)
+			start += data.length;
+
+		if(start < 0 || start >= data.length)
+			croc_eh_throwStd(t, "BoundsError",
+				"Invalid start index %" CROC_INTEGER_FORMAT " (array length: %" CROC_SIZE_T_FORMAT ")",
+				start, data.length);
+
+		auto t_ = Thread::from(t);
+		uword i = start;
+
+		for(auto &v: data.sliceToEnd(start))
 		{
 			auto reg = croc_dup(t, 1);
 			croc_pushNull(t);
@@ -554,7 +775,15 @@ namespace croc
 		return 1;
 	}
 
-	word_t _bsearch(CrocThread* t)
+DListSep()
+	Docstr(DFunc("bsearch") DParamAny("value")
+
+	R"(Performs a binary search for the value in this array. The array must be sorted for this search to work properly.
+	Additionally, all the elements must be comparable (they had to be for the sort to work in the first place).
+
+	\returns \tt{#this} if the value wasn't found, or its index if it was.)"),
+
+	"bsearch", 1, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkAnyParam(t, 1);
@@ -598,7 +827,21 @@ namespace croc
 		return 1;
 	}
 
-	word_t _pop(CrocThread* t)
+DListSep()
+	Docstr(DFunc("pop") DParamD("index", "int", "-1")
+	R"(Removes a single element from this array (by default the last one), shifting up any elements after it if there
+	are any, and returns the removed value.
+
+	This function makes it easy to use an array as a stack. Simply append values to push, and call \tt{a.pop()} to pop.
+
+	\param[index] is the index of the element to be removed. Can be negative to mean from the end of this array.
+
+	\returns the removed value.
+
+	\throws[ValueError] if \tt{#this == 0}.
+	\throws[BoundsError] if \tt{index} is invalid.)"),
+
+	"pop", 1, [](CrocThread* t) -> word_t
 	{
 		auto arr = checkArrayParam(t, 0);
 		auto data = arr->toDArray();
@@ -625,7 +868,21 @@ namespace croc
 		return 1;
 	}
 
-	word_t _insert(CrocThread* t)
+DListSep()
+	Docstr(DFunc("insert") DParam("index", "int") DParamAny("value")
+	R"(The inverse of \link{pop}, this inserts a value into this array at a given index, shifting down any elements
+	after if if there are any.
+
+	\param[index] is the index where \tt{value} will be inserted. The value is inserted \em{before} the given index.
+		\tt{index} can also be \tt{#this}, in which case the new value is simply appended to the end of this array. This
+		can be negative to mean from the end of this array.
+	\param[value] is the value to insert.
+
+	\returns this array.
+
+	\throws[BoundsError] if \tt{index} is invalid.)"),
+
+	"insert", 2, [](CrocThread* t) -> word_t
 	{
 		auto arr = checkArrayParam(t, 0);
 		auto data = arr->toDArray();
@@ -650,7 +907,18 @@ namespace croc
 		return 1;
 	}
 
-	word_t _swap(CrocThread* t)
+DListSep()
+	Docstr(DFunc("swap") DParam("idx1", "int") DParam("idx2", "int")
+	R"(Swaps the values at the given indices.
+
+	Both \tt{idx1} and \tt{idx2} can be negative to mean from the end of this array. If \tt{idx1 == idx2}, this method is
+	a no-op.
+
+	\returns this array.
+
+	\throws[BoundsError] if \tt{idx1} or \tt{idx2} is invalid.)"),
+
+	"swap", 2, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		crocint idx1 = croc_ex_checkIntParam(t, 1);
@@ -676,7 +944,16 @@ namespace croc
 		return 1;
 	}
 
-	word_t _set(CrocThread* t)
+DListSep()
+	Docstr(DFunc("set") DVararg
+	R"(Something like the inverse of \link{expand}, this takes a variadic number of arguments, sets this array's length
+	to the number of arguments passed, and copies the arguments into this array.
+
+	This is similar to using an array constructor, but reuses an array instead of allocating a new one.
+
+	\returns this array.)"),
+
+	"set", -1, [](CrocThread* t) -> word_t
 	{
 		auto numParams = croc_getStackSize(t) - 1;
 		auto arr = checkArrayParam(t, 0);
@@ -687,7 +964,14 @@ namespace croc
 		return 1;
 	}
 
-	word_t _min(CrocThread* t)
+DListSep()
+	Docstr(DFunc("min")
+	R"(\returns the smallest value in this array. All elements of the array must be comparable to each other for this to
+	work. If this array only has one value, returns that value.
+
+	\throws[ValueError] if this array is empty.)"),
+
+	"min", 0, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 
@@ -715,7 +999,14 @@ namespace croc
 		return 2;
 	}
 
-	word_t _max(CrocThread* t)
+DListSep()
+	Docstr(DFunc("max")
+	R"(\returns the largest value in this array. All elements of the array must be comparable to each other for this to
+	work. If this array only has one value, returns that value.
+
+	\throws[ValueError] if this array is empty.)"),
+
+	"max", 0, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 
@@ -743,7 +1034,26 @@ namespace croc
 		return 2;
 	}
 
-	word_t _extreme(CrocThread* t)
+DListSep()
+	Docstr(DFunc("extreme") DParam("pred", "function")
+	R"(A generic version of \link{min} and \link{max}, this uses a predicate function to determine which element is the
+	most "extreme." If this
+
+	\param[pred] should take two parameters: the first is the new value to be tested, and the second is the current
+		extreme so far. \tt{pred} should return \tt{true} if the new value is more extreme than the previous and
+		\tt{false} otherwise.
+
+		To illustrate, \tt{a.extreme(\\new, extreme -> new > extreme)} will do the same thing as \tt{a.max()} since the
+		predicate returns \tt{true} if the new value is bigger than the previous extreme. (In this case, using \tt{max}
+		is faster since it's optimized to do this, but this just illustrates the point.)
+
+	\returns the most extreme value.
+
+	\throws[ValueError] if this array is empty.
+	\throws[TypeError] if \tt{pred} returns anything other than a bool.
+	)"),
+
+	"extreme", 1, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
@@ -784,7 +1094,22 @@ namespace croc
 		return 2;
 	}
 
-	word_t _any(CrocThread* t)
+DListSep()
+	Docstr(DFunc("any") DParamD("pred", "function", "null")
+	R"(This is a generalized boolean "or" (logical disjunction) operation.
+
+	\param[pred] is an optional predicate function.
+
+		If none is passed, this method returns \tt{true} if any element in the array has a truth value of \tt{true}, and
+		\tt{false} otherwise.
+
+		If a function is passed, the function must take one parameter and return any value. The value returned from
+		\tt{pred} can be any type, only its truth value matters. This method will return \tt{true} if \tt{pred} returned
+		a value with a truth value of \tt{true} for any element in the array, and \tt{false} otherwise.
+
+	\returns \tt{false} if called on an empty array.)"),
+
+	"any", 1, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 
@@ -824,7 +1149,22 @@ namespace croc
 		return 1;
 	}
 
-	word_t _all(CrocThread* t)
+DListSep()
+	Docstr(DFunc("all") DParamD("pred", "function", "null")
+	R"(This is a generalized boolean "and" (logical conjunction) operation.
+
+	\param[pred] is an optional predicate function.
+
+		If none is passed, this method returns \tt{true} if all the elements in the array have a truth value of
+		\tt{true}, and \tt{false} otherwise.
+
+		If a function is passed, the function must take one parameter and return any value. The value returned from
+		\tt{pred} can be any type, only its truth value matters. This method will return \tt{true} if \tt{pred} returned
+		a value with a truth value of \tt{true} for all the elements in the array, and \tt{false} otherwise.
+
+	\returns \tt{true} if called on an empty array.)"),
+
+	"all", 1, [](CrocThread* t) -> word_t
 	{
 		auto data = checkArrayParam(t, 0)->toDArray();
 
@@ -864,7 +1204,11 @@ namespace croc
 		return 1;
 	}
 
-	word_t _fill(CrocThread* t)
+DListSep()
+	Docstr(DFunc("fill") DParamAny("value")
+	R"(Sets every element in the array to the given value.)"),
+
+	"fill", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Array);
 		croc_ex_checkAnyParam(t, 1);
@@ -873,7 +1217,12 @@ namespace croc
 		return 0;
 	}
 
-	word_t _append(CrocThread* t)
+DListSep()
+	Docstr(DFunc("append") DVararg
+	R"(Appends all the arguments to the end of the array, in order. This is different from the append operator (~=),
+	because arrays will be appended as a single value, instead of having their elements appended.)"),
+
+	"append", -1, [](CrocThread* t) -> word_t
 	{
 		auto arr = checkArrayParam(t, 0);
 		auto numParams = croc_getStackSize(t) - 1;
@@ -890,7 +1239,28 @@ namespace croc
 		return 0;
 	}
 
-	word_t _count(CrocThread* t)
+DListSep()
+	Docstr(DFunc("count") DParamAny("value") DParamD("pred", "function", "null")
+	R"(Counts the number of times \tt{value} appears in this array, optionally using a predicate function to perform the
+	comparison.
+
+	\param[value] is the value to count.
+	\param[pred] is the optional comparison predicate.
+
+		If \tt{pred} is null, then this function simply loops over the array, testing if each element is equal to
+		\tt{value} (calling \tt{opCmp} metamethods if needed), and counting each one which compares equal.
+
+		If \tt{pred} is a function, it should take two values; the first will be elements from the array and the second
+		will always be \tt{value}. It should return a bool indicating whether the two values compare equal.
+
+		You can use this method instead of \link{countIf} to avoid creating a function closure, or to refactor code to
+		use a cacheable function literal instead of a non-cacheable one.
+
+	\returns the number of elements which compared equal to \tt{value} according to the behavior explained above.
+
+	\throws[TypeError] if \tt{pred} is a function and it returns anything other than a bool.)"),
+
+	"count", 2, [](CrocThread* t) -> word_t
 	{
 		auto arr = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkAnyParam(t, 1);
@@ -928,7 +1298,7 @@ namespace croc
 				push(t_, val.value);
 				push(t_, searched);
 
-				if(croc_cmp(t, -2, -1) == 0)
+				if(croc_equals(t, -2, -1))
 					count++;
 
 				croc_pop(t, 2);
@@ -939,7 +1309,16 @@ namespace croc
 		return 1;
 	}
 
-	word_t _countIf(CrocThread* t)
+DListSep()
+	Docstr(DFunc("countIf") DParam("pred", "function")
+	R"(Very similar to \link{count}, but more general. This version simply counts the number of items for which
+	\tt{pred} returns true.
+
+	\returns that count.
+
+	\throws[TypeError] if \tt{pred} returns anything other than a bool.)"),
+
+	"countIf", 1, [](CrocThread* t) -> word_t
 	{
 		auto arr = checkArrayParam(t, 0)->toDArray();
 		croc_ex_checkParam(t, 1, CrocType_Function);
@@ -969,8 +1348,11 @@ namespace croc
 		croc_pushInt(t, count);
 		return 1;
 	}
+DEndList()
 
-	word_t _iterator(CrocThread* t)
+DBeginList(_opApply)
+	nullptr,
+	"iterator", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Array);
 		auto index = croc_ex_checkIntParam(t, 1) + 1;
@@ -984,7 +1366,9 @@ namespace croc
 		return 2;
 	}
 
-	word_t _iteratorReverse(CrocThread* t)
+DListSep()
+	nullptr,
+	"iteratorReverse", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Array);
 		auto index = croc_ex_checkIntParam(t, 1) - 1;
@@ -998,7 +1382,22 @@ namespace croc
 		return 2;
 	}
 
-	word_t _opApply(CrocThread* t)
+DListSep()
+	Docstr(DFunc("opApply") DParamD("mode", "string", "null")
+	R"(This allows you to iterate over arrays using \tt{foreach} loops.
+
+\code
+foreach(i, v; a)
+// ...
+
+foreach(i, v; a, "reverse")
+// iterate backwards
+\endcode
+
+	As the second example shows, passing in the string "reverse" as the second parameter will cause the iteration to run
+	in reverse.)"),
+
+	"opApply", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Array);
 
@@ -1017,8 +1416,19 @@ namespace croc
 
 		return 3;
 	}
+DEndList()
 
-	word_t _flatten(CrocThread* t)
+const StdlibRegister _flatten =
+{
+	Docstr(DFunc("flatten")
+	R"(Flattens a multi-dimensional array into a single-dimensional array.
+
+	The dimensions can be nested arbitrarily deep. Always returns a new array. Can be called on single-dimensional
+	arrays too, in which case it just returns a duplicate of the array.
+
+	\throws[ValueError] if any array is directly or indirectly circularly referenced.)"),
+
+	"flatten", 0, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Array);
 		auto flattening = croc_pushUpval(t, 0);
@@ -1060,63 +1470,18 @@ namespace croc
 		croc_dup(t, ret);
 		return 1;
 	}
-
-	const CrocRegisterFunc _globalFuncs[] =
-	{
-		{"new",   2, &_new  },
-		{"new2D", 3, &_new2D},
-		{"new3D", 4, &_new3D},
-		{"range", 3, &_range},
-		{nullptr, 0, nullptr}
-	};
-
-	const CrocRegisterFunc _methodFuncs[] =
-	{
-		{"opEquals",  1, &_opEquals},
-		{"sort",      1, &_sort    },
-		{"reverse",   0, &_reverse },
-		{"dup",       0, &_dup     },
-		{"expand",    0, &_expand  },
-		{"toString",  0, &_toString},
-		{"apply",     1, &_apply   },
-		{"map",       1, &_map     },
-		{"reduce",    2, &_reduce  },
-		{"rreduce",   2, &_rreduce },
-		{"filter",    1, &_filter  },
-		{"find",      1, &_find    },
-		{"findIf",    1, &_findIf  },
-		{"bsearch",   1, &_bsearch },
-		{"pop",       1, &_pop     },
-		{"insert",    2, &_insert  },
-		{"swap",      2, &_swap    },
-		{"set",      -1, &_set     },
-		{"min",       0, &_min     },
-		{"max",       0, &_max     },
-		{"extreme",   1, &_extreme },
-		{"any",       1, &_any     },
-		{"all",       1, &_all     },
-		{"fill",      1, &_fill    },
-		{"append",   -1, &_append  },
-		{"count",     2, &_count   },
-		{"countIf",   1, &_countIf },
-		{nullptr, 0, nullptr}
-	};
+};
 
 	word loader(CrocThread* t)
 	{
-		croc_ex_registerGlobals(t, _globalFuncs);
+		registerGlobals(t, _globalFuncs);
 
 		croc_namespace_new(t, "array");
-			croc_ex_registerFields(t, _methodFuncs);
-
-				croc_function_new(t, "iterator", 1, &_iterator, 0);
-				croc_function_new(t, "iteratorReverse", 1, &_iteratorReverse, 0);
-			croc_function_new(t, "opApply", 1, &_opApply, 2);
-			croc_fielda(t, -2, "opApply");
+			registerFields(t, _methodFuncs);
+			registerFieldUV(t, _opApply);
 
 				croc_table_new(t, 0);
-			croc_function_new(t, "flatten", 0, &_flatten, 1);
-			croc_fielda(t, -2, "flatten");
+			registerField(t, _flatten, 1);
 		croc_vm_setTypeMT(t, CrocType_Array);
 		return 0;
 	}
@@ -1125,6 +1490,27 @@ namespace croc
 	void initArrayLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "array", &loader);
-		croc_ex_import(t, "array");
+		croc_ex_importNS(t, "array");
+#ifdef CROC_BUILTIN_DOCS
+		CrocDoc doc;
+		croc_ex_doc_init(t, &doc, __FILE__);
+		croc_ex_doc_push(&doc,
+		DModule("array")
+		R"(The array library provides functionality for creating and manipulating arrays.)");
+			docFields(&doc, _globalFuncs);
+
+			croc_vm_pushTypeMT(t, CrocType_Array);
+				croc_ex_doc_push(&doc,
+				DNs("array")
+				R"(This is the method namespace for array objects.)");
+				docFields(&doc, _methodFuncs);
+				docFieldUV(&doc, _opApply);
+				docField(&doc, _flatten);
+				croc_ex_doc_pop(&doc, -1);
+			croc_popTop(t);
+		croc_ex_doc_pop(&doc, -1);
+		croc_ex_doc_finish(&doc);
+#endif
+		croc_popTop(t);
 	}
 }
