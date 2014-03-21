@@ -71,26 +71,32 @@ namespace croc
 	// be sitting on top of the thread's stack.
 
 	void throwIOEx(CrocThread* t);
+	void throwOSEx(CrocThread* t);
 
 	// Misc OS stuff
 	void pushSystemErrorMsg(CrocThread* t);
 
-	// File-specific stuff
+	// File stuff
 	FileHandle openFile(CrocThread* t, crocstr name, FileAccess access, FileCreate create);
 	bool truncate(CrocThread* t, FileHandle f, uint64_t pos);
 
-	// Console
+	// Console streams
 	FileHandle getStdin(CrocThread* t);
 	FileHandle getStdout(CrocThread* t);
 	FileHandle getStderr(CrocThread* t);
 
-	// General-purpose
+	// General-purpose stream stuff
 	bool isValidHandle(FileHandle f);
 	int64_t read(CrocThread* t, FileHandle f, DArray<uint8_t> data);
 	int64_t write(CrocThread* t, FileHandle f, DArray<uint8_t> data);
 	uint64_t seek(CrocThread* t, FileHandle f, uint64_t pos, Whence whence);
 	bool flush(CrocThread* t, FileHandle f);
 	bool close(CrocThread* t, FileHandle f);
+
+	// Environment variables
+	bool getEnv(CrocThread* t, crocstr name);
+	void setEnv(CrocThread* t, crocstr name, crocstr val);
+	void getAllEnvVars(CrocThread* t);
 	}
 }
 

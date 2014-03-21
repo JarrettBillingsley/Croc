@@ -99,6 +99,7 @@ set(croc_SRC
 	croc/stdlib/console.cpp
 	croc/stdlib/docs.cpp
 	croc/stdlib/doctools.cpp
+	croc/stdlib/env.cpp
 	croc/stdlib/exceptions.cpp
 	croc/stdlib/gc.cpp
 	croc/stdlib/hash.cpp

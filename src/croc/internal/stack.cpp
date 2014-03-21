@@ -80,6 +80,11 @@ namespace croc
 			return crocstr();
 	}
 
+	crocstr getCrocstr(CrocThread* t, word slot)
+	{
+		return getCrocstr(Thread::from(t), slot);
+	}
+
 #define MAKE_GET(Type)\
 	Type* get##Type(Thread* t, word slot)\
 	{\

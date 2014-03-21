@@ -1,5 +1,6 @@
 
 #include "croc/api.h"
+#include "croc/internal/stack.hpp"
 #include "croc/stdlib/helpers/oscompat.hpp"
 #include "croc/types/base.hpp"
 #include "croc/util/utf.hpp"
@@ -17,7 +18,74 @@ namespace croc
 		croc_eh_throw(t);
 	}
 
+	void throwOSEx(CrocThread* t)
+	{
+		croc_eh_pushStd(t, "OSException");
+		croc_pushNull(t);
+		croc_moveToTop(t, -3);
+		croc_call(t, -3, 1);
+		croc_eh_throw(t);
+	}
+
 #ifdef _WIN32
+	namespace
+	{
+		wstring _utf8ToUtf16z(Memory& mem, crocstr src, wstring localBuf, wstring& heapBuf)
+		{
+			heapBuf = wstring();
+			auto size16 = fastUtf8GetUtf16Size(src);
+			auto ret = wstring();
+			auto remaining = custring();
+
+			if(size16 + 1 > localBuf.length) // +1 cause we need to put the terminating 0
+			{
+				heapBuf = wstring::alloc(mem, size16 + 1);
+				ret = Utf8ToUtf16(src, heapBuf, remaining);
+			}
+			else
+				ret = Utf8ToUtf16(src, localBuf, remaining);
+
+			assert(ret.length == size16);
+			assert(remaining.length == 0);
+			ret.ptr[ret.length] = 0;
+			return ret;
+		}
+
+		bool _pushUtf16toUtf8(CrocThread* t, cwstring src)
+		{
+			auto &mem = Thread::from(t)->vm->mem;
+			auto size8 = fastUtf16GetUtf8Size(src);
+			auto out = mcrocstr::alloc(mem, size8);
+			cwstring remaining;
+			mcrocstr output;
+
+			if(Utf16ToUtf8(src, out, remaining, output) == UtfError_OK)
+			{
+				assert(output.length == out.length);
+				assert(remaining.length == 0);
+				pushCrocstr(t, out);
+				out.free(mem);
+				return true;
+			}
+			else
+			{
+				out.free(mem);
+				return false;
+			}
+		}
+
+		cwstring _getNextUtf16z(const wchar*& ptr)
+		{
+			auto start = ptr;
+			auto len = 0;
+
+			while(*ptr++)
+				len++;
+
+			return cwstring::n(start, len);
+		}
+	}
+
 	void pushSystemErrorMsg(CrocThread* t)
 	{
 		auto errCode = GetLastError();
@@ -28,63 +96,34 @@ namespace croc
 			nullptr, errCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), cast(LPWSTR)&msg16, 0, nullptr);
 
 		if(size16 == 0)
-		{
 			croc_pushString(t, "<error formatting system message>");
-			return;
-		}
-
-		// Get rid of \r\n
-		if(size16 >= 2)
-			size16 -= 2;
-
-		auto msg16Arr = cwstring::n(cast(const wchar*)msg16, size16);
-		auto size8 = fastUtf16GetUtf8Size(msg16Arr);
-		auto msg8 = mcrocstr::alloc(Thread::from(t)->vm->mem, size8);
-		cwstring remaining;
-		mcrocstr output;
-		auto ok = Utf16ToUtf8(msg16Arr, msg8, remaining, output);
-		LocalFree(cast(HLOCAL)msg16);
-
-		if(ok == UtfError_OK)
-		{
-			assert(output.length == size8);
-			assert(remaining.length == 0);
-			croc_pushStringn(t, cast(const char*)msg8.ptr, msg8.length);
-		}
 		else
-			croc_pushString(t, "<error formatting system message>");
+		{
+			// Get rid of \r\n
+			if(size16 >= 2)
+				size16 -= 2;
 
-		msg8.free(Thread::from(t)->vm->mem);
+			if(!_pushUtf16toUtf8(t, cwstring::n(cast(const wchar*)msg16, size16)))
+				croc_pushString(t, "<error formatting system message>");
+
+			LocalFree(cast(HLOCAL)msg16);
+		}
 	}
 
 	FileHandle openFile(CrocThread* t, crocstr name, FileAccess access, FileCreate create)
 	{
+		auto &mem = Thread::from(t)->vm->mem;
+
 		// Convert name to UTF-16, the best encoding
 		wchar buf[512];
-		auto tmp = wstring();
-		auto size16 = fastUtf8GetUtf16Size(name);
-		wstring name16;
-		custring remaining;
-
-		if(size16 > 511) // -1 cause we need to put the terminating 0
-		{
-			tmp = wstring::alloc(Thread::from(t)->vm->mem, size16 + 1);
-			name16 = Utf8ToUtf16(name, tmp, remaining);
-		}
-		else
-			name16 = Utf8ToUtf16(name, wstring::n(buf, 512), remaining);
-
-		assert(name16.length == size16);
-		assert(remaining.length == 0);
-
-		name16.ptr[name16.length] = 0;
+		wstring tmp;
+		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf, sizeof(buf) / sizeof(wchar)), tmp);
 
 		// Open it!
 		auto ret = CreateFileW(cast(LPCWSTR)name16.ptr, cast(DWORD)access, 0,
 			nullptr, cast(DWORD)create, FILE_ATTRIBUTE_NORMAL, nullptr);
 
-		if(tmp.length)
-			tmp.free(Thread::from(t)->vm->mem);
+		tmp.free(mem);
 
 		if(ret == INVALID_HANDLE_VALUE)
 			pushSystemErrorMsg(t);
@@ -211,6 +250,112 @@ namespace croc
 			pushSystemErrorMsg(t);
 
 		return ret;
+	}
+
+	bool getEnv(CrocThread* t, crocstr name)
+	{
+		auto &mem = Thread::from(t)->vm->mem;
+
+		// Convert name to UTF-16
+		wchar buf[32];
+		wstring nameBuf;
+		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf, sizeof(buf) / sizeof(wchar)), nameBuf);
+
+		// Get the env var value
+		auto valSize16 = GetEnvironmentVariableW(cast(LPCWSTR)name16.ptr, nullptr, 0);
+
+		if(valSize16 == 0)
+		{
+			nameBuf.free(mem);
+
+			if(GetLastError() == ERROR_ENVVAR_NOT_FOUND)
+				return false;
+			else
+			{
+				pushSystemErrorMsg(t);
+				throwOSEx(t);
+			}
+		}
+
+		auto val16 = wstring::alloc(mem, valSize16);
+		auto failed = GetEnvironmentVariableW(cast(LPCWSTR)name16.ptr, cast(LPWSTR)val16.ptr, valSize16) == 0;
+		nameBuf.free(mem);
+
+		if(failed)
+		{
+			val16.free(mem);
+			pushSystemErrorMsg(t);
+			throwOSEx(t);
+		}
+
+		// Convert it to UTF-8
+		auto ok = _pushUtf16toUtf8(t, val16.slice(0, val16.length - 1)); // strip trailing \0 from value
+		val16.free(mem);
+
+		if(!ok)
+			croc_eh_throwStd(t, "UnicodeError", "Error transcoding environment variable to UTF-8");
+
+		return true;
+	}
+
+	void setEnv(CrocThread* t, crocstr name, crocstr val)
+	{
+		auto &mem = Thread::from(t)->vm->mem;
+		wchar buf1[32], buf2[128];
+		wstring nameBuf, valBuf;
+		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf1, sizeof(buf1) / sizeof(wchar)), nameBuf);
+		BOOL ok;
+
+		if(val.length)
+		{
+			auto val16 = _utf8ToUtf16z(mem, val, wstring::n(buf2, sizeof(buf2) / sizeof(wchar)), valBuf);
+			ok = SetEnvironmentVariableW(cast(LPCWSTR)name16.ptr, cast(LPCWSTR)val16.ptr);
+			valBuf.free(mem);
+		}
+		else
+			ok = SetEnvironmentVariableW(cast(LPCWSTR)name16.ptr, nullptr);
+
+		nameBuf.free(mem);
+
+		if(!ok)
+		{
+			pushSystemErrorMsg(t);
+			throwOSEx(t);
+		}
+	}
+
+	void getAllEnvVars(CrocThread* t)
+	{
+		auto env = cast(const wchar*)GetEnvironmentStringsW();
+
+		if(env == nullptr)
+		{
+			pushSystemErrorMsg(t);
+			throwOSEx(t);
+		}
+
+		croc_table_new(t, 0);
+
+		for(auto line = _getNextUtf16z(env); line.length != 0; line = _getNextUtf16z(env))
+		{
+			uword splitPos = 0;
+
+			for( ; splitPos < line.length; splitPos++)
+			{
+				if(line[splitPos] == '=')
+					break;
+			}
+
+			if(!_pushUtf16toUtf8(t, line.slice(0, splitPos)) || !_pushUtf16toUtf8(t, line.sliceToEnd(splitPos + 1)))
+			{
+				FreeEnvironmentStringsW(cast(LPWSTR)env);
+				croc_eh_throwStd(t, "UnicodeError", "Error transcoding environment variable to UTF-8");
+			}
+
+			croc_idxa(t, -3);
+		}
+
+		FreeEnvironmentStringsW(cast(LPWSTR)env);
 	}
 #else
 #error "Unimplemented"

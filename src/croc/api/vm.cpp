@@ -139,7 +139,7 @@ extern "C"
 		initAsciiLib(*t);
 		initCompilerLib(*t);
 		initConsoleLib(*t); // depends on stream
-		// initEnvLib(*t);
+		initEnvLib(*t);
 		// JSONLib.init(*t); // depends on stream
 		// initPathLib(*t);
 		// initSerializationLib(*t); // depends on .. lots of libs :P
