@@ -90,6 +90,10 @@ CROCAPI crocchar_t  croc_ex_checkCharParam       (CrocThread* t, word_t index);
 CROCAPI void        croc_ex_checkInstParam       (CrocThread* t, word_t index, const char* name);
 CROCAPI void        croc_ex_checkInstParamSlot   (CrocThread* t, word_t index, word_t classIndex);
 CROCAPI void        croc_ex_checkParam           (CrocThread* t, word_t index, CrocType type);
+CROCAPI uword_t     croc_ex_checkIndexParam      (CrocThread* t, word_t index, uword_t length, const char* name);
+CROCAPI uword_t     croc_ex_checkLoSliceParam    (CrocThread* t, word_t index, uword_t length, const char* name);
+CROCAPI uword_t     croc_ex_checkHiSliceParam    (CrocThread* t, word_t index, uword_t length, const char* name);
+CROCAPI uword_t     croc_ex_checkSliceParams     (CrocThread* t, word_t index, uword_t length, const char* name, uword_t* hi);
 
 CROCAPI int         croc_ex_optBoolParam         (CrocThread* t, word_t index, int def);
 CROCAPI crocint_t   croc_ex_optIntParam          (CrocThread* t, word_t index, crocint_t def);
@@ -99,8 +103,12 @@ CROCAPI const char* croc_ex_optStringParam       (CrocThread* t, word_t index, c
 CROCAPI const char* croc_ex_optStringParamn      (CrocThread* t, word_t index, const char* def, uword_t* len);
 CROCAPI crocchar_t  croc_ex_optCharParam         (CrocThread* t, word_t index, crocchar_t def);
 CROCAPI int         croc_ex_optParam             (CrocThread* t, word_t index, CrocType type);
+CROCAPI uword_t     croc_ex_optIndexParam        (CrocThread* t, word_t index, uword_t length, const char* name, crocint_t def);
 
 CROCAPI word_t      croc_ex_paramTypeError       (CrocThread* t, word_t index, const char* expected);
+CROCAPI void        croc_ex_checkValidSlice      (CrocThread* t, crocint_t lo, crocint_t hi, uword_t length, const char* name);
+CROCAPI word_t      croc_ex_indexError           (CrocThread* t, crocint_t index, uword_t length, const char* name);
+CROCAPI word_t      croc_ex_sliceIndexError      (CrocThread* t, crocint_t lo, crocint_t hi, uword_t length, const char* name);
 
 // =====================================================================================================================
 // StrBuffer

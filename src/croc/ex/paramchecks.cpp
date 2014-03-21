@@ -1,9 +1,32 @@
 
+#include <limits>
+
 #include "croc/api.h"
 #include "croc/types/base.hpp"
 
 namespace croc
 {
+	namespace
+	{
+		uword_t commonCheckSliceParam(CrocThread* t, word_t index, uword_t length, const char* name, crocint_t def)
+		{
+			auto ret = croc_ex_optIntParam(t, index, def);
+
+			if(ret < 0)
+				ret += length;
+
+			// big difference from croc_ex_checkIndexParam is that ret == length is okay!
+			if(ret < 0 || ret > length || ret > std::numeric_limits<uword_t>::max())
+			{
+				croc_eh_throwStd(t, "BoundsError",
+					"Invalid %s slice index %" CROC_INTEGER_FORMAT " (length is %" CROC_SIZE_T_FORMAT")",
+					name, ret, length);
+			}
+
+			return cast(uword_t)ret;
+		}
+	}
+
 extern "C"
 {
 	word_t croc_ex_paramTypeError(CrocThread* t, word_t index, const char* expected)
@@ -17,6 +40,25 @@ extern "C"
 		else
 			return croc_eh_throwStd(t, "TypeError", "Expected type '%s' for parameter %" CROC_SIZE_T_FORMAT ", not '%s'",
 				expected, index, croc_getString(t, -1));
+	}
+
+	void croc_ex_checkValidSlice(CrocThread* t, crocint_t lo, crocint_t hi, uword_t length, const char* name)
+	{
+		if(lo > hi || hi > length)
+			croc_ex_sliceIndexError(t, lo, hi, length, name);
+	}
+
+	word_t croc_ex_indexError(CrocThread* t, crocint_t index, uword_t length, const char* name)
+	{
+		return croc_eh_throwStd(t, "BoundsError",
+			"Invalid %s index %" CROC_INTEGER_FORMAT " (length: %" CROC_SIZE_T_FORMAT")", name, index, length);
+	}
+
+	word_t croc_ex_sliceIndexError(CrocThread* t, crocint_t lo, crocint_t hi, uword_t length, const char* name)
+	{
+		return croc_eh_throwStd(t, "BoundsError",
+			"Invalid %s slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (length: %" CROC_SIZE_T_FORMAT ")",
+			name, lo, hi, length);
 	}
 
 	void croc_ex_checkAnyParam(CrocThread* t, word_t index)
@@ -134,6 +176,48 @@ extern "C"
 		}
 	}
 
+	uword_t croc_ex_checkIndexParam(CrocThread* t, word_t index, uword_t length, const char* name)
+	{
+		auto ret = croc_ex_checkIntParam(t, index);
+
+		if(ret < 0)
+			ret += length;
+
+		if(ret < 0 || ret >= length || ret > std::numeric_limits<uword_t>::max())
+			croc_ex_indexError(t, ret, length, name);
+
+		return cast(uword_t)ret;
+	}
+
+	uword_t croc_ex_checkLoSliceParam(CrocThread* t, word_t index, uword_t length, const char* name)
+	{
+		return commonCheckSliceParam(t, index, length, name, 0);
+	}
+
+	uword_t croc_ex_checkHiSliceParam(CrocThread* t, word_t index, uword_t length, const char* name)
+	{
+		return commonCheckSliceParam(t, index, length, name, length);
+	}
+
+	uword_t croc_ex_checkSliceParams(CrocThread* t, word_t index, uword_t length, const char* name, uword_t* hi)
+	{
+		assert(hi);
+		auto lo = croc_ex_optIntParam(t, index, 0);
+		auto hi_ = croc_ex_optIntParam(t, index + 1, length);
+
+		if(lo < 0)
+			lo += length;
+
+		if(hi_ < 0)
+			hi_ += length;
+
+		if(lo < 0 || lo > hi_ || cast(uword_t)hi_ > length)
+			croc_ex_sliceIndexError(t, lo, hi_, length, name);
+
+		*hi = hi_;
+		return lo;
+	}
+
 	int croc_ex_optParam(CrocThread* t, word_t index, CrocType type)
 	{
 		if(!croc_isValidIndex(t, index) || croc_isNull(t, index))
@@ -205,6 +289,19 @@ extern "C"
 			croc_ex_paramTypeError(t, index, "string");
 
 		return croc_getChar(t, index);
+	}
+
+	uword_t croc_ex_optIndexParam(CrocThread* t, word_t index, uword_t length, const char* name, crocint_t def)
+	{
+		auto ret = croc_ex_optIntParam(t, index, def);
+
+		if(ret < 0)
+			ret += length;
+
+		if(ret < 0 || ret >= length || ret > std::numeric_limits<uword_t>::max())
+			croc_ex_indexError(t, ret, length, name);
+
+		return cast(uword_t)ret;
 	}
 }
 }
