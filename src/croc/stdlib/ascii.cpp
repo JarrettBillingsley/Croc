@@ -3,6 +3,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/helpers/register.hpp"
 #include "croc/types/base.hpp"
 
 namespace croc
@@ -44,7 +45,11 @@ namespace croc
 	// ===================================================================================================================================
 	// Helpers
 
-	word_t _isAscii(CrocThread* t)
+DBeginList(_globalFuncs)
+	Docstr(DFunc("isAscii") DParam("val", "string")
+	R"(\returns a bool of whether \tt{val} is an ASCII string (that is, all its codepoints are below U+000080).)"),
+
+	"isAscii", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkStringParam(t, 1);
 		auto str = getStringObj(Thread::from(t), 1);
@@ -55,7 +60,19 @@ namespace croc
 		return 1;
 	}
 
-	word_t _icompare(CrocThread* t)
+DListSep()
+	Docstr(DFunc("icompare") DParam("str1", "string") DParam("str2", "string")
+	R"(Compares two ASCII strings in a case-insensitive manner.
+
+	This function treats lower- and uppercase ASCII letters as comparing equal. For instance, "foo", "Foo", and "FOO"
+	will all compare equal.
+
+    \returns a negative \tt{int} if \tt{str1} compares before \tt{str2}, a positive \tt{int} if \tt{str1} compares after
+	\tt{str2}, and 0 if they compare equal.
+
+	\throws[ValueError] if either string is not ASCII.)"),
+
+	"icompare", 2, [](CrocThread* t) -> word_t
 	{
 		auto s1 = _checkAsciiString(t, 1);
 		auto s2 = _checkAsciiString(t, 2);
@@ -63,7 +80,20 @@ namespace croc
 		return 1;
 	}
 
-	word_t _ifind(CrocThread* t)
+DListSep()
+	Docstr(DFunc("ifind") DParam("str", "string") DParam("sub", "string") DParamD("start", "int", "0")
+	R"(Searches for an occurence of \tt{sub} in \tt{this}, but searches in a case-insensitive manner.
+
+	The search starts from \tt{start} (which defaults to the first character) and goes right. If \tt{sub} is found, this
+	function returns the integer index of the occurrence in the string, with 0 meaning the first character. Otherwise,
+	if \tt{sub} cannot be found, \tt{#this} is returned.
+
+	\tt{start} can be negative, in which case it's treated as an index from the end of the string.
+
+	\throws[ValueError] if either \tt{str} or \tt{sub} are not ASCII.
+	\throws[BoundsError] if \tt{start} is invalid.)"),
+
+	"ifind", 3, [](CrocThread* t) -> word_t
 	{
 		// Source (search) string
 		auto src = _checkAsciiString(t, 1);
@@ -105,7 +135,20 @@ namespace croc
 		return 1;
 	}
 
-	word_t _irfind(CrocThread* t)
+DListSep()
+	Docstr(DFunc("irfind") DParam("str", "string") DParam("sub", "string") DParamD("start", "int", "#str - 1")
+	R"(Reverse case-insensitive find. Works similarly to \tt{ifind}, but the search starts with the character at
+	\tt{start} (which defaults to the last character) and goes \em{left}.
+
+	If \tt{sub} is found, this function returns the integer index of the occurrence in the string, with 0 meaning the
+	first character. Otherwise, if \tt{sub} cannot be found, \tt{#this} is returned.
+
+	\tt{start} can be negative, in which case it's treated as an index from the end of the string.
+
+	\throws[ValueError] if either \tt{str} or \tt{sub} are not ASCII.
+	\throws[BoundsError] if \tt{start} is invalid.)"),
+
+	"irfind", 3, [](CrocThread* t) -> word_t
 	{
 		// Source (search) string
 		auto src = _checkAsciiString(t, 1);
@@ -153,7 +196,16 @@ namespace croc
 		return 1;
 	}
 
-	word_t _toLower(CrocThread* t)
+DListSep()
+	Docstr(DFunc("toLower") DParam("val", "string")
+	R"(Converts a string to lowercase.
+
+	\returns a new string with any uppercase letters converted to lowercase. Non-uppercase letters and non-letters are
+	not affected.
+
+	\throws[ValueError] if \tt{val} is not ASCII.)"),
+
+	"toLower", 1, [](CrocThread* t) -> word_t
 	{
 		auto src = _checkAsciiString(t, 1);
 		CrocStrBuffer buf;
@@ -168,7 +220,16 @@ namespace croc
 		return 1;
 	}
 
-	word_t _toUpper(CrocThread* t)
+DListSep()
+	Docstr(DFunc("toUpper") DParam("val", "string")
+	R"(Converts a string to uppercase.
+
+	\returns a new string with any lowercase letters converted to uppercase. Non-lowercase letters and non-letters are
+	not affected.
+
+	\throws[ValueError] if \tt{val} is not ASCII.)"),
+
+	"toUpper", 1, [](CrocThread* t) -> word_t
 	{
 		auto src = _checkAsciiString(t, 1);
 		CrocStrBuffer buf;
@@ -183,7 +244,15 @@ namespace croc
 		return 1;
 	}
 
-	word_t _istartsWith(CrocThread* t)
+DListSep()
+	Docstr(DFunc("istartsWith") DParam("str", "string") DParam("sub", "string")
+	R"(Checks if \tt{str} begins with the substring \tt{other} in a case-insensitive manner.
+
+	\returns a bool.
+
+	\throws[ValueError] if either \tt{str} or \tt{sub} are not ASCII.)"),
+
+	"istartsWith", 2, [](CrocThread* t) -> word_t
 	{
 		auto s1 = _checkAsciiString(t, 1);
 		auto s2 = _checkAsciiString(t, 2);
@@ -191,7 +260,15 @@ namespace croc
 		return 1;
 	}
 
-	word_t _iendsWith(CrocThread* t)
+DListSep()
+	Docstr(DFunc("iendsWith") DParam("str", "string") DParam("sub", "string")
+	R"(Checks if \tt{str} ends with the substring \tt{other} in a case-insensitive manner.
+
+	\returns a bool.
+
+	\throws[ValueError] if either \tt{str} or \tt{sub} are not ASCII.)"),
+
+	"iendsWith", 2, [](CrocThread* t) -> word_t
 	{
 		auto s1 = _checkAsciiString(t, 1);
 		auto s2 = _checkAsciiString(t, 2);
@@ -199,8 +276,8 @@ namespace croc
 		return 1;
 	}
 
-#define MAKE_IS(name, func)\
-	word_t name(CrocThread* t)\
+#define MAKE_IS(func)\
+	2, [](CrocThread* t) -> word_t\
 	{\
 		auto str = _checkAsciiString(t, 1);\
 		auto idx = croc_ex_optIntParam(t, 2, 0);\
@@ -220,41 +297,85 @@ namespace croc
 		return 1;\
 	}
 
-	MAKE_IS(_isAlpha,    isalpha)
-	MAKE_IS(_isAlNum,    isalnum)
-	MAKE_IS(_isLower,    islower)
-	MAKE_IS(_isUpper,    isupper)
-	MAKE_IS(_isDigit,    isdigit)
-	MAKE_IS(_isHexDigit, isxdigit)
-	MAKE_IS(_isCtrl,     iscntrl)
-	MAKE_IS(_isPunct,    ispunct)
-	MAKE_IS(_isSpace,    isspace)
+DListSep()
+	Docstr(DFunc("isAlpha") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(These functions all work the same way: they classify a character in a string.
 
-	const CrocRegisterFunc _globalFuncs[] =
-	{
-		{"isAscii",      1, &_isAscii    },
-		{"icompare",     2, &_icompare   },
-		{"ifind",        3, &_ifind      },
-		{"irfind",       3, &_irfind     },
-		{"toLower",      1, &_toLower    },
-		{"toUpper",      1, &_toUpper    },
-		{"istartsWith",  2, &_istartsWith},
-		{"iendsWith",    2, &_iendsWith  },
-		{"isAlpha",      2, &_isAlpha    },
-		{"isAlNum",      2, &_isAlNum    },
-		{"isLower",      2, &_isLower    },
-		{"isUpper",      2, &_isUpper    },
-		{"isDigit",      2, &_isDigit    },
-		{"isHexDigit",   2, &_isHexDigit },
-		{"isCtrl",       2, &_isCtrl     },
-		{"isPunct",      2, &_isPunct    },
-		{"isSpace",      2, &_isSpace    },
-		{nullptr, 0, nullptr}
-	};
+	\blist
+		\li \tt{isAlpha} tests if the character is a lower- or upper-case letter.
+		\li \tt{isAlnum} tests if the character is a lower- or upper-case letter or a digit (0-9).
+		\li \tt{isLower} tests if the character is a lower-case letter.
+		\li \tt{isUpper} tests if the character is an upper-case letter.
+		\li \tt{isDigit} tests if the character is a digit (0-9).
+		\li \tt{isHexDigit} tests if the character is a hexadecimal digit (0-9, a-f, A-F).
+		\li \tt{isCtrl} tests if the character is a control character (less than ASCII 32, or ASCII 127).
+		\li \tt{isPunct} tests if the character is a punctuation mark.
+		\li \tt{isSpace} tests if the character is whitespace (space, \\t, \\f, \\v, \\r, or \\n).
+	\endlist
+
+	\param[c] is the ASCII string to look in.
+	\param[idx] is the index of the character in \tt{c} to text. Can be negative.
+
+	\returns \tt{true} if \tt{c[idx]} is in that class of character; \tt{false} otherwise.
+
+	\throws[ValueError] if \tt{c} is not ASCII, or if \tt{#c == 0}.
+	\throws[BoundsError] if \tt{idx} is invalid.)"),
+
+	"isAlpha", MAKE_IS(isalpha)
+
+DListSep()
+	Docstr(DFunc("isAlNum") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(ditto)"),
+
+	"isAlNum", MAKE_IS(isalnum)
+
+DListSep()
+	Docstr(DFunc("isLower") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(ditto)"),
+
+	"isLower", MAKE_IS(islower)
+
+DListSep()
+	Docstr(DFunc("isUpper") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(ditto)"),
+
+	"isUpper", MAKE_IS(isupper)
+
+DListSep()
+	Docstr(DFunc("isDigit") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(ditto)"),
+
+	"isDigit", MAKE_IS(isdigit)
+
+DListSep()
+	Docstr(DFunc("isHexDigit") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(ditto)"),
+
+	"isHexDigit", MAKE_IS(isxdigit)
+
+DListSep()
+	Docstr(DFunc("isCtrl") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(ditto)"),
+
+	"isCtrl", MAKE_IS(iscntrl)
+
+DListSep()
+	Docstr(DFunc("isPunct") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(ditto)"),
+
+	"isPunct", MAKE_IS(ispunct)
+
+DListSep()
+	Docstr(DFunc("isSpace") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(ditto)"),
+
+	"isSpace", MAKE_IS(isspace)
+
+DEndList()
 
 	word loader(CrocThread* t)
 	{
-		croc_ex_registerGlobals(t, _globalFuncs);
+		registerGlobals(t, _globalFuncs);
 		return 0;
 	}
 	}
@@ -262,6 +383,24 @@ namespace croc
 	void initAsciiLib(CrocThread* t)
 	{
 		croc_ex_makeModule(t, "ascii", &loader);
-		croc_ex_import(t, "ascii");
+		croc_ex_importNS(t, "ascii");
+#ifdef CROC_BUILTIN_DOCS
+		CrocDoc doc;
+		croc_ex_doc_init(t, &doc, __FILE__);
+		croc_ex_doc_push(&doc,
+		DModule("ascii")
+		R"(This library provides string manipulation and character classification functions which are restricted to the
+		ASCII subset of Unicode. Croc's strings are Unicode, but full Unicode implementations of the functions in this
+		library would impose a very weighty dependency on a Unicode library such as ICU. As such, this library has been
+		provided as a lightweight alternative, useful for quick programs and situations where perfect multilingual
+		string support is not needed.
+
+		Note that these functions (except for \link{isAscii}) will only work on ASCII strings. If passed strings which
+		contain codepoints above U+00007F, they will throw an exception.)");
+			docFields(&doc, _globalFuncs);
+		croc_ex_doc_pop(&doc, -1);
+		croc_ex_doc_finish(&doc);
+#endif
+		croc_popTop(t);
 	}
 }
