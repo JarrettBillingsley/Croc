@@ -74,7 +74,7 @@ extern "C"
 
 			if(len > CROC_STR_BUFFER_DATA_LENGTH)
 			{
-				croc_pushString(b->t, s);
+				croc_pushStringn(b->t, s, len);
 				addPiece(b);
 				return;
 			}
