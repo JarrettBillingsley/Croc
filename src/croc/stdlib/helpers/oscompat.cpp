@@ -1,5 +1,6 @@
 
 #include "croc/api.h"
+#include "croc/internal/eh.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/helpers/oscompat.hpp"
 #include "croc/types/base.hpp"
@@ -356,6 +357,90 @@ namespace croc
 		}
 
 		FreeEnvironmentStringsW(cast(LPWSTR)env);
+	}
+
+	bool listDir(CrocThread* t, crocstr path, bool includeHidden, std::function<bool(FileType)> dg)
+	{
+		pushCrocstr(t, path);
+
+		if(path.length > 0 && path[path.length - 1] == '/')
+			croc_pushString(t, "*");
+		else
+			croc_pushString(t, "/*");
+
+		croc_cat(t, 2);
+		path = getCrocstr(t, -1);
+
+		auto &mem = Thread::from(t)->vm->mem;
+		wchar pathBuf[128];
+		wstring pathHeapBuf;
+		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(pathBuf, sizeof(pathBuf) / sizeof(wchar)), pathHeapBuf);
+		croc_popTop(t);
+		WIN32_FIND_DATAW data;
+		auto dir = FindFirstFileW(cast(LPCWSTR)path16.ptr, &data);
+		pathHeapBuf.free(mem);
+
+		if(dir == INVALID_HANDLE_VALUE)
+		{
+			// Just an empty dir?
+			if(GetLastError() == ERROR_FILE_NOT_FOUND)
+			{
+				SetLastError(ERROR_SUCCESS);
+				return true;
+			}
+
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		auto slot = croc_pushNull(t);
+		auto failed = tryCode(Thread::from(t), slot, [&]
+		{
+			while(true)
+			{
+				if(!_pushUtf16toUtf8(t, cwstring::n(cast(const wchar*)data.cFileName, wcslen(data.cFileName))))
+					croc_eh_throwStd(t, "UnicodeError", "Error converting filename to UTF-8");
+
+				auto name = getCrocstr(t, -1);
+
+				if(name != ATODA(".") && name != ATODA(".."))
+				{
+					if(includeHidden || (data.dwFileAttributes & (FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN)) == 0)
+					{
+						auto cont = dg(
+							(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? FileType::Dir :
+							(data.dwFileAttributes & FILE_ATTRIBUTE_DEVICE) ? FileType::Other :
+							FileType::File);
+
+						if(!cont)
+							break;
+					}
+				}
+
+				croc_popTop(t);
+
+				if(!FindNextFileW(dir, &data))
+				{
+					if(GetLastError() == ERROR_NO_MORE_FILES)
+					{
+						SetLastError(ERROR_SUCCESS);
+						return;
+					}
+
+					pushSystemErrorMsg(t);
+					throwOSEx(t);
+				}
+			}
+		});
+
+		FindClose(dir);
+
+		if(failed)
+			croc_eh_rethrow(t);
+
+		assert(croc_getStackSize(t) - 1 == cast(uword)slot);
+		croc_popTop(t);
+		return true;
 	}
 #else
 #error "Unimplemented"

@@ -305,6 +305,136 @@ DListSep()
 
 		return 0;
 	}
+
+DListSep()
+	Docstr(DFunc("listDir") DParam("path", "string") DParam("listHidden", "bool") DParam("cb", "function")
+	R"(List the contents of the directory given by \tt{path}, caling \tt{cb} once for each entry in the directory.
+
+	\param[path] is the path to the directory to list.
+	\param[listHidden] controls whether or not hidden and system files are included in the listing.
+	\param[cb] is the callback function which will be called once for each directory entry. It will be passed two
+		parameters: the first is the name of the entry, and the second is a string indicating what kind of entry it is.
+		This string will be one of \tt{"file"} for regular files, \tt{"dir"} for directories, and \tt{"other"} for other
+		kinds of files (such as devices, special files, symlinks etc.).
+
+		This function can also optionally return a boolean \tt{false} to halt the directory listing.
+
+	\throws[OSException] if there was some kind of error listing the directory.)"),
+
+	"listDir", 3, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_String);
+		auto listHidden = croc_ex_checkBoolParam(t, 2);
+		croc_ex_checkParam(t, 3, CrocType_Function);
+
+		auto ok = oscompat::listDir(t, getCrocstr(t, 1), listHidden, [&](oscompat::FileType type)
+		{
+			croc_dup(t, 3);
+			croc_pushNull(t);
+			croc_dup(t, -3);
+
+			switch(type)
+			{
+				case oscompat::FileType::File:  croc_pushString(t, "file");  break;
+				case oscompat::FileType::Dir:   croc_pushString(t, "dir");   break;
+				case oscompat::FileType::Other: croc_pushString(t, "other"); break;
+			}
+
+			croc_call(t, -4, 1);
+			auto ret = croc_isBool(t, -1) ? croc_getBool(t, -1) : true;
+			croc_popTop(t);
+			return ret;
+		});
+
+		if(!ok)
+			oscompat::throwOSEx(t);
+
+		return 0;
+	}
+
+DListSep()
+	Docstr(DFunc("getDirListing") DParam("path", "string") DParam("listHidden", "bool") DParam("kinds", "string")
+	R"(An alternative method of getting a directory listing, this returns the directory's contents as an array of
+	strings.
+
+	\param[path] is the path to the directory to list.
+	\param[listHidden] controls whether or not hidden and system files are included in the listing.
+	\param[kinds] is a string which controls which kinds of directory entries are included in the resulting array. It
+		must contain some combination of one or more of the following characters:
+
+		\dlist
+			\li{\tt{'f'}} means regular files will be included.
+			\li{\tt{'d'}} means directories will be included. Their names will have a trailing slash ('/').
+			\li{\tt{'o'}} means other kinds of entries will be included. They will look the same as normal filenames.
+		\endlist
+
+	\returns an array of strings of directory entry names.)"),
+
+	"getDirListing", 3, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_String);
+		auto listHidden = croc_ex_checkBoolParam(t, 2);
+		croc_ex_checkParam(t, 3, CrocType_String);
+
+		bool listFiles = false;
+		bool listDirs = false;
+		bool listOther = false;
+
+		for(auto c: getCrocstr(t, 3))
+		{
+			switch(c)
+			{
+				case 'f': listFiles = true; break;
+				case 'd': listDirs = true; break;
+				case 'o': listOther = true; break;
+				default: break;
+			}
+		}
+
+		if(!listFiles && !listDirs && !listOther)
+			croc_eh_throwStd(t, "ValueError", "'kinds' parameter must contain at least one of 'f', 'd', and 'o'");
+
+		auto ret = croc_array_new(t, 0);
+
+		auto ok = oscompat::listDir(t, getCrocstr(t, 1), listHidden, [&](oscompat::FileType type)
+		{
+			switch(type)
+			{
+				case oscompat::FileType::File:
+					if(listFiles)
+					{
+						croc_dupTop(t);
+						croc_cateq(t, ret, 1);
+					}
+					break;
+
+				case oscompat::FileType::Dir:
+					if(listDirs)
+					{
+						croc_dupTop(t);
+						croc_pushString(t, "/");
+						croc_cat(t, 2);
+						croc_cateq(t, ret, 1);
+					}
+					break;
+
+				case oscompat::FileType::Other:
+					if(listOther)
+					{
+						croc_dupTop(t);
+						croc_cateq(t, ret, 1);
+					}
+					break;
+			}
+
+			return true;
+		});
+
+		if(!ok)
+			oscompat::throwOSEx(t);
+
+		return 1;
+	}
 DEndList()
 
 	word loader(CrocThread* t)

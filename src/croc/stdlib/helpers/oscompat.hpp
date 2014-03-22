@@ -67,6 +67,26 @@ namespace croc
 
 	static_assert(sizeof(FileHandle) <= sizeof(void*), "Can't fit file handle into a nativeobj");
 
+	enum class FileType
+	{
+		File,
+		Dir,
+		Other
+	};
+
+	// struct DateTime
+	// {
+	// 	uint16_t year, month, day, hour, min, sec, msec;
+	// };
+
+	// struct FileInfo
+	// {
+	// 	FileType type;
+	// 	DateTime created;
+	// 	DateTime modified;
+	// 	Datetime accessed;
+	// };
+
 	// Most of these functions have some kind of "invalid" return value. If that's returned, then the error message will
 	// be sitting on top of the thread's stack.
 
@@ -97,6 +117,9 @@ namespace croc
 	bool getEnv(CrocThread* t, crocstr name);
 	void setEnv(CrocThread* t, crocstr name, crocstr val);
 	void getAllEnvVars(CrocThread* t);
+
+	// Directory listing
+	bool listDir(CrocThread* t, crocstr path, bool includeHidden, std::function<bool(FileType)> dg);
 	}
 }
 
