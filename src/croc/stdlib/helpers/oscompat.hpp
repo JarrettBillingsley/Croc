@@ -53,7 +53,7 @@ namespace croc
 	{
 		OpenExisting = 0,
 		CreateIfNeeded = O_CREAT | O_TRUNC,
-		Append = O_CREAT | O_APPEND,
+		Append = O_CREAT,
 		MustNotExist = O_CREAT | O_EXCL
 	};
 

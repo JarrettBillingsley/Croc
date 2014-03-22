@@ -38,7 +38,7 @@ A helper function for checking the params to stream \tt{read} and \tt{write} fun
 
 This ensures that the \tt{offset} and \tt{size} parameters are valid, and throws exceptions if not.
 
-\throws[exceptions.BoundsError] if either \tt{offset} or \tt{size} is invalid.
+\throws[BoundsError] if either \tt{offset} or \tt{size} is invalid.
 */
 function checkRWParams(m, offset, size)
 {
@@ -126,7 +126,7 @@ class Stream
 	Constructor. Be sure to call this in classes derived from \link{Stream}. While it only checks that one of
 	\link{readable} and \link{writable} returns true right now, this may change in the future.
 
-	\throws[exceptions.IOException] if both \link{readable} and \link{writable} return \tt{false}.
+	\throws[IOException] if both \link{readable} and \link{writable} return \tt{false}.
 	*/
 	this()
 	{
@@ -157,10 +157,10 @@ class Stream
 		\endlist
 	\endlist
 
-	\throws[exceptions.BoundsError] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
+	\throws[BoundsError] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
 	is outside the range \tt{[0, #m - offset]}.
 
-	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[IOException] or a derived class if some error occurred.
 	*/
 	function read(this: @InStream, m: memblock, offset: int = 0, size: int = #m - offset)
 		throw NotImplementedError()
@@ -183,10 +183,10 @@ class Stream
 			until the desired number of bytes has been written. The \link{writeExact} method does this for you.
 	\endlist
 
-	\throws[exceptions.BoundsError] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
+	\throws[BoundsError] if the \tt{offset} is outside the range \tt{[0, #m]}, or if \tt{size}
 	is outside the range \tt{[0, #m - offset]}.
 
-	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[IOException] or a derived class if some error occurred.
 	\throws[EOFException] if end-of-file was reached. Note that this is unlike \link{read}, as an end-of-file condition
 		on write is a much rarer and usually more serious/unrecoverable issue.
 	*/
@@ -212,7 +212,7 @@ class Stream
 
 	\returns the new stream position as an absolute position from the beginning of the stream.
 
-	\throws[exceptions.IOException] if the resulting stream position would be negative, or if some error occurred.
+	\throws[IOException] if the resulting stream position would be negative, or if some error occurred.
 	*/
 	function seek(this: @SeekStream, offset: int, where: string)
 		throw NotImplementedError()
@@ -274,7 +274,7 @@ class Stream
 	many calls to \link{read} as needed to fill the requested block of data. The parameters are identical to those of
 	\link{read}.
 
-	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[IOException] or a derived class if some error occurred.
 	\throws[EOFException] if end-of-file was reached before reading all the data requested.
 	*/
 	function readExact(m: memblock, offset: int = 0, size: int = #m - offset)
@@ -301,7 +301,7 @@ class Stream
 	many calls to \link{write} as needed to write the requested block of data. The parameters are identical to those of
 	\link{write}.
 
-	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[IOException] or a derived class if some error occurred.
 	\throws[EOFException] if end-of-file was reached.
 	*/
 	function writeExact(m: memblock, offset: int = 0, size: int = #m - offset)
@@ -327,8 +327,8 @@ class Stream
 	\param[this] must be readable, and may optionally be seekable.
 	\param[dist] is the number of bytes to skip. Can be 0, which makes this method a no-op.
 
-	\throws[exceptions.RangeError] if \tt{dist} is negative.
-	\throws[exceptions.IOException] or a derived class if some error occurred.
+	\throws[RangeError] if \tt{dist} is negative.
+	\throws[IOException] or a derived class if some error occurred.
 	\throws[EOFException] if end-of-file was reached.
 	*/
 	function skip(this: @InStream, dist: int)
@@ -373,10 +373,20 @@ class Stream
 	*/
 	function readAll(this: @InStream, m: memblock = null)
 	{
+		local guessedSize = 4096
+
+		if(:seekable())
+		{
+			local pos = :position()
+			:seek(0, 'e')
+			guessedSize = :position() - pos
+			:position(pos)
+		}
+
 		if(m is null)
-			m = memblock.new(4096)
-		else if(#m < 4096)
-			#m = 4096
+			m = memblock.new(guessedSize)
+		else if(#m < guessedSize)
+			#m = guessedSize
 
 		local offs = 0
 
@@ -406,7 +416,7 @@ class Stream
 	\param[s] is the source stream from which the data will be read, and must be readable.
 	\param[size] is the number of bytes to copy, or -1 to mean all data until \tt{s} reaches end-of-file.
 
-	\throws[exceptions.RangeError] if \tt{size < -1}.
+	\throws[RangeError] if \tt{size < -1}.
 	\throws[EOFException] if \tt{size > 0} and end-of-file was reached before copying could finish.
 	*/
 	function copy(this: @OutStream, s: @InStream, size: int = -1)
@@ -556,8 +566,8 @@ class MemblockStream : Stream
 	If you seek past the end of the memblock, the memblock will be resized to the new offset. This is to match the
 	behavior of seeking on files.
 
-	\throws[exceptions.ValueError] if \tt{where} is invalid.
-	\throws[exceptions.IOException] if the resulting offset is negative.
+	\throws[ValueError] if \tt{where} is invalid.
+	\throws[IOException] if the resulting offset is negative.
 	*/
 	override function seek(offset: int, where: string)
 	{
@@ -706,7 +716,7 @@ class BinaryStream : StreamWrapper
 
 	\returns a \tt{string} representing the characters read.
 
-	\throws[exceptions.RangeError] if \tt{n < 1}.
+	\throws[RangeError] if \tt{n < 1}.
 	\throws[EOFException] if end-of-file was reached.
 	*/
 	function readChars(n: int)
@@ -762,7 +772,7 @@ class BinaryStream : StreamWrapper
 
 	\param[x] is the string containing the characters to be written. It must be ASCII.
 	\returns \tt{this}.
-	\throws[exceptions.ValueError] if \tt{x} is not ASCII.
+	\throws[ValueError] if \tt{x} is not ASCII.
 	\throws[EOFException] if end-of-file was reached.
 	*/
 	function writeChars(x: string)
@@ -1280,7 +1290,7 @@ class NativeStream : Stream
 	function finalizer()
 	{
 		if(hidden(with this, "writable")) :_checkDirty()
-		if(hidden(with this, "closable") && !hidden(with this, "closed")) :close()
+		if(hidden(with this, "closable")) :close()
 	}
 
 	/**
@@ -1329,17 +1339,19 @@ class NativeStream : Stream
 		nativeStreamFlush(hidden(with this, "handle"))
 
 	/**
-	Closes the stream.
+	Closes the stream. You can safely call this on streams that have already been closed; nothing will happen.
 
-	\throws[exceptions.StateError] if you try to close a stream that was not set to be closable in the constructor.
+	\throws[StateError] if you try to close a stream that was not set to be closable in the constructor.
 	*/
 	override function close()
 	{
 		if(!hidden(with this, "closable"))
 			throw StateError("Trying to close an unclosable stream")
-
-		nativeStreamClose(hidden(with this, "handle"))
-		hidden(with this, "closed", true)
+		else if(!hidden(with this, "closed"))
+		{
+			nativeStreamClose(hidden(with this, "handle"))
+			hidden(with this, "closed", true)
+		}
 	}
 
 	/**

@@ -7,10 +7,12 @@ namespace croc
 	void initAsciiLib(CrocThread* t);
 	void initCompilerLib(CrocThread* t);
 	void initConsoleLib(CrocThread* t);
+	void initDebugLib(CrocThread* t);
 	void initDocsLib(CrocThread* t);
 	void initDoctoolsLibs(CrocThread* t);
 	void initEnvLib(CrocThread* t);
 	void initExceptionsLib(CrocThread* t);
+	void initFileLib(CrocThread* t);
 	void initGCLib(CrocThread* t);
 	void initHashLib(CrocThread* t);
 	void initJSONLib(CrocThread* t);
@@ -20,6 +22,7 @@ namespace croc
 	void initMiscLib_Vector(CrocThread* t);
 	void initModulesLib(CrocThread* t);
 	void initObjectLib(CrocThread* t);
+	void initOSLib(CrocThread* t);
 	void initPathLib(CrocThread* t);
 	void initSerializationLib(CrocThread* t);
 	void initStreamLib(CrocThread* t);

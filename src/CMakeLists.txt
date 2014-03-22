@@ -101,6 +101,7 @@ set(croc_SRC
 	croc/stdlib/doctools.cpp
 	croc/stdlib/env.cpp
 	croc/stdlib/exceptions.cpp
+	croc/stdlib/file.cpp
 	croc/stdlib/gc.cpp
 	croc/stdlib/hash.cpp
 	croc/stdlib/helpers/format.cpp
