@@ -3,8 +3,7 @@ This library contains utilities for performing text encoding and formatting.
 
 Note that this is somewhat different from the purpose of the \tt{string} library, which concerns itself with
 simple algorithmic operations on string objects. This module instead deals with the more "linguistic" aspects of
-handling text, including encoding strings into and decoding strings from raw character encodings, and formatting
-program objects into human-readable forms.
+handling text, such as encoding strings into and decoding strings from raw character encodings.
 
 This module exposes flexible interfaces, and the hope is that more text encodings and formatting options will be
 made available by second- and third-party libraries.
@@ -106,21 +105,18 @@ function getAllCodecs() =
 	[[k, v] foreach k, v; textCodecs].sort(\a, b -> a[0] <=> b[0])
 
 /**
-Returns whether or not a codec of the given name has been registered.
+\returns whether or not a codec of the given name has been registered.
 */
 function hasCodec(name: string) =
 	name in textCodecs
 
 /**
-Returns the number of bytes needed to encode the given codepoint in UTF-8, or 0 if the codepoint is out of the valid
-range of Unicode.
+\returns the number of bytes needed to encode the first codepoint of the given string in UTF-8, or 0 if the codepoint is
+out of the valid range of Unicode.
 */
 function charUtf8Length(c: string)
 {
-	if(#c != 1)
-		throw ValueError("One-character string expected")
-
-	local i = c.ord(0)
+	local i = c.ord()
 
 	if(i < 0x80)
 		return 1
@@ -279,14 +275,14 @@ class TextCodec
 		:decodeRange(src, 0, #src, errors)
 
 	/**
-	Returns a new instance of a class derived from \link{IncrementalEncoder} that allows you to encode a stream of text
+	\returns a new instance of a class derived from \link{IncrementalEncoder} that allows you to encode a stream of text
 	incrementally. See that class's docs for more info.
 	*/
 	function incrementalEncoder(errors: string = "strict")
 		throw NotImplementedError()
 
 	/**
-	Returns a new instance of a class derived from \link{IncrementalDecoder} that allows you to decode a stream of text
+	\returns a new instance of a class derived from \link{IncrementalDecoder} that allows you to decode a stream of text
 	incrementally. See that class's docs for more info.
 	*/
 	function incrementalDecoder(errors: string = "strict")
