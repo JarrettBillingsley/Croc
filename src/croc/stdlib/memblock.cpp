@@ -633,7 +633,7 @@ foreach(val; m, "reverse")
 	{
 		auto mb = checkMemblockParam(t, 0);
 
-		if(strcmp(croc_ex_optStringParam(t, 1, ""), "reverse") == 0)
+		if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("reverse"))
 		{
 			croc_pushUpval(t, 1);
 			croc_dup(t, 0);

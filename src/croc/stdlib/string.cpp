@@ -794,9 +794,8 @@ foreach(i, v; "hello", "reverse")
 		};
 
 		croc_ex_checkParam(t, 0, CrocType_String);
-		auto mode = croc_ex_optStringParam(t, 1, "");
 
-		if(strcmp(mode, "reverse") == 0)
+		if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("reverse"))
 		{
 			croc_pushInt(t, getStringObj(Thread::from(t), 0)->length);
 			croc_function_new(t, "iteratorReverse", 1, _iteratorReverse, 1);

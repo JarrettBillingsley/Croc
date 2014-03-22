@@ -12,7 +12,7 @@ namespace croc
 	FuncDef* DocGen::visitStatements(FuncDef* d)
 	{
 		DocTableDesc desc;
-		pushDocTable(desc, d->location, d->location, "module", d->name->name, ATODA(""));
+		pushDocTable(desc, d->location, d->location, ATODA("module"), d->name->name, ATODA(""));
 
 		auto b = AST_AS(BlockStmt, d->code);
 		assert(b != nullptr);
@@ -40,7 +40,7 @@ namespace croc
 	Module* DocGen::visit(Module* m)
 	{
 		DocTableDesc desc;
-		pushDocTable(desc, m->location, m->docsLoc, "module", m->name, m->docs.length ? m->docs : ATODA(""));
+		pushDocTable(desc, m->location, m->docsLoc, ATODA("module"), m->name, m->docs.length ? m->docs : ATODA(""));
 
 		auto b = AST_AS(BlockStmt, m->statements);
 		assert(b != nullptr);
@@ -92,7 +92,7 @@ namespace croc
 
 		// We don't actually process the comments here, as with other kinds of doc tables..
 		DocTableDesc desc;
-		pushDocTable(desc, d->location, d->location, "function", d->name->name, d->docs);
+		pushDocTable(desc, d->location, d->location, ATODA("function"), d->name->name, d->docs);
 
 		if(isDitto)
 			mDittoDepth--;
@@ -112,7 +112,7 @@ namespace croc
 			// TODO: this currently does not report the correct typemask for params like "x: int = 4", since
 			// these are technically "int|null"
 			DocTableDesc pdesc;
-			pushDocTable(pdesc, d->location, d->location, "parameter", p.name->name, ATODA(""));
+			pushDocTable(pdesc, d->location, d->location, ATODA("parameter"), p.name->name, ATODA(""));
 
 			if(p.typeString.length)
 				pushCrocstr(t, p.typeString);
@@ -133,7 +133,7 @@ namespace croc
 		if(d->isVararg)
 		{
 			DocTableDesc pdesc;
-			pushDocTable(pdesc, d->location, d->location, "parameter", ATODA("vararg"), ATODA(""));
+			pushDocTable(pdesc, d->location, d->location, ATODA("parameter"), ATODA("vararg"), ATODA(""));
 			croc_pushString(t, "vararg");
 			croc_fielda(t, mDocTable, "type");
 			popDocTable(pdesc, "params");
@@ -157,7 +157,7 @@ namespace croc
 			return d;
 
 		DocTableDesc desc;
-		pushDocTable(desc, d->location, d->docsLoc, "class", d->name->name, d->docs);
+		pushDocTable(desc, d->location, d->docsLoc, ATODA("class"), d->name->name, d->docs);
 
 		if(d->baseClasses.length > 0)
 		{
@@ -190,7 +190,7 @@ namespace croc
 			return d;
 
 		DocTableDesc desc;
-		pushDocTable(desc, d->location, d->docsLoc, "namespace", d->name->name, d->docs);
+		pushDocTable(desc, d->location, d->docsLoc, ATODA("namespace"), d->name->name, d->docs);
 
 		if(d->parent)
 		{
@@ -216,7 +216,8 @@ namespace croc
 		auto makeTable = [&, this](uword idx)
 		{
 			DocTableDesc desc;
-			pushDocTable(desc, d->location, d->docsLoc, "variable", d->names[idx]->name, idx == 0 ? d->docs : ATODA("ditto"));
+			pushDocTable(desc, d->location, d->docsLoc, ATODA("variable"), d->names[idx]->name,
+				idx == 0 ? d->docs : ATODA("ditto"));
 
 			if(idx < d->initializer.length)
 			{
@@ -291,7 +292,7 @@ namespace croc
 		}
 	}
 
-	void DocGen::pushDocTable(DocTableDesc &desc, CompileLoc loc, CompileLoc docsLoc, const char* kind, crocstr name, crocstr docs)
+	void DocGen::pushDocTable(DocTableDesc &desc, CompileLoc loc, CompileLoc docsLoc, crocstr kind, crocstr name, crocstr docs)
 	{
 		if(mDittoDepth > 0)
 		{
@@ -305,14 +306,14 @@ namespace croc
 		mDocTable = croc_table_new(t, 0);
 		desc.docTable = mDocTable;
 
-		pushCrocstr(t, loc.file);     croc_fielda(t, mDocTable, "file");
-		croc_pushInt(t,    loc.line); croc_fielda(t, mDocTable, "line");
-		croc_pushString(t, kind);     croc_fielda(t, mDocTable, "kind");
-		pushCrocstr(t, name);         croc_fielda(t, mDocTable, "name");
+		pushCrocstr(t, loc.file);  croc_fielda(t, mDocTable, "file");
+		croc_pushInt(t, loc.line); croc_fielda(t, mDocTable, "line");
+		pushCrocstr(t, kind);      croc_fielda(t, mDocTable, "kind");
+		pushCrocstr(t, name);      croc_fielda(t, mDocTable, "name");
 
-		if(strcmp(kind, "module") == 0 || strcmp(kind, "class") == 0 || strcmp(kind, "namespace") == 0)
+		if(kind == ATODA("module") || kind == ATODA("class") || kind == ATODA("namespace"))
 			ensureChildren();
-		else if(strcmp(kind, "function") == 0)
+		else if(kind == ATODA("function"))
 			ensureChildren("params");
 
 		if(strTrimWS(docs) == ATODA("ditto"))
@@ -342,11 +343,12 @@ namespace croc
 			// See if the previous decl's kind is the same
 			croc_field(t, -1, "kind");
 
-			if(strcmp(croc_getString(t, -1), kind) != 0)
+			if(getCrocstr(t, -1) != kind)
 			{
 				croc_field(t, -2, "name");
-				c.semException(loc, "Can't ditto documentation for '%.*s': it's a %s, but '%s' was a %s",
-					cast(int)name.length, name.ptr, kind, croc_getString(t, -1), croc_getString(t, -2));
+				c.semException(loc, "Can't ditto documentation for '%.*s': it's a %.*s, but '%s' was a %s",
+					cast(int)name.length, name.ptr, cast(int)kind.length, kind.ptr,
+					croc_getString(t, -1), croc_getString(t, -2));
 			}
 
 			croc_popTop(t);
@@ -374,7 +376,7 @@ namespace croc
 			croc_idxai(t, -2, 0);
 			croc_fielda(t, mDocTable, "docs");
 		}
-		else if(strcmp(kind, "function") != 0 && strcmp(kind, "parameter") != 0)
+		else if(kind != ATODA("function") && kind != ATODA("parameter"))
 		{
 			// Function docs are handled a little differently since they have to be done *after* the param doctables are added
 			addComments(docsLoc, docs);

@@ -9,9 +9,9 @@
 
 namespace croc
 {
-	const char* Token::KeywordStrings[] =
+	crocstr Token::KeywordStrings[] =
 	{
-#define POOP(_, str) str,
+#define POOP(_, str) ATODA(str),
 		KEYWORD_LIST(POOP)
 #undef POOP
 	};
@@ -178,15 +178,15 @@ namespace croc
 	{
 		int compareFunc(const void* a, const void* b)
 		{
-			return strcmp(cast(const char*)a, *cast(const char* const*)b);
+			return (*cast(crocstr*)a).cmp(*cast(crocstr*)b);
 		}
 	}
 	}
 
-	int Lexer::lookupKeyword(uchar* str)
+	int Lexer::lookupKeyword(crocstr str)
 	{
-		auto ptr = cast(const char**)bsearch(cast(const void*)str, cast(const void*)Token::KeywordStrings,
-			Token::NUM_KEYWORDS, sizeof(const char*), &compareFunc);
+		auto ptr = cast(crocstr*)bsearch(cast(const void*)&str, cast(const void*)Token::KeywordStrings,
+			Token::NUM_KEYWORDS, sizeof(crocstr), &compareFunc);
 
 		if(ptr)
 			return ptr - Token::KeywordStrings;
@@ -1201,16 +1201,16 @@ namespace croc
 							nextChar();
 						} while(IS_IDENTCONT());
 
-						buf.add(0); // put this on for bsearch to work properly
+						// buf.add(0); // put this on for bsearch to work properly
 						auto arr = buf.toArrayView();
-						auto type = lookupKeyword(arr.ptr);
+						auto type = lookupKeyword(arr);
 
 						if(type >= 0)
 							TOK(type);
 						else
 						{
 							// Have to slice the \0 off the end of arr
-							mTok.stringValue = mCompiler.newString(arr.slice(0, arr.length - 1));
+							mTok.stringValue = mCompiler.newString(arr);//.slice(0, arr.length - 1));
 							TOK(Token::Ident);
 						}
 						RETURN;

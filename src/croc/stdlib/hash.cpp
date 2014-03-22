@@ -500,11 +500,10 @@ DBeginList(_tableMetamethods)
 	"opApply", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Table);
-		auto mode = croc_ex_optStringParam(t, 1, "");
 
 		croc_dup(t, 0);
 
-		if(strcmp(mode, "modify") == 0)
+		if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("modify"))
 		{
 			_keysImpl(t, 0);
 			croc_pushInt(t, -1);
@@ -583,11 +582,10 @@ DBeginList(_namespaceMetamethods)
 	"opApply", 1, [](CrocThread* t) -> word_t
 	{
 		croc_ex_checkParam(t, 0, CrocType_Namespace);
-		auto mode = croc_ex_optStringParam(t, 1, "");
 
 		croc_dup(t, 0);
 
-		if(strcmp(mode, "modify") == 0)
+		if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("modify"))
 		{
 			_keysImpl(t, 0);
 			croc_pushInt(t, -1);

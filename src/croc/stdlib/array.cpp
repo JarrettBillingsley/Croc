@@ -261,7 +261,7 @@ DListSep()
 		{
 			if(croc_isString(t, 1))
 			{
-				if(strcmp(croc_getString(t, 1), "reverse") == 0)
+				if(getCrocstr(t, 1) == ATODA("reverse"))
 				{
 					pred = [&](Array::Slot v1, Array::Slot v2)
 					{
@@ -1363,7 +1363,7 @@ foreach(i, v; a, "reverse")
 	{
 		croc_ex_checkParam(t, 0, CrocType_Array);
 
-		if(strcmp(croc_ex_optStringParam(t, 1, ""), "reverse") == 0)
+		if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("reverse"))
 		{
 			croc_pushUpval(t, 1);
 			croc_dup(t, 0);

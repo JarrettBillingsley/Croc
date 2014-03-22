@@ -30,24 +30,25 @@ namespace croc
 	word_t _getMetatable(CrocThread* t)
 	{
 		auto type = CrocType_Null;
-		auto s = croc_ex_checkStringParam(t, 1);
+		croc_ex_checkParam(t, 1, CrocType_String);
+		auto s = getCrocstr(t, 1);
 
-		if(strcmp(s, "null") == 0)      type = CrocType_Null;
-		if(strcmp(s, "bool") == 0)      type = CrocType_Bool;      else
-		if(strcmp(s, "int") == 0)       type = CrocType_Int;       else
-		if(strcmp(s, "float") == 0)     type = CrocType_Float;     else
-		if(strcmp(s, "nativeobj") == 0) type = CrocType_Nativeobj; else
-		if(strcmp(s, "string") == 0)    type = CrocType_String;    else
-		if(strcmp(s, "weakref") == 0)   type = CrocType_Weakref;   else
-		if(strcmp(s, "table") == 0)     type = CrocType_Table;     else
-		if(strcmp(s, "namespace") == 0) type = CrocType_Namespace; else
-		if(strcmp(s, "array") == 0)     type = CrocType_Array;     else
-		if(strcmp(s, "memblock") == 0)  type = CrocType_Memblock;  else
-		if(strcmp(s, "function") == 0)  type = CrocType_Function;  else
-		if(strcmp(s, "funcdef") == 0)   type = CrocType_Funcdef;   else
-		if(strcmp(s, "class") == 0)     type = CrocType_Class;     else
-		if(strcmp(s, "instance") == 0)  type = CrocType_Instance;  else
-		if(strcmp(s, "thread") == 0)    type = CrocType_Thread;    else
+		if(s == ATODA("null"))      type = CrocType_Null;
+		if(s == ATODA("bool"))      type = CrocType_Bool;      else
+		if(s == ATODA("int"))       type = CrocType_Int;       else
+		if(s == ATODA("float"))     type = CrocType_Float;     else
+		if(s == ATODA("nativeobj")) type = CrocType_Nativeobj; else
+		if(s == ATODA("string"))    type = CrocType_String;    else
+		if(s == ATODA("weakref"))   type = CrocType_Weakref;   else
+		if(s == ATODA("table"))     type = CrocType_Table;     else
+		if(s == ATODA("namespace")) type = CrocType_Namespace; else
+		if(s == ATODA("array"))     type = CrocType_Array;     else
+		if(s == ATODA("memblock"))  type = CrocType_Memblock;  else
+		if(s == ATODA("function"))  type = CrocType_Function;  else
+		if(s == ATODA("funcdef"))   type = CrocType_Funcdef;   else
+		if(s == ATODA("class"))     type = CrocType_Class;     else
+		if(s == ATODA("instance"))  type = CrocType_Instance;  else
+		if(s == ATODA("thread"))    type = CrocType_Thread;    else
 		{
 			croc_pushBool(t, false);
 			return 1;

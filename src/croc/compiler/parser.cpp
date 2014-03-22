@@ -578,18 +578,18 @@ namespace croc
 						objTypes.add(parseIdentList(t));
 					}
 					else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "bool") == 0)      addConstraint(CrocType_Bool); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "int") == 0)       addConstraint(CrocType_Int); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "float") == 0)     addConstraint(CrocType_Float); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "string") == 0)    addConstraint(CrocType_String); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "table") == 0)     addConstraint(CrocType_Table); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "array") == 0)     addConstraint(CrocType_Array); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "memblock") == 0)  addConstraint(CrocType_Memblock); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "thread") == 0)    addConstraint(CrocType_Thread); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "nativeobj") == 0) addConstraint(CrocType_Nativeobj); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "weakref") == 0)   addConstraint(CrocType_Weakref); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "funcdef") == 0)   addConstraint(CrocType_Funcdef); else
-					if(strcmp(cast(const char*)t.stringValue.ptr, "instance") == 0)
+					if(t.stringValue == ATODA("bool"))      addConstraint(CrocType_Bool); else
+					if(t.stringValue == ATODA("int"))       addConstraint(CrocType_Int); else
+					if(t.stringValue == ATODA("float"))     addConstraint(CrocType_Float); else
+					if(t.stringValue == ATODA("string"))    addConstraint(CrocType_String); else
+					if(t.stringValue == ATODA("table"))     addConstraint(CrocType_Table); else
+					if(t.stringValue == ATODA("array"))     addConstraint(CrocType_Array); else
+					if(t.stringValue == ATODA("memblock"))  addConstraint(CrocType_Memblock); else
+					if(t.stringValue == ATODA("thread"))    addConstraint(CrocType_Thread); else
+					if(t.stringValue == ATODA("nativeobj")) addConstraint(CrocType_Nativeobj); else
+					if(t.stringValue == ATODA("weakref"))   addConstraint(CrocType_Weakref); else
+					if(t.stringValue == ATODA("funcdef"))   addConstraint(CrocType_Funcdef); else
+					if(t.stringValue == ATODA("instance"))
 					{
 						addConstraint(CrocType_Instance);
 
@@ -645,7 +645,7 @@ namespace croc
 				l.expect(Token::Null);
 				ret = cast(uint32_t)TypeMask::NotNull;
 			}
-			else if(l.type() == Token::Ident && strcmp(cast(const char*)l.tok().stringValue.ptr, "any") == 0)
+			else if(l.type() == Token::Ident && l.tok().stringValue == ATODA("any"))
 			{
 				l.next();
 				ret = cast(uint32_t)TypeMask::Any;
@@ -1436,11 +1436,11 @@ namespace croc
 
 		ScopeAction type;
 
-		if(strcmp(cast(const char*)id.stringValue.ptr, "exit") == 0)
+		if(id.stringValue == ATODA("exit"))
 			type = ScopeAction::Exit;
-		else if(strcmp(cast(const char*)id.stringValue.ptr, "success") == 0)
+		else if(id.stringValue == ATODA("success"))
 			type = ScopeAction::Success;
-		else if(strcmp(cast(const char*)id.stringValue.ptr, "failure") == 0)
+		else if(id.stringValue == ATODA("failure"))
 			type = ScopeAction::Failure;
 		else
 		{

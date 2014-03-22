@@ -24,22 +24,23 @@ namespace croc
 
 	uword _stringToFlag(CrocThread* t, word idx)
 	{
-		auto s = croc_ex_checkStringParam(t, idx);
+		croc_ex_checkParam(t, idx, CrocType_String);
+		auto s = getCrocstr(t, idx);
 
-		if(strcmp(s, "typeconstraints") == 0)
+		if(s == ATODA("typeconstraints"))
 			return CrocCompilerFlags_TypeConstraints;
-		if(strcmp(s, "asserts") == 0)
+		if(s == ATODA("asserts"))
 			return CrocCompilerFlags_Asserts;
-		if(strcmp(s, "debug") == 0)
+		if(s == ATODA("debug"))
 			return CrocCompilerFlags_Debug;
-		if(strcmp(s, "docs") == 0)
+		if(s == ATODA("docs"))
 			return CrocCompilerFlags_Docs;
-		if(strcmp(s, "all") == 0)
+		if(s == ATODA("all"))
 			return CrocCompilerFlags_All;
-		if(strcmp(s, "alldocs") == 0)
+		if(s == ATODA("alldocs"))
 			return CrocCompilerFlags_AllDocs;
 
-		croc_eh_throwStd(t, "ValueError", "Invalid flag '%s'", s);
+		croc_eh_throwStd(t, "ValueError", "Invalid flag '%.*s'", cast(int)s.length, s.ptr);
 		return 0; // dummy
 	}
 

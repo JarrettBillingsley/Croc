@@ -2031,30 +2031,24 @@ foreach(i, val; v) write(val) // prints 12345
 foreach(i, val; v, "reverse") write(val) // prints 54321
 \endcode
 
-	\param[mode] is the iteration mode. The only valid modes are \tt{"reverse"}, which runs iteration backwards,
-	and the empty string \{""}, which is normal forward iteration.
-
-	\throws[ValueError] if \tt{mode} is invalid.)"),
+	\param[mode] is the iteration mode. If it's \tt{"reverse"}, the iteration will run backwards.)"),
 
 	"opApply", 1, [](CrocThread* t) -> word_t
 	{
 		auto m = _getMembers(t);
-		auto dir = croc_ex_optStringParam(t, 1, "");
 
-		if(strcmp(dir, "") == 0)
+		if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("reverse"))
 		{
 			croc_pushUpval(t, 0);
 			croc_dup(t, 0);
 			croc_pushInt(t, -1);
 		}
-		else if(strcmp(dir, "reverse") == 0)
+		else
 		{
 			croc_pushUpval(t, 1);
 			croc_dup(t, 0);
 			croc_pushInt(t, m.itemLength);
 		}
-		else
-			croc_eh_throwStd(t, "ValueError", "Invalid iteration mode");
 
 		return 3;
 	}

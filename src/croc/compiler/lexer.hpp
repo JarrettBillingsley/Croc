@@ -146,7 +146,7 @@ namespace croc
 		CompileLoc postCommentLoc;
 		const uchar* startChar;
 
-		static const char* KeywordStrings[];
+		static crocstr KeywordStrings[];
 		static const char* Strings[];
 
 		inline bool isOpAssign()
@@ -243,7 +243,7 @@ namespace croc
 		crocstr endCapture(const uchar* captureStart);
 
 	private:
-		static int lookupKeyword(uchar* str);
+		static int lookupKeyword(crocstr str);
 		crocchar readChar(const uchar*& pos);
 		crocchar lookaheadChar();
 		void nextChar();

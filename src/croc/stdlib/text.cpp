@@ -22,13 +22,13 @@ namespace croc
 
 	Errors checkErrorsParam(CrocThread* t, word_t idx)
 	{
-		auto str = croc_ex_optStringParam(t, idx, "strict");
+		auto str = croc_ex_optParam(t, idx, CrocType_String) ? getCrocstr(t, idx) : ATODA("strict");
 
-		if(strcmp(str, "strict") == 0)
+		if(str == ATODA("strict"))
 			return Errors::Strict;
-		else if(strcmp(str, "replace") == 0)
+		else if(str == ATODA("replace"))
 			return Errors::Replace;
-		else if(strcmp(str, "ignore") == 0)
+		else if(str == ATODA("ignore"))
 			return Errors::Ignore;
 		else
 			croc_eh_throwStd(t, "ValueError", "Invalid error behavior string");

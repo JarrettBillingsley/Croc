@@ -51,7 +51,7 @@ namespace croc
 
 	private:
 		void addComments(CompileLoc docsLoc, crocstr docs);
-		void pushDocTable(DocTableDesc& desc, CompileLoc loc, CompileLoc docsLoc, const char* kind, crocstr name, crocstr docs);
+		void pushDocTable(DocTableDesc& desc, CompileLoc loc, CompileLoc docsLoc, crocstr kind, crocstr name, crocstr docs);
 		void popDocTable(DocTableDesc& desc, const char* parentField = "children");
 		void ensureChildren(const char* parentField = "children");
 		void unpopTable();
@@ -82,7 +82,7 @@ namespace croc
 				{
 					// TODO: this location might not be on exactly the same line as the field itself.. huge deal?
 					DocTableDesc desc;
-					pushDocTable(desc, f.initializer->location, f.docsLoc, "field", f.name, f.docs);
+					pushDocTable(desc, f.initializer->location, f.docsLoc, ATODA("field"), f.name, f.docs);
 
 					if(f.initializer->sourceStr.length)
 					{

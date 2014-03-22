@@ -1610,9 +1610,8 @@ foreach(i, c; sb, "reverse") { } // goes backwards
 	"opApply", 1, [](CrocThread* t) -> word_t
 	{
 		_getData(t);
-		auto mode = croc_ex_optStringParam(t, 1, "");
 
-		if(strcmp(mode, "reverse") == 0)
+		if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("reverse"))
 		{
 			croc_pushUpval(t, 1);
 			croc_dup(t, 0);
