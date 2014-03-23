@@ -98,17 +98,16 @@ namespace croc
 	void throwIOEx(CrocThread* t);
 	void throwOSEx(CrocThread* t);
 
-	// File stuff
+	// File streams
 	FileHandle openFile(CrocThread* t, crocstr name, FileAccess access, FileCreate create);
 	bool truncate(CrocThread* t, FileHandle f, uint64_t pos);
-	bool getInfo(CrocThread* t, crocstr name, FileInfo* info);
 
 	// Console streams
 	FileHandle getStdin(CrocThread* t);
 	FileHandle getStdout(CrocThread* t);
 	FileHandle getStderr(CrocThread* t);
 
-	// General-purpose stream stuff
+	// General-purpose streams
 	bool isValidHandle(FileHandle f);
 	int64_t read(CrocThread* t, FileHandle f, DArray<uint8_t> data);
 	int64_t write(CrocThread* t, FileHandle f, DArray<uint8_t> data);
@@ -121,12 +120,13 @@ namespace croc
 	void setEnv(CrocThread* t, crocstr name, crocstr val);
 	void getAllEnvVars(CrocThread* t);
 
-	// Directory stuff
+	// FS stuff
 	bool listDir(CrocThread* t, crocstr path, bool includeHidden, std::function<bool(FileType)> dg);
 	bool pushCurrentDir(CrocThread* t);
 	bool changeDir(CrocThread* t, crocstr path);
 	bool makeDir(CrocThread* t, crocstr path);
 	bool removeDir(CrocThread* t, crocstr path);
+	bool getInfo(CrocThread* t, crocstr name, FileInfo* info);
 	}
 }
 

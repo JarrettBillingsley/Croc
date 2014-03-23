@@ -100,6 +100,24 @@ namespace croc
 		{
 			return cast(Time)((*cast(uint64_t*)&time / 10) - 11644473600LL);
 		}
+
+		void toWindowsPath(wstring s)
+		{
+			for(auto &c: s)
+			{
+				if(c == '/')
+					c = '\\';
+			}
+		}
+
+		void toCommonPath(wstring s)
+		{
+			for(auto &c: s)
+			{
+				if(c == '\\')
+					c = '/';
+			}
+		}
 	}
 
 	void pushSystemErrorMsg(CrocThread* t)
@@ -127,7 +145,7 @@ namespace croc
 	}
 
 	// =================================================================================================================
-	// File stuff
+	// File streams
 
 	FileHandle openFile(CrocThread* t, crocstr name, FileAccess access, FileCreate create)
 	{
@@ -137,6 +155,7 @@ namespace croc
 		wchar buf[512];
 		wstring heapBuf;
 		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
+		toWindowsPath(name16);
 
 		// Open it!
 		auto ret = CreateFileW(cast(LPCWSTR)name16.ptr, cast(DWORD)access, 0,
@@ -164,29 +183,6 @@ namespace croc
 		}
 
 		return true;
-	}
-
-	bool getInfo(CrocThread* t, crocstr name, FileInfo* info)
-	{
-		auto &mem = Thread::from(t)->vm->mem;
-		wchar buf[512];
-		wstring heapBuf;
-		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
-
-		WIN32_FILE_ATTRIBUTE_DATA data;
-		auto ret = GetFileAttributesExW(cast(LPCWSTR)name16.ptr, GetFileExInfoStandard, &data);
-		heapBuf.free(mem);
-
-		if(ret && info != nullptr)
-		{
-			info->size = (cast(uint64_t)data.nFileSizeHigh << 32) + data.nFileSizeLow;
-			info->type = attrsToType(data.dwFileAttributes);
-			info->created = filetimeToTime(data.ftCreationTime);
-			info->modified = filetimeToTime(data.ftLastWriteTime);
-			info->accessed = filetimeToTime(data.ftLastAccessTime);
-		}
-
-		return cast(bool)ret;
 	}
 
 	// =================================================================================================================
@@ -223,7 +219,7 @@ namespace croc
 	}
 
 	// =================================================================================================================
-	// General-purpose stream stuff
+	// General-purpose streams
 
 	bool isValidHandle(FileHandle f)
 	{
@@ -410,7 +406,7 @@ namespace croc
 	}
 
 	// =================================================================================================================
-	// Directory stuff
+	// FS stuff
 
 	bool listDir(CrocThread* t, crocstr path, bool includeHidden, std::function<bool(FileType)> dg)
 	{
@@ -429,6 +425,7 @@ namespace croc
 		wstring pathHeapBuf;
 		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(pathBuf, sizeof(pathBuf) / sizeof(wchar)), pathHeapBuf);
 		croc_popTop(t);
+		toWindowsPath(path16);
 		WIN32_FIND_DATAW data;
 		auto dir = FindFirstFileW(cast(LPCWSTR)path16.ptr, &data);
 		pathHeapBuf.free(mem);
@@ -529,13 +526,7 @@ namespace croc
 		wchar buf[512];
 		wstring heapBuf;
 		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
-
-		for(auto &c: path16)
-		{
-			if(c == '/')
-				c = '\\';
-		}
-
+		toWindowsPath(path16);
 		auto ok = SetCurrentDirectoryW(cast(LPCWSTR)path16.ptr);
 		heapBuf.free(mem);
 
@@ -554,13 +545,7 @@ namespace croc
 		wchar buf[512];
 		wstring heapBuf;
 		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
-
-		for(auto &c: path16)
-		{
-			if(c == '/')
-				c = '\\';
-		}
-
+		toWindowsPath(path16);
 		auto ok = CreateDirectoryW(cast(LPCWSTR)path16.ptr, nullptr) != 0;
 		heapBuf.free(mem);
 
@@ -579,13 +564,7 @@ namespace croc
 		wchar buf[512];
 		wstring heapBuf;
 		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
-
-		for(auto &c: path16)
-		{
-			if(c == '/')
-				c = '\\';
-		}
-
+		toWindowsPath(path16);
 		auto ok = RemoveDirectoryW(cast(LPCWSTR)path16.ptr) != 0;
 		heapBuf.free(mem);
 
@@ -596,6 +575,30 @@ namespace croc
 			pushSystemErrorMsg(t);
 			return false;
 		}
+	}
+
+	bool getInfo(CrocThread* t, crocstr name, FileInfo* info)
+	{
+		auto &mem = Thread::from(t)->vm->mem;
+		wchar buf[512];
+		wstring heapBuf;
+		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
+		toWindowsPath(name16);
+
+		WIN32_FILE_ATTRIBUTE_DATA data;
+		auto ret = GetFileAttributesExW(cast(LPCWSTR)name16.ptr, GetFileExInfoStandard, &data);
+		heapBuf.free(mem);
+
+		if(ret && info != nullptr)
+		{
+			info->size = (cast(uint64_t)data.nFileSizeHigh << 32) + data.nFileSizeLow;
+			info->type = attrsToType(data.dwFileAttributes);
+			info->created = filetimeToTime(data.ftCreationTime);
+			info->modified = filetimeToTime(data.ftLastWriteTime);
+			info->accessed = filetimeToTime(data.ftLastAccessTime);
+		}
+
+		return cast(bool)ret;
 	}
 #else
 #error "Unimplemented"
