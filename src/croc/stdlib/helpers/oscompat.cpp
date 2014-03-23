@@ -10,6 +10,8 @@ namespace croc
 {
 	namespace oscompat
 	{
+	// =================================================================================================================
+	// Error handling
 	void throwIOEx(CrocThread* t)
 	{
 		croc_eh_pushStd(t, "IOException");
@@ -85,6 +87,19 @@ namespace croc
 
 			return cwstring::n(start, len);
 		}
+
+		FileType attrsToType(DWORD attrs)
+		{
+			return
+				(attrs & FILE_ATTRIBUTE_DIRECTORY) ? FileType::Dir :
+				(attrs & FILE_ATTRIBUTE_DEVICE) ? FileType::Other :
+				FileType::File;
+		}
+
+		Time filetimeToTime(FILETIME time)
+		{
+			return cast(Time)((*cast(uint64_t*)&time / 10) - 11644473600LL);
+		}
 	}
 
 	void pushSystemErrorMsg(CrocThread* t)
@@ -111,20 +126,23 @@ namespace croc
 		}
 	}
 
+	// =================================================================================================================
+	// File stuff
+
 	FileHandle openFile(CrocThread* t, crocstr name, FileAccess access, FileCreate create)
 	{
 		auto &mem = Thread::from(t)->vm->mem;
 
 		// Convert name to UTF-16, the best encoding
 		wchar buf[512];
-		wstring tmp;
-		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf, sizeof(buf) / sizeof(wchar)), tmp);
+		wstring heapBuf;
+		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
 
 		// Open it!
 		auto ret = CreateFileW(cast(LPCWSTR)name16.ptr, cast(DWORD)access, 0,
 			nullptr, cast(DWORD)create, FILE_ATTRIBUTE_NORMAL, nullptr);
 
-		tmp.free(mem);
+		heapBuf.free(mem);
 
 		if(ret == INVALID_HANDLE_VALUE)
 			pushSystemErrorMsg(t);
@@ -147,6 +165,32 @@ namespace croc
 
 		return true;
 	}
+
+	bool getInfo(CrocThread* t, crocstr name, FileInfo* info)
+	{
+		auto &mem = Thread::from(t)->vm->mem;
+		wchar buf[512];
+		wstring heapBuf;
+		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
+
+		WIN32_FILE_ATTRIBUTE_DATA data;
+		auto ret = GetFileAttributesExW(cast(LPCWSTR)name16.ptr, GetFileExInfoStandard, &data);
+		heapBuf.free(mem);
+
+		if(ret && info != nullptr)
+		{
+			info->size = (cast(uint64_t)data.nFileSizeHigh << 32) + data.nFileSizeLow;
+			info->type = attrsToType(data.dwFileAttributes);
+			info->created = filetimeToTime(data.ftCreationTime);
+			info->modified = filetimeToTime(data.ftLastWriteTime);
+			info->accessed = filetimeToTime(data.ftLastAccessTime);
+		}
+
+		return cast(bool)ret;
+	}
+
+	// =================================================================================================================
+	// Console streams
 
 	FileHandle getStdin(CrocThread* t)
 	{
@@ -177,6 +221,9 @@ namespace croc
 
 		return ret;
 	}
+
+	// =================================================================================================================
+	// General-purpose stream stuff
 
 	bool isValidHandle(FileHandle f)
 	{
@@ -252,6 +299,9 @@ namespace croc
 
 		return ret;
 	}
+
+	// =================================================================================================================
+	// Environment variables
 
 	bool getEnv(CrocThread* t, crocstr name)
 	{
@@ -359,6 +409,9 @@ namespace croc
 		FreeEnvironmentStringsW(cast(LPWSTR)env);
 	}
 
+	// =================================================================================================================
+	// Directory stuff
+
 	bool listDir(CrocThread* t, crocstr path, bool includeHidden, std::function<bool(FileType)> dg)
 	{
 		pushCrocstr(t, path);
@@ -372,7 +425,7 @@ namespace croc
 		path = getCrocstr(t, -1);
 
 		auto &mem = Thread::from(t)->vm->mem;
-		wchar pathBuf[128];
+		wchar pathBuf[512];
 		wstring pathHeapBuf;
 		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(pathBuf, sizeof(pathBuf) / sizeof(wchar)), pathHeapBuf);
 		croc_popTop(t);
@@ -407,10 +460,7 @@ namespace croc
 				{
 					if(includeHidden || (data.dwFileAttributes & (FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN)) == 0)
 					{
-						auto cont = dg(
-							(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? FileType::Dir :
-							(data.dwFileAttributes & FILE_ATTRIBUTE_DEVICE) ? FileType::Other :
-							FileType::File);
+						auto cont = dg(attrsToType(data.dwFileAttributes));
 
 						if(!cont)
 							break;
@@ -441,6 +491,111 @@ namespace croc
 		assert(croc_getStackSize(t) - 1 == cast(uword)slot);
 		croc_popTop(t);
 		return true;
+	}
+
+	bool pushCurrentDir(CrocThread* t)
+	{
+		auto len = GetCurrentDirectoryW(0, nullptr);
+
+		if(len == 0)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		auto &mem = Thread::from(t)->vm->mem;
+		auto tmp = wstring::alloc(mem, len);
+
+		if(GetCurrentDirectoryW(len, cast(LPWSTR)tmp.ptr) == 0)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		for(auto &c: tmp)
+		{
+			if(c == '\\')
+				c = '/';
+		}
+
+		_pushUtf16toUtf8(t, tmp.slice(0, tmp.length - 1)); // slice off terminating 0
+		tmp.free(mem);
+		return true;
+	}
+
+	bool changeDir(CrocThread* t, crocstr path)
+	{
+		auto &mem = Thread::from(t)->vm->mem;
+		wchar buf[512];
+		wstring heapBuf;
+		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
+
+		for(auto &c: path16)
+		{
+			if(c == '/')
+				c = '\\';
+		}
+
+		auto ok = SetCurrentDirectoryW(cast(LPCWSTR)path16.ptr);
+		heapBuf.free(mem);
+
+		if(ok)
+			return true;
+		else
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+	}
+
+	bool makeDir(CrocThread* t, crocstr path)
+	{
+		auto &mem = Thread::from(t)->vm->mem;
+		wchar buf[512];
+		wstring heapBuf;
+		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
+
+		for(auto &c: path16)
+		{
+			if(c == '/')
+				c = '\\';
+		}
+
+		auto ok = CreateDirectoryW(cast(LPCWSTR)path16.ptr, nullptr) != 0;
+		heapBuf.free(mem);
+
+		if(ok)
+			return true;
+		else
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+	}
+
+	bool removeDir(CrocThread* t, crocstr path)
+	{
+		auto &mem = Thread::from(t)->vm->mem;
+		wchar buf[512];
+		wstring heapBuf;
+		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
+
+		for(auto &c: path16)
+		{
+			if(c == '/')
+				c = '\\';
+		}
+
+		auto ok = RemoveDirectoryW(cast(LPCWSTR)path16.ptr) != 0;
+		heapBuf.free(mem);
+
+		if(ok)
+			return true;
+		else
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
 	}
 #else
 #error "Unimplemented"

@@ -67,6 +67,16 @@ namespace croc
 		return 1;
 	}
 
+	void pushFileTypeString(CrocThread* t, oscompat::FileType type)
+	{
+		switch(type)
+		{
+			case oscompat::FileType::File:  croc_pushString(t, "file");  break;
+			case oscompat::FileType::Dir:   croc_pushString(t, "dir");   break;
+			case oscompat::FileType::Other: croc_pushString(t, "other"); break;
+		}
+	}
+
 DBeginList(_globalFuncs)
 	Docstr(DFunc("inFile") DParam("name", "string")
 	R"(Open an existing file for reading.
@@ -332,13 +342,7 @@ DListSep()
 			croc_dup(t, 3);
 			croc_pushNull(t);
 			croc_dup(t, -3);
-
-			switch(type)
-			{
-				case oscompat::FileType::File:  croc_pushString(t, "file");  break;
-				case oscompat::FileType::Dir:   croc_pushString(t, "dir");   break;
-				case oscompat::FileType::Other: croc_pushString(t, "other"); break;
-			}
+			pushFileTypeString(t, type);
 
 			croc_call(t, -4, 1);
 			auto ret = croc_isBool(t, -1) ? croc_getBool(t, -1) : true;
@@ -368,7 +372,9 @@ DListSep()
 			\li{\tt{'o'}} means other kinds of entries will be included. They will look the same as normal filenames.
 		\endlist
 
-	\returns an array of strings of directory entry names.)"),
+	\returns an array of strings of directory entry names.
+
+	\throws[ValueError] if \tt{kinds} doesn't contain at least one of the specified characters.)"),
 
 	"getDirListing", 3, [](CrocThread* t) -> word_t
 	{
@@ -435,6 +441,187 @@ DListSep()
 
 		return 1;
 	}
+
+DListSep()
+	Docstr(DFunc("currentDir")
+	R"(\returns the current working directory as an absolute path string.)"),
+
+	"currentDir", 0, [](CrocThread* t) -> word_t
+	{
+		if(!oscompat::pushCurrentDir(t))
+			oscompat::throwOSEx(t);
+
+		return 1;
+	}
+
+DListSep()
+	Docstr(DFunc("changeDir") DParam("path", "string")
+	R"(Changes the current working directory to \tt{path}.
+
+	\throws[OSException] if \tt{path} is an invalid directory to change to.)"),
+
+	"changeDir", 1, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_String);
+
+		if(!oscompat::changeDir(t, getCrocstr(t, 1)))
+			oscompat::throwOSEx(t);
+
+		return 0;
+	}
+
+DListSep()
+	Docstr(DFunc("makeDir") DParam("path", "string")
+	R"(Creates a new directory named \tt{path}.
+
+	\throws[OSException] if \tt{path} is invalid or cannot be created.)"),
+
+	"makeDir", 1, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_String);
+
+		if(!oscompat::makeDir(t, getCrocstr(t, 1)))
+			oscompat::throwOSEx(t);
+
+		return 0;
+	}
+
+DListSep()
+	Docstr(DFunc("removeDir") DParam("path", "string")
+	R"(Removes the directory named \tt{path}. The directory must be empty before it can be removed.
+
+	\throws[OSException] if \tt{path} is invalid cannot be removed.)"),
+
+	"removeDir", 1, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_String);
+
+		if(!oscompat::removeDir(t, getCrocstr(t, 1)))
+			oscompat::throwOSEx(t);
+
+		return 0;
+	}
+
+DListSep()
+	Docstr(DFunc("exists") DParam("path", "string")
+	R"(\returns a bool saying whether or not there is an accessible file or directory named \tt{path}. The key word here
+	is "accessible". If you try to test the existence of a file you don't have permissions to access, this function will
+	return false rather than throw an exception.)"),
+
+	"exists", 1, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_String);
+		croc_pushBool(t, oscompat::getInfo(t, getCrocstr(t, 1), nullptr));
+		return 1;
+	}
+
+DListSep()
+	Docstr(DFunc("attrs") DParam("path", "string") DParamD("tab", "table", "null")
+	R"(Get info on a file or directory at \tt{path} and return it as a table.
+
+	\param[path] is the file or directory you're interested in.
+	\param[tab] is an optional table which will be filled with the attributes. If you pass nothing to this parameter,
+		this function will create a new table and return that. This parameter is provided so you can get the attributes
+		of several files in a row without having to allocate a new table each time.
+
+	\returns either a new table or \tt{tab} if passed. The table will have the following fields:
+		\dlist
+			\li{\tt{"type"}} is a string indicating whether it's a file (\tt{"file"}), directory (\tt{"dir"}), or
+				something else (\tt{"other"}).
+			\li{\tt{"size"}} is an integer representing the size, in bytes, of the file. Meaningless for non-files.
+			\li{\tt{"created"}} is an integer representing the time of creation as measuried in microseconds since
+				midnight on January 1, 1970.
+			\li{\tt{"modified"}} is an integer representing the last time it was modified, measured the same way.
+			\li{\tt{"accessed"}} is an integer representing the last time it was accessed, measured the same way.
+		\endlist
+
+	\throws[OSException] if the attributes could not be retrieved.)"),
+
+	"attrs", 2, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_String);
+		auto name = getCrocstr(t, 1);
+		auto ret = croc_ex_optParam(t, 2, CrocType_Table) ? 2 : croc_table_new(t, 0);
+
+		oscompat::FileInfo info;
+
+		if(!oscompat::getInfo(t, name, &info))
+		{
+			croc_pushFormat(t, "Error getting attributes for '%.*s': ", cast(int)name.length, name.ptr);
+			oscompat::pushSystemErrorMsg(t);
+			croc_cat(t, 2);
+			oscompat::throwOSEx(t);
+		}
+
+		pushFileTypeString(t, info.type);              croc_fielda(t, ret, "type");
+		croc_pushInt(t, cast(crocint_t)info.size);     croc_fielda(t, ret, "size");
+		croc_pushInt(t, cast(crocint_t)info.created);  croc_fielda(t, ret, "created");
+		croc_pushInt(t, cast(crocint_t)info.modified); croc_fielda(t, ret, "modified");
+		croc_pushInt(t, cast(crocint_t)info.accessed); croc_fielda(t, ret, "accessed");
+
+		croc_dup(t, ret);
+		return 1;
+	}
+
+#define MAKE_THINGER(ONE_LINE_OF_CODE)\
+	[](CrocThread* t) -> word_t\
+	{\
+		croc_ex_checkParam(t, 1, CrocType_String);\
+		auto name = getCrocstr(t, 1);\
+\
+		oscompat::FileInfo info;\
+\
+		if(!oscompat::getInfo(t, name, &info))\
+		{\
+			croc_pushFormat(t, "Error getting attributes for '%.*s': ", cast(int)name.length, name.ptr);\
+			oscompat::pushSystemErrorMsg(t);\
+			croc_cat(t, 2);\
+			oscompat::throwOSEx(t);\
+		}\
+\
+		ONE_LINE_OF_CODE;\
+		return 1;\
+	}
+
+DListSep()
+	Docstr(DFunc("fileType") DParam("path", "string")
+	R"(Like \link{attrs}, but gets only the file type.
+
+	\throws[OSException] if \tt{path} could not be accessed.)"),
+
+	"fileType", 1, MAKE_THINGER(pushFileTypeString(t, info.type))
+
+DListSep()
+	Docstr(DFunc("fileSize") DParam("path", "string")
+	R"(Like \link{attrs}, but gets only the file size.
+
+	\throws[OSException] if \tt{path} could not be accessed.)"),
+
+	"fileSize", 1, MAKE_THINGER(croc_pushInt(t, cast(crocint_t)info.size))
+
+DListSep()
+	Docstr(DFunc("created") DParam("path", "string")
+	R"(Like \link{attrs}, but gets only the creation time.
+
+	\throws[OSException] if \tt{path} could not be accessed.)"),
+
+	"created", 1, MAKE_THINGER(croc_pushInt(t, cast(crocint_t)info.created))
+
+DListSep()
+	Docstr(DFunc("modified") DParam("path", "string")
+	R"(Like \link{attrs}, but gets only the file modification time.
+
+	\throws[OSException] if \tt{path} could not be accessed.)"),
+
+	"modified", 1, MAKE_THINGER(croc_pushInt(t, cast(crocint_t)info.modified))
+
+DListSep()
+	Docstr(DFunc("accessed") DParam("path", "string")
+	R"(Like \link{attrs}, but gets only the file access time.
+
+	\throws[OSException] if \tt{path} could not be accessed.)"),
+
+	"accessed", 1, MAKE_THINGER(croc_pushInt(t, cast(crocint_t)info.accessed))
 DEndList()
 
 	word loader(CrocThread* t)

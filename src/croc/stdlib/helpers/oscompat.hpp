@@ -74,31 +74,34 @@ namespace croc
 		Other
 	};
 
-	// struct DateTime
-	// {
-	// 	uint16_t year, month, day, hour, min, sec, msec;
-	// };
+	typedef int64_t Time;
 
-	// struct FileInfo
-	// {
-	// 	FileType type;
-	// 	DateTime created;
-	// 	DateTime modified;
-	// 	Datetime accessed;
-	// };
+	struct DateTime
+	{
+		uint16_t year, month, day, hour, min, sec, msec;
+	};
+
+	struct FileInfo
+	{
+		FileType type;
+		uint64_t size;
+		Time created;
+		Time modified;
+		Time accessed;
+	};
 
 	// Most of these functions have some kind of "invalid" return value. If that's returned, then the error message will
 	// be sitting on top of the thread's stack.
 
+	// Error handling
+	void pushSystemErrorMsg(CrocThread* t);
 	void throwIOEx(CrocThread* t);
 	void throwOSEx(CrocThread* t);
-
-	// Misc OS stuff
-	void pushSystemErrorMsg(CrocThread* t);
 
 	// File stuff
 	FileHandle openFile(CrocThread* t, crocstr name, FileAccess access, FileCreate create);
 	bool truncate(CrocThread* t, FileHandle f, uint64_t pos);
+	bool getInfo(CrocThread* t, crocstr name, FileInfo* info);
 
 	// Console streams
 	FileHandle getStdin(CrocThread* t);
@@ -118,8 +121,12 @@ namespace croc
 	void setEnv(CrocThread* t, crocstr name, crocstr val);
 	void getAllEnvVars(CrocThread* t);
 
-	// Directory listing
+	// Directory stuff
 	bool listDir(CrocThread* t, crocstr path, bool includeHidden, std::function<bool(FileType)> dg);
+	bool pushCurrentDir(CrocThread* t);
+	bool changeDir(CrocThread* t, crocstr path);
+	bool makeDir(CrocThread* t, crocstr path);
+	bool removeDir(CrocThread* t, crocstr path);
 	}
 }
 
