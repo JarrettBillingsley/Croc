@@ -622,6 +622,73 @@ DListSep()
 	\throws[OSException] if \tt{path} could not be accessed.)"),
 
 	"accessed", 1, MAKE_THINGER(croc_pushInt(t, cast(crocint_t)info.accessed))
+
+DListSep()
+	Docstr(DFunc("copyFromTo") DParam("from", "string") DParam("to", "string") DParamD("force", "bool", "false")
+	R"(Copies a file named by \tt{from} to the path named by \tt{to}. The function is named this way to remind you of
+	the order of the arguments.
+
+	If a file named \tt{to} already exists, the \tt{force} parameter determines what happens. If \tt{force} is
+	\tt{false} (the default), an exception is thrown. If \tt{force} is \tt{true}, the file at \tt{to} is replaced by
+	a copy of the file at \tt{from}.
+
+	\throws[OSException] if \tt{from} could not be copied to \tt{to}.)"),
+
+	"copyFromTo", 3, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_String);
+		croc_ex_checkParam(t, 2, CrocType_String);
+		auto force = croc_ex_optBoolParam(t, 3, false);
+
+		if(!oscompat::copyFromTo(t, getCrocstr(t, 1), getCrocstr(t, 2), force))
+			oscompat::throwOSEx(t);
+
+		return 0;
+	}
+
+DListSep()
+	Docstr(DFunc("moveFromTo") DParam("from", "string") DParam("to", "string") DParamD("force", "bool", "false")
+	R"(Moves a file or directory named by \tt{from} to the path named by \tt{to}. The function is named this way to
+	remind you of the order of the arguments.
+
+	This function lets you move directories as well as files, and you can also use it to rename files and directories
+	(by simply moving them to another name in the same parent directory).
+
+	If a file or directory named \tt{to} already exists, the \tt{force} parameter determines what happens. If \tt{force}
+	is \tt{false} (the default), an exception is thrown. If \tt{force} is \tt{true}, the file or directory at \tt{to} is
+	replaced by the file or directory at \tt{from}.
+
+	\throws[OSException] if \tt{from} could not be moved to \tt{to}.)"),
+
+	"moveFromTo", 3, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_String);
+		croc_ex_checkParam(t, 2, CrocType_String);
+		auto force = croc_ex_optBoolParam(t, 3, false);
+
+		if(!oscompat::moveFromTo(t, getCrocstr(t, 1), getCrocstr(t, 2), force))
+			oscompat::throwOSEx(t);
+
+		return 0;
+	}
+
+DListSep()
+	Docstr(DFunc("remove") DParam("path", "string")
+	R"(Removes the file or directory at \tt{path} entirely. This is an irreversible operation, so be careful!
+
+	If \tt{path} is a directory, it must be empty.
+
+	\throws[OSException] if \tt{path} could not be removed.)"),
+
+	"remove", 1, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_String);
+
+		if(!oscompat::remove(t, getCrocstr(t, 1)))
+			oscompat::throwOSEx(t);
+
+		return 0;
+	}
 DEndList()
 
 	word loader(CrocThread* t)

@@ -127,6 +127,9 @@ namespace croc
 	bool makeDir(CrocThread* t, crocstr path);
 	bool removeDir(CrocThread* t, crocstr path);
 	bool getInfo(CrocThread* t, crocstr name, FileInfo* info);
+	bool copyFromTo(CrocThread* t, crocstr from, crocstr to, bool force);
+	bool moveFromTo(CrocThread* t, crocstr from, crocstr to, bool force);
+	bool remove(CrocThread* t, crocstr path);
 	}
 }
 

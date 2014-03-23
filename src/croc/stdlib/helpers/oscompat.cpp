@@ -600,6 +600,75 @@ namespace croc
 
 		return cast(bool)ret;
 	}
+
+	bool copyFromTo(CrocThread* t, crocstr from, crocstr to, bool force)
+	{
+		auto &mem = Thread::from(t)->vm->mem;
+		wchar buf1[512], buf2[512];
+		wstring heapBuf1, heapBuf2;
+		auto from16 = _utf8ToUtf16z(mem, from, wstring::n(buf1, sizeof(buf1) / sizeof(wchar)), heapBuf1);
+		auto to16 = _utf8ToUtf16z(mem, to, wstring::n(buf2, sizeof(buf2) / sizeof(wchar)), heapBuf2);
+		toWindowsPath(from16);
+		toWindowsPath(to16);
+
+		auto ok = CopyFileW(cast(LPCWSTR)from16.ptr, cast(LPCWSTR)to16.ptr, !force);
+		heapBuf1.free(mem);
+		heapBuf2.free(mem);
+
+		if(!ok)
+			pushSystemErrorMsg(t);
+
+		return cast(bool)ok;
+	}
+
+	bool moveFromTo(CrocThread* t, crocstr from, crocstr to, bool force)
+	{
+		auto &mem = Thread::from(t)->vm->mem;
+		wchar buf1[512], buf2[512];
+		wstring heapBuf1, heapBuf2;
+		auto from16 = _utf8ToUtf16z(mem, from, wstring::n(buf1, sizeof(buf1) / sizeof(wchar)), heapBuf1);
+		auto to16 = _utf8ToUtf16z(mem, to, wstring::n(buf2, sizeof(buf2) / sizeof(wchar)), heapBuf2);
+		toWindowsPath(from16);
+		toWindowsPath(to16);
+
+		auto ok = MoveFileExW(cast(LPCWSTR)from16.ptr, cast(LPCWSTR)to16.ptr,
+			MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH | (force ? MOVEFILE_REPLACE_EXISTING : 0));
+		heapBuf1.free(mem);
+		heapBuf2.free(mem);
+
+		if(!ok)
+			pushSystemErrorMsg(t);
+
+		return cast(bool)ok;
+	}
+
+	bool remove(CrocThread* t, crocstr path)
+	{
+		auto &mem = Thread::from(t)->vm->mem;
+		wchar buf[512];
+		wstring heapBuf;
+		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
+		toWindowsPath(path16);
+
+		auto attrs = GetFileAttributesW(cast(LPCWSTR)path16.ptr);
+
+		if(attrs == INVALID_FILE_ATTRIBUTES)
+		{
+			heapBuf.free(mem);
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		auto ok = (attrs & FILE_ATTRIBUTE_DIRECTORY) ?
+			RemoveDirectoryW(cast(LPCWSTR)path16.ptr) :
+			DeleteFileW(cast(LPCWSTR)path16.ptr);
+		heapBuf.free(mem);
+
+		if(!ok)
+			pushSystemErrorMsg(t);
+
+		return cast(bool)ok;
+	}
 #else
 #error "Unimplemented"
 
