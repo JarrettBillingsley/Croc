@@ -106,10 +106,13 @@ set(croc_SRC
 	croc/stdlib/hash.cpp
 	croc/stdlib/helpers/format.cpp
 	croc/stdlib/helpers/format.hpp
+	croc/stdlib/helpers/json.cpp
+	croc/stdlib/helpers/json.hpp
 	croc/stdlib/helpers/oscompat.cpp
 	croc/stdlib/helpers/oscompat.hpp
 	croc/stdlib/helpers/register.cpp
 	croc/stdlib/helpers/register.hpp
+	croc/stdlib/json.cpp
 	croc/stdlib/math.cpp
 	croc/stdlib/memblock.cpp
 	croc/stdlib/misc.cpp

@@ -167,13 +167,6 @@ CROCAPI void croc_ex_vthrowNamedException (CrocThread* t, const char* exName, co
 // }
 
 // =====================================================================================================================
-// JSON
-
-CROCAPI word_t croc_ex_fromJSON  (CrocThread* t, const char* source);
-CROCAPI word_t croc_ex_fromJSONn (CrocThread* t, const char* source, uword_t len);
-CROCAPI void   croc_ex_toJSON    (CrocThread* t, word_t root, int pretty, void(*output)(const char*, uword_t), void(*nl)());
-
-// =====================================================================================================================
 // Library helpers
 
 typedef struct CrocRegisterFunc
