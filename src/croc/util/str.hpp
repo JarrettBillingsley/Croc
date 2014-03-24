@@ -17,9 +17,12 @@ namespace croc
 	size_t strLocate(custring source, custring match, size_t start = 0);
 	size_t strLocateChar(custring source, uchar match, size_t start = 0);
 	size_t strLocatePattern(custring source, custring match, size_t start = 0);
-	size_t strRLocate(custring source, custring match, size_t start = 0);
-	size_t strRLocateChar(custring source, uchar match, size_t start = 0);
-	size_t strRLocatePattern(custring source, custring match, size_t start = 0);
+	size_t strRLocate(custring source, custring match);
+	size_t strRLocate(custring source, custring match, size_t start);
+	size_t strRLocateChar(custring source, uchar match);
+	size_t strRLocateChar(custring source, uchar match, size_t start);
+	size_t strRLocatePattern(custring source, custring match);
+	size_t strRLocatePattern(custring source, custring match, size_t start);
 	bool strEqFast(const uchar* s1, const uchar* s2, size_t length);
 	size_t strMismatchFast(const uchar* s1, const uchar* s2, size_t length);
 

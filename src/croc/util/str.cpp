@@ -95,12 +95,22 @@ namespace croc
 		return source.length;
 	}
 
+	size_t strRLocate(custring source, custring match)
+	{
+		return strRLocate(source, match, source.length);
+	}
+
 	size_t strRLocate(custring source, custring match, size_t start)
 	{
 		if(match.length == 1)
 			return strRLocateChar(source, match[0], start);
 		else
 			return strRLocatePattern(source, match, start);
+	}
+
+	size_t strRLocateChar(custring source, uchar match)
+	{
+		return strRLocateChar(source, match, source.length);
 	}
 
 	size_t strRLocateChar(custring source, uchar match, size_t start)
@@ -115,6 +125,11 @@ namespace croc
 		}
 
 		return source.length;
+	}
+
+	size_t strRLocatePatterh(custring source, custring match)
+	{
+		return strRLocatePattern(source, match, source.length);
 	}
 
 	size_t strRLocatePattern(custring source, custring match, size_t start)
