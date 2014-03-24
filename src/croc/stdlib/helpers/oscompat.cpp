@@ -171,11 +171,8 @@ namespace croc
 		return ret;
 	}
 
-	bool truncate(CrocThread* t, FileHandle f, uint64_t pos)
+	bool truncate(CrocThread* t, FileHandle f)
 	{
-		if(seek(t, f, pos, Whence::Begin) == cast(uint64_t)-1)
-			return false;
-
 		if(SetEndOfFile(f) == 0)
 		{
 			pushSystemErrorMsg(t);

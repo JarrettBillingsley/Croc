@@ -100,7 +100,7 @@ namespace croc
 
 	// File streams
 	FileHandle openFile(CrocThread* t, crocstr name, FileAccess access, FileCreate create);
-	bool truncate(CrocThread* t, FileHandle f, uint64_t pos);
+	bool truncate(CrocThread* t, FileHandle f);
 
 	// Console streams
 	FileHandle getStdin(CrocThread* t);

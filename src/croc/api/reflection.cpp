@@ -61,6 +61,19 @@ extern "C"
 				default:                 return false;
 			}
 		}
+
+		int hasHFieldImpl(Thread* t, word_t slot, String* name)
+		{
+			auto v = *getValue(t, slot);
+
+			switch(v.type)
+			{
+				case CrocType_Class:     return v.mClass->getHiddenField(name) != nullptr;
+				case CrocType_Instance:  return v.mInstance->getHiddenField(name) != nullptr;
+				default: API_PARAM_TYPE_ERROR(slot, "object", "class|instance");
+				return 0; // dummy
+			}
+		}
 	}
 
 	int croc_hasField(CrocThread* t_, word_t obj, const char* fieldName)
@@ -91,6 +104,20 @@ extern "C"
 		auto t = Thread::from(t_);
 		API_CHECK_PARAM(nameStr, name, String, "method name");
 		return lookupMethod(t, *getValue(t, obj), nameStr).type != CrocType_Null;
+	}
+
+	int croc_hasHField(CrocThread* t_, word_t obj, const char* fieldName)
+	{
+		auto t = Thread::from(t_);
+		auto name = String::create(t->vm, atoda(fieldName));
+		return hasHFieldImpl(t, obj, name);
+	}
+
+	int croc_hasHFieldStk(CrocThread* t_, word_t obj, word_t name)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_PARAM(nameStr, name, String, "hidden field name");
+		return hasHFieldImpl(t, obj, nameStr);
 	}
 
 	int croc_isInstanceOf(CrocThread* t_, word_t obj, word_t base)

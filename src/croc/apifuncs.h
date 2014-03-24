@@ -163,6 +163,8 @@ CROCAPI int         croc_hasField     (CrocThread* t, word_t obj, const char* fi
 CROCAPI int         croc_hasFieldStk  (CrocThread* t, word_t obj, word_t name);
 CROCAPI int         croc_hasMethod    (CrocThread* t, word_t obj, const char* methodName);
 CROCAPI int         croc_hasMethodStk (CrocThread* t, word_t obj, word_t name);
+CROCAPI int         croc_hasHField    (CrocThread* t, word_t obj, const char* fieldName);
+CROCAPI int         croc_hasHFieldStk (CrocThread* t, word_t obj, word_t name);
 CROCAPI int         croc_isInstanceOf (CrocThread* t, word_t obj, word_t base);
 CROCAPI word_t      croc_superOf      (CrocThread* t, word_t slot);
 

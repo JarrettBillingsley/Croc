@@ -199,6 +199,46 @@ DListSep()
 	}
 
 DListSep()
+	Docstr(DFunc("truncate") DParam("file", "instance")
+	R"(Given an open, writable file \tt{file}, truncates the contents of the file so the current position in the file
+	becomes the end of the file.
+
+	If you've wrapped the given file in some kind of buffering stream, be sure to flush it before calling this!
+
+	\param[file] should be an instance of \link{stream.NativeStream} or some class like it which has a hidden field
+	named \tt{"native"}. This field should contain a nativeobj which is the system-dependent file handle. This handle
+	should obviously be for a file and not some other kind of object!
+
+	\throws[ValueError] if \tt{file} has no hidden field \tt{"handle"}, or if the \tt{"handle"} hidden field does not
+		name a valid file handle.
+	\throws[TypeError] if the \tt{"handle"} hidden field is not a nativeobj.
+	\throws[IOException] if \tt{file} could not be truncated for some reason (either because it was invalid or for some
+		other reason).)"),
+
+	"truncate", 1, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_Instance);
+
+		if(!croc_hasHField(t, 1, "handle"))
+			croc_eh_throwStd(t, "ValueError", "File object has no 'handle' hidden field");
+
+		croc_hfield(t, 1, "handle");
+
+		if(!croc_isNativeobj(t, -1))
+			croc_eh_throwStd(t, "TypeError", "File object's 'handle' hidden field is not a nativeobj");
+
+		auto handle = croc_getNativeobj(t, -1);
+
+		if(!oscompat::isValidHandle(handle))
+			croc_eh_throwStd(t, "ValueError", "File object's handle is invalid");
+
+		if(!oscompat::truncate(t, handle))
+			oscompat::throwIOEx(t);
+
+		return 0;
+	}
+
+DListSep()
 	Docstr(DFunc("writeTextFile") DParam("name", "string") DParam("data", "string")
 		DParamD("encoding", "string", "utf-8") DParamD("errors", "string", "strict")
 	R"(Writes the contents of the string \tt{data} to the file \tt{name}, encoding it with \tt{encoding}.
