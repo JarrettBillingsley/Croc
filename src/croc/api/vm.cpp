@@ -141,7 +141,7 @@ extern "C"
 		initConsoleLib(*t); // depends on stream
 		initEnvLib(*t);
 		// JSONLib.init(*t); // depends on stream
-		// initPathLib(*t);
+		initPathLib(*t);
 		// initSerializationLib(*t); // depends on .. lots of libs :P
 		initThreadLib(*t);
 		// TimeLib.init(*t);

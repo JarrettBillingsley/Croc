@@ -708,7 +708,11 @@ DEndList()
 		croc_ex_doc_push(&doc,
 		DModule("file")
 		R"(This module provides access to the host file system. With it you can read, write, create, and delete files
-		and directories.)");
+		and directories.
+
+		You should use paths with forward slashes ('/') to separate the directories for the best cross-platform
+		compatibility. This library will translate forward slash paths to backslash paths internally on Windows, but
+		even on Windows it will always return forward slash paths.)");
 			docFields(&doc, _globalFuncs);
 		croc_ex_doc_pop(&doc, -1);
 		croc_ex_doc_finish(&doc);

@@ -116,6 +116,7 @@ set(croc_SRC
 	croc/stdlib/misc_vector.cpp
 	croc/stdlib/modules.cpp
 	croc/stdlib/object.cpp
+	croc/stdlib/path.cpp
 	croc/stdlib/stream.cpp
 	croc/stdlib/string.cpp
 	croc/stdlib/string_stringbuffer.cpp
