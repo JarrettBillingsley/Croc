@@ -142,7 +142,7 @@ extern "C"
 		initEnvLib(*t);
 		initJSONLib(*t); // depends on stream
 		initPathLib(*t);
-		// initSerializationLib(*t); // depends on .. lots of libs :P
+		initSerializationLib(*t); // depends on .. lots of libs :P
 		initThreadLib(*t);
 		// TimeLib.init(*t);
 		initDoctoolsLibs(*t);
