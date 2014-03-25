@@ -1286,14 +1286,12 @@ namespace croc
 			auto frame = t->vm->currentEH;
 
 			t->nativeCallDepth = savedNativeDepth;
+			popEHFrame(t);
 
 			if(frame && frame->t == t && !EH_IS_NATIVE(frame))
 				goto _exceptionRetry;
 			else
-			{
-				popEHFrame(t); // get rid of our exec frame
 				throwImpl(t, t->stack[t->stackIndex - 1], true);
-			}
 		}
 
 	_return:
