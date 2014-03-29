@@ -33,17 +33,22 @@ int main()
 		return 0;
 	},
 	[&]{
-		printf("\n------------ ERROR ------------\n");
-		croc_pushToString(t, -1);
-		printf("%s\n", croc_getString(t, -1));
-		croc_popTop(t);
+		if(croc_ex_isHaltException(t, -1))
+			printf("\n------------ Thread halted. ------------\n");
+		else
+		{
+			printf("\n------------ ERROR ------------\n");
+			croc_pushToString(t, -1);
+			printf("%s\n", croc_getString(t, -1));
+			croc_popTop(t);
 
-		croc_dupTop(t);
-		croc_pushNull(t);
-		croc_methodCall(t, -2, "tracebackString", 1);
-		printf("%s\n", croc_getString(t, -1));
+			croc_dupTop(t);
+			croc_pushNull(t);
+			croc_methodCall(t, -2, "tracebackString", 1);
+			printf("%s\n", croc_getString(t, -1));
 
-		croc_pop(t, 2);
+			croc_pop(t, 2);
+		}
 	});
 
 	fflush(stdout);

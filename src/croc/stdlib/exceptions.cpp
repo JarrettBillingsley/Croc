@@ -41,6 +41,14 @@ struct ExDesc
 		R"(Thrown when an IO operation fails or is given invalid inputs. The rationale for this exception type is the
 		same as that of \link{OSException}.)")
 	},
+	{"HaltException", Docstr(DClass("HaltException")
+		R"(Thrown when a thread is halted. You \em{can} catch this kind of exception, but in practice you really
+		\em{shouldn't} unless you're doing something like writing a CLI.
+
+		This exception type is special in that it never propagates out of the thread that was halted. Instead when this
+		exception escapes the thread that was halted, the thread is simply marked as dead and execution resumes in the
+		resuming thread as normal.)")
+	},
 	{"AssertError", Docstr(DClass("AssertError")
 		R"(Thrown when an assertion fails.)")
 	},

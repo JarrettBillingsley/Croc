@@ -95,8 +95,7 @@ extern "C"
 		auto t = Thread::from(t_);
 
 		if(t->state == CrocThreadState_Running)
-			assert(false); // TODO:halt
-			// throw new CrocHaltException();
+			croc_eh_throwStd(t_, "HaltException", "Thread halted");
 		else
 			croc_thread_pendingHalt(t_);
 	}

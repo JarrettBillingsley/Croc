@@ -92,5 +92,14 @@ extern "C"
 		croc_call(t, ret, 1);
 		return ret;
 	}
+
+	int croc_ex_isHaltException(CrocThread* t, word_t index)
+	{
+		index = croc_absIndex(t, index);
+		croc_eh_pushStd(t, "HaltException");
+		auto ret = croc_isInstanceOf(t, index, -1);
+		croc_popTop(t);
+		return ret;
+	}
 }
 }

@@ -334,7 +334,7 @@ namespace croc
 		while(true)
 		{
 			if(t->shouldHalt)
-				assert(false); // TODO:halt
+				croc_eh_throwStd(*t, "HaltException", "Thread halted");
 
 			pc = &t->currentAR->pc;
 			Instruction* i = (*pc)++;

@@ -79,6 +79,7 @@ CROCAPI void   croc_ex_setRegistryVar       (CrocThread* t, const char* name);
 CROCAPI void   croc_ex_throwNamedException  (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
 CROCAPI void   croc_ex_vthrowNamedException (CrocThread* t, const char* exName, const char* fmt, va_list args);
 CROCAPI word_t croc_ex_CFileToNativeStream  (CrocThread* t, FILE* f, const char* mode);
+CROCAPI int    croc_ex_isHaltException      (CrocThread* t, word_t index);
 
 // =====================================================================================================================
 // Parameter checking

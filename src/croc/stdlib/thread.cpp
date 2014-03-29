@@ -27,12 +27,17 @@ DListSep()
 	Docstr(DFunc("halt") DParamD("t", "thread", "null")
 	R"(Halt a thread of execution.
 
-	\param[t] is the thread to halt. If you don't pass anything for this, the current thread will be halted.)"),
+	\param[t] is the thread to halt. If you don't pass anything for this, the current thread will be halted. If \tt{t}
+		is not running, it will have a pending halt placed on it; that is, the next time it is resumed, it will halt
+		immediately.)"),
 
 	"halt", 1, [](CrocThread* t) -> word_t
 	{
-		// TODO:halt
-		croc_eh_throwStd(t, "ApiError", "thread.halt() Unimplemented");
+		if(croc_ex_optParam(t, 1, CrocType_Thread))
+			croc_thread_halt(croc_getThread(t, 1));
+		else
+			croc_thread_halt(t);
+
 		return 0;
 	}
 

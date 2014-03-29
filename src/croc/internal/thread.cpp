@@ -83,27 +83,31 @@ namespace croc
 			execute(t);
 		});
 
-		// TODO:halt
-		// catch(CrocHaltException e)
-		// {
-		// 	assert(t.arIndex == 0);
-		// 	assert(t.upvalHead is null);
-		// 	assert(t.resultIndex == 0);
-		// 	assert(t.trIndex == 0);
-		// 	assert(t.nativeCallDepth == 0);
-		// }
-
 		from->state = savedState;
 		from->vm->curThread = from;
 
 		if(failed)
 		{
 			assert(t->state == CrocThreadState_Dead);
-			saveResults(from, from, from->stackIndex - 1, 1);
-			callEpilogue(from); // get rid of the resume AR
-			from->stackIndex = slot + 1;
-			continueTraceback(from, *getValue(from, -1));
-			croc_eh_rethrow(*from);
+			croc_eh_pushStd(*from, "HaltException");
+			bool isHalt = croc_isInstanceOf(*from, -2, -1);
+			croc_popTop(*from);
+
+			if(isHalt)
+			{
+				assert(t->arIndex == 0);
+				assert(t->upvalHead == nullptr);
+				assert(t->resultIndex == 0);
+				assert(t->nativeCallDepth == 0);
+			}
+			else
+			{
+				saveResults(from, from, from->stackIndex - 1, 1);
+				callEpilogue(from); // get rid of the resume AR
+				from->stackIndex = slot + 1;
+				continueTraceback(from, *getValue(from, -1));
+				croc_eh_rethrow(*from);
+			}
 		}
 
 		// Move the values from the yielded thread's stack to the calling thread's stack
