@@ -72,9 +72,11 @@ CROCAPI void    croc_ex_runModule            (CrocThread* t, const char* moduleN
 // =====================================================================================================================
 // Common tasks
 
-CROCAPI word_t croc_ex_lookup          (CrocThread* t, const char* name);
-CROCAPI word_t croc_ex_pushRegistryVar (CrocThread* t, const char* name);
-CROCAPI void   croc_ex_setRegistryVar  (CrocThread* t, const char* name);
+CROCAPI word_t croc_ex_lookup               (CrocThread* t, const char* name);
+CROCAPI word_t croc_ex_pushRegistryVar      (CrocThread* t, const char* name);
+CROCAPI void   croc_ex_setRegistryVar       (CrocThread* t, const char* name);
+CROCAPI void   croc_ex_throwNamedException  (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
+CROCAPI void   croc_ex_vthrowNamedException (CrocThread* t, const char* exName, const char* fmt, va_list args);
 
 // =====================================================================================================================
 // Parameter checking
@@ -134,12 +136,6 @@ CROCAPI word_t croc_ex_buffer_finish      (CrocStrBuffer* b);
 CROCAPI void   croc_ex_buffer_start       (CrocStrBuffer* b);
 CROCAPI char*  croc_ex_buffer_prepare     (CrocStrBuffer* b, uword_t size);
 CROCAPI void   croc_ex_buffer_addPrepared (CrocStrBuffer* b);
-
-// =====================================================================================================================
-// Exception handling
-
-CROCAPI void croc_ex_throwNamedException  (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
-CROCAPI void croc_ex_vthrowNamedException (CrocThread* t, const char* exName, const char* fmt, va_list args);
 
 // =====================================================================================================================
 // Library helpers

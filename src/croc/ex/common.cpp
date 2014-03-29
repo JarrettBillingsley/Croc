@@ -1,4 +1,6 @@
 
+#include <stdarg.h>
+
 #include "croc/api.h"
 #include "croc/types/base.hpp"
 #include "croc/util/str.hpp"
@@ -55,6 +57,23 @@ extern "C"
 		croc_swapTop(t);
 		croc_fielda(t, -2, name);
 		croc_popTop(t);
+	}
+
+	void croc_ex_throwNamedException(CrocThread* t, const char* exName, const char* fmt, ...)
+	{
+		va_list args;
+		va_start(args, fmt);
+		croc_ex_vthrowNamedException(t, exName, fmt, args);
+		va_end(args);
+	}
+
+	void croc_ex_vthrowNamedException(CrocThread* t, const char* exName, const char* fmt, va_list args)
+	{
+		croc_ex_lookup(t, exName);
+		croc_pushNull(t);
+		croc_vpushFormat(t, fmt, args);
+		croc_call(t, -3, 1);
+		croc_eh_throw(t);
 	}
 }
 }
