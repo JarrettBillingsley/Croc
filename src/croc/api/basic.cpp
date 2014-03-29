@@ -80,21 +80,10 @@ extern "C"
 		croc_dup(t_, src + 2);
 		croc_call(t_, funcReg, numIndices == 1 ? 2 : numIndices);
 
-		if(croc_isFunction(t_, src))
+		if(croc_isFunction(t_, src) ? croc_isNull(t_, funcReg) : getThread(t, src)->state == CrocThreadState_Dead)
 		{
-			if(croc_isNull(t_, funcReg))
-			{
-				croc_pop(t_, numIndices);
-				return false;
-			}
-		}
-		else
-		{
-			if(getThread(t, src)->state == CrocThreadState_Dead)
-			{
-				croc_pop(t_, numIndices);
-				return false;
-			}
+			croc_pop(t_, numIndices == 1 ? 2 : numIndices);
+			return false;
 		}
 
 		croc_dup(t_, funcReg);
@@ -109,7 +98,6 @@ extern "C"
 
 	void croc_foreachEnd(CrocThread* t_, word_t* state)
 	{
-		// auto t = Thread::from(t_);
 		auto diff = cast(word_t)croc_getStackSize(t_) - *state;
 
 		if(diff != 0)
