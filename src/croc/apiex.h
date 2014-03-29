@@ -2,6 +2,7 @@
 #define CROC_APIEX_H
 
 #include <stdarg.h>
+#include <stdio.h>
 
 #include "croc/apitypes.h"
 
@@ -77,6 +78,7 @@ CROCAPI word_t croc_ex_pushRegistryVar      (CrocThread* t, const char* name);
 CROCAPI void   croc_ex_setRegistryVar       (CrocThread* t, const char* name);
 CROCAPI void   croc_ex_throwNamedException  (CrocThread* t, const char* exName, const char* fmt, ...) CROCPRINT(3, 4);
 CROCAPI void   croc_ex_vthrowNamedException (CrocThread* t, const char* exName, const char* fmt, va_list args);
+CROCAPI word_t croc_ex_CFileToNativeStream  (CrocThread* t, FILE* f, const char* mode);
 
 // =====================================================================================================================
 // Parameter checking
@@ -198,22 +200,6 @@ CROCAPI void croc_ex_docFields           (CrocDoc* d, const char** docStrings);
 #define CROC_DOC_PARAM(name, type)       "!param " name ":" type "\n"
 #define CROC_DOC_PARAMD(name, type, def) "!param " name ":" type "=" def "\n"
 #define CROC_DOC_VARARG                  CROC_DOC_PARAM("vararg", "vararg")
-
-// =====================================================================================================================
-// Serialization
-
-// TODO: these should take parameters which can be wrapped by stream.NativeStream, whatever that type may be.
-// Helpful functions! On POSIX, use fileno(). On Windows:
-// extern "C" int _fileno(FILE* f);
-// extern "C" int _get_osfhandle(int h);
-// extern "C" void _close(int h); // should call this after getting? have to investigate
-
-// CROCAPI void   croc_ex_serializeGraph     (CrocThread* t, word_t idx, word_t trans, OutputStream output);
-// CROCAPI word_t croc_ex_deserializeGraph   (CrocThread* t, word_t trans, InputStream input);
-// CROCAPI void   croc_ex_serializeModule    (CrocThread* t, word_t idx, const char* name, OutputStream output);
-// CROCAPI void   croc_ex_serializeModulen   (CrocThread* t, word_t idx, const char* name, uword_t len, OutputStream output);
-// CROCAPI word_t croc_ex_deserializeModule  (CrocThread* t, const char** name, InputStream input);
-// CROCAPI word_t croc_ex_deserializeModulen (CrocThread* t, const char** name, uword_t* len, InputStream input);
 
 #ifdef __cplusplus
 } /* extern "C" */

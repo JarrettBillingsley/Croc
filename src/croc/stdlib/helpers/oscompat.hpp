@@ -1,6 +1,8 @@
 #ifndef CROC_STDLIB_HELPERS_OSCOMPAT_HPP
 #define CROC_STDLIB_HELPERS_OSCOMPAT_HPP
 
+#include <stdio.h>
+
 #ifdef _WIN32
 #include "windows.h"
 #else
@@ -101,6 +103,7 @@ namespace croc
 	// File streams
 	FileHandle openFile(CrocThread* t, crocstr name, FileAccess access, FileCreate create);
 	bool truncate(CrocThread* t, FileHandle f);
+	FileHandle fromCFile(CrocThread* t, FILE* f);
 
 	// Console streams
 	FileHandle getStdin(CrocThread* t);

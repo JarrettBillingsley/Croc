@@ -2,6 +2,7 @@
 #include <stdarg.h>
 
 #include "croc/api.h"
+#include "croc/stdlib/helpers/oscompat.hpp"
 #include "croc/types/base.hpp"
 #include "croc/util/str.hpp"
 
@@ -74,6 +75,22 @@ extern "C"
 		croc_vpushFormat(t, fmt, args);
 		croc_call(t, -3, 1);
 		croc_eh_throw(t);
+	}
+
+	word_t croc_ex_CFileToNativeStream(CrocThread* t, FILE* f, const char* mode)
+	{
+		auto ret = croc_ex_lookup(t, "stream.NativeStream");
+		croc_pushNull(t);
+
+		auto h = oscompat::fromCFile(t, f);
+
+		if(h == oscompat::InvalidHandle)
+			oscompat::throwOSEx(t);
+
+		croc_pushNativeobj(t, h);
+		croc_pushString(t, mode);
+		croc_call(t, ret, 1);
+		return ret;
 	}
 }
 }

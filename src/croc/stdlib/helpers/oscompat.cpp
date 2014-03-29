@@ -31,6 +31,9 @@ namespace croc
 	}
 
 #ifdef _WIN32
+	extern "C" int _fileno(FILE* f);
+	extern "C" int _get_osfhandle(int h);
+
 	namespace
 	{
 		wstring _utf8ToUtf16z(Memory& mem, crocstr src, wstring localBuf, wstring& heapBuf)
@@ -189,6 +192,31 @@ namespace croc
 		}
 
 		return true;
+	}
+
+	FileHandle fromCFile(CrocThread* t, FILE* f)
+	{
+		if(fflush(f) != EOF)
+		{
+			auto fd = _fileno(f);
+
+			if(fd != -1 && fd != -2) // -2 is for stdout/stderr which aren't mapped to output streams..?
+			{
+				auto h = cast(HANDLE)_get_osfhandle(fd);
+
+				if(h != INVALID_HANDLE_VALUE)
+				{
+					if(isValidHandle(h))
+						return h;
+
+					croc_pushString(t, "Invalid file handle");
+					return InvalidHandle;
+				}
+			}
+		}
+
+		pushSystemErrorMsg(t);
+		return InvalidHandle;
 	}
 
 	// =================================================================================================================
