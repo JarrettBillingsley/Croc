@@ -88,7 +88,7 @@ namespace croc
 			return cwstring::n(start, len);
 		}
 
-		FileType attrsToType(DWORD attrs)
+		FileType _attrsToType(DWORD attrs)
 		{
 			return
 				(attrs & FILE_ATTRIBUTE_DIRECTORY) ? FileType::Dir :
@@ -96,12 +96,21 @@ namespace croc
 				FileType::File;
 		}
 
-		Time filetimeToTime(FILETIME time)
+		const uint64_t UnixEpochDiff = 11644473600000000LL;
+
+		Time _filetimeToTime(FILETIME time)
 		{
-			return cast(Time)((*cast(uint64_t*)&time / 10) - 11644473600LL);
+			return cast(Time)(((*cast(uint64_t*)&time) / 10) - UnixEpochDiff);
 		}
 
-		void toWindowsPath(wstring s)
+		FILETIME _timeToFiletime(Time time)
+		{
+			time += UnixEpochDiff;
+			time *= 10;
+			return *cast(FILETIME*)&time;
+		}
+
+		void _toWindowsPath(wstring s)
 		{
 			for(auto &c: s)
 			{
@@ -155,7 +164,7 @@ namespace croc
 		wchar buf[512];
 		wstring heapBuf;
 		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
-		toWindowsPath(name16);
+		_toWindowsPath(name16);
 
 		// Open it!
 		auto ret = CreateFileW(cast(LPCWSTR)name16.ptr, cast(DWORD)access, 0,
@@ -422,7 +431,7 @@ namespace croc
 		wstring pathHeapBuf;
 		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(pathBuf, sizeof(pathBuf) / sizeof(wchar)), pathHeapBuf);
 		croc_popTop(t);
-		toWindowsPath(path16);
+		_toWindowsPath(path16);
 		WIN32_FIND_DATAW data;
 		auto dir = FindFirstFileW(cast(LPCWSTR)path16.ptr, &data);
 		pathHeapBuf.free(mem);
@@ -454,7 +463,7 @@ namespace croc
 				{
 					if(includeHidden || (data.dwFileAttributes & (FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN)) == 0)
 					{
-						auto cont = dg(attrsToType(data.dwFileAttributes));
+						auto cont = dg(_attrsToType(data.dwFileAttributes));
 
 						if(!cont)
 							break;
@@ -523,7 +532,7 @@ namespace croc
 		wchar buf[512];
 		wstring heapBuf;
 		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
-		toWindowsPath(path16);
+		_toWindowsPath(path16);
 		auto ok = SetCurrentDirectoryW(cast(LPCWSTR)path16.ptr);
 		heapBuf.free(mem);
 
@@ -542,7 +551,7 @@ namespace croc
 		wchar buf[512];
 		wstring heapBuf;
 		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
-		toWindowsPath(path16);
+		_toWindowsPath(path16);
 		auto ok = CreateDirectoryW(cast(LPCWSTR)path16.ptr, nullptr) != 0;
 		heapBuf.free(mem);
 
@@ -561,7 +570,7 @@ namespace croc
 		wchar buf[512];
 		wstring heapBuf;
 		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
-		toWindowsPath(path16);
+		_toWindowsPath(path16);
 		auto ok = RemoveDirectoryW(cast(LPCWSTR)path16.ptr) != 0;
 		heapBuf.free(mem);
 
@@ -580,7 +589,7 @@ namespace croc
 		wchar buf[512];
 		wstring heapBuf;
 		auto name16 = _utf8ToUtf16z(mem, name, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
-		toWindowsPath(name16);
+		_toWindowsPath(name16);
 
 		WIN32_FILE_ATTRIBUTE_DATA data;
 		auto ret = GetFileAttributesExW(cast(LPCWSTR)name16.ptr, GetFileExInfoStandard, &data);
@@ -589,10 +598,10 @@ namespace croc
 		if(ret && info != nullptr)
 		{
 			info->size = (cast(uint64_t)data.nFileSizeHigh << 32) + data.nFileSizeLow;
-			info->type = attrsToType(data.dwFileAttributes);
-			info->created = filetimeToTime(data.ftCreationTime);
-			info->modified = filetimeToTime(data.ftLastWriteTime);
-			info->accessed = filetimeToTime(data.ftLastAccessTime);
+			info->type = _attrsToType(data.dwFileAttributes);
+			info->created = _filetimeToTime(data.ftCreationTime);
+			info->modified = _filetimeToTime(data.ftLastWriteTime);
+			info->accessed = _filetimeToTime(data.ftLastAccessTime);
 		}
 
 		return cast(bool)ret;
@@ -605,8 +614,8 @@ namespace croc
 		wstring heapBuf1, heapBuf2;
 		auto from16 = _utf8ToUtf16z(mem, from, wstring::n(buf1, sizeof(buf1) / sizeof(wchar)), heapBuf1);
 		auto to16 = _utf8ToUtf16z(mem, to, wstring::n(buf2, sizeof(buf2) / sizeof(wchar)), heapBuf2);
-		toWindowsPath(from16);
-		toWindowsPath(to16);
+		_toWindowsPath(from16);
+		_toWindowsPath(to16);
 
 		auto ok = CopyFileW(cast(LPCWSTR)from16.ptr, cast(LPCWSTR)to16.ptr, !force);
 		heapBuf1.free(mem);
@@ -625,8 +634,8 @@ namespace croc
 		wstring heapBuf1, heapBuf2;
 		auto from16 = _utf8ToUtf16z(mem, from, wstring::n(buf1, sizeof(buf1) / sizeof(wchar)), heapBuf1);
 		auto to16 = _utf8ToUtf16z(mem, to, wstring::n(buf2, sizeof(buf2) / sizeof(wchar)), heapBuf2);
-		toWindowsPath(from16);
-		toWindowsPath(to16);
+		_toWindowsPath(from16);
+		_toWindowsPath(to16);
 
 		auto ok = MoveFileExW(cast(LPCWSTR)from16.ptr, cast(LPCWSTR)to16.ptr,
 			MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH | (force ? MOVEFILE_REPLACE_EXISTING : 0));
@@ -645,7 +654,7 @@ namespace croc
 		wchar buf[512];
 		wstring heapBuf;
 		auto path16 = _utf8ToUtf16z(mem, path, wstring::n(buf, sizeof(buf) / sizeof(wchar)), heapBuf);
-		toWindowsPath(path16);
+		_toWindowsPath(path16);
 
 		auto attrs = GetFileAttributesW(cast(LPCWSTR)path16.ptr);
 
@@ -666,6 +675,86 @@ namespace croc
 
 		return cast(bool)ok;
 	}
+
+	// =================================================================================================================
+	// Time
+
+	bool timeInitialized = false;
+	uint64_t perfCounterFreq;
+
+	void initTime()
+	{
+		if(!timeInitialized)
+		{
+			timeInitialized = true;
+			// This only fails on pre-XP/2000 systems lol
+			QueryPerformanceFrequency(cast(PLARGE_INTEGER)&perfCounterFreq);
+		}
+	}
+
+	uint64_t microTime()
+	{
+		uint64_t ret;
+		QueryPerformanceCounter(cast(PLARGE_INTEGER)&ret);
+		return (ret * 1000000) / perfCounterFreq;
+	}
+
+	Time sysTime()
+	{
+		FILETIME ret;
+		GetSystemTimeAsFileTime(&ret);
+		return _filetimeToTime(ret);
+	}
+
+	DateTime timeToDateTime(Time t, bool isLocal)
+	{
+		auto ft = _timeToFiletime(t);
+		SYSTEMTIME st;
+
+		if(isLocal)
+		{
+			FILETIME local;
+			FileTimeToLocalFileTime(&ft, &local);
+			FileTimeToSystemTime(&local, &st);
+		}
+		else
+			FileTimeToSystemTime(&ft, &st);
+
+		DateTime ret;
+		ret.year = st.wYear;
+		ret.month = st.wMonth;
+		ret.day = st.wDay;
+		ret.hour = st.wHour;
+		ret.min = st.wMinute;
+		ret.sec = st.wSecond;
+		ret.msec = st.wMilliseconds;
+		return ret;
+	}
+
+	Time dateTimeToTime(DateTime t, bool isLocal)
+	{
+		SYSTEMTIME st;
+		st.wYear = t.year;
+		st.wMonth = t.month;
+		st.wDay = t.day;
+		st.wHour = t.hour;
+		st.wMinute = t.min;
+		st.wSecond = t.sec;
+		st.wMilliseconds = t.msec;
+
+		FILETIME ft;
+		SystemTimeToFileTime(&st, &ft);
+
+		if(isLocal)
+		{
+			FILETIME utc;
+			LocalFileTimeToFileTime(&ft, &utc);
+			return _filetimeToTime(utc);
+		}
+		else
+			return _filetimeToTime(ft);
+	}
+
 #else
 #error "Unimplemented"
 

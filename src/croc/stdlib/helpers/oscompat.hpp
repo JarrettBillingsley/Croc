@@ -130,6 +130,13 @@ namespace croc
 	bool copyFromTo(CrocThread* t, crocstr from, crocstr to, bool force);
 	bool moveFromTo(CrocThread* t, crocstr from, crocstr to, bool force);
 	bool remove(CrocThread* t, crocstr path);
+
+	// Time
+	void initTime();
+	uint64_t microTime();
+	Time sysTime();
+	DateTime timeToDateTime(Time t, bool isLocal);
+	Time dateTimeToTime(DateTime t, bool isLocal);
 	}
 }
 

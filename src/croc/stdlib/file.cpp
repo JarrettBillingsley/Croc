@@ -569,11 +569,13 @@ DListSep()
 			\li{\tt{"type"}} is a string indicating whether it's a file (\tt{"file"}), directory (\tt{"dir"}), or
 				something else (\tt{"other"}).
 			\li{\tt{"size"}} is an integer representing the size, in bytes, of the file. Meaningless for non-files.
-			\li{\tt{"created"}} is an integer representing the time of creation as measuried in microseconds since
+			\li{\tt{"created"}} is an integer representing the time of creation as measured in microseconds since
 				midnight on January 1, 1970.
 			\li{\tt{"modified"}} is an integer representing the last time it was modified, measured the same way.
 			\li{\tt{"accessed"}} is an integer representing the last time it was accessed, measured the same way.
 		\endlist
+
+	The three time fields are in a format compatible with that used by the \link{time} library.
 
 	\throws[OSException] if the attributes could not be retrieved.)"),
 

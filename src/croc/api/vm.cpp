@@ -144,7 +144,7 @@ extern "C"
 		initPathLib(*t);
 		initSerializationLib(*t); // depends on .. lots of libs :P
 		initThreadLib(*t);
-		// TimeLib.init(*t);
+		initTimeLib(*t);
 		initDoctoolsLibs(*t);
 
 #ifdef CROC_BUILTIN_DOCS
