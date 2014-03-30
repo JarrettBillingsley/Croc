@@ -49,7 +49,6 @@ namespace croc
 		ar->numResults = 0;
 		ar->unwindCounter = 0;
 		ar->unwindReturn = nullptr;
-		ar->incdNativeDepth = false;
 		from->stackBase = slot;
 		from->stackIndex = slot + 1;
 
@@ -71,6 +70,7 @@ namespace croc
 #ifdef NDEBUG
 				(void)result;
 #endif
+				execute(t, t->arIndex);
 			}
 			else
 			{
@@ -78,9 +78,8 @@ namespace croc
 				numParams--;
 				saveResults(t, from, slot + 2, numParams);
 				callEpilogue(t);
+				execute(t, t->savedStartARIndex);
 			}
-
-			execute(t);
 		});
 
 		from->state = savedState;

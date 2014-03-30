@@ -1203,10 +1203,7 @@ namespace croc
 				t->nativeCallDepth++;
 
 				if(funcCallPrologue(t, method, firstSlot, 0, firstSlot, num + 1))
-				{
-					t->currentAR->incdNativeDepth = true;
-					execute(t);
-				}
+					execute(t, t->arIndex);
 
 				t->nativeCallDepth--;
 				return;

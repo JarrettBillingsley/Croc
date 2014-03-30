@@ -286,10 +286,7 @@ namespace croc
 					t->nativeCallDepth++;
 
 					if(callPrologue(t, slot, 0, numParams))
-					{
-						t->currentAR->incdNativeDepth = true;
-						execute(t);
-					}
+						execute(t, t->arIndex);
 
 					t->nativeCallDepth--;
 				}
@@ -404,7 +401,6 @@ namespace croc
 			ar->savedTop = ar->base + funcdef->stackSize;
 			ar->unwindCounter = 0;
 			ar->unwindReturn = nullptr;
-			ar->incdNativeDepth = false;
 
 			// Set the stack indices.
 			t->stackBase = ar->base;
@@ -435,7 +431,6 @@ namespace croc
 			ar->numTailcalls = 0;
 			ar->unwindCounter = 0;
 			ar->unwindReturn = nullptr;
-			ar->incdNativeDepth = true;
 
 			t->stackBase = ar->base;
 
@@ -461,8 +456,7 @@ namespace croc
 		if(isScript)
 		{
 			t->nativeCallDepth++;
-			t->currentAR->incdNativeDepth = true;
-			execute(t);
+			execute(t, t->arIndex);
 			t->nativeCallDepth--;
 		}
 

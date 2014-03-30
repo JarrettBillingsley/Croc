@@ -307,7 +307,7 @@ namespace croc
 		}
 	}
 
-	void execute(Thread* t)
+	void execute(Thread* t, uword startARIndex)
 	{
 		assert(t->stackIndex > 1); // for the exec EH frame
 		jmp_buf buf;
@@ -336,7 +336,7 @@ namespace croc
 			if(t->shouldHalt)
 				croc_eh_throwStd(*t, "HaltException", "Thread halted");
 
-			pc = &t->currentAR->pc;
+			// pc = &t->currentAR->pc;
 			Instruction* i = (*pc)++;
 
 			if(t->hooksEnabled && t->hooks)
@@ -789,7 +789,6 @@ namespace croc
 
 						auto tc = prevAR->numTailcalls + 1;
 						t->currentAR->expectedResults = prevAR->expectedResults;
-						t->currentAR->incdNativeDepth = prevAR->incdNativeDepth;
 						*prevAR = *t->currentAR;
 						prevAR->numTailcalls = tc;
 						prevAR->base -= diff;
@@ -825,11 +824,9 @@ namespace croc
 					break;
 				}
 				case Op_Ret: {
-					auto didInc = t->currentAR->incdNativeDepth;
-
 					callEpilogue(t);
 
-					if(t->arIndex == 0 || didInc)
+					if(t->arIndex < startARIndex)
 						goto _return;
 
 					goto _reentry;
@@ -977,6 +974,7 @@ namespace croc
 						croc_eh_throwStd(*t, "RuntimeError",
 							"Attempting to yield across native / metamethod call boundary");
 
+					t->savedStartARIndex = startARIndex;
 					yieldImpl(t, stackBase + rd, numParams, numResults);
 					goto _return;
 				}

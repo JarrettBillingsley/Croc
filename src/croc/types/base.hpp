@@ -578,7 +578,6 @@ namespace croc
 		uword numResults;
 		uword unwindCounter;
 		Instruction* unwindReturn;
-		bool incdNativeDepth;
 	};
 
 	extern const char* ThreadStateStrings[5];
@@ -614,6 +613,7 @@ namespace croc
 		CrocThreadState state;
 		uword numYields;
 		uword nativeCallDepth;
+		uword savedStartARIndex;
 
 		uint8_t hooks;
 		bool hooksEnabled;

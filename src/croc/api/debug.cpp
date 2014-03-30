@@ -132,7 +132,6 @@ extern "C"
 			printf("\tVararg Base: %" CROC_SIZE_T_FORMAT "\n", ar.vargBase);
 			printf("\tReturns Slot: %" CROC_SIZE_T_FORMAT "\n", ar.returnSlot);
 			printf("\tExpected results: %" CROC_SIZE_T_FORMAT "\n", ar.expectedResults);
-			printf("\tNative call depth incd: %s\n", ar.incdNativeDepth ? "true" : "false");
 		}
 
 		printf("\n");

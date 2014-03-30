@@ -5,7 +5,7 @@
 
 namespace croc
 {
-	void execute(Thread* t);
+	void execute(Thread* t, uword startARIndex);
 }
 
 #endif
