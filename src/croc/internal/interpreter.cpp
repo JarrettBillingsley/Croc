@@ -719,17 +719,19 @@ namespace croc
 				// Function Calling
 			{
 				bool isScript;
+				bool isTailcall;
 				word numResults;
 				uword numParams;
 
-				case Op_Method:
 				case Op_TailMethod:
+				case Op_Method:
+					isTailcall = opcode == Op_TailMethod;
 					GetRS();
 					GetRT();
 					numParams = GetUImm();
 					numResults = GetUImm() - 1;
 
-					if(opcode == Op_TailMethod)
+					if(isTailcall)
 						numResults = -1; // the second uimm is a dummy for these opcodes
 
 					if(RT->type != CrocType_String)
@@ -741,26 +743,27 @@ namespace croc
 					}
 
 					AdjustParams();
-					isScript = methodCallPrologue(t, stackBase + rd, *RS, RT->mString, numResults, numParams);
+					isScript = methodCallPrologue(t, stackBase + rd, *RS, RT->mString, numResults, numParams, isTailcall);
 
-					if(opcode == Op_Method)
+					if(!isTailcall)
 						goto _commonCall;
 					else
 						goto _commonTailcall;
 
 				case Op_Call:
 				case Op_TailCall:
+					isTailcall = opcode == Op_TailCall;
 					numParams = GetUImm();
 					numResults = GetUImm() - 1;
 
-					if(opcode == Op_TailCall)
+					if(isTailcall)
 						numResults = -1; // second uimm is a dummy
 
 					AdjustParams();
 
-					isScript = callPrologue(t, stackBase + rd, numResults, numParams);
+					isScript = callPrologue(t, stackBase + rd, numResults, numParams, isTailcall);
 
-					if(opcode == Op_TailCall)
+					if(isTailcall)
 						goto _commonTailcall;
 
 					// fall through

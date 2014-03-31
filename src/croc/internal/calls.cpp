@@ -180,6 +180,9 @@ namespace croc
 
 	void callEpilogue(Thread* t)
 	{
+		if(t->hooks & CrocThreadHook_Ret)
+			callHook(t, CrocThreadHook_Ret);
+
 		// Get results before popARTo takes them away
 		auto destSlot = t->currentAR->returnSlot;
 		auto expectedResults = t->currentAR->expectedResults;
@@ -251,7 +254,7 @@ namespace croc
 		return ret;
 	}
 
-	bool callPrologue(Thread* t, AbsStack slot, word expectedResults, uword numParams)
+	bool callPrologue(Thread* t, AbsStack slot, word expectedResults, uword numParams, bool isTailcall)
 	{
 		assert(numParams > 0);
 		auto func = t->stack[slot];
@@ -259,7 +262,7 @@ namespace croc
 		switch(func.type)
 		{
 			case CrocType_Function:
-				return funcCallPrologue(t, func.mFunction, slot, expectedResults, slot + 1, numParams);
+				return funcCallPrologue(t, func.mFunction, slot, expectedResults, slot + 1, numParams, isTailcall);
 
 			case CrocType_Class: {
 				auto cls = func.mClass;
@@ -350,7 +353,8 @@ namespace croc
 		}
 	}
 
-	bool funcCallPrologue(Thread* t, Function* func, AbsStack returnSlot, word expectedResults, AbsStack paramSlot, uword numParams)
+	bool funcCallPrologue(Thread* t, Function* func, AbsStack returnSlot, word expectedResults, AbsStack paramSlot,
+		uword numParams, bool isTailcall)
 	{
 		if(numParams > func->maxParams)
 			croc_eh_throwStd(*t, "ParamError",
@@ -407,7 +411,7 @@ namespace croc
 
 			// Call any hook.
 			if(t->hooks & CrocThreadHook_Call)
-				callHook(t, CrocThreadHook_Call);
+				callHook(t, isTailcall ? CrocThreadHook_TailCall : CrocThreadHook_Call);
 
 			return true;
 		}
@@ -473,7 +477,8 @@ namespace croc
 		return ret;
 	}
 
-	bool methodCallPrologue(Thread* t, AbsStack slot, Value self, String* methodName, word numReturns, uword numParams)
+	bool methodCallPrologue(Thread* t, AbsStack slot, Value self, String* methodName, word numReturns, uword numParams,
+		bool isTailcall)
 	{
 		auto method = lookupMethod(t, self, methodName);
 
@@ -488,7 +493,7 @@ namespace croc
 		{
 			t->stack[slot] = method;
 			t->stack[slot + 1] = self;
-			return callPrologue(t, slot, numReturns, numParams);
+			return callPrologue(t, slot, numReturns, numParams, isTailcall);
 		}
 		else
 		{
@@ -496,7 +501,7 @@ namespace croc
 			{
 				t->stack[slot] = self;
 				t->stack[slot + 1] = Value::from(methodName);
-				return funcCallPrologue(t, mm, slot, numReturns, slot, numParams + 1);
+				return funcCallPrologue(t, mm, slot, numReturns, slot, numParams + 1, isTailcall);
 			}
 			else
 			{

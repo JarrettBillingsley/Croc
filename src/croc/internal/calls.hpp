@@ -20,10 +20,12 @@ namespace croc
 	void callEpilogue(Thread* t);
 	void saveResults(Thread* t, Thread* from, AbsStack first, uword num);
 	DArray<Value> loadResults(Thread* t);
-	bool callPrologue(Thread* t, AbsStack slot, word expectedResults, uword numParams);
-	bool funcCallPrologue(Thread* t, Function* func, AbsStack returnSlot, word expectedResults, AbsStack paramSlot, uword numParams);
+	bool callPrologue(Thread* t, AbsStack slot, word expectedResults, uword numParams, bool isTailcall = false);
+	bool funcCallPrologue(Thread* t, Function* func, AbsStack returnSlot, word expectedResults, AbsStack paramSlot,
+		uword numParams, bool isTailcall = false);
 	uword commonCall(Thread* t, AbsStack slot, word numReturns, bool isScript);
-	bool methodCallPrologue(Thread* t, AbsStack slot, Value self, String* methodName, word numReturns, uword numParams);
+	bool methodCallPrologue(Thread* t, AbsStack slot, Value self, String* methodName, word numReturns, uword numParams,
+		bool isTailcall = false);
 	bool tryMMDest(Thread* t, Metamethod mm, AbsStack dest, Value src1);
 	bool tryMMDest(Thread* t, Metamethod mm, AbsStack dest, Value src1, Value src2);
 	bool tryMMDest(Thread* t, Metamethod mm, AbsStack dest, Value src1, Value src2, Value src3);
