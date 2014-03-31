@@ -44,9 +44,9 @@ namespace croc
 			case CrocType_Bool:      return cast(hash_t)mBool;
 			case CrocType_Int:       return cast(hash_t)mInt;
 			case CrocType_Float:     return cast(hash_t)mFloat;
-			case CrocType_Nativeobj: return *cast(hash_t*)&mNativeobj;
+			case CrocType_Nativeobj: return cast(hash_t)cast(uword)mNativeobj;
 			case CrocType_String:    return mString->hash;
-			default:                 return *cast(hash_t*)&mGCObj;
+			default:                 return cast(hash_t)cast(uword)mGCObj;
 		}
 	}
 

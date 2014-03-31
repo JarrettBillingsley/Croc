@@ -1346,11 +1346,11 @@ private:
 			l.next();
 
 			// Now normalize table columns.
-			auto tableLen = croc_len(t, tab);
+			auto tableLen = cast(uword)croc_len(t, tab);
 			for(uword i = 1; i < tableLen; i++)
 			{
 				row = croc_idxi(t, tab, i);
-				auto rowLen = croc_len(t, row);
+				auto rowLen = cast(uword)croc_len(t, row);
 				assert(rowLen <= maxRowLength);
 
 				if(rowLen < maxRowLength)

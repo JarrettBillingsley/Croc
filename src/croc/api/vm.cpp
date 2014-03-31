@@ -244,7 +244,6 @@ extern "C"
 
 	word_t croc_vm_pushTypeMT(CrocThread* t, CrocType type)
 	{
-		// ORDER CROCTYPE
 		if(!(type >= CrocType_FirstUserType && type <= CrocType_LastUserType))
 		{
 			if(type >= 0 && type < CrocType_NUMTYPES)
@@ -265,7 +264,6 @@ extern "C"
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(1);
 
-		// ORDER CROCTYPE
 		if(!(type >= CrocType_FirstUserType && type <= CrocType_LastUserType))
 		{
 			if(type >= 0 && type < CrocType_NUMTYPES)

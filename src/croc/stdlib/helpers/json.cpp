@@ -376,6 +376,7 @@ namespace croc
 			}
 
 			assert(false);
+			return 0; // dummy
 		}
 
 		void readStringLiteral()
@@ -839,7 +840,7 @@ namespace croc
 	{
 		JSONLexer l(t);
 		l.begin(source);
-		word ret;
+		word ret = 0;
 
 		if(l.type() == Token::LBrace)
 			ret = parseObject(t, l);

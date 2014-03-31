@@ -83,7 +83,6 @@ extern "C"
 
 			for(uword i = wholeStack ? 0 : tmp; i < top; i++)
 			{
-				// ORDER CROCTYPE
 				if(t->stack[i].type >= CrocType_FirstUserType && t->stack[i].type <= CrocType_LastUserType)
 				{
 					croc_pushToStringRaw(*t, i);

@@ -810,7 +810,9 @@ namespace croc
 			croc_eh_throwStd(t, "ValueError", "Malformed data (instance of an unfrozen class somehow exists)");
 
 		if(!Instance::finishCreate(v, parent))
-			croc_eh_throwStd(t, "ValueError", "Malformed data (instance size %u does not match base class size %u)",
+			croc_eh_throwStd(t, "ValueError",
+				"Malformed data (instance size %" CROC_SIZE_T_FORMAT
+					" does not match base class size %" CROC_SIZE_T_FORMAT ")",
 				v->memSize, sizeof(Instance) + parent->numInstanceFields * sizeof(Array::Slot));
 
 		if(_readUInt8(t) != 0)

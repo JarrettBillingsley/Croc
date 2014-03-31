@@ -16,7 +16,7 @@ namespace croc
 				ret += length;
 
 			// big difference from croc_ex_checkIndexParam is that ret == length is okay!
-			if(ret < 0 || ret > length || ret > std::numeric_limits<uword_t>::max())
+			if(ret < 0 || cast(uword)ret > length || cast(uword)ret > std::numeric_limits<uword_t>::max())
 			{
 				croc_eh_throwStd(t, "BoundsError",
 					"Invalid %s slice index %" CROC_INTEGER_FORMAT " (length is %" CROC_SIZE_T_FORMAT")",
@@ -44,7 +44,7 @@ extern "C"
 
 	void croc_ex_checkValidSlice(CrocThread* t, crocint_t lo, crocint_t hi, uword_t length, const char* name)
 	{
-		if(lo < 0 || lo > hi || hi > length)
+		if(lo < 0 || lo > hi || cast(uword)hi > length)
 			croc_ex_sliceIndexError(t, lo, hi, length, name);
 	}
 
@@ -71,7 +71,6 @@ extern "C"
 
 	void croc_ex_checkParam(CrocThread* t, word_t index, CrocType type)
 	{
-		// ORDER CROCTYPE
 		assert(type >= CrocType_FirstUserType && type <= CrocType_LastUserType);
 
 		croc_ex_checkAnyParam(t, index);
@@ -183,7 +182,7 @@ extern "C"
 		if(ret < 0)
 			ret += length;
 
-		if(ret < 0 || ret >= length || ret > std::numeric_limits<uword_t>::max())
+		if(ret < 0 || cast(uword)ret >= length || cast(uword)ret > std::numeric_limits<uword_t>::max())
 			croc_ex_indexError(t, ret, length, name);
 
 		return cast(uword_t)ret;
@@ -298,7 +297,7 @@ extern "C"
 		if(ret < 0)
 			ret += length;
 
-		if(ret < 0 || ret >= length || ret > std::numeric_limits<uword_t>::max())
+		if(ret < 0 || cast(uword)ret >= length || cast(uword)ret > std::numeric_limits<uword_t>::max())
 			croc_ex_indexError(t, ret, length, name);
 
 		return cast(uword_t)ret;

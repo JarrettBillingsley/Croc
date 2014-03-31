@@ -470,8 +470,9 @@ const char* _docstrings[] =
 	and "imports/current/foo/bar.croc" in that order.)"),
 
 	Docstr(DVar("customLoaders")
-	R"(This is a table which you are free to use. It maps from module names (strings) to functions or namespaces. This
-	table is used by the \tt{customLoad} step in \link{modules.loaders}; see it for more information.)"),
+	R"(This is a table which you are free to use. It maps from module names (strings) to functions, funcdefs, or
+	namespaces. This table is used by the \tt{customLoad} step in \link{modules.loaders}; see it for more
+	information.)"),
 
 	Docstr(DVar("loaders")
 	R"(This is an important variable. This holds the array of \em{module loaders}, which are functions which take the
@@ -482,11 +483,11 @@ const char* _docstrings[] =
 
 	By default, two loaders are in this array, in the following order:
 	\blist
-		\li \b{\tt{customLoad}}: This looks in the \link{modules.customLoaders} table for a loader function or
+		\li \b{\tt{customLoad}}: This looks in the \link{modules.customLoaders} table for a loader function, funcdef, or
 			namespace. If one exists, it just returns that; otherwise, returns null. You can use this behavior to set up
 			custom loaders for your own modules: just put the loader in the \link{modules.customLoaders} table, and when
-			it's imported, it'll have the loader function or namespace used for it. This is exactly how the standard
-			library loaders work.
+			it's imported, it'll have the loader function, funcdef, or namespace used for it. This is exactly how the
+			standard library loaders work.
 
 		\li \b{\tt{loadFiles}}: This looks for files to load and loads them. As explained in \link{modules.path}, the
 			paths in that variable will be tried one by one until a file is found or they are all exhausted. This looks

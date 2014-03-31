@@ -103,14 +103,22 @@ namespace croc
 
 		Time _filetimeToTime(FILETIME time)
 		{
-			return cast(Time)(((*cast(uint64_t*)&time) / 10) - UnixEpochDiff);
+			ULARGE_INTEGER inttime;
+			inttime.HighPart = time.dwHighDateTime;
+			inttime.LowPart = time.dwLowDateTime;
+			return cast(Time)((inttime.QuadPart / 10) - UnixEpochDiff);
 		}
 
 		FILETIME _timeToFiletime(Time time)
 		{
 			time += UnixEpochDiff;
 			time *= 10;
-			return *cast(FILETIME*)&time;
+			ULARGE_INTEGER inttime;
+			inttime.QuadPart = time;
+			FILETIME ret;
+			ret.dwHighDateTime = inttime.HighPart;
+			ret.dwLowDateTime = inttime.LowPart;
+			return ret;
 		}
 
 		void _toWindowsPath(wstring s)
@@ -202,7 +210,7 @@ namespace croc
 
 			if(fd != -1 && fd != -2) // -2 is for stdout/stderr which aren't mapped to output streams..?
 			{
-				auto h = cast(HANDLE)_get_osfhandle(fd);
+				auto h = cast(HANDLE)cast(uword)_get_osfhandle(fd);
 
 				if(h != INVALID_HANDLE_VALUE)
 				{

@@ -99,7 +99,6 @@ namespace croc
 
 	Namespace* getMetatable(Thread* t, CrocType type)
 	{
-		// ORDER CROCTYPE
 		assert(type >= CrocType_FirstUserType && type <= CrocType_LastUserType);
 		return t->vm->metaTabs[type];
 	}
