@@ -178,7 +178,6 @@ FIVE SHORTS:
 	X(PushCatch),\
 	X(PushFinally),\
 	X(PopEH),\
-	X(PopEH2),\
 	X(EndFinal),\
 	X(Throw),\
 	X(Method),\

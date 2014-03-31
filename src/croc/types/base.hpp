@@ -580,6 +580,14 @@ namespace croc
 		Instruction* unwindReturn;
 	};
 
+	struct ScriptEHFrame
+	{
+		uword actRecord;
+		AbsStack slot;
+		bool isCatch;
+		Instruction* pc;
+	};
+
 	extern const char* ThreadStateStrings[5];
 
 	struct Thread : public GCObject
@@ -591,6 +599,10 @@ namespace croc
 		// weak references used in the VM's allThreads list
 		Thread* next;
 		Thread* prev;
+
+		DArray<ScriptEHFrame> ehFrames;
+		ScriptEHFrame* currentEH;
+		uword ehIndex;
 
 		DArray<ActRecord> actRecs;
 		ActRecord* currentAR;
@@ -637,27 +649,12 @@ namespace croc
 		Upval* nextuv;
 	};
 
-	enum EHFlags
-	{
-		EHFlags_Catch =  (1 << 0),
-		EHFlags_Native = (1 << 1),
-	};
-
-#define EH_IS_CATCH(eh) TEST_FLAG((eh)->flags, EHFlags_Catch)
-#define EH_IS_NATIVE(eh) TEST_FLAG((eh)->flags, EHFlags_Native)
-
-	struct EHFrame
+	struct NativeEHFrame
 	{
 		Thread* t;
-		uword flags;
-		AbsStack slot;
 		uword actRecord;
-
-		union
-		{
-			Instruction* scriptPC;
-			jmp_buf* nativePC;
-		};
+		AbsStack slot;
+		jmp_buf* jbuf;
 	};
 
 	struct VM
@@ -688,10 +685,9 @@ namespace croc
 		bool inGCCycle;
 
 		// EH stuff
-		DArray<EHFrame> ehFrames;
-		EHFrame* currentEH;
+		DArray<NativeEHFrame> ehFrames;
+		NativeEHFrame* currentEH;
 		uword ehIndex;
-		uword lastNativeEHPlusOne;
 
 		// Others
 		Hash<crocstr, String*, MethodHasher, HashNodeWithHash<crocstr, String*> > stringTab;

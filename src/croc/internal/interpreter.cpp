@@ -697,11 +697,10 @@ namespace croc
 				case Op_PushCatch:
 				case Op_PushFinally: {
 					auto offs = GetImm();
-					pushScriptEHFrame(t, opcode == Op_PushCatch, cast(RelStack)rd, offs);
+					pushScriptEHFrame(t, opcode == Op_PushCatch, cast(RelStack)rd, t->currentAR->pc + offs);
 					break;
 				}
-				case Op_PopEH2:
-				case Op_PopEH: popEHFrame(t); break;
+				case Op_PopEH: popScriptEHFrame(t); break;
 
 				case Op_EndFinal:
 					if(t->vm->exception != nullptr)
@@ -1281,19 +1280,23 @@ namespace croc
 		else // catch!
 		{
 			assert(t->vm->curThread == t);
-			auto frame = t->vm->currentEH;
-
 			t->nativeCallDepth = savedNativeDepth;
-			popEHFrame(t);
+			auto frame = t->currentEH;
 
-			if(frame && frame->t == t && !EH_IS_NATIVE(frame))
+			if(frame && frame->actRecord + 1 == t->arIndex)
+			{
+				popScriptEHFrame(t);
 				goto _exceptionRetry;
+			}
 			else
+			{
+				popNativeEHFrame(t);
 				throwImpl(t, t->stack[t->stackIndex - 1], true);
+			}
 		}
 
 	_return:
 		t->nativeCallDepth = savedNativeDepth;
-		popEHFrame(t);
+		popNativeEHFrame(t);
 	}
 }

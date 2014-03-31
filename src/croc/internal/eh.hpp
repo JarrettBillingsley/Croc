@@ -8,11 +8,11 @@
 namespace croc
 {
 	word defaultUnhandledEx(CrocThread* t);
-	EHFrame* pushEHFrame(Thread* t);
 	void pushNativeEHFrame(Thread* t, RelStack slot, jmp_buf& buf);
 	void pushExecEHFrame(Thread* t, jmp_buf& buf);
-	void pushScriptEHFrame(Thread* t, bool isCatch, RelStack slot, word pcOffset);
-	void popEHFrame(Thread* t);
+	void pushScriptEHFrame(Thread* t, bool isCatch, RelStack slot, Instruction* pc);
+	void popNativeEHFrame(Thread* t);
+	void popScriptEHFrame(Thread* t);
 	void unwindThisFramesEH(Thread* t);
 	bool tryCode(Thread* t, RelStack slot, std::function<void()> dg);
 	word pushTraceback(Thread* t);

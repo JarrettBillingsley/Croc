@@ -25,27 +25,18 @@ namespace croc
 		return 0;
 	}
 
-	EHFrame* pushEHFrame(Thread* t)
+	void pushNativeEHFrame(Thread* t, RelStack slot, jmp_buf& buf)
 	{
 		auto vm = t->vm;
-
 		if(vm->ehIndex >= vm->ehFrames.length)
 			vm->ehFrames.resize(vm->mem, vm->ehFrames.length * 2);
 
-		vm->currentEH = &vm->ehFrames[vm->ehIndex];
-		vm->ehIndex++;
-		vm->currentEH->t = t;
-		vm->currentEH->actRecord = t->arIndex - 1;
-		return vm->currentEH;
-	}
-
-	void pushNativeEHFrame(Thread* t, RelStack slot, jmp_buf& buf)
-	{
-		auto eh = pushEHFrame(t);
-		eh->flags = EHFlags_Catch | EHFlags_Native;
+		auto eh = &vm->ehFrames[vm->ehIndex++];
+		vm->currentEH = eh;
+		eh->t = t;
+		eh->actRecord = t->arIndex - 1;
 		eh->slot = fakeToAbs(t, slot);
-		eh->nativePC = &buf;
-		t->vm->lastNativeEHPlusOne = t->vm->ehIndex;
+		eh->jbuf = &buf;
 	}
 
 	void pushExecEHFrame(Thread* t, jmp_buf& buf)
@@ -54,34 +45,24 @@ namespace croc
 		t->vm->currentEH->actRecord--;
 	}
 
-	void pushScriptEHFrame(Thread* t, bool isCatch, RelStack slot, word pcOffset)
+	void pushScriptEHFrame(Thread* t, bool isCatch, RelStack slot, Instruction* pc)
 	{
-		auto eh = pushEHFrame(t);
-		eh->flags = isCatch ? EHFlags_Catch : 0;
+		if(t->ehIndex >= t->ehFrames.length)
+			t->ehFrames.resize(t->vm->mem, t->ehFrames.length * 2);
+
+		auto eh = &t->ehFrames[t->ehIndex++];
+		t->currentEH = eh;
+		eh->actRecord = t->arIndex - 1;
 		eh->slot = fakeToAbs(t, slot);
-		eh->scriptPC = t->currentAR->pc + pcOffset;
+		eh->isCatch = isCatch;
+		eh->pc = pc;
 	}
 
-	void popEHFrame(Thread* t)
+	void popNativeEHFrame(Thread* t)
 	{
 		auto vm = t->vm;
 		assert(vm->ehIndex > 0);
 		assert(vm->currentEH->t == t);
-
-		if(EH_IS_NATIVE(vm->currentEH))
-		{
-			for(uword i = vm->ehIndex - 2; cast(word)i >= 0; i--)
-			{
-				if(EH_IS_NATIVE(&vm->ehFrames[i]))
-				{
-					vm->lastNativeEHPlusOne = i + 1;
-					goto _found;
-				}
-			}
-
-			vm->lastNativeEHPlusOne = 0;
-		_found:;
-		}
 
 		vm->ehIndex--;
 
@@ -91,13 +72,22 @@ namespace croc
 			vm->currentEH = nullptr;
 	}
 
+	void popScriptEHFrame(Thread* t)
+	{
+		assert(t->ehIndex > 0);
+
+		t->ehIndex--;
+
+		if(t->ehIndex > 0)
+			t->currentEH = &t->ehFrames[t->ehIndex - 1];
+		else
+			t->currentEH = nullptr;
+	}
+
 	void unwindThisFramesEH(Thread* t)
 	{
-		auto vm = t->vm;
-		// This uses signed comparison because the EH actRecord index can be -1, which indicates there IS no
-		// corresponding AR; this is the case when a native EH frame is installed on the main thread.
-		while(vm->ehIndex > 0 && vm->currentEH->t == t && cast(word)vm->currentEH->actRecord >= cast(word)t->arIndex)
-			popEHFrame(t);
+		while(t->ehIndex > 0 && t->currentEH->actRecord >= t->arIndex)
+			popScriptEHFrame(t);
 	}
 
 	bool tryCode(Thread* t, RelStack slot, std::function<void()> dg)
@@ -118,7 +108,7 @@ namespace croc
 		else
 			ret = true;
 
-		popEHFrame(t);
+		popNativeEHFrame(t);
 		assert(t->vm->ehIndex == ehCheck);
 		t->nativeCallDepth = savedNativeDepth;
 		return ret;
@@ -198,8 +188,7 @@ namespace croc
 
 		auto vm = t->vm;
 		vm->exception = ex.mInstance;
-		auto jumpFrame = (vm->lastNativeEHPlusOne == 0) ? nullptr : &vm->ehFrames[vm->lastNativeEHPlusOne - 1];
-		assert(!jumpFrame || EH_IS_NATIVE(jumpFrame));
+		auto jumpFrame = vm->currentEH;
 		auto destThread = jumpFrame ? jumpFrame->t : nullptr;
 
 		// Kill any threads between here and where the exception is being caught
@@ -228,10 +217,24 @@ namespace croc
 		else
 		{
 			t = vm->curThread;
-			auto destFrame = vm->currentEH;
-			assert(destFrame->t == t);
-			popARTo(t, destFrame->actRecord + 1);
-			auto slot = destFrame->slot;
+			auto threadFrame = t->currentEH;
+			// Signed, since native EH frames can have an AR of -1 which means it's at top-level
+			bool isScript = threadFrame && cast(word)threadFrame->actRecord > cast(word)jumpFrame->actRecord;
+
+			uword destAR, slot;
+
+			if(isScript)
+			{
+				destAR = threadFrame->actRecord;
+				slot = threadFrame->slot;
+			}
+			else
+			{
+				destAR = jumpFrame->actRecord;
+				slot = jumpFrame -> slot;
+			}
+
+			popARTo(t, destAR + 1);
 			closeUpvals(t, slot);
 
 			// This can happen at top-level, when popARTo sets the stack index to 1.
@@ -240,40 +243,37 @@ namespace croc
 
 			t->stack.slice(slot + 1, t->stackIndex).fill(Value::nullValue);
 
-			if(EH_IS_CATCH(destFrame))
+			if(!isScript || threadFrame->isCatch)
 			{
 				t->stack[slot] = ex;
 				t->vm->exception = nullptr;
 			}
 
-			if(EH_IS_NATIVE(destFrame))
-				t->stackIndex = slot + 1;
+			if(isScript)
+				t->currentAR->pc = threadFrame->pc;
 			else
-				t->currentAR->pc = destFrame->scriptPC;
+				t->stackIndex = slot + 1;
 
-			longjmp(*jumpFrame->nativePC, 1);
+			longjmp(*jumpFrame->jbuf, 1);
 		}
 	}
 
 	void unwind(Thread* t)
 	{
-		auto vm = t->vm;
-
 		while(t->currentAR->unwindCounter > 0)
 		{
-			assert(vm->ehIndex > 0);
-			assert(vm->currentEH->t == t);
-			assert(vm->currentEH->actRecord == t->arIndex);
+			assert(t->ehIndex > 0);
+			assert(t->currentEH->actRecord == t->arIndex);
 
-			auto frame = *vm->currentEH;
-			popEHFrame(t);
+			auto frame = *t->currentEH;
+			popScriptEHFrame(t);
 			closeUpvals(t, frame.slot);
 			t->currentAR->unwindCounter--;
 
-			if(!EH_IS_CATCH(&frame))
+			if(!frame.isCatch)
 			{
 				// finally in the middle of an unwind
-				t->currentAR->pc = frame.scriptPC;
+				t->currentAR->pc = frame.pc;
 				return;
 			}
 		}

@@ -100,7 +100,7 @@ extern "C"
 		vm->registry = Namespace::create(vm->mem, String::create(vm, ATODA("<registry>")));
 		vm->unhandledEx = Function::create(vm->mem, vm->globals, String::create(vm, ATODA("defaultUnhandledEx")), 1,
 			defaultUnhandledEx, 0);
-		vm->ehFrames = DArray<EHFrame>::alloc(vm->mem, 10);
+		vm->ehFrames = DArray<NativeEHFrame>::alloc(vm->mem, 10);
 		vm->rng.seed();
 
 		// _G = _G._G = _G._G._G = _G._G._G._G = ...
