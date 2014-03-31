@@ -411,9 +411,9 @@ namespace croc
 					GetRS();
 
 					if(RS->type == CrocType_Int)
-						t->stack[stackBase + rd].mInt = -RS->mInt;
+						t->stack[stackBase + rd] = Value::from(-RS->mInt);
 					else if(RS->type == CrocType_Float)
-						t->stack[stackBase + rd].mFloat = -RS->mFloat;
+						t->stack[stackBase + rd] = Value::from(-RS->mFloat);
 					else
 					{
 						pushTypeStringImpl(t, *RS);
@@ -425,7 +425,7 @@ namespace croc
 					GetRS();
 
 					if(RS->type == CrocType_Int)
-						t->stack[stackBase + rd].mInt = ~RS->mInt;
+						t->stack[stackBase + rd] = Value::from(~RS->mInt);
 					else
 					{
 						pushTypeStringImpl(t, *RS);
