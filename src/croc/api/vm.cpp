@@ -193,7 +193,7 @@ extern "C"
 	{
 		if(libs & CrocUnsafeLib_File)  initFileLib(t);
 		if(libs & CrocUnsafeLib_OS)    {} //OSLib.init(t);
-		if(libs & CrocUnsafeLib_Debug) {} //DebugLib.init(t);
+		if(libs & CrocUnsafeLib_Debug) initDebugLib(t);
 	}
 
 	void croc_vm_loadAddons(CrocThread* t, CrocAddons libs)

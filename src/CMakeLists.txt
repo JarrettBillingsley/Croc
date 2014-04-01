@@ -97,6 +97,7 @@ set(croc_SRC
 	croc/stdlib/ascii.cpp
 	croc/stdlib/compiler.cpp
 	croc/stdlib/console.cpp
+	croc/stdlib/debug.cpp
 	croc/stdlib/docs.cpp
 	croc/stdlib/doctools.cpp
 	croc/stdlib/env.cpp
