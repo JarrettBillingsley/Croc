@@ -108,15 +108,19 @@ namespace croc
 			default: assert(false);
 		}
 
-		auto failed = tryCode(t, slot, [&]
+		t->nativeCallDepth++;
+
+		auto failed = tryCode(t, slot - t->stackBase, [&]
 		{
-			commonCall(t, slot, 0, callPrologue(t, slot, 0, 1));
+			commonCall(t, slot, 0, callPrologue(t, slot, 0, 2));
 		});
 
+		t->nativeCallDepth--;
 		t->hooksEnabled = true;
-		t->stackIndex = savedTop;
 
 		if(failed)
 			croc_eh_rethrow(*t);
+		else
+			t->stackIndex = savedTop;
 	}
 }

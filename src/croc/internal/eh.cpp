@@ -203,6 +203,8 @@ namespace croc
 			// Uh oh, no handler; call the unhandled handler. At this point, there are no running threads, so let's use
 			// the main thread.
 			t = vm->mainThread;
+			t->setHookFunc(t->vm->mem, nullptr);
+			t->hooks = 0;
 
 			push(t, Value::from(vm->unhandledEx));
 			push(t, Value::nullValue);

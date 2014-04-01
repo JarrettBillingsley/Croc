@@ -37,6 +37,9 @@ int main()
 			printf("\n------------ Thread halted. ------------\n");
 		else
 		{
+			croc_pushNull(t);
+			croc_debug_setHookFunc(t, 0, 0);
+
 			printf("\n------------ ERROR ------------\n");
 			croc_pushToString(t, -1);
 			printf("%s\n", croc_getString(t, -1));

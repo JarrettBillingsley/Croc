@@ -223,7 +223,7 @@ DBeginList(_globalFuncs)
 	Docstr(DFunc("setHook")
 	R"()"),
 
-	"setHook", 3, [](CrocThread* t) -> word_t
+	"setHook", 4, [](CrocThread* t) -> word_t
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);

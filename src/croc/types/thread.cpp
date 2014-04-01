@@ -14,6 +14,7 @@ namespace croc
 		t->stack =    DArray<Value>::alloc(mem, 20);
 		t->results =  DArray<Value>::alloc(mem, 8);
 		t->stackIndex = cast(AbsStack)1; // So that there is a 'this' at top-level.
+		t->hooksEnabled = true;
 		return t;
 	}
 

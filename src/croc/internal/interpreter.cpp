@@ -336,6 +336,7 @@ namespace croc
 			if(t->shouldHalt)
 				croc_eh_throwStd(*t, "HaltException", "Thread halted");
 
+			// assert(pc == &t->currentAR->pc);
 			// pc = &t->currentAR->pc;
 			Instruction* i = (*pc)++;
 
@@ -762,13 +763,12 @@ namespace croc
 				_commonCall:
 					croc_gc_maybeCollect(*t);
 
-					if(isScript)
-						goto _reentry;
-					else if(!isTailcall && numResults >= 0)
+					if(!isScript && !isTailcall && numResults >= 0)
 						t->stackIndex = t->currentAR->savedTop;
 
-					// Do nothing for native tailcalls. The following return instruction will catch it.
-					break;
+					// We always go to reentry, even with native tailcalls, since script hook funcs may be run before
+					// native tailcalls.
+					goto _reentry;
 			}
 
 				case Op_SaveRets: {
