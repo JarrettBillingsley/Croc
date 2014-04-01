@@ -744,11 +744,7 @@ namespace croc
 
 					AdjustParams();
 					isScript = methodCallPrologue(t, stackBase + rd, *RS, RT->mString, numResults, numParams, isTailcall);
-
-					if(!isTailcall)
-						goto _commonCall;
-					else
-						goto _commonTailcall;
+					goto _commonCall;
 
 				case Op_Call:
 				case Op_TailCall:
@@ -760,11 +756,7 @@ namespace croc
 						numResults = -1; // second uimm is a dummy
 
 					AdjustParams();
-
 					isScript = callPrologue(t, stackBase + rd, numResults, numParams, isTailcall);
-
-					if(isTailcall)
-						goto _commonTailcall;
 
 					// fall through
 				_commonCall:
@@ -772,43 +764,10 @@ namespace croc
 
 					if(isScript)
 						goto _reentry;
-					else
-					{
-						if(numResults >= 0)
-							t->stackIndex = t->currentAR->savedTop;
-					}
-					break;
+					else if(!isTailcall && numResults >= 0)
+						t->stackIndex = t->currentAR->savedTop;
 
-				_commonTailcall:
-					croc_gc_maybeCollect(*t);
-
-					if(isScript)
-					{
-						auto prevAR = t->currentAR - 1;
-						closeUpvals(t, prevAR->base);
-
-						auto diff = cast(word)(t->currentAR->returnSlot - prevAR->returnSlot);
-
-						auto tc = prevAR->numTailcalls + 1;
-						t->currentAR->expectedResults = prevAR->expectedResults;
-						*prevAR = *t->currentAR;
-						prevAR->numTailcalls = tc;
-						prevAR->base -= diff;
-						prevAR->savedTop -= diff;
-						prevAR->vargBase -= diff;
-						prevAR->returnSlot -= diff;
-
-						popARTo(t, t->arIndex - 1);
-
-						//memmove(&t->stack[prevAR->returnSlot], &t->stack[prevAR->returnSlot + diff], (prevAR->savedTop - prevAR->returnSlot) * sizeof(Value));
-
-						for(auto idx = prevAR->returnSlot; idx < prevAR->savedTop; idx++)
-							t->stack[idx] = t->stack[idx + diff];
-
-						goto _reentry;
-					}
-
-					// Do nothing for native calls. The following return instruction will catch it.
+					// Do nothing for native tailcalls. The following return instruction will catch it.
 					break;
 			}
 

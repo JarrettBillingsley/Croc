@@ -365,7 +365,19 @@ namespace croc
 		{
 			// Script function
 			auto funcdef = func->scriptFunc;
-			auto ar = pushAR(t);
+			auto ar = isTailcall ? t->currentAR : pushAR(t);
+
+			if(isTailcall)
+			{
+				assert(ar && ar->func && !ar->func->isNative);
+				assert(paramSlot == returnSlot + 1);
+
+				closeUpvals(t, ar->base);
+				ar->numTailcalls++;
+				memmove(&t->stack[ar->returnSlot], &t->stack[returnSlot], sizeof(Value) * (numParams + 1));
+				returnSlot = ar->returnSlot;
+				paramSlot = returnSlot + 1;
+			}
 
 			if(funcdef->isVararg && numParams > func->numParams)
 			{
@@ -397,13 +409,17 @@ namespace croc
 			ar->returnSlot = returnSlot;
 			ar->func = func;
 			ar->pc = funcdef->code.ptr;
-			ar->expectedResults = expectedResults;
 			ar->firstResult = 0;
 			ar->numResults = 0;
-			ar->numTailcalls = 0;
 			ar->savedTop = ar->base + funcdef->stackSize;
 			ar->unwindCounter = 0;
 			ar->unwindReturn = nullptr;
+
+			if(!isTailcall)
+			{
+				ar->expectedResults = expectedResults;
+				ar->numTailcalls = 0;
+			}
 
 			// Set the stack indices.
 			t->stackBase = ar->base;
