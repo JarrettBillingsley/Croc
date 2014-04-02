@@ -140,6 +140,9 @@ namespace croc
 	Time sysTime();
 	DateTime timeToDateTime(Time t, bool isLocal);
 	Time dateTimeToTime(DateTime t, bool isLocal);
+
+	// Threading
+	void sleep(uword msec);
 	}
 }
 

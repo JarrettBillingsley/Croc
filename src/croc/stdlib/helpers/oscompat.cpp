@@ -791,6 +791,14 @@ namespace croc
 			return _filetimeToTime(ft);
 	}
 
+	// =================================================================================================================
+	// Threading
+
+	void sleep(uword msec)
+	{
+		Sleep(msec);
+	}
+
 #else
 #error "Unimplemented"
 

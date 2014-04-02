@@ -120,6 +120,7 @@ set(croc_SRC
 	croc/stdlib/misc_vector.cpp
 	croc/stdlib/modules.cpp
 	croc/stdlib/object.cpp
+	croc/stdlib/os.cpp
 	croc/stdlib/path.cpp
 	croc/stdlib/serialization.cpp
 	croc/stdlib/stream.cpp
