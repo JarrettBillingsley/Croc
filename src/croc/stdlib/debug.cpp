@@ -216,12 +216,87 @@ namespace croc
 #ifdef CROC_BUILTIN_DOCS
 const char* ModuleDocs =
 DModule("debug")
-R"()";
+R"(This module gives access to the Croc debugging facilities as well as some "sensitive" operations which are usually
+reserved for the host. As a result, this library is \em{extremely} unsafe; it's possible to crash the host very easily
+by messing with internals that script code normally can't mess with.
+
+Several functions in this library (all of the ones related to debugging) buck the convention of having optional
+parameters after required parameters; all these functions allow an optional thread to operate on as the \em{first}
+parameter. If none is given, it defaults to the thread that called the function. These functions will all be marked
+in their docs, even though the parameter isn't listed in the function signature.
+
+Some of these functions take a parameter which can be either a function or an integer. If it's a function, they operate
+on the function itself; if it's an integer, it is treated as an index into the call stack. 0 means "the currently
+executing function", 1 means "the function which called the currently executing function", and so on. This means the
+maximum allowable integer is the call stack size minus one (see \link{callDepth}). Note that some call stack entries do
+not have a function associated with them; these entries are used to manage thread yields and resumes. What happens with
+such call stack entries is documented in each function which takes a parameter like this.)";
 #endif
 
 DBeginList(_globalFuncs)
-	Docstr(DFunc("setHook")
-	R"()"),
+	Docstr(DFunc("setHook") DParam("hook", "function|null") DParamD("mask", "string", "\"\"")
+		DParamD("delay", "int", "0")
+	R"(\b{Takes an optional thread as its first parameter.} Sets or removes the given thread's hook function.
+
+	The hook function is a special function which is called at certain points during program execution, which allows you
+	to trace the execution of your program. The hook function can be used to implement a debugger, for example.
+
+	There are four places the hook function can be called:
+
+	\blist
+		\li When any function is called, right after its stack frame has been set up, but before the function begins
+			execution;
+		\li When any function returns, right after the last instruction has executed, but before its stack frame is torn
+			down;
+		\li At a new line of source code;
+		\li After every \em{n} bytecode instructions have been executed.
+	\endlist
+
+	There is only one hook function, and it will be called for any combination of these events that you specify; it's up
+	to the hook function to see what kind of event it is and respond appropriately.
+
+	This hook function (as well as the mask and delay) is inherited by any new threads which the given thread creates
+	after the hook was set.
+
+	While the hook function is being run, no hooks will be called (obviously, or else it would result in infinite
+	recursion). When the hook function returns, execution will resume as normal until the hook function is called again.
+
+	You cannot yield from within the hook function.
+
+	\param[hook] is the hook function, or \tt{null} to remove the given thread's hook function. It will be called with
+		the thread being hooked as \tt{this} (since you could possibly set the same hook function to multiple threads)
+		and the type of hook event as a string as its only parameter. This type can be one of the following values:
+
+		\dlist
+			\li{\tt{"call"}} for normal function calls.
+			\li{\tt{"tailcall"}} which is the same as \tt{"call"}, except there will not be a corresponding
+				\tt{"return"} when this function returns (or more precisely, the \em{previously} called function will
+				not have a \tt{"return"} event).
+			\li{\tt{"return"}} for when a function is about to return.
+			\li{\tt{"line"}} for when execution reaches a new line of source code.
+			\li{\tt{"delay"}} for when a certain number of bytecode instructions have been executed.
+		\endlist
+
+	\param[mask] controls which of the above events the hook function will be called for. It is a string which may
+		contain the following characters:
+
+		\dlist
+			\li{\tt{'c'}} for \tt{"call"} and \tt{"tailcall"} events.
+			\li{\tt{'r'}} for \tt{"return"} events.
+			\li{\tt{'l'}} for \tt{"line"} events.
+		\endlist
+
+		There is no flag for \tt{"delay"} events, as they're handled by the next parameter.
+
+		If \tt{mask} contains none of the above characters, and the \tt{delay} parameter is 0, the hook function will be
+		removed from the given thread.
+
+	\param[delay] controls whether or not the hook function will be called for \tt{"delay"} events. If this parameter is
+		0, it won't be. If it's nonzero, it must be positive, and it indicates how often the \tt{"delay"} hook event
+		will occur. A value of 1 means the \tt{"delay"} hook will happen after every instruction; a value of 2 means
+		every other instruction, and so on.
+
+	\throws[RangeError] if \tt{delay} is invalid (negative).)"),
 
 	"setHook", 4, [](CrocThread* t) -> word_t
 	{
@@ -252,7 +327,13 @@ DBeginList(_globalFuncs)
 
 DListSep()
 	Docstr(DFunc("getHook")
-	R"()"),
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\returns three values: the hook function, hook mask string, and hook delay value of the given thread, just like the
+	parameters to \link{setHook}.
+
+	If there is no hook function set on the thread, the hook function will be \tt{null}, the mask will be the empty
+	string, and the delay will be 0.)"),
 
 	"getHook", 1, [](CrocThread* t) -> word_t
 	{
@@ -269,7 +350,9 @@ DListSep()
 
 DListSep()
 	Docstr(DFunc("callDepth")
-	R"()"),
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\returns the depth of the call stack of the given thread.)"),
 
 	"callDepth", 1, [](CrocThread* t) -> word_t
 	{
@@ -285,8 +368,12 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("sourceName")
-	R"()"),
+	Docstr(DFunc("sourceName") DParam("func", "int|function")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[func] \b{is either a function or call stack index} as described in this module's docs.
+	\returns the name of the source in which \tt{func} was defined (the same name that you would see in a traceback). If
+		the given function is native, or if there is no function at that call level, returns the empty string.)"),
 
 	"sourceName", 2, [](CrocThread* t) -> word_t
 	{
@@ -303,8 +390,12 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("sourceLine")
-	R"()"),
+	Docstr(DFunc("sourceLine") DParam("func", "int|function")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[func] \b{is either a function or call stack index} as described in this module's docs.
+	\returns the line of the source at which \tt{func} was defined (the same line that you would see in a traceback). If
+		the given function is native, or if there is no function at that call level, returns 0.)"),
 
 	"sourceLine", 2, [](CrocThread* t) -> word_t
 	{
@@ -321,8 +412,11 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("getFunc")
-	R"()"),
+	Docstr(DFunc("getFunc") DParam("depth", "int")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[depth] is an index into the call stack as described in this module's docs.
+	\returns the function at that call level, or \tt{null} if there is none.)"),
 
 	"getFunc", 2, [](CrocThread* t) -> word_t
 	{
@@ -340,8 +434,13 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("numLocals")
-	R"()"),
+	Docstr(DFunc("numLocals") DParam("depth", "int")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[depth] is an index into the call stack as described in this module's docs.
+	\returns the number of \b{active} locals in the function at the given call depth. The active locals are the ones
+		that are in scope at the point where the given function is currently executing. This number defines the limit
+		to the indexes you can pass to the functions which inspect locals.)"),
 
 	"numLocals", 2, [](CrocThread* t) -> word_t
 	{
@@ -369,8 +468,21 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("localName")
-	R"()"),
+	Docstr(DFunc("localName") DParam("depth", "int") DParam("idx", "int")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[depth] is an index into the call stack as described in this module's docs.
+	\param[idx] is the numeric index of the local whose name should be retrieved. This index should be less than the
+		number given by \link{numLocals}.
+
+	\returns the name of the local at that index.
+
+	While poking around, you may find locals with odd names which start with a dollar sign ('$'). These are locals
+	generated by the compiler for some kinds of program structures. It's best not to change the values of these locals,
+	as the VM assumes that they hold certain types and ranges of values; changing them may lead to erratic behavior or
+	crashes.
+
+	\throws[BoundsError] if \tt{idx} is out of range.)"),
 
 	"localName", 3, [](CrocThread* t) -> word_t
 	{
@@ -403,8 +515,16 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("getLocal")
-	R"()"),
+	Docstr(DFunc("getLocal") DParam("depth", "int") DParam("which", "int|string")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[depth] is an index into the call stack as described in this module's docs.
+	\param[which] specifies which local. If it's an int, it's an index of the same kind used by \link{localName}. If
+		it's a string, it's the name of the local whose value is to be retrieved.
+
+	\returns the value of the given local.
+	\throws[BoundsError] if \tt{which} is an int and is out of range.
+	\throws[NameError] if \tt{which} is a string and there is no active local of that name.)"),
 
 	"getLocal", 3, [](CrocThread* t) -> word_t
 	{
@@ -416,8 +536,15 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("setLocal")
-	R"()"),
+	Docstr(DFunc("setLocal") DParam("depth", "int") DParam("which", "int|string") DParamAny("val")
+	R"(\b{Takes an optional thread as its first parameter.} Sets a local to the value \tt{val}.
+
+	\param[depth] is an index into the call stack as described in this module's docs.
+	\param[which] specifies which local. If it's an int, it's an index of the same kind used by \link{localName}. If
+		it's a string, it's the name of the local whose value is to be set.
+	\param[val] is the value which will be stored in the local.
+	\throws[BoundsError] if \tt{which} is an int and is out of range.
+	\throws[NameError] if \tt{which} is a string and there is no active local of that name.)"),
 
 	"setLocal", 4, [](CrocThread* t) -> word_t
 	{
@@ -430,8 +557,12 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("numUpvals")
-	R"()"),
+	Docstr(DFunc("numUpvals") DParam("func", "int|function")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[func] \b{is either a function or call stack index} as described in this module's docs.
+
+	\returns the number of upvalues that the given function has.)"),
 
 	"numUpvals", 2, [](CrocThread* t) -> word_t
 	{
@@ -448,8 +579,14 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("upvalName")
-	R"()"),
+	Docstr(DFunc("upvalName") DParam("func", "int|function") DParam("idx", "int")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[func] \b{is either a function or call stack index} as described in this module's docs.
+	\param[idx] is the numeric index of the upvalue whose name is to be retrieved. This index should be less than the
+		number given by \link{numUpvals}.
+
+	\returns the name of the upvalue at that index, or if \tt{func} is native, returns the empty string.)"),
 
 	"upvalName", 3, [](CrocThread* t) -> word_t
 	{
@@ -471,8 +608,16 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("getUpval")
-	R"()"),
+	Docstr(DFunc("getUpval") DParam("func", "int|function") DParam("which", "int|string")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[func] \b{is either a function or call stack index} as described in this module's docs.
+	\param[which] specifies which upvalue. If it's an int, it's an index of the same kind used by \link{upvalName}. If
+		it's a string, it's the name of the upvalue whose value is to be retrieved.
+
+	\returns the value of the given upvalue.
+	\throws[BoundsError] if \tt{which} is an int and is out of range.
+	\throws[NameError] if \tt{which} is a string and there is no upvalue of that name.)"),
 
 	"getUpval", 3, [](CrocThread* t) -> word_t
 	{
@@ -483,8 +628,15 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("setUpval")
-	R"()"),
+	Docstr(DFunc("setUpval") DParam("func", "int|function") DParam("which", "int|string") DParamAny("val")
+	R"(\b{Takes an optional thread as its first parameter.} Sets an upvalue to the value \tt{val}.
+
+	\param[func] \b{is either a function or call stack index} as described in this module's docs.
+	\param[which] specifies which upvalue. If it's an int, it's an index of the same kind used by \link{upvalName}. If
+		it's a string, it's the name of the upvalue whose value is to be retrieved.
+	\param[val] is the value which will be stored in the upvalue.
+	\throws[BoundsError] if \tt{which} is an int and is out of range.
+	\throws[NameError] if \tt{which} is a string and there is no upvalue of that name.)"),
 
 	"setUpval", 4, [](CrocThread* t) -> word_t
 	{
@@ -496,8 +648,12 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("getFuncEnv")
-	R"()"),
+	Docstr(DFunc("getFuncEnv") DParam("func", "int|function")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[func] \b{is either a function or call stack index} as described in this module's docs.
+	\returns \tt{func}'s environment namespace.
+	\throws[ValueError] if \tt{func} is a call stack index and there is no function at that call level.)"),
 
 	"getFuncEnv", 2, [](CrocThread* t) -> word_t
 	{
@@ -506,15 +662,20 @@ DListSep()
 		auto func = getFuncParam(t, thread, arg + 1);
 
 		if(func == nullptr)
-			croc_eh_throwStd(t, "ValueError", "invalid function");
+			croc_eh_throwStd(t, "ValueError", "no function at that call level");
 
 		push(Thread::from(t), Value::from(func->environment));
 		return 1;
 	}
 
 DListSep()
-	Docstr(DFunc("setFuncEnv")
-	R"()"),
+	Docstr(DFunc("setFuncEnv") DParam("func", "int|function") DParam("env", "namespace")
+	R"(\b{Takes an optional thread as its first parameter.} Sets the native function \tt{func}'s environment to
+	the namespace \tt{env}.
+
+	\param[func] \b{is either a function or call stack index} as described in this module's docs.
+	\throws[ValueError] if \tt{func} is a call stack index and there is no function at that call level, or if \tt{func}
+		is not native.)"),
 
 	"setFuncEnv", 3, [](CrocThread* t) -> word_t
 	{
@@ -523,7 +684,7 @@ DListSep()
 		auto func = getFuncParam(t, thread, arg + 1);
 
 		if(func == nullptr)
-			croc_eh_throwStd(t, "ValueError", "invalid function");
+			croc_eh_throwStd(t, "ValueError", "no function at that call level");
 
 		if(!func->isNative)
 			croc_eh_throwStd(t, "ValueError", "can only set the environment of native functions");
@@ -538,8 +699,12 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("currentLine")
-	R"()"),
+	Docstr(DFunc("currentLine") DParam("depth", "int")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[depth] is an index into the call stack as described in this module's docs.
+	\returns the line number of the last-executed instruction in the function at the given call level. If there is no
+		function at that level or if the function is native, returns 0.)"),
 
 	"currentLine", 2, [](CrocThread* t) -> word_t
 	{
@@ -566,8 +731,12 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("lineInfo")
-	R"()"),
+	Docstr(DFunc("lineInfo") DParam("func", "int|function")
+	R"(\b{Takes an optional thread as its first parameter.}
+
+	\param[func] \b{is either a function or call stack index} as described in this module's docs.
+	\returns a (sorted) array of all the source lines which map to at least one bytecode instruction in the given
+		function. If there is no function at that level or if the fu nction is native, returns an empty array.)"),
 
 	"lineInfo", 2, [](CrocThread* t) -> word_t
 	{
@@ -601,8 +770,11 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("getMetatable")
-	R"()"),
+	Docstr(DFunc("getMetatable") DParam("type", "string")
+	R"(Gets the global type metatable for a given Croc type.
+
+	\param[type] is the name of the type, which should be one of the strings that \link{typeof} returns.
+	\returns the type metatable for that type, or \tt{null} if none has been set.)"),
 
 	"getMetatable", 1, [](CrocThread* t) -> word_t
 	{
@@ -631,8 +803,11 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("setMetatable")
-	R"()"),
+	Docstr(DFunc("setMetatable") DParam("type", "string") DParam("mt", "null|namespace")
+	R"(Sets or removes the global type metatable for a given Croc type.
+
+	\param[type] is the name of the type, which should be one of the strings that \link{typeof} returns.
+	\param[mt] is the metatable namespace, or \tt{null} to unset it.)"),
 
 	"setMetatable", 2, [](CrocThread* t) -> word_t
 	{
@@ -667,7 +842,7 @@ DListSep()
 
 DListSep()
 	Docstr(DFunc("getRegistry")
-	R"()"),
+	R"(\returns the registry namespace which is used by the host to hold "hidden" globals.)"),
 
 	"getRegistry", 0, [](CrocThread* t) -> word_t
 	{
@@ -676,8 +851,13 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("addHField")
-	R"()"),
+	Docstr(DFunc("addHField") DParam("cls", "class") DParam("name", "string") DParamD("val", "any", "null")
+	R"(Adds a hidden field to a class.
+
+	\param[cls] is the class to add the hidden field to. It must not be frozen.
+	\param[name] is the name of the hidden field to add. Hidden fields are in a separate namespace from regular fields,
+		so they can have the same names.
+	\param[val] is the value to store in the field, which defaults to \tt{null}.)"),
 
 	"addHField", 3, [](CrocThread* t) -> word_t
 	{
@@ -694,8 +874,11 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("removeHField")
-	R"()"),
+	Docstr(DFunc("removeHField") DParam("cls", "class") DParam("name", "string")
+	R"(Removes a hidden field from a class.
+
+	\param[cls] is the class to remove the hidden field from. It must not be frozen.
+	\param[name] is the name of the hidden field to remove.)"),
 
 	"removeHField", 2, [](CrocThread* t) -> word_t
 	{
@@ -707,8 +890,8 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("hasHField")
-	R"()"),
+	Docstr(DFunc("hasHField") DParam("obj", "class|instance") DParam("name", "string")
+	R"(\returns a bool saying whether or not the given class or instance has a hidden field named \tt{name}.)"),
 
 	"hasHField", 2, [](CrocThread* t) -> word_t
 	{
@@ -722,8 +905,8 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("getHField")
-	R"()"),
+	Docstr(DFunc("getHField") DParam("obj", "class|instance") DParam("name", "string")
+	R"(\returns the value of the hidden field named \tt{name} in the given class or instance.)"),
 
 	"getHField", 2, [](CrocThread* t) -> word_t
 	{
@@ -738,8 +921,8 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("setHField")
-	R"()"),
+	Docstr(DFunc("setHField") DParam("obj", "class|instance") DParam("name", "string") DParamAny("val")
+	R"(Sets the hidden field named \tt{name} in the given class or instance to \tt{val}.)"),
 
 	"setHField", 3, [](CrocThread* t) -> word_t
 	{
@@ -756,8 +939,16 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("hfieldsOf")
-	R"()"),
+	Docstr(DFunc("hfieldsOf") DParam("obj", "class|instance")
+	R"(\returns an iterator function for iterating over the hidden fields of the given class or instance. This works
+	just like \link{object.fieldsOf}; the first index is the name of the hidden field, and the second index is the
+	value.
+
+\code
+// Print the juicy hidden fields of the NativeStream class!
+foreach(name, val; debug.hfieldsOf(stream.NativeStream))
+	writefln("{}: {}", name, val)
+\endcode)"),
 
 	"hfieldsOf", 1, [](CrocThread* t) -> word_t
 	{
