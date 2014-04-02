@@ -36,7 +36,7 @@ namespace croc
 		int line = 0;
 
 		auto def = ar->func->scriptFunc;
-		uword instructionIndex = pc - def->code.ptr - 1;
+		uword instructionIndex = (pc > def->code.ptr) ? (pc - def->code.ptr - 1) : 0;
 
 		if(instructionIndex < def->lineInfo.length)
 			line = def->lineInfo[instructionIndex];
