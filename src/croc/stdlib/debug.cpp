@@ -229,8 +229,9 @@ Some of these functions take a parameter which can be either a function or an in
 on the function itself; if it's an integer, it is treated as an index into the call stack. 0 means "the currently
 executing function", 1 means "the function which called the currently executing function", and so on. This means the
 maximum allowable integer is the call stack size minus one (see \link{callDepth}). Note that some call stack entries do
-not have a function associated with them; these entries are used to manage thread yields and resumes. What happens with
-such call stack entries is documented in each function which takes a parameter like this.)";
+not have a function associated with them. Some of these entries are used to manage thread yields and resumes, and others
+are call frames which were overwritten by tailcalls. What happens with such call stack entries is documented in each
+function which takes a parameter like this.)";
 #endif
 
 DBeginList(_globalFuncs)
