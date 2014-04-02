@@ -51,7 +51,7 @@ typedef uint32_t crocchar_t;
 /**
 A typedef for the type signature of a native function.
 */
-typedef ptrdiff_t(*CrocNativeFunc)(CrocThread*);
+typedef word_t(*CrocNativeFunc)(CrocThread*);
 
 /**
 The type of the memory allocation function that the Croc library uses to allocate, reallocate, and free memory. You pass
@@ -86,7 +86,7 @@ Returns:
 If a deallocation was requested, should return null.  Otherwise, should return a $(B non-null) pointer.  If memory
 cannot be allocated, the memory allocation function should fail somehow (longjump perhaps), not return null.
 */
-typedef void* (*CrocMemFunc)(void* ctx, void* p, size_t oldSize, size_t newSize);
+typedef void* (*CrocMemFunc)(void* ctx, void* p, uword_t oldSize, uword_t newSize);
 
 // IF THIS CHANGES, GREP "ORDER CROCTYPE"
 

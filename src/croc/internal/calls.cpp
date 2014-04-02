@@ -460,11 +460,17 @@ namespace croc
 			t->nativeCallDepth++;
 			auto savedState = t->state;
 			t->state = CrocThreadState_Running;
-			uword actualReturns = func->nativeFunc(*t);
+			word actualResults = func->nativeFunc(*t);
 			t->state = savedState;
 			t->nativeCallDepth--;
 
-			saveResults(t, t, t->stackIndex - actualReturns, actualReturns);
+			assert(actualResults >= 0); // for now, will change in the future
+
+			if(cast(uword)actualResults > (t->stackIndex - (t->stackBase + 1)))
+				croc_eh_throwStd(*t, "ApiError", "Native function '%s' returned an invalid number of results",
+					func->name->toCString());
+
+			saveResults(t, t, t->stackIndex - actualResults, actualResults);
 			callEpilogue(t);
 			return false;
 		}
