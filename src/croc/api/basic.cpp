@@ -10,7 +10,7 @@ namespace croc
 {
 extern "C"
 {
-	void croc_foreachBegin(CrocThread* t_, word_t* state, uword_t numContainerVals)
+	word_t croc_foreachBegin(CrocThread* t_, uword_t numContainerVals)
 	{
 		auto t = Thread::from(t_);
 
@@ -57,10 +57,10 @@ extern "C"
 			croc_eh_throwStd(t_, "StateError",
 				"Attempting to iterate over a thread that is not in the 'initial' state");
 
-		*state = croc_getStackSize(t_);
+		return croc_getStackSize(t_);
 	}
 
-	int croc_foreachNext(CrocThread* t_, word_t* state, uword_t numIndices)
+	int croc_foreachNext(CrocThread* t_, word_t state, uword_t numIndices)
 	{
 		auto t = Thread::from(t_);
 
@@ -70,11 +70,11 @@ extern "C"
 		// Get rid of any gunk left on the stack after previous loop
 		auto size = croc_getStackSize(t_);
 
-		if(cast(word_t)size > *state)
-			croc_pop(t_, size - *state);
+		if(cast(word_t)size > state)
+			croc_pop(t_, size - state);
 
 		// Neeeext
-		auto src = *state - 3;
+		auto src = state - 3;
 		auto funcReg = croc_dup(t_, src);
 		croc_dup(t_, src + 1);
 		croc_dup(t_, src + 2);
@@ -96,9 +96,9 @@ extern "C"
 		return true;
 	}
 
-	void croc_foreachEnd(CrocThread* t_, word_t* state)
+	void croc_foreachEnd(CrocThread* t_, word_t state)
 	{
-		auto diff = cast(word_t)croc_getStackSize(t_) - *state;
+		auto diff = cast(word_t)croc_getStackSize(t_) - state;
 
 		if(diff != 0)
 			croc_eh_throwStd(t_, "ApiError",

@@ -296,9 +296,9 @@ CROCAPI int             croc_thread_hasPendingHalt (CrocThread* t);
 // =====================================================================================================================
 // Basic Croc operations
 
-CROCAPI void      croc_foreachBegin    (CrocThread* t, word_t* state, uword_t numContainerVals);
-CROCAPI int       croc_foreachNext     (CrocThread* t, word_t* state, uword_t numIndices);
-CROCAPI void      croc_foreachEnd      (CrocThread* t, word_t* state);
+CROCAPI word_t    croc_foreachBegin    (CrocThread* t, uword_t numContainerVals);
+CROCAPI int       croc_foreachNext     (CrocThread* t, word_t state, uword_t numIndices);
+CROCAPI void      croc_foreachEnd      (CrocThread* t, word_t state);
 CROCAPI void      croc_removeKey       (CrocThread* t, word_t obj);
 CROCAPI word_t    croc_pushToString    (CrocThread* t, word_t slot);
 CROCAPI word_t    croc_pushToStringRaw (CrocThread* t, word_t slot);

@@ -654,11 +654,10 @@ namespace croc
 				newline(1);
 
 			bool first = true;
-			word_t state;
 			croc_dup(t, tab);
-			croc_foreachBegin(t, &state, 1);
+			auto state = croc_foreachBegin(t, 1);
 
-			while(croc_foreachNext(t, &state, 2))
+			while(croc_foreachNext(t, state, 2))
 			{
 				auto k = croc_absIndex(t, -2);
 				auto v = k + 1;
@@ -686,7 +685,7 @@ namespace croc
 				outputValue(v);
 			}
 
-			croc_foreachEnd(t, &state);
+			croc_foreachEnd(t, state);
 
 			if(pretty)
 				newline(-1);
