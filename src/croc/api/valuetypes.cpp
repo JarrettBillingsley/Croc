@@ -65,9 +65,16 @@ extern "C"
 			auto arr = ustring::alloc(t->vm->mem, len + 1); // +1 for terminating \0
 			vsnprintf(cast(char*)arr.ptr, len, fmt, args);
 
-			// TODO: memory leak if string is not valid UTF-8
-			ret = croc_pushStringn(t_, cast(const char*)arr.ptr, len);
+			uword_t cpLen;
+			auto ok = verifyUtf8(arr, cpLen);
+
+			if(ok == UtfError_OK)
+				ret = push(t, Value::from(String::createUnverified(t->vm, arr, cpLen)));
+
 			arr.free(t->vm->mem);
+
+			if(ok != UtfError_OK)
+				croc_eh_throwStd(t_, "UnicodeError", "Invalid UTF-8 sequence");
 		}
 
 		croc_gc_maybeCollect(t_);
