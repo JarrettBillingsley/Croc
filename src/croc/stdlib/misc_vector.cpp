@@ -255,11 +255,13 @@ namespace croc
 
 			if(other.itemLength != (hi - lo))
 				croc_eh_throwStd(t, "ValueError",
-					"Length of destination (%" CROC_SIZE_T_FORMAT ") and length of source (%" CROC_SIZE_T_FORMAT ") do not match",
+					"Length of destination (%" CROC_SIZE_T_FORMAT ") and length of source (%" CROC_SIZE_T_FORMAT
+						") do not match",
 					hi - lo, other.itemLength);
 
+			// only way this can be is if we're assigning a Vector's entire contents into itself, which is a no-op.
 			if(m.data == other.data)
-				return; // only way this can be is if we're assigning a Vector's entire contents into itself, which is a no-op.
+				return;
 
 			auto isize = m.kind->itemSize;
 			memcpy(&m.data->data[lo * isize], other.data->data.ptr, other.itemLength * isize);
@@ -332,7 +334,8 @@ namespace croc
 		{
 			if(cast(uword)croc_len(t, filler) != (hi - lo))
 				croc_eh_throwStd(t, "ValueError",
-					"Length of destination (%" CROC_SIZE_T_FORMAT ") and length of array (%" CROC_INTEGER_FORMAT ") do not match",
+					"Length of destination (%" CROC_SIZE_T_FORMAT ") and length of array (%" CROC_INTEGER_FORMAT
+						") do not match",
 					hi - lo, croc_len(t, filler));
 
 			auto t_ = Thread::from(t);
@@ -976,7 +979,8 @@ DListSep()
 			{
 				auto end = idx + otherLen;
 				auto numLeft = oldLen - idx;
-				memmove(&m.data->data[cast(uword)end * isize], &m.data->data[cast(uword)idx * isize], cast(uword)(numLeft * isize));
+				memmove(&m.data->data[cast(uword)end * isize], &m.data->data[cast(uword)idx * isize],
+					cast(uword)(numLeft * isize));
 			}
 
 			return m.data->data.slice(cast(uword)idx * isize, cast(uword)(idx + otherLen) * isize);
@@ -1425,7 +1429,8 @@ DListSep()
 		auto len = croc_ex_checkIntParam(t, 1);
 
 		if(!m.data->ownData)
-			croc_eh_throwStd(t, "ValueError", "Attempting to change the length of a Vector which does not own its data");
+			croc_eh_throwStd(t, "ValueError",
+				"Attempting to change the length of a Vector which does not own its data");
 
 		if(len < 0 || cast(uword)len > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "Invalid new length: %" CROC_INTEGER_FORMAT, len);

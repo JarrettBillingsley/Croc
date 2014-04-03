@@ -465,11 +465,22 @@ namespace croc
 					break;
 				}
 				// Data Transfer
-				case Op_Move: GetRS(); t->stack[stackBase + rd] = *RS; break;
+				case Op_Move:
+					GetRS();
+					t->stack[stackBase + rd] = *RS;
+					break;
 
-				case Op_NewGlobal: newGlobalImpl(t, constTable[GetUImm()].mString, env, t->stack[stackBase + rd]); break;
-				case Op_GetGlobal: t->stack[stackBase + rd] = getGlobalImpl(t, constTable[GetUImm()].mString, env); break;
-				case Op_SetGlobal: setGlobalImpl(t, constTable[GetUImm()].mString, env, t->stack[stackBase + rd]); break;
+				case Op_NewGlobal:
+					newGlobalImpl(t, constTable[GetUImm()].mString, env, t->stack[stackBase + rd]);
+					break;
+
+				case Op_GetGlobal:
+					t->stack[stackBase + rd] = getGlobalImpl(t, constTable[GetUImm()].mString, env);
+					break;
+
+				case Op_SetGlobal:
+					setGlobalImpl(t, constTable[GetUImm()].mString, env, t->stack[stackBase + rd]);
+					break;
 
 				case Op_GetUpval:  t->stack[stackBase + rd] = *upvals[GetUImm()]->value; break;
 				case Op_SetUpval: {
@@ -479,8 +490,16 @@ namespace croc
 					break;
 				}
 				// Logical and Control Flow
-				case Op_Not:  GetRS(); t->stack[stackBase + rd] = Value::from(RS->isFalse()); break;
-				case Op_Cmp3: GetRS(); GetRT(); t->stack[stackBase + rd] = Value::from(cmpImpl(t, *RS, *RT)); break;
+				case Op_Not:
+					GetRS();
+					t->stack[stackBase + rd] = Value::from(RS->isFalse());
+					break;
+
+				case Op_Cmp3:
+					GetRS();
+					GetRT();
+					t->stack[stackBase + rd] = Value::from(cmpImpl(t, *RS, *RT));
+					break;
 
 				case Op_Cmp: {
 					GetRS();
@@ -546,7 +565,8 @@ namespace croc
 					break;
 				}
 				case Op_Jmp: {
-					// If we ever change the format of this opcode, check that it's the same length as Switch (codegen can turn Switch into Jmp)!
+					// If we ever change the format of this opcode, check that it's the same length as Switch (codegen
+					// can turn Switch into Jmp)!
 					auto jump = GetImm();
 
 					if(rd != 0)
@@ -554,7 +574,8 @@ namespace croc
 					break;
 				}
 				case Op_Switch: {
-					// If we ever change the format of this opcode, check that it's the same length as Jmp (codegen can turn Switch into Jmp)!
+					// If we ever change the format of this opcode, check that it's the same length as Jmp (codegen can
+					// turn Switch into Jmp)!
 					auto st = &t->currentAR->func->scriptFunc->switchTables[rd];
 					GetRS();
 
@@ -744,7 +765,8 @@ namespace croc
 					}
 
 					AdjustParams();
-					isScript = methodCallPrologue(t, stackBase + rd, *RS, RT->mString, numResults, numParams, isTailcall);
+					isScript = methodCallPrologue(t, stackBase + rd, *RS, RT->mString, numResults, numParams,
+						isTailcall);
 					goto _commonCall;
 
 				case Op_Call:

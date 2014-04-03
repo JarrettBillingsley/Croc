@@ -610,26 +610,27 @@ namespace croc
 
 	namespace
 	{
-		bool commonSliceIndices(Thread* t, crocint& loIndex, crocint& hiIndex, Value lo, Value hi, CrocType type, uword len)
+	bool commonSliceIndices(Thread* t, crocint& loIndex, crocint& hiIndex, Value lo, Value hi, CrocType type, uword len)
+	{
+		if(lo.type == CrocType_Null && hi.type == CrocType_Null)
+			return false;
+
+		if(!correctIndices(loIndex, hiIndex, lo, hi, len))
 		{
-			if(lo.type == CrocType_Null && hi.type == CrocType_Null)
-				return false;
-
-			if(!correctIndices(loIndex, hiIndex, lo, hi, len))
-			{
-				pushTypeStringImpl(t, lo);
-				pushTypeStringImpl(t, hi);
-				croc_eh_throwStd(*t, "TypeError", "Attempting to slice '%s' with indices of type '%s' and '%s'",
-					typeToString(type), croc_getString(*t, -2), croc_getString(*t, -1));
-			}
-
-			if(!validIndices(loIndex, hiIndex, len))
-				croc_eh_throwStd(*t, "BoundsError",
-					"Invalid slice indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT "] (%s length = %" CROC_SIZE_T_FORMAT ")",
-					loIndex, hiIndex, typeToString(type), len);
-
-			return true;
+			pushTypeStringImpl(t, lo);
+			pushTypeStringImpl(t, hi);
+			croc_eh_throwStd(*t, "TypeError", "Attempting to slice '%s' with indices of type '%s' and '%s'",
+				typeToString(type), croc_getString(*t, -2), croc_getString(*t, -1));
 		}
+
+		if(!validIndices(loIndex, hiIndex, len))
+			croc_eh_throwStd(*t, "BoundsError",
+				"Invalid slice indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT "] (%s length = %"
+					CROC_SIZE_T_FORMAT ")",
+				loIndex, hiIndex, typeToString(type), len);
+
+		return true;
+	}
 	}
 
 	void sliceImpl(Thread* t, AbsStack dest, Value src, Value lo, Value hi)

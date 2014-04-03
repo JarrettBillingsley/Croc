@@ -18,9 +18,9 @@ namespace croc
 		auto hooksEnabled = t->hooksEnabled;
 		t->hooksEnabled = false;
 
-		// FINALIZE. Go through the finalize buffer, running the finalizer, and setting it to finalized. At this point, the
-		// object may have been resurrected but we can't really tell unless we make the write barrier more complicated. Or
-		// something. So we just queue a decrement for it. It'll get deallocated the next time around.
+		// FINALIZE. Go through the finalize buffer, running the finalizer, and setting it to finalized. At this point,
+		// the object may have been resurrected but we can't really tell unless we make the write barrier more
+		// complicated. Or something. So we just queue a decrement for it. It'll get deallocated the next time around.
 		t->vm->toFinalize.foreach([&t, &hooksEnabled, &decBuffer, &mem](GCObject* i_)
 		{
 			auto i = cast(Instance*)i_;

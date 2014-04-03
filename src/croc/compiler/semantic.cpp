@@ -358,7 +358,8 @@ namespace croc
 					nameList.add(finishedVar);
 					List<Expression*> initializer(c);
 					initializer.add(new(c) BoolExp(ss->location, true));
-					declStmt = new(c) VarDecl(ss->location, ss->location, Protection::Local, nameList.toArray(), initializer.toArray());
+					declStmt = new(c) VarDecl(ss->location, ss->location, Protection::Local,
+						nameList.toArray(), initializer.toArray());
 				}
 
 				// catch(__dummy2) { __dummy = false; throw __dummy2 }
@@ -376,7 +377,8 @@ namespace croc
 					// throw __dummy2
 					dummy.add(new(c) ThrowStmt(ss->stmt->location, new(c) IdentExp(catchVar), true));
 					auto code = dummy.toArray();
-					auto catchBody = new(c) ScopeStmt(new(c) BlockStmt(code[0]->location, code[code.length - 1]->endLocation, code));
+					auto catchBody = new(c) ScopeStmt(
+						new(c) BlockStmt(code[0]->location, code[code.length - 1]->endLocation, code));
 
 					List<CatchClause> catches(c);
 					catches.add(CatchClause(catchVar, DArray<Expression*>(), catchBody));
@@ -392,7 +394,8 @@ namespace croc
 					// if(__dummy) ss.stmt
 					dummy.add(new(c) IfStmt(ss->location, ss->endLocation, nullptr, finishedVarExp, ss->stmt, nullptr));
 					auto code = dummy.toArray();
-					finallyBody = new(c) ScopeStmt(new(c) BlockStmt(code[0]->location, code[code.length - 1]->endLocation, code));
+					finallyBody = new(c) ScopeStmt(
+						new(c) BlockStmt(code[0]->location, code[code.length - 1]->endLocation, code));
 				}
 
 				// Put it all together
@@ -400,7 +403,8 @@ namespace croc
 				code.add(declStmt);
 				code.add(new(c) TryFinallyStmt(ss->location, ss->endLocation, catchStmt, finallyBody));
 				auto codeArr = code.toArray();
-				replacement = visit(new(c) ScopeStmt(new(c) BlockStmt(codeArr[0]->location, codeArr[codeArr.length - 1]->endLocation, codeArr)));
+				replacement = visit(new(c) ScopeStmt(
+					new(c) BlockStmt(codeArr[0]->location, codeArr[codeArr.length - 1]->endLocation, codeArr)));
 				break;
 			}
 			case ScopeAction::Failure: {
@@ -417,7 +421,8 @@ namespace croc
 				dummy.add(ss->stmt);
 				dummy.add(new(c) ThrowStmt(ss->stmt->endLocation, new(c) IdentExp(catchVar), true));
 				auto catchCode = dummy.toArray();
-				auto catchBody = new(c) ScopeStmt(new(c) BlockStmt(catchCode[0]->location, catchCode[catchCode.length - 1]->endLocation, catchCode));
+				auto catchBody = new(c) ScopeStmt(
+					new(c) BlockStmt(catchCode[0]->location, catchCode[catchCode.length - 1]->endLocation, catchCode));
 
 				List<CatchClause> catches(c);
 				catches.add(CatchClause(catchVar, DArray<Expression*>(), catchBody));
@@ -453,7 +458,8 @@ namespace croc
 				initializer.add(s->condition);
 
 				List<Statement*> temp(c);
-				temp.add(new(c) VarDecl(s->condVar->location, s->condVar->endLocation, Protection::Local, names.toArray(), initializer.toArray()));
+				temp.add(new(c) VarDecl(s->condVar->location, s->condVar->endLocation, Protection::Local,
+					names.toArray(), initializer.toArray()));
 				temp.add(s->ifBody);
 
 				return new(c) ScopeStmt(new(c) BlockStmt(s->location, s->endLocation, temp.toArray()));
@@ -1315,8 +1321,8 @@ namespace croc
 
 		for(uword i = 0; i < ops.length; i++)
 		{
-			// this first case can only happen when the last item in the array can't be folded. otherwise i will be set to ops.length - 1,
-			// incremented, and the loop will break.
+			// this first case can only happen when the last item in the array can't be folded. otherwise i will be set
+			// to ops.length - 1, incremented, and the loop will break.
 			if(i == ops.length - 1 ||
 				!ops[i]->isConstant() || !ops[i + 1]->isConstant() ||
 				!ops[i]->isString() || !ops[i + 1]->isString())

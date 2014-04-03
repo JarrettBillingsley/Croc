@@ -171,7 +171,7 @@ extern "C"
 
 		if(numSlots > (croc_getStackSize(t_) - 1))
 			croc_eh_throwStd(t_, "ApiError",
-				"%s - Trying to rotate more values (%" CROC_SIZE_T_FORMAT ") than can be rotated (%" CROC_SIZE_T_FORMAT ")",
+				"%s - Trying to rotate %" CROC_SIZE_T_FORMAT " values, but only have %" CROC_SIZE_T_FORMAT,
 				__FUNCTION__, numSlots, croc_getStackSize(t_) - 1);
 
 		if(numSlots == 0)
@@ -259,7 +259,8 @@ extern "C"
 		API_CHECK_NUM_PARAMS(num);
 		checkStack(dest, dest->stackIndex + num);
 
-		dest->stack.slicea(dest->stackIndex, dest->stackIndex + num, t->stack.slice(t->stackIndex - num, t->stackIndex));
+		auto src = t->stack.slice(t->stackIndex - num, t->stackIndex);
+		dest->stack.slicea(dest->stackIndex, dest->stackIndex + num, src);
 		dest->stackIndex += num;
 		t->stackIndex -= num;
 	}

@@ -8,7 +8,8 @@ namespace croc
 {
 extern "C"
 {
-	word_t croc_function_newWithEnv(CrocThread* t_, const char* name, word_t maxParams, CrocNativeFunc func, uword_t numUpvals)
+	word_t croc_function_newWithEnv(CrocThread* t_, const char* name, word_t maxParams, CrocNativeFunc func,
+		uword_t numUpvals)
 	{
 		auto t = Thread::from(t_);
 		API_CHECK_NUM_PARAMS(numUpvals + 1);

@@ -1301,7 +1301,8 @@ DListSep()
 		auto to = _checkStringOrStringBuffer(t, 2, dstring::n(buf2, 64), tmp2);
 		auto destmb = _getData(t, ret);
 		auto dest = destmb->data.template as<dchar>();
-		bool shouldCheckSize = from.length < to.length; // only have to grow if the 'to' string is bigger than the 'from' string
+		// only have to grow if the 'to' string is bigger than the 'from' string
+		bool shouldCheckSize = from.length < to.length;
 		uword destIdx = 0;
 		auto t_ = Thread::from(t);
 
@@ -1459,7 +1460,8 @@ DListSep()
 		auto from = _checkStringOrStringBuffer(t, 1, dstring::n(buf1, 64), tmp1);
 		auto to = _checkStringOrStringBuffer(t, 2, dstring::n(buf2, 64), tmp2);
 		auto buffer = dstring::alloc(mem, src.length);
-		bool shouldCheckSize = from.length < to.length; // only have to grow if the 'to' string is bigger than the 'from' string
+		// only have to grow if the 'to' string is bigger than the 'from' string
+		bool shouldCheckSize = from.length < to.length;
 		uword destIdx = 0;
 
 		patternsRep(src, from, to, [&](DArray<const dchar> piece)

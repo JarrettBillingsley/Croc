@@ -130,7 +130,8 @@ extern "C"
 		else
 		{
 			croc_pushTypeString(t_, slot);
-			croc_eh_throwStd(t_, "TypeError", "%s - expected 'int' or 'float' but got '%s'", __FUNCTION__, croc_getString(t_, -1));
+			croc_eh_throwStd(t_, "TypeError",
+				"%s - expected 'int' or 'float' but got '%s'", __FUNCTION__, croc_getString(t_, -1));
 			assert(false);
 			return 0.0; // dummy
 		}

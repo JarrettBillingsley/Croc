@@ -65,7 +65,8 @@ namespace croc
 	}
 
 	// Create a native function.
-	Function* Function::create(Memory& mem, Namespace* env, String* name, uword numParams, CrocNativeFunc func, uword numUpvals)
+	Function* Function::create(Memory& mem, Namespace* env, String* name, uword numParams, CrocNativeFunc func,
+		uword numUpvals)
 	{
 		auto f = ALLOC_OBJSZ(mem, Function, NATIVE_CLOSURE_EXTRA_SIZE(numUpvals));
 		f->type = CrocType_Function;

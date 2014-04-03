@@ -142,13 +142,6 @@ namespace croc
 		return t->currentAR;
 	}
 
-	// TODO: move this somewhere else
-	void makeDead(Thread* t)
-	{
-		t->state = CrocThreadState_Dead;
-		t->shouldHalt = false;
-	}
-
 	void popARTo(Thread* t, uword removeTo)
 	{
 		uword numResultsToPop = 0;
@@ -165,7 +158,8 @@ namespace croc
 
 		if(removeTo == 0)
 		{
-			makeDead(t);
+			t->state = CrocThreadState_Dead;
+			t->shouldHalt = false;
 			t->currentAR = nullptr;
 			t->stackBase = 0;
 			t->stackIndex = 1;
@@ -211,8 +205,8 @@ namespace croc
 
 		t->numYields = actualResults;
 
-		// Set stack index appropriately
-		if(t->arIndex == 0 || isMultRet || t->currentAR->savedTop < slotAfterRets) // last case happens in native -> native calls
+		// Set stack index appropriately; last case happens in native -> native calls
+		if(t->arIndex == 0 || isMultRet || t->currentAR->savedTop < slotAfterRets)
 			t->stackIndex = slotAfterRets;
 		else
 			t->stackIndex = t->currentAR->savedTop;
@@ -347,8 +341,8 @@ namespace croc
 				else
 				{
 					pushTypeStringImpl(t, func);
-					return croc_eh_throwStd(*t, "TypeError", "No implementation of %s for type '%s'", MetaNames[MM_Call],
-						croc_getString(*t, -1));
+					return croc_eh_throwStd(*t, "TypeError", "No implementation of %s for type '%s'",
+						MetaNames[MM_Call], croc_getString(*t, -1));
 				}
 		}
 	}

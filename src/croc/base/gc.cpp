@@ -11,7 +11,7 @@ namespace croc
 		// Free an object.
 		void free(VM* vm, GCObject* o)
 		{
-			// debug(FREES) Stdout.formatln("FREE: {} at {}", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o).flush;
+			// debug(FREES) printf("FREE: {} at {}", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o).flush;
 
 			if(auto r = vm->weakrefTab.lookup(cast(GCObject*)o))
 			{
@@ -34,7 +34,7 @@ namespace croc
 				case CrocType_Instance:  FREE_OBJ(vm->mem, Instance, cast(Instance*)o); return;
 				case CrocType_Upval:     FREE_OBJ(vm->mem, Upval, cast(Upval*)o);       return;
 
-				default: /*debug Stdout.formatln("{}", (cast(GCObject*)o).mType).flush;*/ assert(false);
+				default: /*debug printf("{}", (cast(GCObject*)o).mType).flush;*/ assert(false);
 			}
 		}
 
@@ -48,7 +48,7 @@ namespace croc
 				GCOBJ_SETCOLOR(obj, GCFlags_Black);
 		}
 
-		// =====================================================================================================================
+		// =============================================================================================================
 		// Cycle collection
 
 		void markGray(GCObject* obj)
@@ -106,7 +106,7 @@ namespace croc
 				else if(GCOBJ_FINALIZABLE(obj) && !GCOBJ_FINALIZED(obj))
 				{
 					obj->refCount = 1;
-					// debug(FINALIZE) Stdout.formatln("Putting {} on toFinalize", obj);
+					// debug(FINALIZE) printf("Putting {} on toFinalize", obj);
 					vm->toFinalize.add(vm->mem, obj);
 					cycleScanBlack(obj);
 				}
@@ -204,9 +204,9 @@ namespace croc
 		// debug(BEGINEND)
 		// {
 		// 	static counter = 0;
-		// 	Stdout.formatln("======================= BEGIN {} =============================== {}",
+		// 	printf("======================= BEGIN {} =============================== {}",
 		// 		++counter, cast(uint)cycleType).flush;
-		// 	Stdout.formatln("Nursery: {} bytes allocated out of {}; mod buffer length = {}, dec buffer length = {}",
+		// 	printf("Nursery: {} bytes allocated out of {}; mod buffer length = {}, dec buffer length = {}",
 		// 		vm->mem.nurseryBytes, vm->mem.nurseryLimit, vm->mem.modBuffer.length, vm->mem.decBuffer.length);
 		// }
 
@@ -227,9 +227,9 @@ namespace croc
 		assert(newRoots.isEmpty());
 		assert(toFinalize.isEmpty());
 
-		// ROOT PHASE. Go through roots, including stacks, and for each object reference, if it's in the nursery, move it
-		// out. Regardless of whether it's a nursery object or not, put it in the new root buffer.
-		// debug(PHASES) Stdout.formatln("ROOTS").flush;
+		// ROOT PHASE. Go through roots, including stacks, and for each object reference, if it's in the nursery, move
+		// it out. Regardless of whether it's a nursery object or not, put it in the new root buffer. debug(PHASES)
+		// printf("ROOTS").flush;
 
 		if(cycleType != GCCycleType_NoRoots)
 		{
@@ -242,17 +242,17 @@ namespace croc
 			});
 		}
 
-		// PROCESS MODIFIED BUFFER. Go through the modified buffer, unlogging each. For each object pointed to by an object,
-		// if it's in the nursery, move it out. Increment all the reference counts (spurious increments to RC space objects
-		// will be undone by the queued decrements created during the mutation phase by the write barrier).
-		// debug(PHASES) Stdout.formatln("MODBUFFER").flush;
+		// PROCESS MODIFIED BUFFER. Go through the modified buffer, unlogging each. For each object pointed to by an
+		// object, if it's in the nursery, move it out. Increment all the reference counts (spurious increments to RC
+		// space objects will be undone by the queued decrements created during the mutation phase by the write
+		// barrier). debug(PHASES) printf("MODBUFFER").flush;
 		while(!modBuffer.isEmpty())
 		{
 			auto obj = modBuffer.remove();
 			assert(GCOBJ_COLOR(obj) != GCFlags_Green);
 
 			// debug(INCDEC)
-			// 	Stdout.formatln("let's look at {} {}", CrocValue.typeStrings[(cast(CrocBaseObject*)obj).mType], obj).flush;
+			// 	printf("let's look at {} {}", CrocValue.typeStrings[(cast(CrocBaseObject*)obj).mType], obj).flush;
 
 			GCOBJ_UNLOG(obj);
 
@@ -261,44 +261,44 @@ namespace croc
 				if(!GCOBJ_INRC(slot))
 					vm->mem.makeRC(slot);
 
-				// debug(INCDEC) Stdout.formatln("Visited {} through {}, rc will be {}", slot, obj, slot.refCount + 1).flush;
+				// debug(INCDEC) printf("Visited {} through {}, rc will be {}", slot, obj, slot.refCount + 1).flush;
 
 				rcIncrement(slot);
 			});
 		}
 
 		// PROCESS OLD ROOT BUFFER. Move all objects from the old root buffer into the decrement buffer.
-		// debug(PHASES) Stdout.formatln("OLDROOTS").flush;
+		// debug(PHASES) printf("OLDROOTS").flush;
 		decBuffer.append(vm->mem, oldRoots);
 		oldRoots.reset();
 
-		// PROCESS NEW ROOT BUFFER. Go through the new root buffer, incrementing their RCs, and put them all in the old root
-		// buffer.
-		// debug(PHASES) Stdout.formatln("NEWROOTS").flush;
+		// PROCESS NEW ROOT BUFFER. Go through the new root buffer, incrementing their RCs, and put them all in the old
+		// root buffer.
+		// debug(PHASES) printf("NEWROOTS").flush;
 		newRoots.foreach([](GCObject* obj)
 		{
 			assert(GCOBJ_INRC(obj));
 			rcIncrement(obj);
-			// debug(INCDEC) Stdout.formatln("Incremented {}, rc is now {}", obj, obj.refCount).flush;
+			// debug(INCDEC) printf("Incremented {}, rc is now {}", obj, obj.refCount).flush;
 		});
 
 		// heehee sneaky
 		vm->oldRootIdx = 1 - vm->oldRootIdx;
 		}
 
-		// PROCESS DECREMENT BUFFER. Go through the decrement buffer, decrementing their RCs. If an RC hits 0, if it's not
-		// finalizable, queue decrements for any RC objects it points to, and if it isn't logged for cycles and didn't just
-		// move out of the nursery, free it. If it is finalizable, put it on the finalize list. If an RC is nonzero after
-		// being decremented, mark it as a possible cycle root as follows: if its color is not purple, color it purple, and
-		// if it's not already buffered, mark it buffered and put it in the possible cycle buffer.
+		// PROCESS DECREMENT BUFFER. Go through the decrement buffer, decrementing their RCs. If an RC hits 0, if it's
+		// not finalizable, queue decrements for any RC objects it points to, and if it isn't logged for cycles and
+		// didn't just move out of the nursery, free it. If it is finalizable, put it on the finalize list. If an RC is
+		// nonzero after being decremented, mark it as a possible cycle root as follows: if its color is not purple,
+		// color it purple, and if it's not already buffered, mark it buffered and put it in the possible cycle buffer.
 
-		// debug(PHASES) Stdout.formatln("DECBUFFER").flush;
+		// debug(PHASES) printf("DECBUFFER").flush;
 
 		while(!decBuffer.isEmpty())
 		{
 			auto obj = decBuffer.remove();
 			assert(GCOBJ_INRC(obj));
-			// debug(INCDEC) Stdout.formatln("About to decrement {}, rc will be {}", obj, obj.refCount - 1).flush;
+			// debug(INCDEC) printf("About to decrement {}, rc will be {}", obj, obj.refCount - 1).flush;
 
 			if(--obj->refCount == 0)
 			{
@@ -308,7 +308,7 @@ namespace croc
 				{
 					GCOBJ_SETCOLOR(obj, GCFlags_Black);
 					obj->refCount = 1;
-					// debug(FINALIZE) Stdout.formatln("Putting {} on toFinalize", obj);
+					// debug(FINALIZE) printf("Putting {} on toFinalize", obj);
 					toFinalize.add(vm->mem, obj);
 				}
 				else
@@ -347,10 +347,11 @@ namespace croc
 			}
 		}
 
-		// NURSERY PHASE. Go through the nursery objects, clearing the "just moved" flag from living ones, and freeing those
-		// that weren't moved out (so long as they're not logged by the cycle logger). Then empty the nursery list.
+		// NURSERY PHASE. Go through the nursery objects, clearing the "just moved" flag from living ones, and freeing
+		// those that weren't moved out (so long as they're not logged by the cycle logger). Then empty the nursery
+		// list.
 
-		// debug(PHASES) Stdout.formatln("NURSERY").flush;
+		// debug(PHASES) printf("NURSERY").flush;
 
 		vm->mem.nursery.foreach([&vm](GCObject* obj)
 		{
@@ -376,7 +377,7 @@ namespace croc
 		if(cycleCollect)
 		{
 			vm->mem.cycleCollectCountdown = vm->mem.nextCycleCollect;
-			// debug(BEGINEND) Stdout.formatln("CYCLES").flush;
+			// debug(BEGINEND) printf("CYCLES").flush;
 			collectCycles(vm);
 		}
 		else
@@ -396,6 +397,6 @@ namespace croc
 
 		vm->inGCCycle = false;
 
-		// debug(BEGINEND) Stdout.formatln("======================= END {} =================================", counter).flush;
+		// debug(BEGINEND) printf("======================= END {} =================================", counter).flush;
 	}
 }

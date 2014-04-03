@@ -37,7 +37,8 @@ namespace croc
 			{
 				if(limit > FinalizeLoopLimit)
 					assert(false); // TODO:
-					// throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or something's broken.");
+					// throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or
+					// something's broken.");
 
 				runFinalizers(vm->mainThread);
 				gcCycle(vm, GCCycleType_Full);
@@ -48,7 +49,8 @@ namespace croc
 
 			if(!vm->toFinalize.isEmpty())
 				assert(false); // TODO:
-				// throw new Exception("Did you stick a finalizable object in a global metatable or something? I think you did. Stop doing that.");
+				// throw new Exception("Did you stick a finalizable object in a global metatable or something? I think
+				// you did. Stop doing that.");
 		}
 	}
 

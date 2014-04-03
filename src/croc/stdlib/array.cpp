@@ -882,8 +882,8 @@ DListSep()
 	Docstr(DFunc("swap") DParam("idx1", "int") DParam("idx2", "int")
 	R"(Swaps the values at the given indices.
 
-	Both \tt{idx1} and \tt{idx2} can be negative to mean from the end of this array. If \tt{idx1 == idx2}, this method is
-	a no-op.
+	Both \tt{idx1} and \tt{idx2} can be negative to mean from the end of this array. If \tt{idx1 == idx2}, this method
+	is a no-op.
 
 	\returns this array.
 

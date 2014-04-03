@@ -66,9 +66,10 @@ namespace croc
 	}
 
 	/**
-	Given the value of an initial UTF-8 code unit, returns how many bytes long this character is, or 0 if this is an invalid
-	initial code unit.
+	Given the value of an initial UTF-8 code unit, returns how many bytes long this character is, or 0 if this is an
+	invalid initial code unit.
 	*/
+
 	size_t utf8SequenceLength(uchar firstByte)
 	{
 		return Utf8CharLengths[firstByte];
@@ -82,8 +83,8 @@ namespace croc
 	If decoding completed successfully, returns UtfError_OK. s will be pointing to the next code unit in the string, and
 	out will be set to the decoded codepoint.
 
-	Overlong encodings (characters which were encoded with more bytes than necessary) are treated as "bad encoding" rather
-	than "bad character".
+	Overlong encodings (characters which were encoded with more bytes than necessary) are treated as "bad encoding"
+	rather than "bad character".
 
 	This code (and the accompanying tables) borrowed, in a slightly modified form, from
 	http://floodyberry.wordpress.com/2007/04/14/utf-8-conversion-tricks/ ; thanks Andrew!
@@ -235,8 +236,8 @@ namespace croc
 	#define decodeUtf32CharBS decodeUtf32Char<true>
 
 	/**
-	Skips over a bad UTF-8 codepoint by advancing the given string pointer over it. Note that depending on the nature of the
-	invalid incoding, subsequent decoding may fail anyway.
+	Skips over a bad UTF-8 codepoint by advancing the given string pointer over it. Note that depending on the nature of
+	the invalid incoding, subsequent decoding may fail anyway.
 
 	Params:
 		s = pointer to the codepoint to be skipped. Will be advanced by this function, though never past end.
@@ -342,8 +343,8 @@ namespace croc
 	/**
 	Attempts to transcode UTF-16 or UTF-32 encoded text to UTF-8.
 
-	This function expects you to provide it with an output buffer that you have allocated. This buffer is not required to
-	be large enough to hold the entire output.
+	This function expects you to provide it with an output buffer that you have allocated. This buffer is not required
+	to be large enough to hold the entire output.
 
 	If the entire input was successfully transcoded, returns UtfError_OK, remaining will be set to an empty string, and
 	output will be set to the slice of buf that contains the output UTF-8.
@@ -352,22 +353,22 @@ namespace croc
 	UtfError_OK, remaining will be set to the slice of str that has yet to be transcoded, and output will be set to the
 	slice of buf that contains what UTF-8 was transcoded so far.
 
-	If the input string's encoding is invalid, returns the error code, remaining will be set to the slice of str beginning
-	with the invalid code unit, and output will be set to an empty string.
+	If the input string's encoding is invalid, returns the error code, remaining will be set to the slice of str
+	beginning with the invalid code unit, and output will be set to an empty string.
 
 	Params:
 		str = The string to be transcoded into UTF-8.
 		buf = The output UTF-8 buffer.
-		remaining = If successful but ran out of room, set to the slice of str that has yet to be transcoded. If failed, set
-			to the slice of str starting with the first invalid code unit.
+		remaining = If successful but ran out of room, set to the slice of str that has yet to be transcoded. If failed,
+			set to the slice of str starting with the first invalid code unit.
 		output = If successful, set to a slice of buf which contains the encoded UTF-8.
 
 	Returns:
 		One of the members of UtfError.
 
 	Examples:
-		Suppose you want to convert some UTF-32 text to UTF-8 and output it to a file as you go. You can do this in multiple
-		calls as follows (using Utf32ToUtf8, an alias for the dchar instantiation of this templated function):
+		Suppose you want to convert some UTF-32 text to UTF-8 and output it to a file as you go. You can do this in
+		multiple calls as follows (using Utf32ToUtf8, an alias for the dchar instantiation of this templated function):
 
 	-----
 	dchar[] input = whatever(); // The source text
@@ -465,8 +466,8 @@ namespace croc
 	#undef UTF32_NEXT_CHAR_BS
 
 	/**
-	Encodes a single Unicode codepoint into UTF-8. Useful as a shortcut for when you just need to convert a character to its
-	UTF-8 representation.
+	Encodes a single Unicode codepoint into UTF-8. Useful as a shortcut for when you just need to convert a character to
+	its UTF-8 representation.
 
 	Params:
 		buf = The output buffer. Should be at least four bytes long.
@@ -489,7 +490,7 @@ namespace croc
 			return ok;
 	}
 
-	// =====================================================================================================================
+	// =================================================================================================================
 	// The functions from here on all assume the input string is well-formed -- which is the case with Croc's strings
 
 	/**
@@ -538,8 +539,8 @@ namespace croc
 	}
 
 	/**
-	Assuming the given UTF-8 is well-formed, decodes a single codepoint from $(B before) the current pointer, and moves the
-	pointer to point to it.
+	Assuming the given UTF-8 is well-formed, decodes a single codepoint from $(B before) the current pointer, and moves
+	the pointer to point to it.
 
 	Params:
 		s = Pointer to the byte after the codepoint to be decoded. There are no checks done to ensure that this actually
@@ -599,15 +600,15 @@ namespace croc
 	/**
 	Assuming the given UTF-8 is well-formed, transcodes it into UTF-16.
 
-	This function expects you to provide it with an output buffer that you have allocated. This buffer is not required to
-	be large enough to hold the entire output.
+	This function expects you to provide it with an output buffer that you have allocated. This buffer is not required
+	to be large enough to hold the entire output.
 
-	If the entire input was successfully transcoded, remaining will be set to an empty string, and the return value will be
-	a slice of buf that contains the output UTF-16.
+	If the entire input was successfully transcoded, remaining will be set to an empty string, and the return value will
+	be a slice of buf that contains the output UTF-16.
 
-	If only some of the input was successfully transcoded (because the output buffer was not big enough), remaining will be
-	set to the slice of str that has yet to be transcoded, and the return value will be a slice of buf that contains what
-	UTF-16 was transcoded so far.
+	If only some of the input was successfully transcoded (because the output buffer was not big enough), remaining will
+	be set to the slice of str that has yet to be transcoded, and the return value will be a slice of buf that contains
+	what UTF-16 was transcoded so far.
 
 	Params:
 		str = The string to be transcoded into UTF-16.
@@ -618,8 +619,8 @@ namespace croc
 		A slice of buf which contains the encoded UTF-16.
 
 	Examples:
-		Suppose you want to convert some UTF-8 text to UTF-16 and output it to a file as you go. You can do this in multiple
-		calls as follows:
+		Suppose you want to convert some UTF-8 text to UTF-16 and output it to a file as you go. You can do this in
+		multiple calls as follows:
 
 	-----
 	char[] input = whatever(); // The source text; must be valid UTF-8
@@ -744,8 +745,8 @@ namespace croc
 	/**
 	Given a valid UTF-8 string and two codepoint indices, returns a slice of the string.
 
-	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
-	traversal of the string.
+	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a
+	linear traversal of the string.
 	*/
 	custring utf8Slice(custring str, size_t lo, size_t hi)
 	{
@@ -768,8 +769,8 @@ namespace croc
 	/**
 	Given a valid UTF-8 string and a codepoint index, returns the codepoint at that index.
 
-	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
-	traversal of the string.
+	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a
+	linear traversal of the string.
 	*/
 	dchar utf8CharAt(custring str, size_t idx)
 	{
@@ -784,8 +785,8 @@ namespace croc
 	/**
 	Given a valid UTF-8 string and a codepoint index, returns the equivalent byte index.
 
-	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
-	traversal of the string.
+	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a
+	linear traversal of the string.
 	*/
 	size_t utf8CPIdxToByte(custring str, size_t fake)
 	{
@@ -802,8 +803,8 @@ namespace croc
 
 	Note that the given byte index must be pointing to the beginning of a codepoint for this function to work properly.
 
-	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
-	traversal of the string.
+	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a
+	linear traversal of the string.
 	*/
 	size_t utf8ByteIdxToCP(custring str, size_t fake)
 	{
@@ -819,8 +820,8 @@ namespace croc
 	/**
 	Given a valid UTF-8 string, count how many codepoints there are in it.
 
-	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a linear
-	traversal of the string.
+	This is a linear time operation, as indexing and slicing by codepoint index rather than by byte index requires a
+	linear traversal of the string.
 	*/
 	size_t fastUtf8CPLength(custring str)
 	{

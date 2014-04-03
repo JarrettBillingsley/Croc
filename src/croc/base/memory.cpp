@@ -164,13 +164,13 @@ namespace croc
 		len = 0;
 	}
 
-	// ================================================================================================================================================
+	// =================================================================================================================
 	// Private
-	// ================================================================================================================================================
+	// =================================================================================================================
 
 	GCObject* Memory::allocateRC(size_t size, bool acyclic TYPEID_PARAM)
 	{
-		 // RC space objects start off logged since we put them on the mod buffer (or they're green and don't need to be)
+		// RC space objects start off logged since we put them on the mod buffer (or they're green and don't need to be)
 		GCObject* ret = allocateGCObject(size, acyclic, GCFlags_InRC);
 
 		ret->refCount = 1;

@@ -26,7 +26,8 @@ namespace croc
 			vm->stringTab.minimize(vm->mem);
 			vm->weakrefTab.minimize(vm->mem);
 
-			return beforeSize > vm->mem.totalBytes ? beforeSize - vm->mem.totalBytes : 0; // This is.. possible? TODO: figure out how.
+			// This is.. possible? TODO: figure out how.
+			return beforeSize > vm->mem.totalBytes ? beforeSize - vm->mem.totalBytes : 0;
 		}
 
 		void runPostGCCallbacks(CrocThread* t)

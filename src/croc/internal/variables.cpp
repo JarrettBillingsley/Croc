@@ -36,7 +36,8 @@ namespace croc
 	void newGlobalImpl(Thread* t, String* name, Namespace* env, Value val)
 	{
 		if(env->contains(name))
-			croc_eh_throwStd(*t, "NameError", "Attempting to create global '%s' that already exists", name->toCString());
+			croc_eh_throwStd(*t, "NameError", "Attempting to create global '%s' that already exists",
+				name->toCString());
 
 		env->set(t->vm->mem, name, val);
 	}

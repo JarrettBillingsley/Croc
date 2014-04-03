@@ -443,7 +443,8 @@ namespace croc
 				{
 					auto loc = d->names[j]->location;
 					c.semException(n1->location,
-						"Variable '%s' conflicts with previous definition at %s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT ")",
+						"Variable '%s' conflicts with previous definition at %s(%" CROC_SIZE_T_FORMAT ":%"
+							CROC_SIZE_T_FORMAT ")",
 						n1->name.ptr, loc.file.ptr, loc.line, loc.col);
 				}
 			}

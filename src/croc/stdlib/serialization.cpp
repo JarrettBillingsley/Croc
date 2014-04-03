@@ -1084,7 +1084,8 @@ namespace croc
 	// word_t _deserializeThreadImpl(CrocThread* t)
 	// {
 	// 	version(CrocExtendedThreads)
-	// 		croc_eh_throwStd(t, "ValueError", "Attempting to deserialize a thread while extended threads were compiled in");
+	// 		croc_eh_throwStd(t, "ValueError",
+	// 			"Attempting to deserialize a thread while extended threads were compiled in");
 
 	// 	auto ret = thread.createPartial(t.vm);
 	// 	_addObject(t, cast(GCObject*)ret);

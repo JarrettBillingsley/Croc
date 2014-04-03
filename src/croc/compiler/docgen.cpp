@@ -228,7 +228,7 @@ namespace croc
 			if(d->protection == Protection::Local)
 				croc_pushString(t, "local");
 			else
-				croc_pushString(t, "global"); // covers "default" protection as well, since we're only dealing with globals
+				croc_pushString(t, "global"); // covers "default" protection too, since we're only dealing with globals
 
 			croc_fielda(t, -2, "protection");
 			popDocTable(desc);
@@ -292,7 +292,8 @@ namespace croc
 		}
 	}
 
-	void DocGen::pushDocTable(DocTableDesc &desc, CompileLoc loc, CompileLoc docsLoc, crocstr kind, crocstr name, crocstr docs)
+	void DocGen::pushDocTable(DocTableDesc &desc, CompileLoc loc, CompileLoc docsLoc, crocstr kind, crocstr name,
+		crocstr docs)
 	{
 		if(mDittoDepth > 0)
 		{
@@ -378,7 +379,8 @@ namespace croc
 		}
 		else if(kind != ATODA("function") && kind != ATODA("parameter"))
 		{
-			// Function docs are handled a little differently since they have to be done *after* the param doctables are added
+			// Function docs are handled a little differently since they have to be done *after* the param doctables are
+			// added
 			addComments(docsLoc, docs);
 		}
 	}

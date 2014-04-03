@@ -1965,7 +1965,8 @@ namespace croc
 #ifndef NDEBUG
 		if(check != (mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)))
 		{
-			printf("oh noes: %" CROC_SIZE_T_FORMAT " %" CROC_SIZE_T_FORMAT "\n", check, mExpSP - (numLhs + numLhs) - (ret ? 1 : 0));
+			printf("oh noes: %" CROC_SIZE_T_FORMAT " %" CROC_SIZE_T_FORMAT "\n",
+				check, mExpSP - (numLhs + numLhs) - (ret ? 1 : 0));
 			assert(false);
 		}
 #endif
@@ -2595,7 +2596,7 @@ namespace croc
 			case Op_Namespace: printf("namespace"); rd(i); printf(", c%u", nextIns().uimm); rc(); break;
 
 			// (rdimm, rs, imm)
-			case Op_IsTrue: if(INST_GET_RD(i)) { printf("istrue"); } else { printf("isfalse"); } rcNoComma(); imm(); break;
+			case Op_IsTrue: printf(INST_GET_RD(i) ? "istrue" : "isfalse"); rcNoComma(); imm(); break;
 
 			// (rdimm, rs, rt, imm)
 			case Op_Cmp:

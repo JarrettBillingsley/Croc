@@ -38,7 +38,8 @@ extern "C"
 			return croc_eh_throwStd(t, "TypeError", "Expected type '%s' for 'this', not '%s'",
 				expected, croc_getString(t, -1));
 		else
-			return croc_eh_throwStd(t, "TypeError", "Expected type '%s' for parameter %" CROC_SIZE_T_FORMAT ", not '%s'",
+			return croc_eh_throwStd(t, "TypeError",
+				"Expected type '%s' for parameter %" CROC_SIZE_T_FORMAT ", not '%s'",
 				expected, index, croc_getString(t, -1));
 	}
 
@@ -57,7 +58,8 @@ extern "C"
 	word_t croc_ex_sliceIndexError(CrocThread* t, crocint_t lo, crocint_t hi, uword_t length, const char* name)
 	{
 		return croc_eh_throwStd(t, "BoundsError",
-			"Invalid %s slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (length: %" CROC_SIZE_T_FORMAT ")",
+			"Invalid %s slice indices: %" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT " (length: %"
+				CROC_SIZE_T_FORMAT ")",
 			name, lo, hi, length);
 	}
 

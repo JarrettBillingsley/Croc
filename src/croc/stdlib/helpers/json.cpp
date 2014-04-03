@@ -322,7 +322,8 @@ namespace croc
 
 			if(IS_EOF())
 				// TODO: different kinda exception?
-				croc_eh_throwStd(t, "LexicalException", "(%u:%u): Unterminated string literal", beginningLine, beginningCol);
+				croc_eh_throwStd(t, "LexicalException", "(%u:%u): Unterminated string literal",
+					beginningLine, beginningCol);
 
 			switch(mCharacter)
 			{
@@ -344,13 +345,15 @@ namespace croc
 					{
 						if(mCharacter != '\\')
 							// TODO: Different kinda exception?
-							croc_eh_throwStd(t, "LexicalException", "(%u:%u): second surrogate pair character expected", mLine, mCol);
+							croc_eh_throwStd(t, "LexicalException", "(%u:%u): second surrogate pair character expected",
+								mLine, mCol);
 
 						nextChar();
 
 						if(mCharacter != 'u')
 							// TODO: different kinda exception?
-							croc_eh_throwStd(t, "LexicalException", "(%u:%u): second surrogate pair character expected", mLine, mCol);
+							croc_eh_throwStd(t, "LexicalException", "(%u:%u): second surrogate pair character expected",
+								mLine, mCol);
 
 						nextChar();
 
@@ -358,7 +361,8 @@ namespace croc
 
 						if(x2 < 0xDC00 || x2 >= 0xE000)
 							// TODO: Different kinda exception
-							croc_eh_throwStd(t, "LexicalException", "(%u:%u): invalid surrogate pair sequence", mLine, mCol);
+							croc_eh_throwStd(t, "LexicalException", "(%u:%u): invalid surrogate pair sequence",
+								mLine, mCol);
 
 						x &= ~0xD800;
 						x2 &= ~0xDC00;
@@ -366,7 +370,8 @@ namespace croc
 					}
 					else if(x >= 0xDC00 && x < 0xE000)
 						// TODO: Different kinda exception
-						croc_eh_throwStd(t, "LexicalException", "(%u:%u): invalid surrogate pair sequence", mLine, mCol);
+						croc_eh_throwStd(t, "LexicalException", "(%u:%u): invalid surrogate pair sequence",
+							mLine, mCol);
 					else
 						return cast(crocchar)x;
 				}
@@ -394,7 +399,8 @@ namespace croc
 			{
 				if(IS_EOF())
 					// TODO:
-					croc_eh_throwStd(t, "LexicalException", "(%u:%u): Unterminated string literal", beginningLine, beginningCol);
+					croc_eh_throwStd(t, "LexicalException", "(%u:%u): Unterminated string literal",
+						beginningLine, beginningCol);
 
 				if(mCharacter == '\\')
 					croc_ex_buffer_addChar(&buf, readEscapeSequence(beginningLine, beginningCol));
@@ -846,7 +852,8 @@ namespace croc
 		else if(l.type() == Token::LBracket)
 			ret = parseArray(t, l);
 		else
-			croc_eh_throwStd(t, "ValueError", "JSON must have an object or an array as its top-level value %s", TokenStrings[l.type()]);
+			croc_eh_throwStd(t, "ValueError", "JSON must have an object or an array as its top-level value %s",
+				TokenStrings[l.type()]);
 
 		l.expect(Token::EOF_);
 		return ret;
