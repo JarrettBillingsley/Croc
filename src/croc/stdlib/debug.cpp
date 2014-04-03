@@ -56,14 +56,14 @@ namespace croc
 		if(t == thread)
 		{
 			// ignore call to whatever this function is
-			if(depth < 0 || depth >= maxDepth - 1)
+			if(depth < 0 || cast(uword)depth >= maxDepth - 1)
 				croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
 
 			return getActRec(Thread::from(thread), cast(uword)depth + 1);
 		}
 		else
 		{
-			if(depth < 0 || depth >= maxDepth)
+			if(depth < 0 || cast(uword)depth >= maxDepth)
 				croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
 
 			return getActRec(Thread::from(thread), cast(uword)depth);
@@ -86,7 +86,7 @@ namespace croc
 	Value* findLocal(CrocThread* t, CrocThread* thread, word arg, ActRecord* ar)
 	{
 		crocint idx = 1;
-		String* name;
+		String* name = nullptr;
 
 		if(croc_isInt(t, arg + 2))
 			idx = croc_getInt(t, arg + 2);
@@ -136,7 +136,7 @@ namespace croc
 		{
 			auto idx = croc_getInt(t, arg + 2);
 
-			if(idx < 0 || idx >= func->numUpvals)
+			if(idx < 0 || cast(uword)idx >= func->numUpvals)
 				croc_eh_throwStd(t, "BoundsError", "invalid upvalue index '%" CROC_INTEGER_FORMAT "'", idx);
 
 			if(func->isNative)
@@ -312,7 +312,7 @@ DBeginList(_globalFuncs)
 		auto maskStr = croc_ex_optParam(t, arg + 2, CrocType_String) ? getCrocstr(t, arg + 2) : ATODA("");
 		auto delay = croc_ex_optIntParam(t, arg + 3, 0);
 
-		if(delay < 0 || delay > std::numeric_limits<uword>::max())
+		if(delay < 0 || cast(uword)delay > std::numeric_limits<uword>::max())
 			croc_eh_throwStd(t, "RangeError", "invalid delay value (%" CROC_INTEGER_FORMAT ")", delay);
 
 		auto mask = strToMask(maskStr);
@@ -596,11 +596,11 @@ DListSep()
 		auto func = getFuncParam(t, thread, arg + 1);
 		auto idx = croc_ex_checkIntParam(t, arg + 2);
 
-		if(func == nullptr || idx < 0 || idx >= func->numUpvals)
+		if(func == nullptr || idx < 0 || cast(uword)idx >= func->numUpvals)
 			croc_eh_throwStd(t, "BoundsError", "invalid upvalue index '%" CROC_INTEGER_FORMAT "'", idx);
 
 		// Check is in case there's no debug info
-		if(func->isNative || idx >= func->scriptFunc->upvalNames.length)
+		if(func->isNative || cast(uword)idx >= func->scriptFunc->upvalNames.length)
 			croc_pushString(t, "");
 		else
 			push(Thread::from(t), Value::from(func->scriptFunc->upvalNames[cast(uword)idx]));
@@ -716,14 +716,14 @@ DListSep()
 
 		if(t == thread)
 		{
-			if(depth < 0 || depth >= maxDepth - 1)
+			if(depth < 0 || cast(uword)depth >= maxDepth - 1)
 				croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
 
 			croc_pushInt(t, getDebugLine(Thread::from(t), cast(uword)depth + 1));
 		}
 		else
 		{
-			if(depth < 0 || depth >= maxDepth)
+			if(depth < 0 || cast(uword)depth >= maxDepth)
 				croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
 
 			croc_pushInt(t, getDebugLine(Thread::from(t), cast(uword)depth));

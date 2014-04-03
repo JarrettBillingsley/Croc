@@ -56,7 +56,7 @@ extern "C"
 		va_list argsDup;
 		va_copy(argsDup, args);
 		auto len = vsnprintf(cast(char*)t->vm->formatBuf, CROC_FORMAT_BUF_SIZE, fmt, argsDup);
-		word_t ret;
+		word_t ret = 0;
 
 		if(len >= 0 && len < CROC_FORMAT_BUF_SIZE)
 			ret = croc_pushStringn(t_, cast(const char*)t->vm->formatBuf, len);
