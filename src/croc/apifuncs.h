@@ -92,6 +92,8 @@ CROCAPI word_t  croc_absIndex     (CrocThread* t, word_t idx);
 CROCAPI int     croc_isValidIndex (CrocThread* t, word_t idx);
 CROCAPI word_t  croc_dup          (CrocThread* t, word_t slot);
 CROCAPI void    croc_swap         (CrocThread* t, word_t first, word_t second);
+CROCAPI void    croc_copy         (CrocThread* t, word_t src, word_t dest);
+CROCAPI void    croc_replace      (CrocThread* t, word_t dest);
 CROCAPI void    croc_insert       (CrocThread* t, word_t slot);
 CROCAPI void    croc_insertAndPop (CrocThread* t, word_t slot);
 CROCAPI void    croc_remove       (CrocThread* t, word_t slot);
@@ -105,6 +107,8 @@ CROCAPI void    croc_transferVals (CrocThread* src, CrocThread* dest, uword_t nu
 #define croc_swapTop(t) (croc_swap((t), -2, -1))
 #define croc_swapTopWith(t, n) (croc_swap((t), (n), -1))
 #define croc_popTop(t) (croc_pop((t), 1))
+#define croc_copyTopTo(t, idx) (croc_copy((t), -1, (idx)))
+#define croc_copyToTop(t, idx) (croc_copy((t), (idx), -1))
 
 // =====================================================================================================================
 // Type queries

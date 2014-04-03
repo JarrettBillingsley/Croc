@@ -72,6 +72,34 @@ extern "C"
 		t->stack[s] = tmp;
 	}
 
+	void croc_copy(CrocThread* t_, word_t src, word_t dest)
+	{
+		auto t = Thread::from(t_);
+		auto s = fakeToAbs(t, src);
+		auto d = fakeToAbs(t, dest);
+
+		if(d == t->stackBase)
+			croc_eh_throwStd(t_, "ApiError", "%s - Cannot use 'this' as the destination", __FUNCTION__);
+
+		if(s == d)
+			return;
+
+		t->stack[d] = t->stack[s];
+	}
+
+	void croc_replace(CrocThread* t_, word_t dest)
+	{
+		auto t = Thread::from(t_);
+		auto d = fakeToAbs(t, dest);
+
+		croc_eh_throwStd(t_, "ApiError", "%s - Cannot use 'this' as the destination", __FUNCTION__);
+
+		if(d != t->stackIndex - 1)
+			t->stack[d] = t->stack[t->stackIndex - 1];
+
+		croc_popTop(t_);
+	}
+
 	void croc_insert(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
