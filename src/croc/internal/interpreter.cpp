@@ -591,7 +591,7 @@ namespace croc
 						intStep = -intStep;
 
 					if(intStep < 0)
-						*idx = Value::from(intIdx + intStep);
+						*idx = Value::from(((intIdx - intHi) / intStep) * intStep);
 
 					*step = Value::from(intStep);
 					(*pc) += jump;
