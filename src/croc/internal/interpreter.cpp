@@ -365,7 +365,7 @@ namespace croc
 
 					if(curPC == t->currentAR->func->scriptFunc->code.ptr ||
 						curPC < oldPC ||
-						pcToLine(t->currentAR, curPC) != pcToLine(t->currentAR, curPC - 1))
+						pcToLine(t->currentAR, curPC) != pcToLine(t->currentAR, oldPC))
 						callHook(t, CrocThreadHook_Line);
 				}
 			}
