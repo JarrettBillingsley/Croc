@@ -1365,17 +1365,34 @@ namespace croc
 	Time dateTimeToTime(DateTime time, bool isLocal)
 	{
 		struct tm tmtime;
+		memset(&tmtime, 0, sizeof(struct tm));
 		tmtime.tm_year = time.year - 1900;
 		tmtime.tm_mon = time.month - 1; // since it goes from [0 .. 11]
 		tmtime.tm_mday = time.day;
 		tmtime.tm_hour = time.hour;
 		tmtime.tm_min = time.min;
 		tmtime.tm_sec = time.sec;
+		tmtime.tm_isdst = -1;
+
+		time_t ret = -1;
 
 		if(isLocal)
-			return timetToTime(mktime(&tmtime));
+			ret = mktime(&tmtime);
 		else
-			return 0; // TODO:
+		{
+			if(mktime(&tmtime) != -1) // to fill in tm_yday
+			{
+				ret =
+					tmtime.tm_sec + tmtime.tm_min * 60 + tmtime.tm_hour * 3600 + tmtime.tm_yday * 86400 +
+					(tmtime.tm_year - 70) * 31536000 + ((tmtime.tm_year - 69) / 4) * 86400 -
+					((tmtime.tm_year - 1) / 100) * 86400 + ((tmtime.tm_year+299) / 400) * 86400;
+			}
+		}
+
+		if(ret == -1)
+			return 0;
+		else
+			return timetToTime(ret);
 	}
 
 	// =================================================================================================================

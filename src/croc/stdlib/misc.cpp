@@ -706,6 +706,7 @@ const StdlibRegister _dumpVal =
 		if(newline)
 			printf("\n");
 
+		fflush(stdout);
 		return 0;
 	}
 };
