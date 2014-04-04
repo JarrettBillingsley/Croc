@@ -44,7 +44,7 @@ namespace croc
 	template<bool swap = false>
 	void skipBadUtf32Char(const dchar*& s, const dchar* end);
 	#define skipBadUtf32CharBS skipBadUtf32Char<true>
-	bool verifyUtf8(custring str, size_t& cpLen);
+	UtfError verifyUtf8(custring str, size_t& cpLen);
 	UtfError Utf16ToUtf8(cwstring str, ustring buf, cwstring& remaining, ustring& output);
 	UtfError Utf32ToUtf8(cdstring str, ustring buf, cdstring& remaining, ustring& output);
 	UtfError Utf16ToUtf8BS(cwstring str, ustring buf, cwstring& remaining, ustring& output);

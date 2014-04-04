@@ -87,7 +87,7 @@ extern "C"
 		if(h == oscompat::InvalidHandle)
 			oscompat::throwOSEx(t);
 
-		croc_pushNativeobj(t, h);
+		croc_pushNativeobj(t, cast(void*)h);
 		croc_pushString(t, mode);
 		croc_call(t, ret, 1);
 		return ret;

@@ -6,6 +6,15 @@
 #include "croc/types/base.hpp"
 #include "croc/util/utf.hpp"
 
+#ifndef _WIN32
+#include <dirent.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+
+#include "croc/util/str.hpp"
+#endif
+
 namespace croc
 {
 	namespace oscompat
@@ -95,6 +104,7 @@ namespace croc
 		{
 			return
 				(attrs & FILE_ATTRIBUTE_DIRECTORY) ? FileType::Dir :
+				(attrs & FILE_REPARSE_POINT) ? FileType::Link :
 				(attrs & FILE_ATTRIBUTE_DEVICE) ? FileType::Other :
 				FileType::File;
 		}
@@ -499,10 +509,11 @@ namespace croc
 				{
 					if(includeHidden || (data.dwFileAttributes & (FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN)) == 0)
 					{
-						auto cont = dg(_attrsToType(data.dwFileAttributes));
-
-						if(!cont)
+						if(!dg(_attrsToType(data.dwFileAttributes)))
+						{
+							croc_popTop(t);
 							break;
+						}
 					}
 				}
 
@@ -800,7 +811,96 @@ namespace croc
 	}
 
 #else
-#error "Unimplemented"
+	namespace
+	{
+		FileType _statsToType(struct stat& stats)
+		{
+			return (stats.st_mode & S_IFDIR) ? FileType::Dir :
+				(stats.st_mode & S_IFREG) ? FileType::File :
+				FileType::Other;
+		}
+
+		Time timetToTime(time_t time)
+		{
+			return (cast(Time)time) * 1000;
+		}
+
+		time_t TimetoTimet(Time time)
+		{
+			return cast(time_t)(time / 1000);
+		}
+	}
+
+	void pushSystemErrorMsg(CrocThread* t)
+	{
+		croc_pushString(t, strerror(errno));
+	}
+
+	// =================================================================================================================
+	// File streams
+
+	FileHandle openFile(CrocThread* t, crocstr name, FileAccess access, FileCreate create)
+	{
+		auto ret = open(cast(const char*)name.ptr, cast(int)create | cast(int)access | O_LARGEFILE, 0666);
+
+		if(ret == -1)
+		{
+			pushSystemErrorMsg(t);
+			return InvalidHandle;
+		}
+
+		return ret;
+	}
+
+	bool truncate(CrocThread* t, FileHandle f)
+	{
+		auto pos = lseek(f, 0, SEEK_CUR);
+
+		if(pos == -1 || ftruncate(f, pos) == -1)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		return true;
+	}
+
+	FileHandle fromCFile(CrocThread* t, FILE* f)
+	{
+		auto ret = fileno(f);
+
+		if(ret == -1)
+		{
+			pushSystemErrorMsg(t);
+			return InvalidHandle;
+		}
+
+		return ret;
+	}
+
+	// =================================================================================================================
+	// Console streams
+
+	FileHandle getStdin(CrocThread* t)
+	{
+		(void)t;
+		return STDIN_FILENO;
+	}
+
+	FileHandle getStdout(CrocThread* t)
+	{
+		(void)t;
+		return STDOUT_FILENO;
+	}
+
+	FileHandle getStderr(CrocThread* t)
+	{
+		(void)t;
+		return STDERR_FILENO;
+	}
+
+	// =================================================================================================================
+	// General-purpose streams
 
 	bool isValidHandle(FileHandle f)
 	{
@@ -815,6 +915,489 @@ namespace croc
 		}
 
 		return ret;
+	}
+
+	int64_t read(CrocThread* t, FileHandle f, DArray<uint8_t> data)
+	{
+		auto bytesRead = ::read(f, data.ptr, data.length);
+
+		if(bytesRead == -1)
+			pushSystemErrorMsg(t);
+
+		return bytesRead;
+	}
+
+	int64_t write(CrocThread* t, FileHandle f, DArray<uint8_t> data)
+	{
+		auto bytesWritten = ::write(f, data.ptr, data.length);
+
+		if(bytesWritten == -1)
+			pushSystemErrorMsg(t);
+
+		return bytesWritten;
+	}
+
+	uint64_t seek(CrocThread* t, FileHandle f, uint64_t pos, Whence whence)
+	{
+		auto newPos = lseek(f, pos, cast(int)whence);
+
+		if(newPos == -1)
+			pushSystemErrorMsg(t);
+
+		return cast(uint64_t)newPos;
+	}
+
+	bool flush(CrocThread* t, FileHandle f)
+	{
+		if(fsync(f) == -1)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		return true;
+	}
+
+	bool close(CrocThread* t, FileHandle f)
+	{
+		if(::close(f) == -1)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		return true;
+	}
+
+	// =================================================================================================================
+	// Environment variables
+
+	bool getEnv(CrocThread* t, crocstr name)
+	{
+		auto val = getenv(cast(const char*)name.ptr);
+
+		if(val == nullptr)
+			return false;
+
+		croc_pushString(t, val);
+		return true;
+	}
+
+	void setEnv(CrocThread* t, crocstr name, crocstr val)
+	{
+		auto ok = (val.length == 0) ?
+			unsetenv(cast(const char*)name.ptr) :
+			setenv(cast(const char*)name.ptr, cast(const char*)val.ptr, true);
+
+		if(ok == -1)
+		{
+			pushSystemErrorMsg(t);
+			throwOSEx(t);
+		}
+	}
+
+	void getAllEnvVars(CrocThread* t)
+	{
+		croc_table_new(t, 0);
+
+		for(auto pvarLine = environ; *pvarLine != nullptr; pvarLine++)
+		{
+			auto varLine = atoda(*pvarLine);
+			auto eqPos = strLocateChar(varLine, '=');
+
+			croc_pushStringn(t, cast(const char*)varLine.ptr, eqPos);
+			eqPos++;
+			croc_pushStringn(t, cast(const char*)(varLine.ptr + eqPos), varLine.length - eqPos);
+			croc_idxa(t, -3);
+		}
+	}
+
+	// =================================================================================================================
+	// FS stuff
+
+	bool listDir(CrocThread* t, crocstr path, bool includeHidden, std::function<bool(FileType)> dg)
+	{
+		auto pathSlot = pushCrocstr(t, path);
+
+		if(path.length > 0 && path[path.length - 1] != '/')
+		{
+			pushCrocstr(t, ATODA("/"));
+			croc_cat(t, 2);
+			path = getCrocstr(t, pathSlot);
+		}
+
+		auto dir = opendir(cast(const char*)path.ptr);
+
+		if(dir == nullptr)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		auto slot = croc_pushNull(t);
+		auto failed = tryCode(Thread::from(t), slot, [&]
+		{
+			while(true)
+			{
+				errno = 0;
+				auto entry = readdir(dir);
+
+				if(entry == nullptr)
+				{
+					if(errno == 0)
+						break;
+					else
+					{
+						pushSystemErrorMsg(t);
+						throwOSEx(t);
+					}
+				}
+
+				croc_dup(t, pathSlot);
+				croc_pushString(t, entry->d_name);
+				croc_cat(t, 2);
+				auto realName = getCrocstr(t, -1);
+
+				struct stat statBuf;
+
+				if(lstat(cast(const char*)realName.ptr, &statBuf) == -1)
+				{
+					pushSystemErrorMsg(t);
+					croc_pushFormat(t, "could not stat '%s': ", cast(const char*)realName.ptr);
+					croc_swapTop(t);
+					croc_cat(t, 2);
+					throwOSEx(t);
+				}
+
+				bool cont = true;
+
+				if(realName != ATODA(".") && realName != ATODA(".."))
+				{
+					if(includeHidden || (realName.length && realName[0] != '.'))
+						cont = dg(_statsToType(statBuf));
+				}
+
+				croc_popTop(t);
+
+				if(!cont)
+					break;
+			}
+		});
+
+		closedir(dir);
+
+		if(failed)
+			croc_eh_rethrow(t);
+
+		assert(croc_getStackSize(t) - 1 == cast(uword)slot);
+		croc_pop(t, 2); // EH null and path
+		return true;
+	}
+
+	bool pushCurrentDir(CrocThread* t)
+	{
+		auto t_ = Thread::from(t);
+		auto buf = DArray<char>::alloc(t_->vm->mem, 256);
+
+		while(getcwd(buf.ptr, buf.length) == nullptr)
+		{
+			if(errno == ERANGE)
+				buf.resize(t_->vm->mem, buf.length * 2);
+			else
+			{
+				buf.free(t_->vm->mem);
+				pushSystemErrorMsg(t);
+				return false;
+			}
+		}
+
+		auto slice = buf.slice(0, strlen(cast(const char*)buf.ptr)).template as<const uchar>();
+
+		uword cpLen;
+		auto ok = verifyUtf8(slice, cpLen);
+
+		if(ok == UtfError_OK)
+			push(t_, Value::from(String::createUnverified(t_->vm, slice, cpLen)));
+
+		buf.free(t_->vm->mem);
+
+		if(ok != UtfError_OK)
+			croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+		return true;
+	}
+
+	bool changeDir(CrocThread* t, crocstr path)
+	{
+		if(chdir(cast(const char*)path.ptr) == -1)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		return true;
+	}
+
+	bool makeDir(CrocThread* t, crocstr path)
+	{
+		if(mkdir(cast(const char*)path.ptr, 0777) == -1)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		return true;
+	}
+
+	bool removeDir(CrocThread* t, crocstr path)
+	{
+		if(rmdir(cast(const char*)path.ptr) == -1)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		return true;
+	}
+
+	bool getInfo(CrocThread* t, crocstr name, FileInfo* info)
+	{
+		struct stat statBuf;
+
+		if(lstat(cast(const char*)name.ptr, &statBuf) == -1)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		if(info)
+		{
+			info->size = statBuf.st_size;
+			info->type = _statsToType(statBuf);
+			info->created = timetToTime(statBuf.st_ctime);
+			info->modified = timetToTime(statBuf.st_mtime);
+			info->accessed = timetToTime(statBuf.st_atime);
+		}
+
+		return true;
+	}
+
+	bool copyFromTo(CrocThread* t, crocstr from, crocstr to, bool force)
+	{
+		bool ret = true;
+		auto srcfd = open(cast(const char*)from.ptr, O_RDONLY, cast(int)FileCreate::OpenExisting);
+
+		if(srcfd == -1)
+		{
+			pushSystemErrorMsg(t);
+			croc_pushFormat(t, "Error opening source file '%s': ", cast(const char*)from.ptr);
+			croc_swapTop(t);
+			croc_cat(t, 2);
+			ret = false;
+		}
+		else
+		{
+			struct stat srcStat, dstStat;
+
+			if(fstat(srcfd, &srcStat) == -1)
+			{
+				pushSystemErrorMsg(t);
+				ret = false;
+			}
+			else if(!S_ISREG(srcStat.st_mode))
+			{
+				croc_pushString(t, "source file is not a regular file");
+				ret = false;
+			}
+			else
+			{
+				auto dstfd = open(cast(const char*)to.ptr,
+					O_WRONLY | cast(int)(force ? FileCreate::CreateIfNeeded : FileCreate::MustNotExist),
+					srcStat.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO));
+
+				if(dstfd == -1)
+				{
+					pushSystemErrorMsg(t);
+					croc_pushFormat(t, "Error opening destination file '%s': ", cast(const char*)to.ptr);
+					croc_swapTop(t);
+					croc_cat(t, 2);
+					ret = false;
+				}
+				else
+				{
+					if(fstat(dstfd, &dstStat) == -1)
+					{
+						pushSystemErrorMsg(t);
+						ret = false;
+					}
+					else if(!S_ISREG(dstStat.st_mode))
+					{
+						croc_pushString(t, "destination file is not a regular file");
+						ret = false;
+					}
+					else
+					{
+						auto mem = Thread::from(t)->vm->mem;
+						auto buffer = DArray<uint8_t>::alloc(mem, 65536);
+
+						while(true)
+						{
+							auto bytesRead = ::read(srcfd, buffer.ptr, buffer.length);
+
+							if(bytesRead == -1)
+							{
+								pushSystemErrorMsg(t);
+								ret = false;
+								break;
+							}
+							else if(bytesRead == 0)
+								break;
+
+							auto srcPtr = buffer.ptr;
+							auto bytesLeft = bytesRead;
+
+							while(bytesLeft)
+							{
+								auto bytesWritten = ::write(dstfd, srcPtr, bytesLeft);
+
+								if(bytesWritten == -1)
+								{
+									pushSystemErrorMsg(t);
+									ret = false;
+									goto _breakOuter;
+								}
+
+								bytesLeft -= bytesWritten;
+								srcPtr += bytesWritten;
+							}
+						}
+
+					_breakOuter:;
+					}
+
+					::close(dstfd);
+				}
+			}
+
+			::close(srcfd);
+		}
+
+		return ret;
+	}
+
+	bool moveFromTo(CrocThread* t, crocstr from, crocstr to, bool force)
+	{
+		if(!force)
+		{
+			if(getInfo(t, to, nullptr))
+				return false;
+
+			croc_popTop(t); // when getInfo returns false, it leaves the error message on the stack
+		}
+
+		if(rename(cast(const char*)from.ptr, cast(const char*)to.ptr) == -1)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		return true;
+	}
+
+	bool remove(CrocThread* t, crocstr path)
+	{
+		if(::remove(cast(const char*)path.ptr) == -1)
+		{
+			pushSystemErrorMsg(t);
+			return false;
+		}
+
+		return true;
+	}
+
+	// =================================================================================================================
+	// Time
+
+	void initTime()
+	{
+		// do nothing!
+	}
+
+	uint64_t microTime()
+	{
+		timeval time;
+		gettimeofday(&time, nullptr);
+		return (time.tv_sec * 1000000) + time.tv_usec;
+	}
+
+	Time sysTime()
+	{
+		timeval time;
+		gettimeofday(&time, nullptr);
+		return timetToTime(time.tv_sec);
+	}
+
+	DateTime timeToDateTime(Time time, bool isLocal)
+	{
+		struct tm result;
+		auto secs = TimetoTimet(time);
+
+		auto ok = isLocal ? localtime_r(&secs, &result) : gmtime_r(&secs, &result);
+
+		// Only time this happens is with overflow, so..
+		if(ok == nullptr)
+		{
+			secs = 0;
+			isLocal ? localtime_r(&secs, &result) : gmtime_r(&secs, &result);
+		}
+
+		DateTime ret;
+		ret.year = result.tm_year + 1900;
+		ret.month = result.tm_mon + 1; // since it goes from [0 .. 11]
+		ret.day = result.tm_mday;
+		ret.hour = result.tm_hour;
+		ret.min = result.tm_min;
+		ret.sec = result.tm_sec;
+		ret.msec = 0;
+		return ret;
+	}
+
+	Time dateTimeToTime(DateTime time, bool isLocal)
+	{
+		struct tm tmtime;
+		tmtime.tm_year = time.year - 1900;
+		tmtime.tm_mon = time.month - 1; // since it goes from [0 .. 11]
+		tmtime.tm_mday = time.day;
+		tmtime.tm_hour = time.hour;
+		tmtime.tm_min = time.min;
+		tmtime.tm_sec = time.sec;
+
+		if(isLocal)
+			return timetToTime(mktime(&tmtime));
+		else
+			return 0; // TODO:
+	}
+
+	// =================================================================================================================
+	// Threading
+
+	void sleep(uword msec)
+	{
+		timespec wanted, remaining;
+
+		if(msec == 0)
+			msec = 1;
+
+		wanted.tv_sec = msec / 1000;
+		wanted.tv_nsec = (msec % 1000) * 1000000;
+
+		while(nanosleep(&wanted, &remaining) == -1)
+		{
+			if(errno == EINTR)
+				wanted = remaining;
+			else
+				break; // hrm
+		}
 	}
 #endif
 	}

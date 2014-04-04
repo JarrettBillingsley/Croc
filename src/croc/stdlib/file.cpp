@@ -73,6 +73,7 @@ namespace croc
 		{
 			case oscompat::FileType::File:  croc_pushString(t, "file");  break;
 			case oscompat::FileType::Dir:   croc_pushString(t, "dir");   break;
+			case oscompat::FileType::Link:  croc_pushString(t, "link");  break;
 			case oscompat::FileType::Other: croc_pushString(t, "other"); break;
 		}
 	}
@@ -227,7 +228,7 @@ DListSep()
 		if(!croc_isNativeobj(t, -1))
 			croc_eh_throwStd(t, "TypeError", "File object's 'handle' hidden field is not a nativeobj");
 
-		auto handle = croc_getNativeobj(t, -1);
+		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, -1);
 
 		if(!oscompat::isValidHandle(handle))
 			croc_eh_throwStd(t, "ValueError", "File object's handle is invalid");
@@ -364,8 +365,8 @@ DListSep()
 	\param[listHidden] controls whether or not hidden and system files are included in the listing.
 	\param[cb] is the callback function which will be called once for each directory entry. It will be passed two
 		parameters: the first is the name of the entry, and the second is a string indicating what kind of entry it is.
-		This string will be one of \tt{"file"} for regular files, \tt{"dir"} for directories, and \tt{"other"} for other
-		kinds of files (such as devices, special files, symlinks etc.).
+		This string will be one of \tt{"file"} for regular files, \tt{"dir"} for directories, \tt{"link"} for file
+		links, and \tt{"other"} for other kinds of files (such as devices, special files, etc.).
 
 		This function can also optionally return a boolean \tt{false} to halt the directory listing.
 
@@ -409,6 +410,7 @@ DListSep()
 		\dlist
 			\li{\tt{'f'}} means regular files will be included.
 			\li{\tt{'d'}} means directories will be included. Their names will have a trailing slash ('/').
+			\li{\tt{'l'}} means links will be included. They will look the same as normal filenames.
 			\li{\tt{'o'}} means other kinds of entries will be included. They will look the same as normal filenames.
 		\endlist
 
@@ -424,6 +426,7 @@ DListSep()
 
 		bool listFiles = false;
 		bool listDirs = false;
+		bool listLinks = false;
 		bool listOther = false;
 
 		for(auto c: getCrocstr(t, 3))
@@ -432,13 +435,14 @@ DListSep()
 			{
 				case 'f': listFiles = true; break;
 				case 'd': listDirs = true; break;
+				case 'l': listLinks = true; break;
 				case 'o': listOther = true; break;
 				default: break;
 			}
 		}
 
 		if(!listFiles && !listDirs && !listOther)
-			croc_eh_throwStd(t, "ValueError", "'kinds' parameter must contain at least one of 'f', 'd', and 'o'");
+			croc_eh_throwStd(t, "ValueError", "'kinds' parameter must contain at least one of 'f', 'd', 'l', and 'o'");
 
 		auto ret = croc_array_new(t, 0);
 
@@ -460,6 +464,14 @@ DListSep()
 						croc_dupTop(t);
 						croc_pushString(t, "/");
 						croc_cat(t, 2);
+						croc_cateq(t, ret, 1);
+					}
+					break;
+
+				case oscompat::FileType::Link:
+					if(listLinks)
+					{
+						croc_dupTop(t);
 						croc_cateq(t, ret, 1);
 					}
 					break;
@@ -566,8 +578,8 @@ DListSep()
 
 	\returns either a new table or \tt{tab} if passed. The table will have the following fields:
 		\dlist
-			\li{\tt{"type"}} is a string indicating whether it's a file (\tt{"file"}), directory (\tt{"dir"}), or
-				something else (\tt{"other"}).
+			\li{\tt{"type"}} is a string indicating whether it's a file (\tt{"file"}), directory (\tt{"dir"}), link
+				(\tt{"link"}), or something else (\tt{"other"}).
 			\li{\tt{"size"}} is an integer representing the size, in bytes, of the file. Meaningless for non-files.
 			\li{\tt{"created"}} is an integer representing the time of creation as measured in microseconds since
 				midnight on January 1, 1970.

@@ -349,7 +349,10 @@ namespace croc
 			croc_insertAndPop(*t, -2);
 			croc_pushString(*t, "'");
 			croc_cat(*t, 3);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
 			c.semException(loc, croc_getString(*t, -1));
+#pragma GCC diagnostic pop
 		}
 
 		*s.offsets.insert(c.mem(), val) = jumpDiff(s.switchPC, here());

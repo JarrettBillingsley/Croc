@@ -36,8 +36,8 @@
 #define CROC_INTEGER_FORMAT "lld"
 #define CROC_UINTEGER_FORMAT "llu"
 #define CROC_HEX64_FORMAT "llx"
-#define CROC_SIZE_T_FORMAT "zu"
-#define CROC_SSIZE_T_FORMAT "z"
+#define CROC_SIZE_T_FORMAT "u"
+#define CROC_SSIZE_T_FORMAT "d"
 #endif
 
 #define CROC_FORMAT_BUF_SIZE 256

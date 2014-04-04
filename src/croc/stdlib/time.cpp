@@ -225,9 +225,9 @@ DEndList()
 #ifdef CROC_BUILTIN_DOCS
 const char* TimerClassDocs =
 DClass("Timer")
-R"(A small helper class which acts like a stopwatch. You can start it, and it will count time up from that
-point. When you stop it, it will add the elapsed time between the start and stop calls to its accumulated
-time. You can then start and stop it again as many times as you want.
+R"(A small helper class which acts like a stopwatch. You can start it, and it will count time up from that point. When
+you stop it, it will add the elapsed time between the start and stop calls to its accumulated time. You can then start
+and stop it again as many times as you want.
 
 This wraps the \link{microTime} function so it gives microsecond-precise timings.
 

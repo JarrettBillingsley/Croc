@@ -310,7 +310,7 @@ namespace croc
 	Returns:
 		true if the given string is valid UTF-8, false, otherwise.
 	*/
-	bool verifyUtf8(custring str, size_t& cpLen)
+	UtfError verifyUtf8(custring str, size_t& cpLen)
 	{
 		cpLen = 0;
 		dchar c;

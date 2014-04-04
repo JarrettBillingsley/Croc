@@ -7,6 +7,7 @@
 #include "windows.h"
 #else
 #include "unistd.h"
+#include "fcntl.h"
 #endif
 
 #include "croc/types/base.hpp"
@@ -59,7 +60,7 @@ namespace croc
 		MustNotExist = O_CREAT | O_EXCL
 	};
 
-	enum class Whence : DWORD
+	enum class Whence
 	{
 		Begin = SEEK_SET,
 		Current = SEEK_CUR,
@@ -73,6 +74,7 @@ namespace croc
 	{
 		File,
 		Dir,
+		Link,
 		Other
 	};
 
