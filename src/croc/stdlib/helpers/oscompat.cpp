@@ -949,7 +949,8 @@ namespace croc
 
 	bool flush(CrocThread* t, FileHandle f)
 	{
-		if(fsync(f) == -1)
+		// Ignore failed fsyncs on file types that don't support them
+		if(fsync(f) == -1 && errno != EROFS && errno != EINVAL)
 		{
 			pushSystemErrorMsg(t);
 			return false;
