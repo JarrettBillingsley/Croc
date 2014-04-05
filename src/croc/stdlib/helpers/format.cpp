@@ -174,9 +174,16 @@ namespace croc
 
 			auto p = fmt.ptr, e = fmt.ptr + fmt.length;
 			bool haveFmtType = false;
+			bool trimZeroes = false;
 			char fmtType = 'f';
 
 			// Flags
+			if(p < e && *p == '#')
+			{
+				trimZeroes = true;
+				p++;
+			}
+
 			if(p < e)
 			{
 				if(*p == '+') p++;
@@ -215,6 +222,10 @@ namespace croc
 
 			auto offs = 0;
 			cfmt[offs++] = '%';
+
+			if(trimZeroes)
+				fmt = fmt.sliceToEnd(1);
+
 			memcpy(cfmt.ptr + offs, fmt.ptr, fmt.length); offs += fmt.length;
 
 			if(!haveFmtType)
@@ -226,6 +237,22 @@ namespace croc
 
 			if(len < 0 || cast(uword)len >= outbuf.length)
 				croc_eh_throwStd(t, "ValueError", "error formatting float");
+
+			if(trimZeroes && fmtType == 'f')
+			{
+				auto dotPos = strLocateChar(outbuf, '.');
+
+				if(dotPos != outbuf.length)
+				{
+					p = outbuf.ptr + dotPos + 1; // never remove first digit after decimal point
+					e = outbuf.ptr + len - 1;
+
+					while(e > p && *e == '0')
+						e--;
+
+					len = e + 1 - outbuf.ptr;
+				}
+			}
 
 			return croc_pushStringn(t, cast(const char*)outbuf.ptr, len);
 		}
