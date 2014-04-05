@@ -139,8 +139,13 @@ Fmt:
 					\em{not} count towards the number width.
 			\endlist
 		\li If \em{arg} is a \tt{float}, the format string must be of the format
-			\tt{('+'|' ')? ('.' Precision?)? Type?}. Again, this is a subset of the format specifiers for C's
-			printf family, and they work the same.
+			\tt{'#'? ('+'|' ')? ('.' Precision?)? Type?}. Again, this is (mostly) a subset of the format specifiers for
+			C's printf family, and they work the same.
+
+			The optional \tt{'#'} flag at the beginning only does anything for the \tt{'f'} format (explained below). If
+			given, it will strip extra 0s after the first place after the decimal point, similar to how \tt{'g'} works
+			by default. This flag isn't part of the normal C printf behavior, and if given for \tt{'e'} or \tt{'g'}
+			formats, it has no effect.
 
 			The optional \tt{'+'} or \tt{' '} flags at the beginning will prepend positive numbers with a plus sign or a
 			space, respectively (to make them line up nicely with negative numbers in tables).

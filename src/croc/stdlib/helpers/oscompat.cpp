@@ -104,7 +104,7 @@ namespace croc
 		{
 			return
 				(attrs & FILE_ATTRIBUTE_DIRECTORY) ? FileType::Dir :
-				(attrs & FILE_REPARSE_POINT) ? FileType::Link :
+				(attrs & FILE_ATTRIBUTE_REPARSE_POINT) ? FileType::Link :
 				(attrs & FILE_ATTRIBUTE_DEVICE) ? FileType::Other :
 				FileType::File;
 		}
