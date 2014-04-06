@@ -6,8 +6,8 @@
 #include "croc/types/base.hpp"
 #include "croc/util/str.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_ex_lookup(CrocThread* t, const char* name)
@@ -101,5 +101,4 @@ extern "C"
 		croc_popTop(t);
 		return ret;
 	}
-}
 }

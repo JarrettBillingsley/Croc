@@ -4,8 +4,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_ex_importNS(CrocThread* t, const char* name)
@@ -54,5 +54,4 @@ extern "C"
 		croc_popTop(t_);
 		return croc_ex_importNS(t_, modName);
 	}
-}
 }

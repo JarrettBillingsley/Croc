@@ -6,8 +6,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	uword_t croc_compiler_setFlags(CrocThread* t, uword_t flags)
@@ -133,5 +133,4 @@ extern "C"
 		croc_remove(t_, -2);
 		return croc_getStackSize(t_) - 1;
 	}
-}
 }

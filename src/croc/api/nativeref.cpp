@@ -3,8 +3,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	crocref_t croc_ref_create(CrocThread* t_, word_t idx)
@@ -46,5 +46,4 @@ extern "C"
 			croc_eh_throwStd(t_, "ApiError", "%s - Reference '%" CROC_UINTEGER_FORMAT "' does not exist",
 				__FUNCTION__, r);
 	}
-}
 }

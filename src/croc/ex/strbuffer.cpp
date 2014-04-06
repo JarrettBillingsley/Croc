@@ -3,12 +3,10 @@
 #include "croc/api/apichecks.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
+using namespace croc;
+
+namespace
 {
-extern "C"
-{
-	namespace
-	{
 	void addPiece(CrocStrBuffer* b)
 	{
 		if(croc_isNull(b->t, b->slot))
@@ -30,8 +28,10 @@ extern "C"
 		b->pos = 0;
 		addPiece(b);
 	}
-	}
+}
 
+extern "C"
+{
 	void croc_ex_buffer_init(CrocThread* t, CrocStrBuffer* b)
 	{
 		b->t = t;
@@ -192,5 +192,4 @@ extern "C"
 			b->buffer = 0;
 		}
 	}
-}
 }

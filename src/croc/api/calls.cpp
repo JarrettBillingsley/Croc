@@ -32,8 +32,8 @@
 	else\
 		return results;
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	uword_t croc_call(CrocThread* t_, word_t slot, word_t numReturns)
@@ -65,5 +65,4 @@ extern "C"
 				methodCallPrologue(t, absSlot, t->stack[absSlot], mname, numReturns, numParams));
 		TRYCALL_END
 	}
-}
 }

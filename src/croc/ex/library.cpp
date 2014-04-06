@@ -2,8 +2,8 @@
 #include "croc/api.h"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	namespace
@@ -63,5 +63,4 @@ extern "C"
 		for(auto f = funcs; f->name != nullptr; f++)
 			croc_ex_registerMethod(t, *f);
 	}
-}
 }

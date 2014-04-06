@@ -7,8 +7,8 @@
 #include "croc/api/apichecks.hpp"
 #include "croc/internal/stack.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_pushNull(CrocThread* t)                 { return push(Thread::from(t), Value::nullValue);         }
@@ -178,5 +178,4 @@ extern "C"
 		API_CHECK_PARAM(ret, slot, Thread, "slot");
 		return *ret;
 	}
-} // extern "C"
 }

@@ -5,8 +5,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	CrocType croc_type(CrocThread* t, word_t slot)
@@ -36,5 +36,4 @@ extern "C"
 		auto t = Thread::from(t_);
 		return pushTypeStringImpl(t, *getValue(t, slot));
 	}
-}
 }

@@ -4,8 +4,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_table_new(CrocThread* t_, uword_t size)
@@ -21,5 +21,4 @@ extern "C"
 		API_CHECK_PARAM(tabObj, tab, Table, "tab");
 		tabObj->clear(t->vm->mem);
 	}
-}
 }

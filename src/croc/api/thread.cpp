@@ -4,8 +4,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_thread_new(CrocThread* t_, word_t func)
@@ -112,5 +112,4 @@ extern "C"
 	{
 		return Thread::from(t_)->shouldHalt;
 	}
-}
 }

@@ -1,13 +1,20 @@
+/** @file */
 
 #include "croc/api.h"
 #include "croc/api/apichecks.hpp"
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
+	/**
+	Creates a new array. This is stuff.
+
+	\param t_ blah blah
+	\param len bloo bloo bloo
+	*/
 	word_t croc_array_new(CrocThread* t_, uword_t len)
 	{
 		auto t = Thread::from(t_);
@@ -34,5 +41,4 @@ extern "C"
 		a->fill(t->vm->mem, t->stack[t->stackIndex - 1]);
 		croc_popTop(t_);
 	}
-}
 }

@@ -5,49 +5,49 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
+using namespace croc;
+
+namespace
 {
-	namespace
+	void addFieldOrMethod(Thread* t, word cls, bool isMethod, bool isOverride)
 	{
-		void addFieldOrMethod(Thread* t, word cls, bool isMethod, bool isOverride)
+		API_CHECK_NUM_PARAMS(2);
+		API_CHECK_PARAM(c, cls, Class, "cls");
+		API_CHECK_PARAM(name, -2, String, isMethod ? "method name" : "field name");
+
+		if(c->isFrozen)
 		{
-			API_CHECK_NUM_PARAMS(2);
-			API_CHECK_PARAM(c, cls, Class, "cls");
-			API_CHECK_PARAM(name, -2, String, isMethod ? "method name" : "field name");
-
-			if(c->isFrozen)
-			{
-				if(isMethod)
-					croc_eh_throwStd(*t, "StateError", "%s - Attempting to add a method to class '%s' which is frozen",
-						__FUNCTION__, c->name->toCString());
-				else
-					croc_eh_throwStd(*t, "StateError", "%s - Attempting to add a field to class '%s' which is frozen",
-						__FUNCTION__, c->name->toCString());
-			}
-
-			auto okay = isMethod ?
-				c->addMethod(t->vm->mem, name, *getValue(t, -1), isOverride) :
-				c->addField (t->vm->mem, name, *getValue(t, -1), isOverride);
-
-			if(!okay)
-			{
-				if(isOverride)
-				{
-					croc_eh_throwStd(*t, "FieldError",
-						"%s - Attempting to override %s '%s' in class '%s', but no such member already exists",
-						__FUNCTION__, isMethod ? "method" : "field", name->toCString(), c->name->toCString());
-				}
-				else
-				{
-					croc_eh_throwStd(*t, "FieldError",
-						"%s - Attempting to add a %s '%s' which already exists to class '%s'",
-						__FUNCTION__, isMethod ? "method" : "field", name->toCString(), c->name->toCString());
-				}
-			}
-
-			croc_pop(*t, 2);
+			if(isMethod)
+				croc_eh_throwStd(*t, "StateError", "%s - Attempting to add a method to class '%s' which is frozen",
+					__FUNCTION__, c->name->toCString());
+			else
+				croc_eh_throwStd(*t, "StateError", "%s - Attempting to add a field to class '%s' which is frozen",
+					__FUNCTION__, c->name->toCString());
 		}
+
+		auto okay = isMethod ?
+			c->addMethod(t->vm->mem, name, *getValue(t, -1), isOverride) :
+			c->addField (t->vm->mem, name, *getValue(t, -1), isOverride);
+
+		if(!okay)
+		{
+			if(isOverride)
+			{
+				croc_eh_throwStd(*t, "FieldError",
+					"%s - Attempting to override %s '%s' in class '%s', but no such member already exists",
+					__FUNCTION__, isMethod ? "method" : "field", name->toCString(), c->name->toCString());
+			}
+			else
+			{
+				croc_eh_throwStd(*t, "FieldError",
+					"%s - Attempting to add a %s '%s' which already exists to class '%s'",
+					__FUNCTION__, isMethod ? "method" : "field", name->toCString(), c->name->toCString());
+			}
+		}
+
+		croc_pop(*t, 2);
 	}
+}
 
 extern "C"
 {
@@ -244,5 +244,4 @@ extern "C"
 		API_CHECK_PARAM(c, cls, Class, "cls");
 		return c->isFrozen;
 	}
-}
 }

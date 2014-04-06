@@ -6,8 +6,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	void croc_debug_setHookFunc(CrocThread* t_, uword_t mask, uword_t hookDelay)
@@ -135,5 +135,4 @@ extern "C"
 
 		printf("\n");
 	}
-}
 }

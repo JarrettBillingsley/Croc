@@ -4,8 +4,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_function_newWithEnv(CrocThread* t_, const char* name, word_t maxParams, CrocNativeFunc func,
@@ -133,5 +133,4 @@ extern "C"
 		API_CHECK_PARAM(f, func, Function, "func");
 		return f->isNative;
 	}
-}
 }

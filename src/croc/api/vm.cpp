@@ -11,48 +11,48 @@
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/all.hpp"
 
-namespace croc
+using namespace croc;
+
+namespace
 {
-	namespace
+	const size_t FinalizeLoopLimit = 1000;
+
+	void freeAll(VM* vm)
 	{
-		const size_t FinalizeLoopLimit = 1000;
+		vm->globals->clear(vm->mem);
+		vm->registry->clear(vm->mem);
+		vm->refTab.clear(vm->mem);
 
-		void freeAll(VM* vm)
+		for(auto t = vm->allThreads; t != nullptr; t = t->next)
 		{
-			vm->globals->clear(vm->mem);
-			vm->registry->clear(vm->mem);
-			vm->refTab.clear(vm->mem);
-
-			for(auto t = vm->allThreads; t != nullptr; t = t->next)
-			{
-				if(t->state == CrocThreadState_Dead)
-					t->reset();
-			}
-
-			gcCycle(vm, GCCycleType_Full);
-
-			size_t limit = 0;
-
-			do
-			{
-				if(limit > FinalizeLoopLimit)
-					assert(false); // TODO:
-					// throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or
-					// something's broken.");
-
-				runFinalizers(vm->mainThread);
-				gcCycle(vm, GCCycleType_Full);
-				limit++;
-			} while(!vm->toFinalize.isEmpty());
-
-			gcCycle(vm, GCCycleType_NoRoots);
-
-			if(!vm->toFinalize.isEmpty())
-				assert(false); // TODO:
-				// throw new Exception("Did you stick a finalizable object in a global metatable or something? I think
-				// you did. Stop doing that.");
+			if(t->state == CrocThreadState_Dead)
+				t->reset();
 		}
+
+		gcCycle(vm, GCCycleType_Full);
+
+		size_t limit = 0;
+
+		do
+		{
+			if(limit > FinalizeLoopLimit)
+				assert(false); // TODO:
+				// throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or
+				// something's broken.");
+
+			runFinalizers(vm->mainThread);
+			gcCycle(vm, GCCycleType_Full);
+			limit++;
+		} while(!vm->toFinalize.isEmpty());
+
+		gcCycle(vm, GCCycleType_NoRoots);
+
+		if(!vm->toFinalize.isEmpty())
+			assert(false); // TODO:
+			// throw new Exception("Did you stick a finalizable object in a global metatable or something? I think
+			// you did. Stop doing that.");
 	}
+}
 
 extern "C"
 {
@@ -292,5 +292,4 @@ extern "C"
 		auto t = Thread::from(t_);
 		return push(t, Value::from(t->vm->registry));
 	}
-} // extern "C"
 }

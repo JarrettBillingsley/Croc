@@ -4,28 +4,28 @@
 #include "croc/api.h"
 #include "croc/types/base.hpp"
 
-namespace croc
+using namespace croc;
+
+namespace
 {
-	namespace
+	uword_t commonCheckSliceParam(CrocThread* t, word_t index, uword_t length, const char* name, crocint_t def)
 	{
-		uword_t commonCheckSliceParam(CrocThread* t, word_t index, uword_t length, const char* name, crocint_t def)
+		auto ret = croc_ex_optIntParam(t, index, def);
+
+		if(ret < 0)
+			ret += length;
+
+		// big difference from croc_ex_checkIndexParam is that ret == length is okay!
+		if(ret < 0 || cast(uword)ret > length || cast(uword)ret > std::numeric_limits<uword_t>::max())
 		{
-			auto ret = croc_ex_optIntParam(t, index, def);
-
-			if(ret < 0)
-				ret += length;
-
-			// big difference from croc_ex_checkIndexParam is that ret == length is okay!
-			if(ret < 0 || cast(uword)ret > length || cast(uword)ret > std::numeric_limits<uword_t>::max())
-			{
-				croc_eh_throwStd(t, "BoundsError",
-					"Invalid %s slice index %" CROC_INTEGER_FORMAT " (length is %" CROC_SIZE_T_FORMAT")",
-					name, ret, length);
-			}
-
-			return cast(uword_t)ret;
+			croc_eh_throwStd(t, "BoundsError",
+				"Invalid %s slice index %" CROC_INTEGER_FORMAT " (length is %" CROC_SIZE_T_FORMAT")",
+				name, ret, length);
 		}
+
+		return cast(uword_t)ret;
 	}
+}
 
 extern "C"
 {
@@ -304,5 +304,4 @@ extern "C"
 
 		return cast(uword_t)ret;
 	}
-}
 }

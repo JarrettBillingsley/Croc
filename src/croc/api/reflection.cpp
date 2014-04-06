@@ -6,8 +6,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	const char* croc_getNameOf(CrocThread* t_, word_t obj)
@@ -133,5 +133,4 @@ extern "C"
 		auto t = Thread::from(t_);
 		return push(t, superOfImpl(t, *getValue(t, slot)));
 	}
-}
 }

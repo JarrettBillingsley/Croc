@@ -6,8 +6,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_foreachBegin(CrocThread* t_, uword_t numContainerVals)
@@ -475,5 +475,4 @@ extern "C"
 		catEqImpl(t, fakeToAbs(t, dest), t->stackIndex - num, num);
 		croc_pop(t_, num);
 	}
-}
 }

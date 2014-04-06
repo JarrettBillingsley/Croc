@@ -8,10 +8,10 @@
 #include "croc/util/array.hpp"
 #include "croc/util/str.hpp"
 
-namespace croc
+using namespace croc;
+
+namespace
 {
-	namespace
-	{
 	const char* DocTables = "ex.CrocDoc.docTables";
 
 	word getDocTables(CrocDoc* d)
@@ -341,7 +341,7 @@ namespace croc
 			croc_compiler_processDocComment(t);
 		}
 	}
-	}
+}
 
 extern "C"
 {
@@ -591,5 +591,4 @@ extern "C"
 		assert(croc_getStackSize(t) - 1 == cast(uword)dt);
 		croc_popTop(t);
 	}
-}
 }

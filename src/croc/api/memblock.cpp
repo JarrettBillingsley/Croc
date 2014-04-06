@@ -4,8 +4,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_memblock_new(CrocThread* t_, uword_t len)
@@ -54,5 +54,4 @@ extern "C"
 		*len = m->data.length;
 		return cast(char*)m->data.ptr;
 	}
-}
 }

@@ -4,8 +4,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_weakref_push(CrocThread* t_, word_t idx)
@@ -41,5 +41,4 @@ extern "C"
 				return 0; // dummy
 		}
 	}
-}
 }

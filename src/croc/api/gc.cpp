@@ -8,45 +8,45 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
+using namespace croc;
+
+namespace
 {
-	namespace
+	uword gcInternal(Thread* t, bool fullCollect)
 	{
-		uword gcInternal(Thread* t, bool fullCollect)
-		{
-			auto vm = t->vm;
+		auto vm = t->vm;
 
-			if(vm->mem.gcDisabled > 0)
-				return 0;
+		if(vm->mem.gcDisabled > 0)
+			return 0;
 
-			auto beforeSize = vm->mem.totalBytes;
-			gcCycle(vm, fullCollect ? GCCycleType_Full : GCCycleType_Normal);
-			runFinalizers(t);
+		auto beforeSize = vm->mem.totalBytes;
+		gcCycle(vm, fullCollect ? GCCycleType_Full : GCCycleType_Normal);
+		runFinalizers(t);
 
-			vm->stringTab.minimize(vm->mem);
-			vm->weakrefTab.minimize(vm->mem);
+		vm->stringTab.minimize(vm->mem);
+		vm->weakrefTab.minimize(vm->mem);
 
-			// This is.. possible? TODO: figure out how.
-			return beforeSize > vm->mem.totalBytes ? beforeSize - vm->mem.totalBytes : 0;
-		}
-
-		void runPostGCCallbacks(CrocThread* t)
-		{
-			croc_vm_pushRegistry(t);
-			croc_field(t, -1, "gc.postGCCallbacks");
-
-			word_t state;
-			for(state = croc_foreachBegin(t, 1); croc_foreachNext(t, state, 1); )
-			{
-				croc_dup(t, -1);
-				croc_pushNull(t);
-				croc_call(t, -2, 0);
-			}
-			croc_foreachEnd(t, state);
-
-			croc_popTop(t);
-		}
+		// This is.. possible? TODO: figure out how.
+		return beforeSize > vm->mem.totalBytes ? beforeSize - vm->mem.totalBytes : 0;
 	}
+
+	void runPostGCCallbacks(CrocThread* t)
+	{
+		croc_vm_pushRegistry(t);
+		croc_field(t, -1, "gc.postGCCallbacks");
+
+		word_t state;
+		for(state = croc_foreachBegin(t, 1); croc_foreachNext(t, state, 1); )
+		{
+			croc_dup(t, -1);
+			croc_pushNull(t);
+			croc_call(t, -2, 0);
+		}
+		croc_foreachEnd(t, state);
+
+		croc_popTop(t);
+	}
+}
 
 extern "C"
 {
@@ -109,5 +109,4 @@ extern "C"
 		if(strncmp(type, "cycleMetadataLimit",   30) == 0) return t->vm->mem.cycleMetadataLimit; else
 		return croc_eh_throwStd(t_, "ValueError", "Invalid limit type '%s'", type);
 	}
-}
 }

@@ -2,8 +2,8 @@
 #include "croc/api.h"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	void* croc_mem_alloc(CrocThread* t_, uword_t size)
@@ -36,5 +36,4 @@ extern "C"
 		*mem = nullptr;
 		*memSize = 0;
 	}
-}
 }

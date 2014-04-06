@@ -6,8 +6,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	uword_t croc_getStackSize(CrocThread* t_)
@@ -264,5 +264,4 @@ extern "C"
 		dest->stackIndex += num;
 		t->stackIndex -= num;
 	}
-} // extern "C"
 }

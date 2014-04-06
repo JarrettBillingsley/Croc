@@ -6,8 +6,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	namespace
@@ -74,5 +74,4 @@ extern "C"
 		API_CHECK_PARAM(ns, ns_, Namespace, "ns");
 		return pushFullNamespaceName(t, ns);
 	}
-}
 }

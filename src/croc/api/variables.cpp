@@ -6,8 +6,8 @@
 #include "croc/internal/variables.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_pushEnvironment(CrocThread* t_, uword_t depth)
@@ -109,5 +109,4 @@ extern "C"
 		setGlobalImpl(t, name, getEnv(t), t->stack[t->stackIndex - 1]);
 		croc_pop(t_, 2);
 	}
-}
 }

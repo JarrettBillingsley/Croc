@@ -8,8 +8,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_eh_throw(CrocThread* t_)
@@ -95,5 +95,4 @@ extern "C"
 		t->vm->unhandledEx = func;
 		t->stack[t->stackIndex - 1] = Value::from(old);
 	}
-}
 }

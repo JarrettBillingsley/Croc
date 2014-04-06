@@ -4,8 +4,8 @@
 #include "croc/types/base.hpp"
 #include "croc/util/str.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	word_t croc_ex_loadStringWithEnvStk(CrocThread* t_, const char* name)
@@ -59,5 +59,4 @@ extern "C"
 		croc_rotate(t_, numParams + 3, 3);
 		croc_call(t_, -3 - numParams, 0);
 	}
-}
 }

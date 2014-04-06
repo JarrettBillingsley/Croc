@@ -4,8 +4,8 @@
 #include "croc/internal/stack.hpp"
 #include "croc/types/base.hpp"
 
-namespace croc
-{
+using namespace croc;
+
 extern "C"
 {
 	const char* croc_funcdef_getName(CrocThread* t_, word_t funcdef)
@@ -22,5 +22,4 @@ extern "C"
 		*len = fd->name->length;
 		return fd->name->toCString();
 	}
-}
 }
