@@ -8,9 +8,22 @@ add_subdirectory(src)
 add_executable(croctest croctest.cpp)
 target_link_libraries(croctest croc)
 
+if(NOT DEFINED CROC_BUILD_BITS)
+	set(CROC_BUILD_BITS 32)
+endif()
+
 if(CMAKE_COMPILER_IS_GNUCXX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pedantic-ms-format -fmax-errors=2")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmax-errors=2 -m${CROC_BUILD_BITS}")
+
+	if(CROC_BUILD_BITS EQUAL 32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xlinker \"-melf_i386\" -Xlinker \"--oformat=elf32-i386\"")
+	endif()
+
+	if(MINGW)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pedantic-ms-format")
+	endif()
+
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-rtti -O3")
 elseif(MSVC)
 	message(FATAL_ERROR "VC not supported yet")

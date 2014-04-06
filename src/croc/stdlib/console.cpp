@@ -26,9 +26,9 @@ namespace croc
 			if(err == oscompat::InvalidHandle)
 				oscompat::throwIOEx(t);
 
-			croc_pushNativeobj(t, cast(void*)in);  croc_fielda(t, -2, "stdin");
-			croc_pushNativeobj(t, cast(void*)out); croc_fielda(t, -2, "stdout");
-			croc_pushNativeobj(t, cast(void*)err); croc_fielda(t, -2, "stderr");
+			croc_pushNativeobj(t, cast(void*)cast(uword)in);  croc_fielda(t, -2, "stdin");
+			croc_pushNativeobj(t, cast(void*)cast(uword)out); croc_fielda(t, -2, "stdout");
+			croc_pushNativeobj(t, cast(void*)cast(uword)err); croc_fielda(t, -2, "stderr");
 		croc_newGlobal(t, "_consoletmp");
 
 		croc_ex_importFromString(t, "console", console_croc_text, "console.croc");

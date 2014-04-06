@@ -92,7 +92,7 @@ extern "C"
 					croc_pop(*t, 2);
 				}
 				else
-					printf("[%3" CROC_SIZE_T_FORMAT ":%4" CROC_SSIZE_T_FORMAT"]: %.16" CROC_HEX64_FORMAT ": %u\n",
+					printf("[%3" CROC_SIZE_T_FORMAT ":%4" CROC_SSIZE_T_FORMAT "]: %.16" CROC_HEX64_FORMAT ": %u\n",
 						i, cast(word)i - cast(word)tmp, *cast(uint64_t*)&t->stack[i].mInt, t->stack[i].type);
 			}
 

@@ -41,7 +41,7 @@ namespace croc
 
 	word_t _nativeStreamCtor(CrocThread* t)
 	{
-		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, 2);
+		auto handle = cast(oscompat::FileHandle)cast(uword)croc_getNativeobj(t, 2);
 		auto caps = croc_getString(t, 3);
 
 		if(!oscompat::isValidHandle(handle))
@@ -57,7 +57,7 @@ namespace croc
 
 	word_t _nativeStreamRead(CrocThread* t)
 	{
-		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, 1);
+		auto handle = cast(oscompat::FileHandle)cast(uword)croc_getNativeobj(t, 1);
 		auto offset = cast(uword)croc_getInt(t, 3);
 		auto size = cast(uword)croc_getInt(t, 4);
 		auto dest = cast(uint8_t*)croc_memblock_getData(t, 2) + offset;
@@ -89,7 +89,7 @@ namespace croc
 
 	word_t _nativeStreamWrite(CrocThread* t)
 	{
-		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, 1);
+		auto handle = cast(oscompat::FileHandle)cast(uword)croc_getNativeobj(t, 1);
 		auto offset = cast(uword)croc_getInt(t, 3);
 		auto size = cast(uword)croc_getInt(t, 4);
 		auto src = cast(uint8_t*)croc_memblock_getData(t, 2) + offset;
@@ -120,7 +120,7 @@ namespace croc
 
 	word_t _nativeStreamSeek(CrocThread* t)
 	{
-		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, 1);
+		auto handle = cast(oscompat::FileHandle)cast(uword)croc_getNativeobj(t, 1);
 		auto offset = croc_getInt(t, 2);
 		auto whence = croc_getString(t, 3);
 		auto realWhence =
@@ -139,7 +139,7 @@ namespace croc
 
 	word_t _nativeStreamFlush(CrocThread* t)
 	{
-		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, 1);
+		auto handle = cast(oscompat::FileHandle)cast(uword)croc_getNativeobj(t, 1);
 
 		if(!oscompat::flush(t, handle))
 			oscompat::throwIOEx(t);
@@ -149,7 +149,7 @@ namespace croc
 
 	word_t _nativeStreamClose(CrocThread* t)
 	{
-		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, 1);
+		auto handle = cast(oscompat::FileHandle)cast(uword)croc_getNativeobj(t, 1);
 
 		if(!oscompat::close(t, handle))
 			oscompat::throwIOEx(t);

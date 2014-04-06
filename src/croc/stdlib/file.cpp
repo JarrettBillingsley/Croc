@@ -31,7 +31,7 @@ namespace croc
 	{
 		croc_ex_lookup(t, "stream.NativeStream");
 		croc_pushNull(t);
-		croc_pushNativeobj(t, cast(void*)f);
+		croc_pushNativeobj(t, cast(void*)cast(uword)f);
 		croc_pushString(t, mode);
 		croc_call(t, -4, 1);
 	}
@@ -228,7 +228,7 @@ DListSep()
 		if(!croc_isNativeobj(t, -1))
 			croc_eh_throwStd(t, "TypeError", "File object's 'handle' hidden field is not a nativeobj");
 
-		auto handle = cast(oscompat::FileHandle)croc_getNativeobj(t, -1);
+		auto handle = cast(oscompat::FileHandle)cast(uword)croc_getNativeobj(t, -1);
 
 		if(!oscompat::isValidHandle(handle))
 			croc_eh_throwStd(t, "ValueError", "File object's handle is invalid");

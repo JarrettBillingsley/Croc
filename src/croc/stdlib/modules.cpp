@@ -428,7 +428,10 @@ const char* _runMain_docs = Docstr(DFunc("runMain") DParam("ns", "namespace") DV
 			auto size = ftell(f);
 			fseek(f, 0, SEEK_SET);
 			auto data = (char*)malloc(size + 1);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
 			fread(data, 1, size, f);
+#pragma GCC diagnostic pop
 			data[size] = 0;
 			fclose(f);
 

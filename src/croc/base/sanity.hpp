@@ -33,11 +33,25 @@
 #endif
 
 #else
+// Who thought "yeah let's make the same integer type use different print specifiers depending on your platform" made
+// any
+// fucking
+// sense
+// whatsoever
+#if CROC_BUILD_BITS == 64
+#define CROC_INTEGER_FORMAT "ld"
+#define CROC_UINTEGER_FORMAT "lu"
+#define CROC_HEX64_FORMAT "lx"
+#else
 #define CROC_INTEGER_FORMAT "lld"
 #define CROC_UINTEGER_FORMAT "llu"
 #define CROC_HEX64_FORMAT "llx"
-#define CROC_SIZE_T_FORMAT "u"
-#define CROC_SSIZE_T_FORMAT "d"
+#endif
+
+#define CROC_SIZE_T_FORMAT "zu"
+#define CROC_SSIZE_T_FORMAT "zd"
+// #define CROC_SIZE_T_FORMAT "u"
+// #define CROC_SSIZE_T_FORMAT "d"
 #endif
 
 #define CROC_FORMAT_BUF_SIZE 256

@@ -219,7 +219,11 @@ endif()
 if(CMAKE_COMPILER_IS_GNUCXX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmax-errors=2 -m${CROC_BUILD_BITS}")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCROC_BUILTIN_DOCS=1")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCROC_BUILTIN_DOCS=1 -DCROC_BUILD_BITS=${CROC_BUILD_BITS}")
+
+	if(CROC_BUILD_BITS EQUAL 32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xlinker \"-melf_i386\" -Xlinker \"--oformat=elf32-i386\"")
+	endif()
 
 	if(MINGW)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pedantic-ms-format")
