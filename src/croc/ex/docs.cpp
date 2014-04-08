@@ -345,6 +345,21 @@ namespace
 
 extern "C"
 {
+	/** Initialize a \ref CrocDoc structure.
+
+	Let's talk about how this doc system works. There is a stack of "in-progress" doctables, and this structure keeps
+	track of that stack. The doctable stack is not on the thread's stack, it's kept elsewhere, so you don't have to
+	worry about pushing and popping values on the thread's stack at all.
+
+	When you begin a doctable by using \ref croc_ex_doc_push, it is pushed onto this doc stack. Then you can document
+	any sub-members (like inside a module or class). Then, when you pop the doctable with \ref croc_ex_doc_pop, it is
+	attached to a program object that you provide, and added to its parent (unless there is none).
+
+	When you're done with the \c CrocDoc, call \ref croc_ex_doc_finish on it.
+
+	\param file is the filename that will be added as the \c "file" member of every doctable created with this
+		\c CrocDoc. You can use the \c __FILE__ preprocessor macro for this if you like.
+	*/
 	void croc_ex_doc_init(CrocThread* t, CrocDoc* d, const char* file)
 	{
 		d->t = t;
@@ -356,6 +371,8 @@ extern "C"
 		croc_popTop(t);
 	}
 
+	/** Finishes the use of a \c CrocDoc by checking that the doctable stack is at the same height that it was when
+	\ref croc_ex_doc_init was called. */
 	void croc_ex_doc_finish(CrocDoc* d)
 	{
 		getDocTables(d);
@@ -374,6 +391,55 @@ extern "C"
 		croc_popTop(d->t);
 	}
 
+	/** Pushes a new doctable onto the given \c CrocDoc's doctable stack.
+
+	This doc system uses a mini-language to describe the line, kind, name, and other attributes of documented items.
+	Every doc string that you pass to this function must have a \a header, which means the first line of the docs must
+	be a string of the following form:
+
+	\verbatim
+	!<line> <kind> <name>
+	\endverbatim
+
+	It starts with an exclamation point, then the line number, a space, the kind of doctable it is (one of "module",
+	"function", "class", "namespace", "global", and "field"), another space, and then everything to the end of the line
+	is treated as the name.
+
+	Some kinds of doctables can have further lines that start with an exclamation to give more info, and others have
+	more info on the header line itself. Regardless, the first line of the docstring that doesn't start with an
+	exclamation point is treated as the beginning of the document text itself, and it can contain all the stuff a Croc
+	doc comment can.
+
+	Trying to write these headers out manually can be a pain (especially since the parser for them is very strict and
+	doesn't allow things like extra whitespace), so there are some macros which will make it easier to write them. Using
+	the macros will also insulate you against future changes in the syntax of the docstrings.
+
+	Some examples:
+
+	\code{.c}
+	const char* ModuleDocs =
+	CROC_DOC_MODULE("mymodule")
+	"These are docs for my module! It has some things in it.";
+
+	const char* MyClassDocs =
+	CROC_DOC_CLASS("MyClass") CROC_DOC_BASE("SomeOtherClass")
+	"This class derives from SomeOtherClass!";
+
+	const char* myFuncDocs =
+	CROC_DOC_FUNC("myFunc") CROC_DOC_PARAM("x", "int")
+	"This is my function. It takes one parameter.\n\
+	\\param[x] is the parameter.\n\
+	\\returns something. I'm sorry you have to double up the backslashes, and that\n\
+	you have to put the silly line endings on, and inserting a literal backslash takes\n\
+	four \\\\ backslashes, buuuut hopefully you'll just be using the C binding from\n\
+	another language and not from C itself. Hopefully.";
+	\endcode
+
+	Also, the docs after the header can just be the word "ditto", which will work exactly the same as in Croc (error
+	checking included).
+
+	\param docString is a docstring of the form described above.
+	*/
 	void croc_ex_doc_push(CrocDoc* d, const char* docString)
 	{
 		if(d->dittoDepth > 0)
@@ -390,6 +456,13 @@ extern "C"
 		croc_pop(d->t, 2);
 	}
 
+	/** Pops a doctable off the doctable stack.
+
+	Then, if the value on \c d's thread's stack at \c idx is a function, class, or namespace, calls the Croc \c _doc_
+	decorator function on it with the doctable as its parameter.
+
+	Then, if there is still a doctable on the stack, appends the popped doctable to the end of the array in the previous
+	doctable's \c parentField field (creating that array if necessary). */
 	void croc_ex_doc_popNamed(CrocDoc* d, word_t idx, const char* parentField)
 	{
 		auto t = d->t;
@@ -486,6 +559,12 @@ extern "C"
 		croc_pop(t, 2);
 	}
 
+	/** Expects a module doctable on top of \c d's thread's stack (called the "submodule"), and a doctable on top of
+	\c d's \a doctable stack (called the main module). This appends the contents of the submodule doctable's \c children
+	field to the main module doctable's \c children field.
+
+	This is useful in fairly limited scenarios. The standard library docs use this to merge the documentation in modules
+	that are written partly in native code and partly in script code. Maybe you'll find it useful for that too! */
 	void croc_ex_doc_mergeModuleDocs(CrocDoc* d)
 	{
 		auto t = d->t;
@@ -548,6 +627,9 @@ extern "C"
 		}
 	}
 
+	/** Given a docstring, pushes a doctable with it, then looks up the global with the name given in the docstring,
+	calls \ref croc_ex_doc_pop on it, and pops it from the stack. This has the effect of documenting one global in the
+	current namespace. */
 	void croc_ex_docGlobal(CrocDoc* d, const char* docString)
 	{
 		auto t = d->t;
@@ -557,6 +639,8 @@ extern "C"
 		croc_popTop(t);
 	}
 
+	/** Similar to \ref croc_ex_docGlobal, but instead of looking up a global, gets a field out of the object on top of
+	\c d's thread and docs that. */
 	void croc_ex_docField(CrocDoc* d, const char* docString)
 	{
 		auto t = d->t;
@@ -567,6 +651,7 @@ extern "C"
 		croc_popTop(t);
 	}
 
+	/** Takes a NULL-terminated array of docstrings and calls \ref croc_ex_docGlobal on all of them in order. */
 	void croc_ex_docGlobals(CrocDoc* d, const char** docStrings)
 	{
 		auto t = d->t;
@@ -579,6 +664,7 @@ extern "C"
 		croc_popTop(t);
 	}
 
+	/** Takes a NULL-terminated array of docstrings and calls \ref croc_ex_docField on all of them in order. */
 	void croc_ex_docFields(CrocDoc* d, const char** docStrings)
 	{
 		auto t = d->t;

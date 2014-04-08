@@ -51,6 +51,10 @@ namespace
 
 extern "C"
 {
+	/** Creates and pushes a new class named \c name, using the top \c numBases classes as its bases. The bases (if any)
+	are popped before the new class is pushed.
+
+	\returns the stack index of the pushed value. */
 	word_t croc_class_new(CrocThread* t_, const char* name, uword_t numBases)
 	{
 		auto t = Thread::from(t_);
@@ -76,21 +80,8 @@ extern "C"
 		return croc_getStackSize(t_) - 1;
 	}
 
-	const char* croc_class_getName(CrocThread* t_, word_t cls)
-	{
-		auto t = Thread::from(t_);
-		API_CHECK_PARAM(c, cls, Class, "cls");
-		return c->name->toCString();
-	}
-
-	const char* croc_class_getNamen(CrocThread* t_, word_t cls, uword_t* len)
-	{
-		auto t = Thread::from(t_);
-		API_CHECK_PARAM(c, cls, Class, "cls");
-		*len = c->name->length;
-		return c->name->toCString();
-	}
-
+	/** Adds a field named \c name to the unfrozen class at \c cls, assigning it the value on top of the stack and
+	popping that value. */
 	void croc_class_addField(CrocThread* t_, word_t cls, const char* name)
 	{
 		auto t = Thread::from(t_);
@@ -101,11 +92,15 @@ extern "C"
 		addFieldOrMethod(t, cls, false, false);
 	}
 
+	/** Same as \ref croc_class_addField, but expects the name as a string on the stack below the value (like how
+	\ref croc_fielda works). Pops both. */
 	void croc_class_addFieldStk(CrocThread* t_, word_t cls)
 	{
 		addFieldOrMethod(Thread::from(t_), cls, false, false);
 	}
 
+	/** Adds a method named \c name to the unfrozen class at \c cls, assigning it the value on top of the stack and
+	popping that value. The value can be any type, not just functions. */
 	void croc_class_addMethod(CrocThread* t_, word_t cls, const char* name)
 	{
 		auto t = Thread::from(t_);
@@ -116,11 +111,14 @@ extern "C"
 		addFieldOrMethod(t, cls, true, false);
 	}
 
+	/** Same as \ref croc_class_addMethod, but expects the name as a string on the stack below the value (like how
+	\ref croc_fielda works). Pops both. */
 	void croc_class_addMethodStk(CrocThread* t_, word_t cls)
 	{
 		addFieldOrMethod(Thread::from(t_), cls, true, false);
 	}
 
+	/** Same as \ref croc_class_addField, but overrides any existing field (like the 'override' keyword in Croc). */
 	void croc_class_addFieldO(CrocThread* t_, word_t cls, const char* name)
 	{
 		auto t = Thread::from(t_);
@@ -131,11 +129,13 @@ extern "C"
 		addFieldOrMethod(t, cls, false, true);
 	}
 
+	/** Same as \ref croc_class_addFieldStk, but overrides any existing field (like the 'override' keyword in Croc). */
 	void croc_class_addFieldOStk(CrocThread* t_, word_t cls)
 	{
 		addFieldOrMethod(Thread::from(t_), cls, false, true);
 	}
 
+	/** Same as \ref croc_class_addMethod, but overrides any existing field (like the 'override' keyword in Croc). */
 	void croc_class_addMethodO(CrocThread* t_, word_t cls, const char* name)
 	{
 		auto t = Thread::from(t_);
@@ -146,11 +146,13 @@ extern "C"
 		addFieldOrMethod(t, cls, true, true);
 	}
 
+	/** Same as \ref croc_class_addMethodStk, but overrides any existing field (like the 'override' keyword in Croc). */
 	void croc_class_addMethodOStk(CrocThread* t_, word_t cls)
 	{
 		addFieldOrMethod(Thread::from(t_), cls, true, true);
 	}
 
+	/** Removes the member (field or method) named \c name from the unfrozen class at \c cls. */
 	void croc_class_removeMember(CrocThread* t, word_t cls, const char* name)
 	{
 		cls = croc_absIndex(t, cls);
@@ -158,6 +160,8 @@ extern "C"
 		croc_class_removeMemberStk(t, cls);
 	}
 
+	/** Same as \ref croc_class_removeMember, but expects the member name as a string on top of the stack, and pops the
+	name. */
 	void croc_class_removeMemberStk(CrocThread* t_, word_t cls)
 	{
 		auto t = Thread::from(t_);
@@ -176,6 +180,7 @@ extern "C"
 		croc_popTop(t_);
 	}
 
+	/** Same as \ref croc_class_addField, but adds a hidden field instead. */
 	void croc_class_addHField(CrocThread* t_, word_t cls, const char* name)
 	{
 		auto t = Thread::from(t_);
@@ -186,6 +191,7 @@ extern "C"
 		croc_class_addHFieldStk(t_, cls);
 	}
 
+	/** Same as \ref croc_class_addFieldStk, but adds a hidden field instead. */
 	void croc_class_addHFieldStk(CrocThread* t_, word_t cls)
 	{
 		auto t = Thread::from(t_);
@@ -205,6 +211,7 @@ extern "C"
 		croc_pop(t_, 2);
 	}
 
+	/** Same as \ref croc_class_removeMember, but removes a hidden field instead. */
 	void croc_class_removeHField(CrocThread* t, word_t cls, const char* name)
 	{
 		cls = croc_absIndex(t, cls);
@@ -212,6 +219,7 @@ extern "C"
 		croc_class_removeHFieldStk(t, cls);
 	}
 
+	/** Same as \ref croc_class_removeMemberStk, but removes a hidden field instead. */
 	void croc_class_removeHFieldStk(CrocThread* t_, word_t cls)
 	{
 		auto t = Thread::from(t_);
@@ -231,6 +239,7 @@ extern "C"
 		croc_popTop(t_);
 	}
 
+	/** Forcefully freezes the class at \c cls, or does nothing if it's already frozen. */
 	void croc_class_freeze(CrocThread* t_, word_t cls)
 	{
 		auto t = Thread::from(t_);
@@ -238,6 +247,7 @@ extern "C"
 		freezeImpl(t, c);
 	}
 
+	/** \returns nonzero if the class at \c cls is frozen. */
 	int croc_class_isFrozen(CrocThread* t_, word_t cls)
 	{
 		auto t = Thread::from(t_);

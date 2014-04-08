@@ -28,13 +28,6 @@ namespace croc
 	typedef DArray<const unsigned char> crocstr;
 	typedef DArray<unsigned char> mcrocstr;
 
-	enum CrocLocation : int
-	{
-		CrocLocation_Unknown = 0,
-		CrocLocation_Native = -1,
-		CrocLocation_Script = -2
-	};
-
 	const char* typeToString(CrocType type);
 
 	// Forward decls :P

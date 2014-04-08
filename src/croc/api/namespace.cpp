@@ -19,12 +19,25 @@ extern "C"
 		}
 	}
 
+	/** Creates and pushes a new namespace object whose parent namespace will be set to the current function's
+	environment (or the global namespace if there is no current function).
+
+	This is the same behavior as <tt>namespace name {}</tt> in Croc (though it doesn't actually declare the namespace;
+	you'll have to store it somewhere, like in a global).
+
+	\param name is the name that the namespace will be given.
+	\returns the stack index of the pushed value. */
 	word_t croc_namespace_new(CrocThread* t_, const char* name)
 	{
 		auto t = Thread::from(t_);
 		return newNamespaceInternal(t, name, getEnv(t));
 	}
 
+	/** Creates and pushes a new namespace object whose parent is in slot \c parent.
+
+	\param parent should be either a namespace or null, in which case the new namespace will have no parent.
+	\param name is the name that the namespace will be given.
+	\returns the stack index of the pushed value. */
 	word_t croc_namespace_newWithParent(CrocThread* t_, word_t parent, const char* name)
 	{
 		auto t = Thread::from(t_);
@@ -40,38 +53,32 @@ extern "C"
 		return 0; // dummy
 	}
 
+	/** Creates and pushes a new namespace object without a parent.
+
+	\param name is the name that the namespace will be given.
+	\returns the stack index of the pushed value. */
 	word_t croc_namespace_newNoParent(CrocThread* t_, const char* name)
 	{
 		auto t = Thread::from(t_);
 		return newNamespaceInternal(t, name, nullptr);
 	}
 
-	void croc_namespace_clear(CrocThread* t_, word_t ns_)
+	/** Removes all key-value pairs from the namespace in slot \c ns. */
+	void croc_namespace_clear(CrocThread* t_, word_t ns)
 	{
 		auto t = Thread::from(t_);
-		API_CHECK_PARAM(ns, ns_, Namespace, "ns");
-		ns->clear(t->vm->mem);
+		API_CHECK_PARAM(n, ns, Namespace, "ns");
+		n->clear(t->vm->mem);
 	}
 
-	const char* croc_namespace_getName(CrocThread* t_, word_t ns_)
-	{
-		auto t = Thread::from(t_);
-		API_CHECK_PARAM(ns, ns_, Namespace, "ns");
-		return ns->name->toCString();
-	}
+	/** Pushes the "full name" of the namespace in slot \c ns, which is the name of the namespace and all its parents,
+	separated by dots.
 
-	const char* croc_namespace_getNamen(CrocThread* t_, word_t ns_, uword_t* len)
+	\returns the stack index of the pushed value. */
+	word_t croc_namespace_pushFullName(CrocThread* t_, word_t ns)
 	{
 		auto t = Thread::from(t_);
-		API_CHECK_PARAM(ns, ns_, Namespace, "ns");
-		*len = ns->name->length;
-		return ns->name->toCString();
-	}
-
-	word_t croc_namespace_pushFullName(CrocThread* t_, word_t ns_)
-	{
-		auto t = Thread::from(t_);
-		API_CHECK_PARAM(ns, ns_, Namespace, "ns");
-		return pushFullNamespaceName(t, ns);
+		API_CHECK_PARAM(n, ns, Namespace, "ns");
+		return pushFullNamespaceName(t, n);
 	}
 }

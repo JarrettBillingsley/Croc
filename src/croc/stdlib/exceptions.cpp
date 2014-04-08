@@ -405,7 +405,7 @@ DListSep()
 	"toString", 0, [](CrocThread* t) -> word_t
 	{
 		auto first = croc_superOf(t, 0);
-		croc_pushString(t, croc_class_getName(t, first));
+		croc_pushString(t, croc_getNameOf(t, first));
 		croc_insertAndPop(t, first);
 		croc_pushString(t, " at ");
 		croc_field(t, 0, "location");

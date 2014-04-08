@@ -10,6 +10,9 @@ using namespace croc;
 
 extern "C"
 {
+	/** Gets the size of the stack. This is how many slots there are from the bottom of the current function's stack
+	frame to the top of the stack. Valid stack indices range from 0 (the 'this' parameter) to the stack size minus one.
+	Valid negative indices range from -1 to -stack size. */
 	uword_t croc_getStackSize(CrocThread* t_)
 	{
 		auto t = Thread::from(t_);
@@ -18,6 +21,9 @@ extern "C"
 		return t->stackIndex - t->stackBase;
 	}
 
+	/** Sets the size of the current function's stack. The size must always be at least 1 (you can't get rid of the
+	'this' parameter). If you expand the stack, new slots will be filled with \c null; if you shrink it, values at the
+	top will be removed. */
 	void croc_setStackSize(CrocThread* t_, uword_t newSize)
 	{
 		if(newSize == 0)
@@ -39,11 +45,18 @@ extern "C"
 		}
 	}
 
+	/** Converts a given stack index to an absolute index. For positive indices, this returns the index unchanged. For
+	negative indices, this returns the equivalent positive index.
+
+	This is useful when you write your own functions which take stack indices as parameters and then do stack
+	manipulation. In these cases, if a negative stack index is passed to your function, pushing and popping values would
+	change the meaning of the index, so it's best to turn it into an absolute index upon entry to the function. */
 	word_t croc_absIndex(CrocThread* t, word_t idx)
 	{
 		return cast(word_t)fakeToRel(Thread::from(t), idx);
 	}
 
+	/** \returns a nonzero value if the given index is valid (either positive or negative), and 0 if not. */
 	int croc_isValidIndex(CrocThread* t, word_t idx)
 	{
 		if(idx < 0)
@@ -52,12 +65,14 @@ extern "C"
 			return idx < cast(word_t)croc_getStackSize(t);
 	}
 
+	/** Pushes a copy of the value at \c slot on top of the stack. */
 	word_t croc_dup(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
 		return push(t, *getValue(t, slot));
 	}
 
+	/** Swaps the values held in stack slots \c first and \c second. */
 	void croc_swap(CrocThread* t_, word_t first, word_t second)
 	{
 		auto t = Thread::from(t_);
@@ -72,6 +87,8 @@ extern "C"
 		t->stack[s] = tmp;
 	}
 
+	/** Copies the value from the stack slot \c src into the stack slot \c dest, overwriting whatever value was in
+	it. \c dest cannot be 0. */
 	void croc_copy(CrocThread* t_, word_t src, word_t dest)
 	{
 		auto t = Thread::from(t_);
@@ -87,6 +104,8 @@ extern "C"
 		t->stack[d] = t->stack[s];
 	}
 
+	/** Pops the top value off the stack, and replaces the stack slot \c dest with the value that was popped. \c dest
+	cannot be 0. */
 	void croc_replace(CrocThread* t_, word_t dest)
 	{
 		auto t = Thread::from(t_);
@@ -100,6 +119,8 @@ extern "C"
 		croc_popTop(t_);
 	}
 
+	/** Pops the top value off the stack, and inserts it before the value at \c slot, sliding the values from \c slot
+	up. \c slot cannot be 0. */
 	void croc_insert(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -117,6 +138,9 @@ extern "C"
 		t->stack[s] = tmp;
 	}
 
+	/** Places the value on top of the stack into \c slot and pops all the values above that slot, making \c slot the
+	new top of the stack. This is like doing an insert followed by a pop, but does so more efficiently. \c slot cannot
+	be 0. */
 	void croc_insertAndPop(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -133,6 +157,7 @@ extern "C"
 		t->stackIndex = s + 1;
 	}
 
+	/** Removes the stack slot \c slot, sliding the values above it down. \c slot cannot be 0. */
 	void croc_remove(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -148,6 +173,8 @@ extern "C"
 		croc_pop(t_, 1);
 	}
 
+	/** Removes the stack slot \c slot, slides the values above it down, and pushes the removed slot on top of the
+	stack. \c slot cannot be 0. */
 	void croc_moveToTop(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -165,6 +192,27 @@ extern "C"
 		t->stack[t->stackIndex - 1] = tmp;
 	}
 
+	/** Sort of a generic version of \ref croc_insert, this "rotates" the top \c numSlot stack slots by \c dist.
+
+	To illustrate, suppose the stack looks like:
+
+	\verbatim
+	1 2 3 4 5 6
+	\endverbatim
+
+	If you perform <tt>croc_rotate(t, 5, 3)</tt>, the top 5 slots will be rotated by 3. This means the top 3 slots will
+	exchange positions with the other two slots, giving:
+
+	\verbatim
+	1 4 5 6 2 3
+	\endverbatim
+
+	If the \c dist parameter is 1, it works exactly like \ref croc_insert, and if it's <tt>numSlots - 1</tt>, it works
+	exactly like \ref croc_moveToTop.
+
+	You cannot rotate slot 0.
+
+	Rotating 0 or 1 slots is valid and does nothing.*/
 	void croc_rotate(CrocThread* t_, uword_t numSlots, uword_t dist)
 	{
 		auto t = Thread::from(t_);
@@ -227,11 +275,14 @@ extern "C"
 		}
 	}
 
+	/** Rotates all stack slots except slot 0. */
 	void croc_rotateAll(CrocThread* t, uword_t dist)
 	{
 		croc_rotate(t, croc_getStackSize(t) - 1, dist);
 	}
 
+	/** Pops 1 or more slots off the top of the stack, moving the top of the stack down. You cannot pop 0 slots, and you
+	cannot pop slot 0. */
 	void croc_pop(CrocThread* t_, uword_t n)
 	{
 		auto t = Thread::from(t_);
@@ -245,23 +296,26 @@ extern "C"
 		t->stackIndex -= n;
 	}
 
-	void croc_transferVals(CrocThread* src_, CrocThread* dest_, uword_t num)
+	/** Moves values from one thread to another. Both threads must belong to the same VM or an error will be thrown in
+	the source thread. The top \c num values are popped off the source thread's stack and pushed onto the destination
+	thread's stack in the same order as they originally appeared. */
+	void croc_transferVals(CrocThread* src, CrocThread* dest, uword_t num)
 	{
-		auto t = Thread::from(src_);
-		auto dest = Thread::from(dest_);
+		auto t = Thread::from(src);
+		auto d = Thread::from(dest);
 
-		if(t->vm != dest->vm)
-			croc_eh_throwStd(src_, "ApiError", "transferVals - Source and destination threads belong to different VMs");
+		if(t->vm != d->vm)
+			croc_eh_throwStd(src, "ApiError", "transferVals - Source and destination threads belong to different VMs");
 
-		if(num == 0 || dest == t)
+		if(num == 0 || d == t)
 			return;
 
 		API_CHECK_NUM_PARAMS(num);
-		checkStack(dest, dest->stackIndex + num);
+		checkStack(d, d->stackIndex + num);
 
-		auto src = t->stack.slice(t->stackIndex - num, t->stackIndex);
-		dest->stack.slicea(dest->stackIndex, dest->stackIndex + num, src);
-		dest->stackIndex += num;
+		auto vals = t->stack.slice(t->stackIndex - num, t->stackIndex);
+		d->stack.slicea(d->stackIndex, d->stackIndex + num, vals);
+		d->stackIndex += num;
 		t->stackIndex -= num;
 	}
 }

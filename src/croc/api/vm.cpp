@@ -56,6 +56,10 @@ namespace
 
 extern "C"
 {
+	/** This is a default implementation of \ref CrocMemFunc which uses the C library \c realloc function to implement
+	memory allocation and deallocation.
+
+	This is the function used by \ref croc_vm_openDefault. */
 	void* croc_DefaultMemFunc(void* ctx, void* p, uword_t oldSize, uword_t newSize)
 	{
 		(void)ctx;
@@ -74,6 +78,21 @@ extern "C"
 		}
 	}
 
+	/** Opens a new Croc VM with the given memory allocator function, and returns a pointer to the VM's main thread.
+
+	This VM will be completely independent from any other Croc VM, and you can open as many as you like (memory
+	permitting). While it's not safe for multiple threads to access a single VM without synchronization, accessing
+	separate VMs from separate threads is perfectly fine.
+
+	The safe standard libraries will already be loaded into the global namespace.
+
+	When you're done with a VM, you should call \ref croc_vm_close to free the memory and call any pending finalizers.
+
+	If you want to make more threads within this VM, use the \ref croc_thread_new function.
+
+	\param memFunc is the memory allocation function. See \ref CrocMemFunc for how it should work.
+	\param ctx is the opaque context pointer passed to memFunc whenever it's called. Croc does nothing else with
+	this. */
 	CrocThread* croc_vm_open(CrocMemFunc memFunc, void* ctx)
 	{
 		auto vm = cast(VM*)memFunc(ctx, nullptr, 0, sizeof(VM));
@@ -161,6 +180,10 @@ extern "C"
 		return *t;
 	}
 
+	/** Frees all objects and memory associated with the VM that owns the given thread. Calls finalizers on objects as
+	well.
+
+	In addition, this will also check if there were any memory leaks... if so, please report a bug! */
 	void croc_vm_close(CrocThread* t)
 	{
 		auto vm = Thread::from(t)->vm;
@@ -191,6 +214,10 @@ extern "C"
 		vm->mem.memFunc(vm->mem.ctx, vm, sizeof(VM), 0);
 	}
 
+	/** Loads unsafe standard libraries into the global namespace of the given thread's VM.
+
+	\param libs controls which libraries are loaded, and should be an or-ing together of members of the \ref
+		CrocUnsafeLib enum. */
 	void croc_vm_loadUnsafeLibs(CrocThread* t, CrocUnsafeLib libs)
 	{
 		if(libs & CrocUnsafeLib_File)  initFileLib(t);
@@ -198,6 +225,11 @@ extern "C"
 		if(libs & CrocUnsafeLib_Debug) initDebugLib(t);
 	}
 
+	/** Loads addon libraries into the VM. You must have compiled these addons into your Croc library to load them.
+	You'll get a runtime error if you try to load one that wasn't compiled in.
+
+	\param libs controls which libraries are loaded, and should be an or-ing together of members of the \ref CrocAddons
+		enum. */
 	void croc_vm_loadAddons(CrocThread* t, CrocAddons libs)
 	{
 		(void)t;
@@ -208,6 +240,11 @@ extern "C"
 		if(libs & CrocAddons_Net)   {} //initNetLib(t);
 	}
 
+	/** Loads addons which were compiled into the Croc library. This uses the \c CROC_XXX_ADDON macros to determine
+	whether the addons were compiled in or not.
+
+	\param exclude lets you exclude addons from being loaded, and should be an or-ing together of members of the \ref
+		CrocAddons enum. (Passing CrocAddons_None will cause all available addons to be loaded.) */
 	void croc_vm_loadAvailableAddonsExcept(CrocThread* t, CrocAddons exclude)
 	{
 		(void)t;
@@ -229,21 +266,30 @@ extern "C"
 #endif
 	}
 
+	/** Gets the main thread object of the VM that owns the given thread. This thread will never be collected, so it's
+	safe to keep a reference to it somewhere (as long as you don't close its owning VM...!).*/
 	CrocThread* croc_vm_getMainThread(CrocThread* t)
 	{
 		return *Thread::from(t)->vm->mainThread;
 	}
 
+	/** Gets the currently-running thread of the VM that owns the given thread. If no thread is currently running,
+	returns the main thread. */
 	CrocThread* croc_vm_getCurrentThread(CrocThread* t)
 	{
 		return *Thread::from(t)->vm->curThread;
 	}
 
+	/** Returns the number of bytes that are currently allocated by the given thread's VM. */
 	uword_t croc_vm_bytesAllocated(CrocThread* t)
 	{
 		return Thread::from(t)->vm->mem.totalBytes;
 	}
 
+	/** Pushes the given type's global metatable onto the stack, or pushes \c null if none has been set for that type.
+
+	\param type is the type whose metatable will be retrieved.
+	\returns the stack index of the pushed value. */
 	word_t croc_vm_pushTypeMT(CrocThread* t, CrocType type)
 	{
 		if(!(type >= CrocType_FirstUserType && type <= CrocType_LastUserType))
@@ -261,6 +307,10 @@ extern "C"
 			return croc_pushNull(t);
 	}
 
+	/** Expects either a namespace or \c null on top of the stack. Pops it and sets it as the global metatable for the
+	given type.
+
+	\param type is the type whose metatable will be set (or unset, if the value is \c null). */
 	void croc_vm_setTypeMT(CrocThread* t_, CrocType type)
 	{
 		auto t = Thread::from(t_);
@@ -287,6 +337,10 @@ extern "C"
 		croc_popTop(t_);
 	}
 
+	/** Pushes the VM's native registry namespace onto the given thread's stack.
+
+	The native registry is a sort of "hidden global namespace" which is only accessible to native code. In it you can
+	store things which need to be VM-global, but which you don't want script code to access. */
 	word_t croc_vm_pushRegistry(CrocThread* t_)
 	{
 		auto t = Thread::from(t_);

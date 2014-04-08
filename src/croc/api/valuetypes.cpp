@@ -11,23 +11,42 @@ using namespace croc;
 
 extern "C"
 {
+	/** Pushes a null onto the stack. \returns the stack index of the pushed value. */
 	word_t croc_pushNull(CrocThread* t)                 { return push(Thread::from(t), Value::nullValue);         }
+	/** Pushes a bool onto the stack with the given truth value. \returns the stack index of the pushed value. */
 	word_t croc_pushBool(CrocThread* t, int v)          { return push(Thread::from(t), Value::from(cast(bool)v)); }
+	/** Pushes an int onto the stack with the given value. \returns the stack index of the pushed value. */
 	word_t croc_pushInt(CrocThread* t, crocint_t v)     { return push(Thread::from(t), Value::from(v));           }
+	/** Pushes a float onto the stack with the given value. \returns the stack index of the pushed value. */
 	word_t croc_pushFloat(CrocThread* t, crocfloat_t v) { return push(Thread::from(t), Value::from(v));           }
 
+	/** Pushes a string onto the stack with the given value. The string length will be determined with \c strlen. Croc
+	makes its own copy of string data, so you don't need to keep the data you passed around.
+
+	The string must be valid UTF-8, or an exception will be thrown. (ASCII is valid UTF-8 by design.)
+
+	\returns the stack index of the pushed value. */
 	word_t croc_pushString(CrocThread* t_, const char* v)
 	{
 		auto t = Thread::from(t_);
 		return push(t, Value::from(String::create(t->vm, atoda(v))));
 	}
 
+	/** Just like \ref croc_pushString, but you give the length of the string instead of having it determined with \c
+	strlen.
+
+	\param v is a pointer to the string.
+	\param len is the length of the string data <em>in bytes</em>.
+	\returns the stack index of the pushed value. */
 	word_t croc_pushStringn(CrocThread* t_, const char* v, uword_t len)
 	{
 		auto t = Thread::from(t_);
 		return push(t, Value::from(String::create(t->vm, crocstr::n(cast(const unsigned char*)v, len))));
 	}
 
+	/** Pushes a one-codepoint-long string which contains the given codepoint \c c.
+
+	\returns the stack index of the pushed value. */
 	word_t croc_pushChar(CrocThread* t_, crocchar_t c)
 	{
 		auto t = Thread::from(t_);
@@ -41,6 +60,11 @@ extern "C"
 		return push(t, Value::from(String::createUnverified(t->vm, s, 1)));
 	}
 
+	/** Pushes a formatted string onto the stack. This uses \c vsnprintf internally, so it uses the same formatting
+	specifiers as the \c printf family. You don't have to worry about dealing with the length of the output string or
+	anything; it'll be automatically determined for you.
+
+	\returns the stack index of the pushed value. */
 	word_t croc_pushFormat(CrocThread* t, const char* fmt, ...)
 	{
 		va_list args;
@@ -50,6 +74,7 @@ extern "C"
 		return ret;
 	}
 
+	/** Same as \ref croc_pushFormat, but takes a \c va_list instead of variadic arguments. */
 	word_t croc_vpushFormat(CrocThread* t_, const char* fmt, va_list args)
 	{
 		auto t = Thread::from(t_);
@@ -81,22 +106,27 @@ extern "C"
 		return ret;
 	}
 
+	/** Pushes a nativeobj onto the stack. \returns the stack index of the pushed value. */
 	word_t croc_pushNativeobj(CrocThread* t, void* o)
 	{
 		return push(Thread::from(t), Value::from(o));
 	}
 
-	word_t croc_pushThread(CrocThread* t_, CrocThread* o_)
+	/** Pushes a thread \c o onto \c t's stack. It is an error if the threads belong to different VMs.
+
+	\returns the stack index of the pushed value. */
+	word_t croc_pushThread(CrocThread* t, CrocThread* o)
 	{
-		auto t = Thread::from(t_);
-		auto o = Thread::from(o_);
+		auto t_ = Thread::from(t);
+		auto o_ = Thread::from(o);
 
-		if(t->vm != o->vm)
-			croc_eh_throwStd(t_, "ApiError", "%s - Threads belong to different VMs", __FUNCTION__);
+		if(t_->vm != o_->vm)
+			croc_eh_throwStd(t, "ApiError", "%s - Threads belong to different VMs", __FUNCTION__);
 
-		return push(t, Value::from(o));
+		return push(t_, Value::from(o_));
 	}
 
+	/** \returns the bool at the given \c slot (1 for true, 0 for false), or throws an exception if it isn't one. */
 	int croc_getBool(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -104,6 +134,7 @@ extern "C"
 		return ret;
 	}
 
+	/** \returns the int at the given \c slot, or throws an exception if it isn't one. */
 	crocint_t croc_getInt(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -111,6 +142,7 @@ extern "C"
 		return ret;
 	}
 
+	/** \returns the float at the given \c slot, or throws an exception if it isn't one. */
 	crocfloat_t croc_getFloat(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -118,6 +150,8 @@ extern "C"
 		return ret;
 	}
 
+	/** If the given \c slot contains an int, returns that int cast to a \ref crocfloat_t; if it contains a float,
+	returns that value; and if it's any other type, throws an exception. */
 	crocfloat_t croc_getNum(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -137,6 +171,8 @@ extern "C"
 		}
 	}
 
+	/** If the given \c slot contains a string, and that string is exactly one codepoint long, returns the codepoint.
+	Otherwise, throws an exception. */
 	crocchar_t croc_getChar(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -149,6 +185,13 @@ extern "C"
 		return fastDecodeUtf8Char(ptr);
 	}
 
+	/** \returns a pointer to the string in the given \c slot, or throws an exception if it isn't one.
+
+	Since Croc strings can contain embedded NUL (codepoint 0) characters, you may be missing the entire string's data
+	with this function. If you really need the whole string, use \ref croc_getStringn.
+
+	<b>The string returned from this points into Croc's memory. Do not modify this string, and do not store the pointer
+	unless you know it won't be collected!</b> */
 	const char* croc_getString(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -156,6 +199,10 @@ extern "C"
 		return ret->toCString();
 	}
 
+	/** Like \ref croc_getString, but returns the length of the string in bytes through the \c len parameter.
+
+	<b>The string returned from this points into Croc's memory. Do not modify this string, and do not store the pointer
+	unless you know it won't be collected!</b> */
 	const char* croc_getStringn(CrocThread* t_, word_t slot, uword_t* len)
 	{
 		auto t = Thread::from(t_);
@@ -165,6 +212,7 @@ extern "C"
 		return cast(const char*)str.ptr;
 	}
 
+	/** \returns the nativeobj at the given \c slot, or throws an exception if it isn't one. */
 	void* croc_getNativeobj(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);
@@ -172,6 +220,11 @@ extern "C"
 		return ret;
 	}
 
+	/** \returns the thread at the given \c slot, or throws an exception if it isn't one.
+
+	<b>The pointer returned from this points into Croc's memory. Do not modify it, and do not store the pointer unless
+	you know it won't be collected! The only thread that will never be collected is the VM's main thread. If you want to
+	keep a thread around, use the native reference mechanism (\ref croc_ref_create).</b>*/
 	CrocThread* croc_getThread(CrocThread* t_, word_t slot)
 	{
 		auto t = Thread::from(t_);

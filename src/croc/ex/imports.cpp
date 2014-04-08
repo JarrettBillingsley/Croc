@@ -8,6 +8,9 @@ using namespace croc;
 
 extern "C"
 {
+	/** Like \ref croc_ex_import, but leaves the namespace of the imported module on the stack.
+
+	\returns the stack index of the pushed namespace. */
 	word_t croc_ex_importNS(CrocThread* t, const char* name)
 	{
 		croc_pushString(t, name);
@@ -16,6 +19,9 @@ extern "C"
 		return croc_getStackSize(t) - 1;
 	}
 
+	/** Like \ref croc_ex_importStk, but leaves the namespace of the imported module on the stack.
+
+	\returns the stack index of the pushed namespace. */
 	word_t croc_ex_importNSStk(CrocThread* t_, word_t name)
 	{
 		auto t = Thread::from(t_);
@@ -29,6 +35,9 @@ extern "C"
 		return croc_getStackSize(t_) - 1;
 	}
 
+	/** Like \ref croc_ex_importFromStringStk, but leaves the namespace of the imported module on the stack.
+
+	\returns the stack index of the pushed namespace. */
 	word_t croc_ex_importFromStringNSStk(CrocThread* t_, const char* name, const char* srcName)
 	{
 		auto t = Thread::from(t_);

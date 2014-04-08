@@ -3,5 +3,5 @@
 *.exe
 *.sublime-workspace
 *.sublime-project
-docs/
+docs/html/
 commitmsg.txt

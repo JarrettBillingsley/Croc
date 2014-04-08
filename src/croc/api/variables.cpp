@@ -10,12 +10,21 @@ using namespace croc;
 
 extern "C"
 {
+	/** Pushes the environment namespace of the function at the given call stack depth. A \c depth of 0 means the
+	currently-executing function; 1 means the function which called this one; and so on. If you pass a depth greater
+	than the call stack depth, pushes the global namespace instead.
+
+	It is an error to get the environment of a call stack index which was overwritten by a tailcall.
+
+	\returns the stack slot of the pushed value. */
 	word_t croc_pushEnvironment(CrocThread* t_, uword_t depth)
 	{
 		auto t = Thread::from(t_);
 		return push(t, Value::from(getEnv(t, depth)));
 	}
 
+	/** Inside a native function which had upvalues associated with it at creation, you can use this to set the upvalue
+	with the given index. */
 	void croc_setUpval(CrocThread* t_, uword_t idx)
 	{
 		auto t = Thread::from(t_);
@@ -37,6 +46,10 @@ extern "C"
 		croc_popTop(t_);
 	}
 
+	/** Inside a native function which had upvalues associated with it at creation, pushes the upvalue with the given
+	index.
+
+	\returns the stack slot of the pushed value. */
 	word_t croc_pushUpval(CrocThread* t_, uword_t idx)
 	{
 		auto t = Thread::from(t_);
@@ -59,6 +72,8 @@ extern "C"
 		return push(t, upvals[idx]);
 	}
 
+	/** Expects a value on top of the stack. Pops the value and creates a new global named \c name in the current
+	function's environment, just like declaring a global in Croc. */
 	void croc_newGlobal(CrocThread* t_, const char* name)
 	{
 		auto t = Thread::from(t_);
@@ -68,6 +83,8 @@ extern "C"
 		croc_newGlobalStk(t_);
 	}
 
+	/** Expects two values on top of the stack: the value on top, and the name of the global to create below that.
+	Creates the global and pops both values. */
 	void croc_newGlobalStk(CrocThread* t_)
 	{
 		auto t = Thread::from(t_);
@@ -77,12 +94,19 @@ extern "C"
 		croc_pop(t_, 2);
 	}
 
+	/** Pushes the value of the global variable named \c name, just like accessing a global in Croc.
+
+	\returns the stack slot of the pushed value. */
 	word_t croc_pushGlobal(CrocThread* t_, const char* name)
 	{
 		croc_pushString(t_, name);
 		return croc_pushGlobalStk(t_);
 	}
 
+	/** Expects a string on top of the stack as the name of the global to get. Replaces the top of the stack with the
+	value of the global.
+
+	\returns the stack slot of the pushed value. */
 	word_t croc_pushGlobalStk(CrocThread* t_)
 	{
 		auto t = Thread::from(t_);
@@ -92,6 +116,8 @@ extern "C"
 		return croc_getStackSize(t_) - 1;
 	}
 
+	/* Expects a value on top of the stack. Pops the value and assigns it into the global named \c name in the current
+	function's environment, just like setting a global in Croc. */
 	void croc_setGlobal(CrocThread* t_, const char* name)
 	{
 		auto t = Thread::from(t_);
@@ -101,6 +127,8 @@ extern "C"
 		croc_setGlobalStk(t_);
 	}
 
+	/** Expects two values on top of the stack: the value on top, and the name of the global to set below that. Sets
+	the global and pops both values. */
 	void croc_setGlobalStk(CrocThread* t_)
 	{
 		auto t = Thread::from(t_);

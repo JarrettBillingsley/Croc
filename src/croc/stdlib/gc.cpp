@@ -12,6 +12,20 @@ namespace croc
 	{
 	const char* PostGCCallbacks = "gc.postGCCallbacks";
 
+	CrocGCLimit stringToLimit(CrocThread* t, word slot)
+	{
+		auto s = getCrocstr(t, slot);
+
+		if(s == ATODA("nurseryLimit")) return CrocGCLimit_NurseryLimit;
+		if(s == ATODA("metadataLimit")) return CrocGCLimit_MetadataLimit;
+		if(s == ATODA("nurserySizeCutoff")) return CrocGCLimit_NurserySizeCutoff;
+		if(s == ATODA("cycleCollectInterval")) return CrocGCLimit_CycleCollectInterval;
+		if(s == ATODA("cycleMetadataLimit")) return CrocGCLimit_CycleMetadataLimit;
+
+		return cast(CrocGCLimit)croc_eh_throwStd(t, "ValueError", "Invalid limit type '%.*s'",
+			cast(int)s.length, s.ptr);
+	}
+
 DBeginList(_globalFuncs)
 	Docstr(DFunc("collect")
 	R"(Performs a normal garbage collection cycle. Usually you won't have to call this because the GC will be run
@@ -112,7 +126,8 @@ DListSep()
 
 	"limit", 2, [](CrocThread* t) -> word_t
 	{
-		auto limType = croc_ex_checkStringParam(t, 1);
+		croc_ex_checkParam(t, 1, CrocType_String);
+		auto limType = stringToLimit(t, 1);
 
 		if(croc_isValidIndex(t, 2))
 		{
