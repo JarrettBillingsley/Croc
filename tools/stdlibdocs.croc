@@ -6,9 +6,10 @@ import doctools.trac: TracWikiOutputter
 
 function main()
 {
-	local o = OutputDocVisitor(SectionOrder(), TracWikiOutputter$ LinkResolver$ CrocWikiLinkTranslator())
+	local t = CrocWikiLinkTranslator()
+	local o = OutputDocVisitor(SectionOrder(), TracWikiOutputter$ CrocWikiLinkResolver$ t)
 
-	o.visitItem(docsOf(docs))
+	o.visitItem(docsOf(os))
 
 	t.printErrors()
 }
@@ -20,13 +21,16 @@ local StdlibLookup =
 	compiler      = "StdLib/CompilerLib"
 	console       = "StdLib/ConsoleLib"
 	debug         = "StdLib/DebugLib"
-	docs          = "StdLib/DocsLib"
+	docs          = "StdLib/DocsLib",
+	["doctools.console"] = "StdLib/DoctoolsConsoleLib",
+	["doctools.output" ] = "StdLib/DoctoolsOutputLib",
+	["doctools.trac"   ] = "StdLib/DoctoolsTracLib"
 	env           = "StdLib/EnvLib"
 	exceptions    = "StdLib/ExceptionsLib"
 	file          = "StdLib/FileLib"
-	gc            = "StdLib/GCLib"
+	gc            = "StdLib/GcLib"
 	hash          = "StdLib/HashLib"
-	json          = "StdLib/JsonLib"
+	json          = "StdLib/JSONLib"
 	math          = "StdLib/MathLib"
 	memblock      = "StdLib/MemblockLib"
 	modules       = "StdLib/ModulesLib"
@@ -43,8 +47,34 @@ local StdlibLookup =
 	devil         = "Addons/DevilLib"
 	gl            = "Addons/GlLib"
 	net           = "Addons/NetLib"
-	pcre          = "Addons/PCRE"
+	pcre          = "Addons/PcreLib"
 	sdl           = "Addons/SdlLib"
+}
+
+local StdExceptions =
+{
+	[name] = "StdLib/ExceptionsLib#" ~ name
+	foreach name, cls; exceptions
+	if isClass(cls)
+}
+
+class CrocWikiLinkResolver : LinkResolver
+{
+	_ggg
+
+	override this(trans)
+	{
+		:_ggg = :_makeMapRec(docsOf(_G))
+		(LinkResolver.constructor)(with this, trans)
+	}
+
+	override function enterModule(name: string)
+	{
+		if(name is "Misc Library")
+			:_module = :_ggg
+		else
+			(LinkResolver.enterModule)(with this, name)
+	}
 }
 
 class CrocWikiLinkTranslator : LinkTranslator
@@ -54,36 +84,31 @@ class CrocWikiLinkTranslator : LinkTranslator
 	this()
 		:_errors = []
 
-	function translateLink(mod: string, item: string)
+	override function translateLink(mod: string, item: string)
 	{
-		if(mod is "")
+		if(mod is "" or mod is "Misc Library")
 		{
 			if(item is "")
-				return "StdLib/BaseLib"
-			else switch(item)
-				return "StdLib/BaseLib#" ~ item
-		}
-		else
-		{
-			local ret = StdlibLookup[mod]
-
-			if(ret is null)
-				throw ValueError("Unknown stdlib module '{}'".format(mod))
-
-			if(item is "")
+				return "StdLib/MiscLib"
+			else if(local ret = StdExceptions[item])
 				return ret
+			else if(item.startsWith("Vector"))
+				return "StdLib/MiscLib/Vector#" ~ item
 			else
-				return ret ~ "#" ~ item
+				return "StdLib/MiscLib#" ~ item
 		}
+		else if(local ret = StdlibLookup[mod])
+			return ret ~ ((item is "") ? "" : "#" ~ item)
+
+		throw ValueError("Unknown stdlib module '{}'".format(mod))
 	}
 
-	function translateURI(uri: string) =
+	override function translateURI(uri: string) =
 		uri
 
-	function invalidLink(link: string)
+	override function invalidLink(link: string)
 	{
 		:_errors.append(link)
-
 		return ""
 	}
 

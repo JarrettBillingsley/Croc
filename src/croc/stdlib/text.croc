@@ -430,6 +430,7 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 		throw NotImplementedError()
 
+	/// Implementation of the \link{IncrementalDecoder.decodeRange} method.
 	override function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
 	{
 		if(#:_scratch > 0)

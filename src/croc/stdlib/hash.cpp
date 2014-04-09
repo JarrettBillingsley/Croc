@@ -166,8 +166,9 @@ DListSep()
 
 DListSep()
 	Docstr(DFunc("apply") DParam("t", "table") DParam("f", "function")
-	R"(Similar to the \link{array.apply} function, this iterates over the values of the table, calling the function
-	\tt{f} on each value, and storing the value it returns back into the same key. This works in-place on the table.
+	R"(Similar to the \link{array.array.apply} function, this iterates over the values of the table, calling the
+	function \tt{f} on each value, and storing the value it returns back into the same key. This works in-place on the
+	table.
 
 	\examples If you have a table \tt{t = \{x = 1, y = 2, z = 3\}} and call \tt{hash.apply(t, \\x -> x + 5)}, \tt{t}
 	will now contain \tt{\{x = 6, y = 7, z = 8\}}.
@@ -209,7 +210,7 @@ DListSep()
 
 	\returns the new table.
 
-	throws[TypeError] if \tt{f} returns \tt{null}.)"),
+	\throws[TypeError] if \tt{f} returns \tt{null}.)"),
 
 	"map", 2, [](CrocThread* t) -> word_t
 	{
@@ -236,11 +237,12 @@ DListSep()
 
 DListSep()
 	Docstr(DFunc("reduce") DParam("t", "table") DParam("f", "function") DParamD("initial", "any", "null")
-	R"(Works just like the \link{array.reduce} function, but the order of the values is arbitrary. \tt{f} will be called
-	with two parameters, the current value of the accumulator and a new value from the table, and is expected to return
-	the new value of the accumulator.
+	R"(Works just like the \link{array.array.reduce} function, but the order of the values is arbitrary. \tt{f} will be
+	called with two parameters, the current value of the accumulator and a new value from the table, and is expected to
+	return the new value of the accumulator.
 
-	Just like \link{array.reduce}, the \tt{initial} parameter can be given to set the accumulator to an initial value.
+	Just like \link{array.array.reduce}, the \tt{initial} parameter can be given to set the accumulator to an initial
+	value.
 
 	\throws[ParamError] if you call this function on an empty table and \em{don't} pass an \tt{initial} parameter.)"),
 
@@ -289,9 +291,9 @@ DListSep()
 
 DListSep()
 	Docstr(DFunc("filter") DParam("t", "table") DParam("f", "function")
-	R"(Similar to the \link{array.filter} function, this creates a new table which holds only those key-value pairs for
-	which the given filter function \tt{f} returns \tt{true}. \tt{f} is given two arguments, the key and the value, and
-	must return a boolean value. \tt{true} means the key-value pair will be included in the result.
+	R"(Similar to the \link{array.array.filter} function, this creates a new table which holds only those key-value
+	pairs for which the given filter function \tt{f} returns \tt{true}. \tt{f} is given two arguments, the key and the
+	value, and must return a boolean value. \tt{true} means the key-value pair will be included in the result.
 
 	\examples \tt{hash.filter(\{a = 1, b = 2, c = "hi", d = 4.5, e = 6\}, \\k, v -> isInt(v))} will give a table
 	containing only those key-value pairs from the original where the values were integers, so you will get

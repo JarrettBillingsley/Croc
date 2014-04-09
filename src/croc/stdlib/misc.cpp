@@ -740,7 +740,7 @@ const StdlibRegister _dumpVal =
 		croc_ex_doc_init(t, &doc, __FILE__);
 
 		croc_ex_doc_push(&doc,
-		DModule("Base Library")
+		DModule("Misc Library")
 		R"(The base library is a set of functions dealing with some language aspects which aren't covered by the syntax
 		of the language, as well as miscellaneous functions that don't really fit anywhere else. The base library is
 		always loaded when you create an instance of the Croc VM.)");

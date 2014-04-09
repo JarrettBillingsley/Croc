@@ -16,6 +16,8 @@ class TracWikiOutputter : DocOutputter
 	_itemDepth = 0
 	_isFirstInSection = false
 	_isSpecialSection = false
+	_parentItemName = ""
+	_parentItemDepth = 0
 
 	this(lr)
 	{
@@ -75,12 +77,22 @@ class TracWikiOutputter : DocOutputter
 	{
 		:outputHeader(doctable)
 		:_itemDepth++
+
+		if(doctable.kind is 'class' or doctable.kind is 'namespace')
+		{
+			assert(:_parentItemName is "")
+			:_parentItemName = doctable.name
+			:_parentItemDepth = :_itemDepth - 1
+		}
 	}
 
 	function endItem()
 	{
 		:outputText("\n")
 		:_itemDepth--
+
+		if(:_itemDepth == :_parentItemDepth)
+			:_parentItemName = ""
 	}
 
 	function outputHeader(doctable: table)
@@ -114,7 +126,7 @@ class TracWikiOutputter : DocOutputter
 	{
 		:outputText(h, " ")
 		:beginMonospace()
-		:outputText(toHeader(doctable, "", false))
+		:outputText(toHeader(doctable, :_parentItemName, false))
 		:endMonospace()
 		:outputText(" ", h, "\n")
 	}
@@ -231,26 +243,34 @@ class TracWikiOutputter : DocOutputter
 	{
 		:checkNotInTable()
 		:_listType.append("*")
-		:outputText("\n")
+
+		if(#:_listType == 1)
+			:outputText("\n")
 	}
 
 	override function endBulletList()
 	{
 		:_listType.pop()
-		:outputText("\n")
+
+		if(#:_listType == 0)
+			:outputText("\n")
 	}
 
 	override function beginNumList(type: string)
 	{
 		:checkNotInTable()
 		:_listType.append(type ~ ".")
-		:outputText("\n")
+
+		if(#:_listType == 1)
+			:outputText("\n")
 	}
 
 	override function endNumList()
 	{
 		:_listType.pop()
-		:outputText("\n")
+
+		if(#:_listType == 0)
+			:outputText("\n")
 	}
 
 	override function beginListItem()
@@ -258,21 +278,27 @@ class TracWikiOutputter : DocOutputter
 		assert(#:_listType > 0)
 		:outputIndent()
 		:outputText(:_listType[-1], " ")
+		:_isFirstInSection = true
 	}
 
-	override function endListItem() {}
+	override function endListItem()
+		:_isFirstInSection = false
 
 	override function beginDefList()
 	{
 		:checkNotInTable()
 		:_listType.append(null)
-		:outputText("\n")
+
+		if(#:_listType == 1)
+			:outputText("\n")
 	}
 
 	override function endDefList()
 	{
 		:_listType.pop()
-		:outputText("\n")
+
+		if(#:_listType == 0)
+			:outputText("\n")
 	}
 
 	override function beginDefTerm()
@@ -285,9 +311,13 @@ class TracWikiOutputter : DocOutputter
 		:outputText("::\n")
 
 	override function beginDefDef()
+	{
 		:outputIndent()
+		:_isFirstInSection = true
+	}
 
-	override function endDefDef() {}
+	override function endDefDef()
+		:_isFirstInSection = false
 
 	override function beginTable()
 	{

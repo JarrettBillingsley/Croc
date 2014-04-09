@@ -278,7 +278,6 @@ const char* _load_docs = Docstr(DFunc("load") DParam("name", "string")
 			If a loader returns null, it continues on to the next loader. If a loader returns a namespace, it puts it in
 			the \link{modules.loaded} table and returns that namespace. If a loader returns a function (native only) or
 			funcdef, it is assumed to be the modules's top-level function, and the following occurs:
-
 			\nlist
 				\li The dotted module name is used to create the namespace for the module in the global namespace
 					hierarchy if it doesn't already exist. If the namespace already exists (such as when a module is
@@ -499,6 +498,10 @@ const char* _docstrings[] =
 			it and return the top-level funcdef. If it finds both in the same path, it will load whichever is newer. If
 			it gets through all the paths and finds no files, it returns nothing.
 	\endlist)"),
+
+	Docstr(DVarV("loaded", "{}")
+	R"(This is another important variable. This table holds all currently-loaded modules, where the keys are the module
+	names and the values are the modules' namespaces.)"),
 
 	_load_docs,
 	_reload_docs,

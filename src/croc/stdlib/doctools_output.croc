@@ -497,7 +497,14 @@ function toHeader(doctable: table, parentFQN: string, full: bool = true)
 			if(parentFQN !is "")
 				ret.append(parentFQN, ".")
 
-			ret.append(doctable.name == "constructor" ? "this" : doctable.name)
+			if(doctable.name == "constructor")
+				ret.append("this")
+			else
+			{
+				if(full)
+					ret.append("function ")
+				ret.append(doctable.name)
+			}
 
 			if(!full)
 				break
@@ -1076,7 +1083,7 @@ class OutputDocVisitor : DocVisitor
 	}
 
 	/**
-	Override of \link{DocVisitor.visitParagraph} which simply calls the \tt{begin/endParagraph} methods around the
+	Override of \link{docs.DocVisitor.visitParagraph} which simply calls the \tt{begin/endParagraph} methods around the
 	paragraph's contents.
 	*/
 	override function visitParagraph(par: array)

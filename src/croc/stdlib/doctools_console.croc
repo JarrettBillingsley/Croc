@@ -101,7 +101,7 @@ local function splitAtWS(s: string, len: int)
 }
 
 /**
-A simple implementation of the \link{docs.output.DocOutputter} class which outputs docs to the console (by default, but
+A simple implementation of the \link{doctools.output.DocOutputter} class which outputs docs to the console (by default, but
 can be redirected).
 
 No special terminal features are assumed; no ANSI escapes or anything are used. Furthermore the text is wrapped to a

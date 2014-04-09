@@ -22,7 +22,7 @@ Once the documentation table has been set for an object, you can retrieve it wit
 processed and output in a human-readable form (for instance, by using the various doc output classes).
 
 This function is also exported in the global namespace so that you can access it unqualified (that is, both \tt{_doc_}
-and \tt{docs._doc_} refer to this function.
+and \tt{docs._doc_} refer to this function).
 
 \param[val] is the decorated object and can be any reference type.
 \param[doctable] is a table, presumably one which matches the specifications for doc tables.
@@ -33,7 +33,7 @@ variadic arguments are given, the table itself is set as the documentation table
 
 \returns \tt{val} as per the decorator protocol.
 
-\throws[exceptions.TypeError] if any of the \tt{varargs} are not ints, or if the value that will be set as the
+\throws[TypeError] if any of the \tt{varargs} are not ints, or if the value that will be set as the
 doctable for \tt{val} is not a table.
 */
 function _doc_(
@@ -89,9 +89,9 @@ the \tt{format} method of strings). This function lets you get docs for those me
 
 \returns the doc table for the given method if one has been set, or \tt{null} if not.
 
-\throws[exceptions.ValueError] if \tt{type} does not name a valid built-in type, or if \tt{type} has no metatable
+\throws[ValueError] if \tt{type} does not name a valid built-in type, or if \tt{type} has no metatable
 set for it.
-\throws[exceptions.FieldError] if there is no method named \tt{method} in \tt{type}'s metatable.
+\throws[FieldError] if there is no method named \tt{method} in \tt{type}'s metatable.
 */
 function metamethodDocs(type: string, method: string)
 {
@@ -122,7 +122,7 @@ access their doc tables through their parents' \tt{children} doctable member. Th
 
 \returns the doc table for the given field if one has been set, or \tt{null} if not.
 
-\throws[exceptions.ValueError] if \tt{obj} has no child named \tt{child}, or if \tt{obj} has no doctable.
+\throws[ValueError] if \tt{obj} has no child named \tt{child}, or if \tt{obj} has no doctable.
 */
 function childDocs(obj: class|namespace, child: string)
 {
@@ -164,7 +164,7 @@ extra kind-specific members as defined in the doc comment spec), but there must 
 \param[comment] is the raw text of the doc comment.
 \param[doctable] is the doctable as explained above.
 \returns the \tt{doctable} parameter.
-\throws[exceptions.SyntaxException] if parsing the comment failed. Note that in this case the \tt{doctable} may be
+\throws[SyntaxException] if parsing the comment failed. Note that in this case the \tt{doctable} may be
 partially filled-in.
 */
 function processComment(comment: string, doctable: table) =
@@ -178,7 +178,7 @@ commands are not allowed to appear in the text. Span and text structure commands
 
 \param[comment] is the raw markup to be parsed.
 \returns an array which is a paragraph list as defined in the doc comment spec.
-\throws[exceptions.SyntaxException] if parsing failed.
+\throws[SyntaxException] if parsing failed.
 */
 function parseCommentText(comment: string) =
 	_parseCommentText(comment)
@@ -199,7 +199,7 @@ class DocVisitor
 	Visits one program item's doctable. This dispatches based on \tt{item.kind} to one of the six methods after this
 	one.
 
-	\throws[exceptions.ValueError] if the given doctable has an invalid \tt{kind} field.
+	\throws[ValueError] if the given doctable has an invalid \tt{kind} field.
 	*/
 	function visitItem(item: table)
 	{

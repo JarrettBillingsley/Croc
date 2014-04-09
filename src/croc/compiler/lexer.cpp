@@ -1201,7 +1201,6 @@ namespace croc
 							nextChar();
 						} while(IS_IDENTCONT());
 
-						// buf.add(0); // put this on for bsearch to work properly
 						auto arr = buf.toArrayView();
 						auto type = lookupKeyword(arr);
 
@@ -1209,8 +1208,7 @@ namespace croc
 							TOK(type);
 						else
 						{
-							// Have to slice the \0 off the end of arr
-							mTok.stringValue = mCompiler.newString(arr);//.slice(0, arr.length - 1));
+							mTok.stringValue = mCompiler.newString(arr);
 							TOK(Token::Ident);
 						}
 						RETURN;
