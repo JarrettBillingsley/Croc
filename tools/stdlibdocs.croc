@@ -9,7 +9,7 @@ function main()
 	local t = CrocWikiLinkTranslator()
 	local o = OutputDocVisitor(SectionOrder(), TracWikiOutputter$ CrocWikiLinkResolver$ t)
 
-	o.visitItem(docsOf(os))
+	o.visitItem(docsOf(text))
 
 	t.printErrors()
 }

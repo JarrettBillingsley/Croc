@@ -25,6 +25,61 @@ For decoding, the input data may or may nor be well-formed; thus the error handl
 invalid input is encountered. If the error behavior is \tt{"strict"}, a \tt{UnicodeError} is thrown. If the error
 behavior is \tt{"ignore"}, the invalid input is skipped. If the error behavior is \tt{"replace"}, the invalid input is
 skipped, and the Unicode Replacement Character (U+00FFFD) is used in its place.
+
+\b{Built-in Encodings}
+
+This library comes with a few encodings built-in. Here is a table of those encodings, as well as their aliases and what
+they are:
+
+\table
+	\row
+		\cell \b{Name}
+		\cell \b{Aliases}
+		\cell \b{Description}
+	\row
+		\cell \tt{"ascii"}
+		\cell
+		\cell 7-bit ASCII (no characters > 127!).
+	\row
+		\cell \tt{"latin1"}
+		\cell \tt{"latin-1", "iso8859-1", "cp819"}
+		\cell An 8-bit encoding that maps exactly to the first 255 Unicode codepoints.
+	\row
+		\cell \tt{"utf-8"}
+		\cell \tt{"utf8"}
+		\cell UTF-8!
+	\row
+		\cell \tt{"utf-8-sig"}
+		\cell \tt{"utf8-sig"}
+		\cell UTF-8, but on encoding, a signature (0xEF 0xBB 0xBF) is prepended, and on decoding, any signature is
+			stripped.
+	\row
+		\cell \tt{"utf-16"}
+		\cell \tt{"utf16"}
+		\cell UTF-16. On encoding, always outputs in native byte order with a BOM before the text. On decoding, checks
+			for a BOM and can decode little- or big-endian UTF-16.
+	\row
+		\cell \tt{"utf-16-be"}
+		\cell \tt{"utf16-be"}
+		\cell Big-endian UTF-16. No BOM is written or read.
+	\row
+		\cell \tt{"utf-16-le"}
+		\cell \tt{"utf16-le"}
+		\cell Little-endian UTF-16. No BOM is written or read.
+	\row
+		\cell \tt{"utf-32"}
+		\cell \tt{"utf32"}
+		\cell UTF-32. On encoding, always outputs in native byte order with a BOM before the text. On decoding, checks
+			for a BOM and can decode little- or big-endian UTF-32.
+	\row
+		\cell \tt{"utf-32-be"}
+		\cell \tt{"utf32-be"}
+		\cell Big-endian UTF-32. No BOM is written or read.
+	\row
+		\cell \tt{"utf-32-le"}
+		\cell \tt{"utf32-le"}
+		\cell Little-endian UTF-32. No BOM is written or read.
+\endtable
 */
 module text
 
