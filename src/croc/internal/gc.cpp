@@ -21,7 +21,7 @@ namespace croc
 		// FINALIZE. Go through the finalize buffer, running the finalizer, and setting it to finalized. At this point,
 		// the object may have been resurrected but we can't really tell unless we make the write barrier more
 		// complicated. Or something. So we just queue a decrement for it. It'll get deallocated the next time around.
-		t->vm->toFinalize.foreach([&t, &hooksEnabled, &decBuffer, &mem](GCObject* i_)
+		t->vm->toFinalize.foreach([&](GCObject* i_)
 		{
 			auto i = cast(Instance*)i_;
 			// debug Stdout.formatln("Taking {} off toFinalize", i).flush;

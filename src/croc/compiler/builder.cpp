@@ -2441,7 +2441,7 @@ namespace croc
 
 	void disasm(Instruction*& pc, uword& insOffset, DArray<uint32_t> lineInfo)
 	{
-		auto nextIns = [&insOffset, &pc]()
+		auto nextIns = [&]()
 		{
 			insOffset++;
 			return *pc++;
@@ -2450,7 +2450,7 @@ namespace croc
 		auto rd =    [](Instruction i) { printf(" r%u", INST_GET_RD(i)); };
 		auto rdimm = [](Instruction i) { printf(" %u",  INST_GET_RD(i)); };
 
-		auto rcNoComma = [&nextIns]()
+		auto rcNoComma = [&]()
 		{
 			auto i = nextIns();
 
@@ -2460,14 +2460,14 @@ namespace croc
 				printf(" r%u", i.uimm);
 		};
 
-		auto rc = [&rcNoComma]()
+		auto rc = [&]()
 		{
 			printf(",");
 			rcNoComma();
 		};
 
-		auto imm =  [&nextIns]() { printf(", %d", nextIns().imm);  };
-		auto uimm = [&nextIns]() { printf(", %u", nextIns().uimm); };
+		auto imm =  [&]() { printf(", %d", nextIns().imm);  };
+		auto uimm = [&]() { printf(", %u", nextIns().uimm); };
 
 		printf("\t[%3u:%4u] ", insOffset, lineInfo[insOffset]);
 		auto i = nextIns();

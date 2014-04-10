@@ -152,7 +152,7 @@ namespace croc
 
 	word pushFullNamespaceName(Thread* t, Namespace* ns)
 	{
-		std::function<uword(Namespace*)> namespaceName = [&t, &namespaceName](Namespace* ns) -> uword
+		std::function<uword(Namespace*)> namespaceName = [&](Namespace* ns) -> uword
 		{
 			if(ns->name->cpLength == 0)
 				return 0;
@@ -1132,7 +1132,7 @@ namespace croc
 		auto tmpBuffer = ustring::alloc(t->vm->mem, len);
 		uword i = 0;
 
-		auto add = [&tmpBuffer, &i](Value& v)
+		auto add = [&](Value& v)
 		{
 			auto s = v.mString->toDArray();
 			tmpBuffer.slicea(i, i + s.length, ustring::n(cast(uchar*)s.ptr, s.length));

@@ -36,7 +36,7 @@ namespace croc
 	// if two string objects are identical, they are also equal.
 	String* String::create(VM* vm, crocstr data)
 	{
-		return createInternal(vm, data, [&vm, &data]()
+		return createInternal(vm, data, [&]()
 		{
 			uword cpLen;
 
@@ -49,7 +49,7 @@ namespace croc
 
 	String* String::createUnverified(VM* vm, crocstr data, uword cpLen)
 	{
-		return createInternal(vm, data, [&cpLen]() { return cpLen; });
+		return createInternal(vm, data, [&]() { return cpLen; });
 	}
 
 	// Free a string object.

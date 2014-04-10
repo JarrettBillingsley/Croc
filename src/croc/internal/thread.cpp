@@ -56,7 +56,7 @@ namespace croc
 		from->state = CrocThreadState_Waiting;
 		t->threadThatResumedThis = from;
 
-		auto failed = tryCode(from, 0, [&t, &from, &slot, &numParams]
+		auto failed = tryCode(from, 0, [&]
 		{
 			if(t->state == CrocThreadState_Initial)
 			{

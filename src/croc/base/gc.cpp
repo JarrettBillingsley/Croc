@@ -114,7 +114,7 @@ namespace croc
 				{
 					GCOBJ_SETCOLOR(obj, GCFlags_White);
 
-					visitObj(obj, false, [&vm](GCObject* slot)
+					visitObj(obj, false, [&](GCObject* slot)
 					{
 						cycleScan(vm, slot);
 					});
@@ -145,7 +145,7 @@ namespace croc
 
 				GCOBJ_SETCOLOR(obj, GCFlags_Black);
 
-				visitObj(obj, false, [&vm](GCObject* slot)
+				visitObj(obj, false, [&](GCObject* slot)
 				{
 					collectCycleWhite(vm, slot);
 				});
@@ -177,7 +177,7 @@ namespace croc
 			}
 
 			// Scan
-			cycleRoots.foreach([&vm](GCObject* obj)
+			cycleRoots.foreach([&](GCObject* obj)
 			{
 				cycleScan(vm, obj);
 			});
@@ -233,7 +233,7 @@ namespace croc
 
 		if(cycleType != GCCycleType_NoRoots)
 		{
-			visitRoots(vm, [&vm, &newRoots](GCObject* obj)
+			visitRoots(vm, [&](GCObject* obj)
 			{
 				if(!GCOBJ_INRC(obj))
 					vm->mem.makeRC(obj);
@@ -256,7 +256,7 @@ namespace croc
 
 			GCOBJ_UNLOG(obj);
 
-			visitObj(obj, true, [&vm](GCObject* slot)
+			visitObj(obj, true, [&](GCObject* slot)
 			{
 				if(!GCOBJ_INRC(slot))
 					vm->mem.makeRC(slot);
@@ -313,7 +313,7 @@ namespace croc
 				}
 				else
 				{
-					visitObj(obj, false, [&vm, &decBuffer](GCObject* slot)
+					visitObj(obj, false, [&](GCObject* slot)
 					{
 						decBuffer.add(vm->mem, slot);
 					});
@@ -353,7 +353,7 @@ namespace croc
 
 		// debug(PHASES) printf("NURSERY").flush;
 
-		vm->mem.nursery.foreach([&vm](GCObject* obj)
+		vm->mem.nursery.foreach([&](GCObject* obj)
 		{
 			if(GCOBJ_INRC(obj) && obj->refCount > 0)
 				GCOBJ_CLEARJUSTMOVED(obj);
