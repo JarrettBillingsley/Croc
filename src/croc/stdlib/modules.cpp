@@ -348,7 +348,9 @@ const char* _runMain_docs = Docstr(DFunc("runMain") DParam("ns", "namespace") DV
 	Otherwise, this function does nothing.
 
 	\param[ns] The namespace in which to look.
-	\param[vararg] The arguments that will be passed to the "main" function.)");
+	\param[vararg] The arguments that will be passed to the \tt{main} function.
+
+	\returns whatever \tt{main} returns, or nothing if there is no \tt{main} function.)");
 
 	word_t _runMain(CrocThread* t)
 	{
@@ -361,7 +363,7 @@ const char* _runMain_docs = Docstr(DFunc("runMain") DParam("ns", "namespace") DV
 			if(croc_isFunction(t, main))
 			{
 				croc_insert(t, 1);
-				croc_call(t, 1, 0);
+				return croc_call(t, 1, -1);
 			}
 		}
 
