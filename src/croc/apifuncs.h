@@ -19,12 +19,13 @@ extern "C" {
 @ingroup API
 Creating, setting up, and destroying Croc VMs. */
 /**@{*/
-CROCAPI void*       croc_DefaultMemFunc               (void* ctx, void* p, uword_t oldSize, uword_t newSize);
-CROCAPI CrocThread* croc_vm_open                      (CrocMemFunc memFunc, void* ctx);
-CROCAPI void        croc_vm_close                     (CrocThread* t);
-CROCAPI void        croc_vm_loadUnsafeLibs            (CrocThread* t, CrocUnsafeLib libs);
-CROCAPI void        croc_vm_loadAddons                (CrocThread* t, CrocAddons libs);
-CROCAPI void        croc_vm_loadAvailableAddonsExcept (CrocThread* t, CrocAddons exclude);
+CROCAPI void*        croc_DefaultMemFunc               (void* ctx, void* p, uword_t oldSize, uword_t newSize);
+CROCAPI CrocThread*  croc_vm_open                      (CrocMemFunc memFunc, void* ctx);
+CROCAPI const char** croc_vm_includedAddons            ();
+CROCAPI void         croc_vm_close                     (CrocThread* t);
+CROCAPI void         croc_vm_loadUnsafeLibs            (CrocThread* t, CrocUnsafeLib libs);
+CROCAPI void         croc_vm_loadAddons                (CrocThread* t, CrocAddons libs);
+CROCAPI void         croc_vm_loadAvailableAddonsExcept (CrocThread* t, CrocAddons exclude);
 
 /** Opens a croc VM using \ref croc_DefaultMemFunc as the allocator. */
 #define croc_vm_openDefault() (croc_vm_open(&croc_DefaultMemFunc, 0))

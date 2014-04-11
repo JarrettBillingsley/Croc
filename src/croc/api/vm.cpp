@@ -52,6 +52,26 @@ namespace
 			// throw new Exception("Did you stick a finalizable object in a global metatable or something? I think
 			// you did. Stop doing that.");
 	}
+
+	const char* CompiledInAddons[] =
+	{
+#ifdef CROC_PCRE_ADDON
+		"pcre",
+#endif
+#ifdef CROC_SDL_ADDON
+		"sdl",
+#endif
+#ifdef CROC_DEVIL_ADDON
+		"devil",
+#endif
+#ifdef CROC_GL_ADDON
+		"gl",
+#endif
+#ifdef CROC_NET_ADDON
+		"net",
+#endif
+		nullptr
+	};
 }
 
 extern "C"
@@ -178,6 +198,13 @@ extern "C"
 		assert(t->stackIndex == 1);
 
 		return *t;
+	}
+
+	/** \returns an array of names of addons that were compiled into this Croc library. The array is terminated with a
+	NULL entry. */
+	const char** croc_vm_includedAddons()
+	{
+		return CompiledInAddons;
 	}
 
 	/** Frees all objects and memory associated with the VM that owns the given thread. Calls finalizers on objects as
