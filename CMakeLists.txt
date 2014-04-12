@@ -8,6 +8,10 @@ add_subdirectory(src)
 add_executable(croctest croctest.cpp)
 target_link_libraries(croctest croc)
 
+add_executable(croci croc.cpp)
+target_link_libraries(croci croc)
+set_property(TARGET croci PROPERTY OUTPUT_NAME "croc")
+
 if(NOT DEFINED CROC_BUILD_BITS)
 	set(CROC_BUILD_BITS 32)
 endif()
