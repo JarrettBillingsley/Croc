@@ -141,13 +141,11 @@ DListSep()
 		croc_ex_checkParam(t, 0, CrocType_Funcdef);
 
 		if(croc_ex_optParam(t, 1, CrocType_Namespace))
-		{
 			croc_dup(t, 1);
-			croc_function_newScriptWithEnv(t, 0);
-		}
 		else
-			croc_function_newScript(t, 0);
+			croc_pushEnvironment(t, 1);
 
+		croc_function_newScriptWithEnv(t, 0);
 		return 1;
 	}
 DEndList()

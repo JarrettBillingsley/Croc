@@ -99,7 +99,7 @@ local function _run(inout, fd: funcdef)
 		if(hasMethod(inout, "run"))
 			return true, inout.run(fd)
 		else
-			return true, fd.close()()
+			return true, fd.close(_G)()
 	}
 	catch(e: HaltException)
 		throw e
@@ -176,6 +176,9 @@ local function _tryAsExpression(inout, buffer: string)
 it as a statement; otherwise, tries to parse and run it as an expression first, falling back to parsing it as a
 statement if that fails.
 
+The string will be executed in the global environment, unless \tt{inout} implements a \tt{run} method, in which case
+it's \tt{inout}'s responsibility to choose which environment to execute it in.
+
 \param[inout] should be an already-initialized object of the same kind you pass to \link{interactive}.
 \param[buffer] should contain the code to be run.
 
@@ -221,8 +224,8 @@ The \tt{inout} object may optionally implement the following methods:
 \blist
 	\li \b{\tt{init()}}: called once before calling any other methods, allows it to initialize any state needed.
 	\li \b{\tt{cleanup()}}: called once when the REPL stops for any reason, allows it to do any cleanup needed.
-	\li \b{\tt{run(f: function)}}: called with a function which is the compiled version of entered code. Should return
-		all results from \tt{f}.
+	\li \b{\tt{run(f: funcdef)}}: called with a funcdef which is the compiled version of the entered code. Should return
+		all results from calling the function resulting from closing \tt{f}.
 \endlist
 
 The operation of this function goes something like this:
