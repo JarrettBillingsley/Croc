@@ -6,10 +6,10 @@ oneMillion = 5000000
 class Tester:
 	def foo(self):
 		return 1
-		
+
 	def beginTimer(self):
 		self.t1 = time.time()
-		
+
 	def endTimer(self, s):
 		mps = (oneMillion/1000000)/(time.time() - self.t1)
 		print "Python %s := %0.2f" % (s, mps)
@@ -64,7 +64,7 @@ class Tester:
 		self.beginTimer()
 		self.x = 1
 		for i in xrange(oneMillion/8):
-			self.x; self.x; self.x; self.x; 
+			self.x; self.x; self.x; self.x;
 			self.x; self.x; self.x; self.x;
 		self.endTimer("slotAccesses\t")
 
@@ -72,7 +72,7 @@ class Tester:
 		self.beginTimer()
 		self.x = 1
 		for i in xrange(oneMillion/8):
-			self.x = 1; self.x = 2; self.x = 3; self.x = 4; 
+			self.x = 1; self.x = 2; self.x = 3; self.x = 4;
 			self.x = 1; self.x = 2; self.x = 3; self.x = 4;
 		self.endTimer("slotSets\t\t")
 
@@ -95,7 +95,7 @@ class Tester:
 		v = 1
 		for i in xrange(oneMillion/8):
 			v; v;  v; v;
-			v; v;  v; v;	
+			v; v;  v; v;
 		self.endTimer("localAccesses\t")
 
 	def testSetLocals(self):
@@ -103,7 +103,7 @@ class Tester:
 		v = 1
 		for i in xrange(oneMillion/8):
 			v = 1; v = 2; v = 3; v = 4;
-			v = 1; v = 2; v = 3; v = 4;  
+			v = 1; v = 2; v = 3; v = 4;
 		self.endTimer("localSets\t")
 
 	def test(self):
@@ -124,7 +124,7 @@ class Tester:
 		self.testInstantiations()
 
 		import sys
-		print "Python version\t\t := \"%i.%i.%i %s %i\"" % sys.version_info
+		print "Python version\t\t := ", sys.version
 		print ""
 		print "// values in millions per second"
 		print ""

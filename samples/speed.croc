@@ -43,7 +43,7 @@ Croc version            := "2.0"
 */
 
 local t1
-local oneMillion = 5_000_000
+local oneMillion = 10_000_000
 
 local function foo() {}
 
@@ -58,7 +58,7 @@ local class Tester
 	{
 		t1 = time.microTime() - t1
 		local mps = toFloat(oneMillion) / t1
-		writefln("Croc {} := {:f2}", s, mps)
+		writefln("Croc {} := {:.2}", s, mps)
 	}
 
 	function testIntMath()
