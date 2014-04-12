@@ -31,7 +31,10 @@ extern "C"
 		croc_gc_maybeCollect(t_);
 		auto a = Array::create(t->vm->mem, len);
 		a->sliceAssign(t->vm->mem, 0, len, t->stack.slice(t->stackIndex - len, t->stackIndex));
-		croc_pop(t_, len);
+
+		if(len)
+			croc_pop(t_, len);
+
 		return push(t, Value::from(a));
 	}
 
