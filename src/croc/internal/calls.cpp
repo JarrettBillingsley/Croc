@@ -217,7 +217,11 @@ namespace croc
 	void saveResults(Thread* t, Thread* from, AbsStack first, uword num)
 	{
 		if(num == 0)
+		{
+			t->currentAR->firstResult = 0;
+			t->currentAR->numResults = 0;
 			return;
+		}
 
 		if((t->results.length - t->resultIndex) < num)
 		{
