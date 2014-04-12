@@ -17,6 +17,9 @@ namespace croc
 		*ar = t->actRecs[t->arIndex - 2];
 
 		ar->func = nullptr;
+
+		assert(firstValue > t->stackBase);
+
 		ar->returnSlot = firstValue;
 		ar->expectedResults = expectedResults;
 		ar->firstResult = 0;

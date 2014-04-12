@@ -1284,7 +1284,7 @@ namespace croc
 
 		if(numArgs == 0)
 		{
-			inst = codeRD(loc, Op_Yield, 0);
+			inst = codeRD(loc, Op_Yield, pushRegister());
 			codeUImm(1);
 			codeUImm(0);
 		}
