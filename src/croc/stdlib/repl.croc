@@ -275,11 +275,6 @@ function interactive(inout)
 			throw TypeError("inout.readln expected to return string|null, not '{}'".format(niceTypeof(line)))
 
 		// End? (\x04 is Ctrl+D)
-		if(line is null)
-		{
-			inout.writeln("okay thank you bye")
-			break
-		}
 		if(line is null or '\x04' in line)
 			break
 
