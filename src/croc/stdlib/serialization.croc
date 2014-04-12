@@ -912,7 +912,7 @@ function deserializeModule(input: @InStream)
 
 	local ret = deserializeGraph(trans, input)
 
-	if(!isArray(ret) || #ret != 2 || !isString(ret[0]) || !isFuncDef(ret[1]))
+	if(!isArray(ret) || #ret != 2 || !isString(ret[0]) || !isFuncdef(ret[1]))
 		throw ValueError("Data deserialized from module is not in the proper format")
 
 	local name, mod = ret.expand()
