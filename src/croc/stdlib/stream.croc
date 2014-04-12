@@ -1194,6 +1194,12 @@ class TextWriter
 		:_shouldFlush = f
 
 	/**
+	Just flushes the underlying stream.
+	*/
+	function flush()
+		:_stream.flush()
+
+	/**
 	Converts each argument to its string representation (with \link{toString}), encodes the string with the writer's
 	encoding, and outputs it to the underlying stream.
 	*/
