@@ -293,10 +293,17 @@ namespace croc
 	{
 		DWORD bytesRead;
 
+	_retry:
 		if(!ReadFile(f, cast(LPVOID)data.ptr, cast(DWORD)data.length, &bytesRead, nullptr))
 		{
 			pushSystemErrorMsg(t);
 			return -1;
+		}
+
+		if(GetLastError() == ERROR_OPERATION_ABORTED)
+		{
+			SetLastError(ERROR_SUCCESS);
+			goto _retry;
 		}
 
 		return cast(int64_t)bytesRead;
@@ -330,12 +337,15 @@ namespace croc
 
 	bool flush(CrocThread* t, FileHandle f)
 	{
-		auto ret = FlushFileBuffers(f);
-
-		if(!ret)
+		// Ignore failed flushes on file types that don't support them
+		if(!FlushFileBuffers(f) && GetLastError() != ERROR_INVALID_HANDLE)
+		{
 			pushSystemErrorMsg(t);
+			return false;
+		}
 
-		return ret;
+		SetLastError(ERROR_SUCCESS);
+		return true;
 	}
 
 	bool close(CrocThread* t, FileHandle f)
@@ -956,6 +966,7 @@ namespace croc
 			return false;
 		}
 
+		errno = 0;
 		return true;
 	}
 
