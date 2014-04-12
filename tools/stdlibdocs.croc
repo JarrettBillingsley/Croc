@@ -9,7 +9,7 @@ function main()
 	local t = CrocWikiLinkTranslator()
 	local o = OutputDocVisitor(SectionOrder(), TracWikiOutputter$ CrocWikiLinkResolver$ t)
 
-	o.visitItem(docsOf(text))
+	o.visitItem(docsOf(repl))
 
 	t.printErrors()
 }
@@ -37,6 +37,7 @@ local StdlibLookup =
 	object        = "StdLib/ObjectLib"
 	os            = "StdLib/OSLib"
 	path          = "StdLib/PathLib"
+	repl          = "StdLib/ReplLib"
 	serialization = "StdLib/SerializationLib"
 	stream        = "StdLib/StreamLib"
 	string        = "StdLib/StringLib"

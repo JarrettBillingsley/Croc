@@ -484,7 +484,16 @@ local function doInteractive(docsEnabled: string)
 local function doOneLine(code: string)
 {
 	try
-		repl.runString(ReplInout(), code)
+	{
+		local needMore, e = repl.runString(ReplInout(), code)
+
+		if(needMore)
+		{
+			writefln("Error: {}", e)
+			writeln(e.tracebackString())
+			return ExitCode.OtherError
+		}
+	}
 	catch(e)
 	{
 		writefln("Error: {}", e)
