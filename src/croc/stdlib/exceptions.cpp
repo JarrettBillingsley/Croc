@@ -569,6 +569,18 @@ DBeginList(_globalFuncs)
 		croc_eh_pushStd(t, croc_ex_checkStringParam(t, 1));
 		return 1;
 	}
+
+DListSep()
+	Docstr(DFunc("rethrow") DParam("ex", "instance")
+	R"(Rethrows the exception \tt{ex}. This is the same as throwing it normally, except the traceback is not
+	modified.)"),
+
+	"rethrow", 1, [](CrocThread* t) -> word_t
+	{
+		croc_ex_checkParam(t, 1, CrocType_Instance);
+		croc_dup(t, 1);
+		return croc_eh_rethrow(t);
+	}
 DEndList()
 
 	// =================================================================================================================
