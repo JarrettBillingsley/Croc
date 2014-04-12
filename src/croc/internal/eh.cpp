@@ -265,7 +265,7 @@ namespace croc
 		while(t->currentAR->unwindCounter > 0)
 		{
 			assert(t->ehIndex > 0);
-			assert(t->currentEH->actRecord == t->arIndex);
+			assert(t->currentEH->actRecord == t->arIndex - 1);
 
 			auto frame = *t->currentEH;
 			popScriptEHFrame(t);
