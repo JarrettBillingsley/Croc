@@ -24,6 +24,7 @@ namespace croc
 	void initObjectLib(CrocThread* t);
 	void initOSLib(CrocThread* t);
 	void initPathLib(CrocThread* t);
+	void initReplLib(CrocThread* t);
 	void initSerializationLib(CrocThread* t);
 	void initStreamLib(CrocThread* t);
 	void initStringLib(CrocThread* t);

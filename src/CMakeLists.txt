@@ -122,6 +122,7 @@ set(croc_SRC
 	croc/stdlib/object.cpp
 	croc/stdlib/os.cpp
 	croc/stdlib/path.cpp
+	croc/stdlib/repl.cpp
 	croc/stdlib/serialization.cpp
 	croc/stdlib/stream.cpp
 	croc/stdlib/string.cpp
@@ -160,6 +161,7 @@ set(croc_CROCSRC
 	croc/stdlib/doctools_console.croc
 	croc/stdlib/doctools_trac.croc
 	croc/stdlib/hash_weaktables.croc
+	croc/stdlib/repl.croc
 	croc/stdlib/serialization.croc
 	croc/stdlib/stream.croc
 	croc/stdlib/text.croc

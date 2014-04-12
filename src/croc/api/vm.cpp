@@ -183,6 +183,7 @@ extern "C"
 		initEnvLib(*t);
 		initJSONLib(*t); // depends on stream
 		initPathLib(*t);
+		initReplLib(*t);
 		initSerializationLib(*t); // depends on .. lots of libs :P
 		initThreadLib(*t);
 		initTimeLib(*t);
@@ -201,7 +202,7 @@ extern "C"
 	}
 
 	/** \returns an array of names of addons that were compiled into this Croc library. The array is terminated with a
-	NULL entry. */
+	NULL entry. This is a constant array, so no need to worry about ownership. */
 	const char** croc_vm_includedAddons()
 	{
 		return CompiledInAddons;
