@@ -149,13 +149,23 @@ DListSep()
 	}
 
 DListSep()
-	Docstr(DFunc("readTextFile") DParam("name", "string") DParamD("encoding", "string", "utf-8")
+	Docstr(DFunc("readTextFile") DParam("name", "string") DParamD("encoding", "string", "?utf-8")
 		DParamD("errors", "string", "strict")
 	R"(Reads the contents of a text file, decoding it according to the given \tt{encoding}, and returns the entire file
 	contents as a string.
 
 	\param[name] is the name of the file to read.
-	\param[encoding] is the text encoding to use, as found in the \link{text} library.
+	\param[encoding] can be one of three things:
+		\blist
+			\li The name of an encoding as used by the \link{text} library.
+			\li The string \tt{'?'}, which means that the text file must start with a BOM (or UTF-8 signature "BOM").
+				The encoding will be determined automatically using \link{text.detectBOM}. If the file does not start
+				with a BOM, an exception will be thrown.
+			\li A string starting with \tt{'?'} followed by an encoding name, such as \tt{"?utf-8"} (the default for
+				this parameter). In this case, the encoding will be determined like with \tt{'?'}, but if the file does
+				not start with a BOM, it will fall back to the encoding given. So \tt{"?utf-8"} means "detect a BOM, but
+				if there is none, decode it as UTF-8."
+		\endlist
 	\param[errors] is how malformed text should be read, as specified by the \link{text} library.
 
 	\returns the decoded contents of the file.)"),
@@ -165,6 +175,38 @@ DListSep()
 		croc_ex_checkParam(t, 1, CrocType_String);
 		auto haveEncoding = croc_ex_optParam(t, 2, CrocType_String);
 		auto haveErrors = croc_ex_optParam(t, 3, CrocType_String);
+		croc_setStackSize(t, 4);
+
+		bool detectBOM = true;
+		bool failOnNoBOM = false;
+
+		if(haveEncoding)
+		{
+			if(croc_getString(t, 2)[0] == '?')
+			{
+				// Slice off '?'
+				croc_pushInt(t, 1);
+				croc_pushNull(t);
+				croc_slice(t, 2);
+				croc_replace(t, 2);
+			}
+			else
+				detectBOM = false;
+
+			if(croc_len(t, 2) == 0)
+				failOnNoBOM = true;
+		}
+		else
+		{
+			croc_pushString(t, "utf-8");
+			croc_replace(t, 2);
+		}
+
+		if(!haveErrors)
+		{
+			croc_pushString(t, "strict");
+			croc_replace(t, 3);
+		}
 
 		// local f = inFile(name)
 		auto f = croc_pushGlobal(t, "inFile");
@@ -182,20 +224,37 @@ DListSep()
 		croc_pushNull(t);
 		croc_methodCall(t, -2, "close", 0);
 
+		if(detectBOM)
+		{
+			// local codec = text.detectBOM(data)
+			auto codec = croc_pushGlobal(t, "text");
+			croc_pushNull(t);
+			croc_dup(t, data);
+			croc_methodCall(t, codec, "detectBOM", 1);
+
+			if(croc_isNull(t, -1))
+			{
+				if(failOnNoBOM)
+					croc_eh_throwStd(t, "UnicodeError", "Could not detect text encoding");
+
+				// Otherwise, the fallback codec is sitting in slot 2
+				croc_popTop(t);
+			}
+			else
+			{
+				// encoding = codec
+				croc_replace(t, 2);
+			}
+		}
+
 		// return text.getCodec(encoding).decode(data, errors)
 		croc_pushGlobal(t, "text");
 		croc_pushNull(t);
-		if(haveEncoding)
-			croc_dup(t, 2);
-		else
-			croc_pushString(t, "utf-8");
+		croc_dup(t, 2);
 		croc_methodCall(t, -3, "getCodec", 1);
 		croc_pushNull(t);
 		croc_dup(t, data);
-		if(haveErrors)
-			croc_dup(t, 3);
-		else
-			croc_pushString(t, "strict");
+		croc_dup(t, 3);
 		return croc_methodCall(t, -4, "decode", 1);
 	}
 

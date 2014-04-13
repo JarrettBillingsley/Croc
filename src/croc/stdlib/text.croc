@@ -363,6 +363,46 @@ else
 	BOM_UTF32_BS = BOM_UTF32_LE
 }
 
+/** Given a slice of a memblock containing encoded text, detects any BOMs at the beginning of the text, returning which
+UTF encoding it believes the text to be in.
+
+If there is no BOM, or if the memblock is too short to contain one, returns \tt{null}.
+
+\param[mb] is the memblock to test.
+\param[lo] and
+\param[hi] define the slice of \tt{mb} to test.
+\returns one of \tt{"utf-8"}, \tt{"utf-16"}, \tt{"utf-32"}, or \tt{null}. This doesn't return \tt{"utf-16-be"} or the
+	like, as those codecs do not expect a BOM at the beginning.
+
+\throws[BoundsError] if \tt{lo} or \tt{hi} are invalid. */
+function detectBOM(mb: memblock, lo: int = 0, hi: int = #mb)
+{
+	if(lo < 0 or lo > hi or hi > #mb)
+		throw BoundsError("Invalid memblock slice indices {} .. {} (length: {})".format(lo, hi, #mb))
+
+	local length = hi - lo
+
+	if(length >= 2)
+	{
+		if(BOM_UTF16.compare(0, mb, lo, #BOM_UTF16) == 0 or BOM_UTF16_BS.compare(0, mb, lo, #BOM_UTF16_BS) == 0)
+			return "utf-16"
+
+		if(length >= 3)
+		{
+			if(BOM_UTF8.compare(0, mb, lo, #BOM_UTF8) == 0)
+				return "utf-8"
+
+			if(length >= 4)
+			{
+				if(BOM_UTF32.compare(0, mb, lo, #BOM_UTF32) == 0 or BOM_UTF32_BS.compare(0, mb, lo, #BOM_UTF32_BS) == 0)
+					return "utf-32"
+			}
+		}
+	}
+
+	return null
+}
+
 // =====================================================================================================================
 // Codecs
 
