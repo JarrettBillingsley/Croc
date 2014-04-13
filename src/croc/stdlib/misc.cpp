@@ -248,10 +248,12 @@ DListSep()
 			case CrocType_Function:
 			case CrocType_Class:
 			case CrocType_Namespace:
-			case CrocType_Funcdef:
-				croc_pushString(t, croc_getNameOf(t, 1));
+			case CrocType_Funcdef: {
+				uword_t length;
+				auto s = croc_getNameOfn(t, 1, &length);
+				croc_pushStringn(t, s, length);
 				break;
-
+			}
 			default:
 				croc_ex_paramTypeError(t, 1, "function|class|namespace|funcdef");
 		}
