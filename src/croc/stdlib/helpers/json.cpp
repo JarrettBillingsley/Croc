@@ -146,7 +146,6 @@ namespace croc
 
 		void expected(const char* message)
 		{
-			// TODO: different kinda syntax exception here? JSONSyntaxException?
 			croc_eh_throwStd(t, "SyntaxException", "(%u:%u): '%s' expected; found '%s' instead",
 				mTok.line, mTok.col, message, TokenStrings[mTok.type]);
 		}
@@ -211,7 +210,6 @@ namespace croc
 				nextChar();
 
 				if(!IS_DECIMAL_DIGIT())
-					// TODO: different kinda exception here?
 					croc_eh_throwStd(t, "LexicalException", "(%u:%u): incomplete number token", mLine, mCol);
 			}
 
@@ -243,7 +241,6 @@ namespace croc
 				nextChar();
 
 				if(!IS_DECIMAL_DIGIT())
-					// TODO: Different kinda exception?
 					croc_eh_throwStd(t, "LexicalException", "(%u:%u): incomplete number token", mLine, mCol);
 
 				crocfloat frac = 0.0;
@@ -265,7 +262,6 @@ namespace croc
 				nextChar();
 
 				if(!IS_DECIMAL_DIGIT() && mCharacter != '+' && mCharacter != '-')
-					// TODO: different kinda exception?
 					croc_eh_throwStd(t, "LexicalException", "(%u:%u): incomplete number token", mLine, mCol);
 
 				bool negExp = false;
@@ -279,7 +275,6 @@ namespace croc
 				}
 
 				if(!IS_DECIMAL_DIGIT())
-					// TODO: different kinda exception?
 					croc_eh_throwStd(t, "LexicalException", "(%u:%u): incomplete number token", mLine, mCol);
 
 				crocfloat exp = 0;
@@ -304,7 +299,6 @@ namespace croc
 			for(uword i = 0; i < num; i++)
 			{
 				if(!IS_HEX_DIGIT())
-					// TODO: different kinda exception?
 					croc_eh_throwStd(t, "LexicalException", "(%u:%u): Hexadecimal escape digits expected", mLine, mCol);
 
 				ret <<= 4;
@@ -321,7 +315,6 @@ namespace croc
 			nextChar();
 
 			if(IS_EOF())
-				// TODO: different kinda exception?
 				croc_eh_throwStd(t, "LexicalException", "(%u:%u): Unterminated string literal",
 					beginningLine, beginningCol);
 
@@ -344,14 +337,12 @@ namespace croc
 					if(x >= 0xD800 && x < 0xDC00)
 					{
 						if(mCharacter != '\\')
-							// TODO: Different kinda exception?
 							croc_eh_throwStd(t, "LexicalException", "(%u:%u): second surrogate pair character expected",
 								mLine, mCol);
 
 						nextChar();
 
 						if(mCharacter != 'u')
-							// TODO: different kinda exception?
 							croc_eh_throwStd(t, "LexicalException", "(%u:%u): second surrogate pair character expected",
 								mLine, mCol);
 
@@ -360,7 +351,6 @@ namespace croc
 						auto x2 = readHexDigits(4);
 
 						if(x2 < 0xDC00 || x2 >= 0xE000)
-							// TODO: Different kinda exception
 							croc_eh_throwStd(t, "LexicalException", "(%u:%u): invalid surrogate pair sequence",
 								mLine, mCol);
 
@@ -369,14 +359,12 @@ namespace croc
 						return cast(crocchar)(0x10000 + ((x << 10) | x2));
 					}
 					else if(x >= 0xDC00 && x < 0xE000)
-						// TODO: Different kinda exception
 						croc_eh_throwStd(t, "LexicalException", "(%u:%u): invalid surrogate pair sequence",
 							mLine, mCol);
 					else
 						return cast(crocchar)x;
 				}
 				default:
-					// TODO:
 					croc_eh_throwStd(t, "LexicalException", "(%u:%u): Invalid string escape sequence", mLine, mCol);
 			}
 
@@ -398,7 +386,6 @@ namespace croc
 			while(true)
 			{
 				if(IS_EOF())
-					// TODO:
 					croc_eh_throwStd(t, "LexicalException", "(%u:%u): Unterminated string literal",
 						beginningLine, beginningCol);
 
@@ -407,7 +394,6 @@ namespace croc
 				else if(mCharacter == '\"')
 					break;
 				else if(mCharacter <= 0x1f)
-					// TODO:
 					croc_eh_throwStd(t, "LexicalException", "(%u:%u): Invalid character in string token", mLine, mCol);
 				else
 				{
@@ -489,7 +475,6 @@ namespace croc
 
 					case 'f':
 						if(!arrStartsWith(crocstr::n(mCharPos, mSourceEnd - mCharPos), ATODA("alse")))
-							// TODO:
 							croc_eh_throwStd(t, "LexicalException", "(%u:%u): false expected", mLine, mCol);
 
 						nextChar();
@@ -503,7 +488,6 @@ namespace croc
 
 					case 'n':
 						if(!arrStartsWith(crocstr::n(mCharPos, mSourceEnd - mCharPos), ATODA("ull")))
-							// TODO:
 							croc_eh_throwStd(t, "LexicalException", "(%u:%u): null expected", mLine, mCol);
 
 						nextChar();
@@ -538,7 +522,6 @@ namespace croc
 							continue;
 						}
 
-						// TODO:
 						croc_eh_throwStd(t, "LexicalException", "(%u:%u): Invalid character", mLine, mCol);
 				}
 			}
@@ -560,7 +543,6 @@ namespace croc
 			case Token::Null:     l.next(); return;
 			case Token::LBrace:   parseObject(t, l); return;
 			case Token::LBracket: parseArray(t, l); return;
-			// TODO:
 			default: croc_eh_throwStd(t, "SyntaxException", "(%u:%u): value expected", l.line(), l.col());
 		}
 	}
