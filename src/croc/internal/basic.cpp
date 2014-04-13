@@ -610,11 +610,8 @@ namespace croc
 
 	namespace
 	{
-	bool commonSliceIndices(Thread* t, crocint& loIndex, crocint& hiIndex, Value lo, Value hi, CrocType type, uword len)
+	void commonSliceIndices(Thread* t, crocint& loIndex, crocint& hiIndex, Value lo, Value hi, CrocType type, uword len)
 	{
-		if(lo.type == CrocType_Null && hi.type == CrocType_Null)
-			return false;
-
 		if(!correctIndices(loIndex, hiIndex, lo, hi, len))
 		{
 			pushTypeStringImpl(t, lo);
@@ -628,8 +625,6 @@ namespace croc
 				"Invalid slice indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT "] (%s length = %"
 					CROC_SIZE_T_FORMAT ")",
 				loIndex, hiIndex, typeToString(type), len);
-
-		return true;
 	}
 	}
 
@@ -641,29 +636,20 @@ namespace croc
 		{
 			case CrocType_Array: {
 				auto arr = src.mArray;
-
-				if(commonSliceIndices(t, loIndex, hiIndex, lo, hi, CrocType_Array, arr->length))
-					t->stack[dest] = Value::from(arr->slice(t->vm->mem, cast(uword)loIndex, cast(uword)hiIndex));
-				else
-					t->stack[dest] = src;
+				commonSliceIndices(t, loIndex, hiIndex, lo, hi, CrocType_Array, arr->length);
+				t->stack[dest] = Value::from(arr->slice(t->vm->mem, cast(uword)loIndex, cast(uword)hiIndex));
 				return;
 			}
 			case CrocType_Memblock: {
 				auto mb = src.mMemblock;
-
-				if(commonSliceIndices(t, loIndex, hiIndex, lo, hi, CrocType_Memblock, mb->data.length))
-					t->stack[dest] = Value::from(mb->slice(t->vm->mem, cast(uword)loIndex, cast(uword)hiIndex));
-				else
-					t->stack[dest] = src;
+				commonSliceIndices(t, loIndex, hiIndex, lo, hi, CrocType_Memblock, mb->data.length);
+				t->stack[dest] = Value::from(mb->slice(t->vm->mem, cast(uword)loIndex, cast(uword)hiIndex));
 				return;
 			}
 			case CrocType_String: {
 				auto str = src.mString;
-
-				if(commonSliceIndices(t, loIndex, hiIndex, lo, hi, CrocType_String, str->cpLength))
-					t->stack[dest] = Value::from(str->slice(t->vm, cast(uword)loIndex, cast(uword)hiIndex));
-				else
-					t->stack[dest] = src;
+				commonSliceIndices(t, loIndex, hiIndex, lo, hi, CrocType_String, str->cpLength);
+				t->stack[dest] = Value::from(str->slice(t->vm, cast(uword)loIndex, cast(uword)hiIndex));
 				return;
 			}
 			default:
