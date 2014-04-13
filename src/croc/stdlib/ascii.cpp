@@ -287,6 +287,8 @@ DListSep()
 		\li \tt{isCtrl} tests if the character is a control character (less than ASCII 32, or ASCII 127).
 		\li \tt{isPunct} tests if the character is a punctuation mark.
 		\li \tt{isSpace} tests if the character is whitespace (space, \\t, \\f, \\v, \\r, or \\n).
+		\li \tt{isGraph} tests if the character has a graphical representation (not a control character, and not space).
+		\li \tt{isPrint} tests if the character is printable (same as isGraph, but includes space; inversion of isCtrl).
 	\endlist
 
 	\param[c] is the ASCII string to look in.
@@ -346,6 +348,18 @@ DListSep()
 	R"(ditto)"),
 
 	"isSpace", MAKE_IS(isspace)
+
+DListSep()
+	Docstr(DFunc("isGraph") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(ditto)"),
+
+	"isGraph", MAKE_IS(isgraph)
+
+DListSep()
+	Docstr(DFunc("isPrint") DParam("c", "string") DParamD("idx", "int", "0")
+	R"(ditto)"),
+
+	"isPrint", MAKE_IS(isprint)
 
 DEndList()
 
