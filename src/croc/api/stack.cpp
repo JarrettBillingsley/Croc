@@ -111,7 +111,8 @@ extern "C"
 		auto t = Thread::from(t_);
 		auto d = fakeToAbs(t, dest);
 
-		croc_eh_throwStd(t_, "ApiError", "%s - Cannot use 'this' as the destination", __FUNCTION__);
+		if(d == t->stackBase)
+			croc_eh_throwStd(t_, "ApiError", "%s - Cannot use 'this' as the destination", __FUNCTION__);
 
 		if(d != t->stackIndex - 1)
 			t->stack[d] = t->stack[t->stackIndex - 1];
