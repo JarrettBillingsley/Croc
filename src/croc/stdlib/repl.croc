@@ -163,7 +163,7 @@ local function _tryAsExpression(inout, buffer: string)
 			else
 				inout.write(", ")
 
-			dumpVal(ret, false)
+			dumpVal(ret, false, output)
 		}
 
 		inout.writeln()

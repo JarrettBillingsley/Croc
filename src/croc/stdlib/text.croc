@@ -1,14 +1,13 @@
-/**
-This library contains utilities for performing text encoding and formatting.
+/** This library contains utilities for performing text encoding, decoding, and specialized output formatting.
 
-Note that this is somewhat different from the purpose of the \tt{string} library, which concerns itself with
-simple algorithmic operations on string objects. This module instead deals with the more "linguistic" aspects of
-handling text, such as encoding strings into and decoding strings from raw character encodings.
+Whereas the \tt{string} library concerns itself with simple algorithmic operations on string objects, this module deals
+with the more "linguistic" aspects of text handling, such as converting between text encodings and displaying objects in
+human-readable forms.
 
-This module exposes flexible interfaces, and the hope is that more text encodings and formatting options will be
-made available by second- and third-party libraries.
+This module exposes flexible interfaces, and the hope is that more text encodings and formatting options will be made
+available by second- and third-party libraries.
 
-\b{Error Handling}
+\b{Codec Error Handling}
 
 The text codecs' encoding and decoding functions all take an optional argument to control the behavior of encoding and
 decoding when erroneous input is encountered. There are three error behaviors: \tt{"strict"}, \tt{"ignore"}, and
@@ -79,96 +78,202 @@ they are:
 		\cell \tt{"utf-32-le"}
 		\cell \tt{"utf32-le"}
 		\cell Little-endian UTF-32. No BOM is written or read.
-\endtable
-*/
+\endtable */
 module text
 
-local textCodecs = {}
+// =====================================================================================================================
+// dumpVal
 
-/**
-Register a text codec of the given name. The codec can then be retrieved with \link{getCodec}.
-
-\throws[exceptions.LookupError] if there is already a codec registered named \tt{name}.
-*/
-function registerCodec(name: string, codec)
+local function outputString(o, v: string)
 {
-	if(name in textCodecs)
-		throw LookupError("Already a codec for '{}' registered".format(name))
+	o.write('"')
 
-	textCodecs[name] = codec
+	foreach(c; v)
+	{
+		// TODO: make this faster for common case
+		switch(c)
+		{
+			case '\'': o.write("\\\'"); break
+			case '\"': o.write("\\\""); break
+			case '\\': o.write("\\\\"); break
+			case '\n': o.write("\\n");  break
+			case '\r': o.write("\\r");  break
+			case '\t': o.write("\\t");  break
+
+			default:
+				if(ascii.isAscii(c) and ascii.isPrint(c))
+					o.write(c)
+				else if(c.ord() <= 0xFFFF)
+					o.writef("\\u{:4x}", c.ord())
+				else
+					o.writef("\\U{:8x}", c.ord())
+				break
+		}
+	}
+
+	o.write('"')
 }
 
-/**
-Re-registers an already-registered codec with one or more alternate names.
+// Forward declare
+local outputRepr
 
-For instance, if you wanted the codec "foobar" to be accessible also as "foo-bar" or "FOOBAR", you could use:
-
-\code
-aliasCodec("foobar", "foo-bar", "FOOBAR")
-\endcode
-
-Then \tt{getCodec("foo-bar")} and \tt{getCodec("FOOBAR")} would give the same codec as \tt{getCodec("foobar")}.
-
-\param[name] is the name of the codec to alias. It must have been previously registered with \link{registerCodec}.
-\param[vararg] is one or more strings that will be registered as aliases to the given codec.
-
-\throws[exceptions.ParamError] if you don't pass at least one variadic argument.
-\throws[exceptions.TypeError] if any of the variadic arguments are not strings.
-*/
-function aliasCodec(name: string, vararg)
+local function outputTable(o, tab: table, shown: table)
 {
-	local c = getCodec(name)
-
-	if(#vararg == 0)
-		throw ParamError("Must have at least one variadic argument")
-
-	for(i: 0 .. #vararg)
+	if(tab in shown)
 	{
-		local rename = vararg[i]
+		o.write("{...}")
+		return
+	}
 
-		if(!isString(rename))
-			throw TypeError("All variadic arguments must be strings")
+	shown[tab] = true
+	o.write("{")
 
-		registerCodec(rename, c)
+	if(#tab > 0)
+	{
+		local first = true
+
+		foreach(k, v; tab)
+		{
+			if(first)
+				first = false
+			else
+				o.write(", ")
+
+
+			o.write("[")
+			outputRepr(o, k, shown)
+			o.write("] = ")
+			outputRepr(o, v, shown)
+		}
+	}
+
+	o.write("}")
+	shown[tab] = false
+}
+
+local function outputNamespace(o, ns: namespace)
+{
+	o.write(toString(ns), " { ")
+
+	if(#ns > 0)
+	{
+		local first = true
+
+		foreach(k, _; ns)
+		{
+			if(first)
+				first = false
+			else
+				o.write(", ")
+
+			o.write(k)
+		}
+	}
+
+	o.write(" }")
+}
+
+local function outputArray(o, arr: array, shown: table)
+{
+	if(arr in shown)
+	{
+		o.write("[...]")
+		return
+	}
+
+	shown[arr] = true
+	o.write("[")
+
+	if(#arr > 0)
+	{
+		outputRepr(o, arr[0], shown)
+
+		for(i: 1 .. #arr)
+		{
+			o.write(", ")
+			outputRepr(o, arr[i], shown)
+		}
+	}
+
+	o.write("]")
+	shown[arr] = null
+}
+
+outputRepr = function(o, val, shown: table)
+{
+	switch(typeof(val))
+	{
+		case "weakref":
+			o.write("weakref(")
+			outputRepr(o, deref(val), shown)
+			o.write(")")
+			break
+
+		case "string":    outputString(o, val);       break
+		case "table":     outputTable(o, val, shown); break
+		case "namespace": outputNamespace(o, val);    break
+		case "array":     outputArray(o, val, shown); break
+
+		default:
+			o.write(toString(val))
 	}
 }
 
-/**
-Gets the codec object that was registered with the given name.
+// This stack mechanism is in case something yields out of its toString metamethod (when that becomes possible...) and
+// then dumpVal is called from another thread, or if something calls dumpVal *in* its toString metamethod.
+local shownStack = [{} {} {} {}]
+local shownStackIdx = 0
 
-\throws[exceptions.LookupError] if there was no codec registered with the given name.
-*/
-function getCodec(name: string)
+/** Dumps an exhaustive string representation of the given value to the console. This is also exported in the global
+namespace for convenience.
+
+\blist
+	\li \b{\tt{weakrefs}} will be displayed as \tt{"weakref(value)"} where \tt{value} is the exhaustive representation
+		of the value the weakref points to.
+	\li \b{\tt{strings}} will print non-printable and non-ASCII characters with Croc-like \tt{\\uxxxx} and
+		\tt{\\UXXXXXXXX} escape sequences.
+	\li \b{\tt{tables} and \tt{arrays}} will be recursed into safely, so you don't need to worry about infinite
+		recursion.
+	\li \b{\tt{namespaces}} will have the names of their fields printed, but not the values.
+	\li \b{All other types} will have \link{toString} called on them.
+\endlist
+
+\param[val] is the value to print.
+\param[printNewline] controls whether or not a newline will be output after the representation.
+\param[output] should be a \link{stream.TextWriter}-like object which implements \tt{write}, \tt{writeln}, and
+	\tt{flush} methods. */
+function dumpVal(val: any, printNewline: bool = true, output = console.stdout)
 {
-	if(local ret = textCodecs[name])
-		return ret
+	assert(shownStackIdx <= #shownStack)
 
-	throw LookupError("No codec registered for '{}'".format(name))
+	if(shownStackIdx == #shownStack)
+		shownStack.append({})
+
+	local shown = shownStack[shownStackIdx]
+	shownStackIdx++
+
+	assert(#shown == 0)
+	scope(exit)
+	{
+		hash.clear(shown)
+		shownStackIdx--
+	}
+
+	outputRepr(output, val, shown)
+	output.flush()
+
+	if(printNewline)
+		output.writeln()
 }
 
-/**
-Gets an alphabetically sorted array of the names of all available codecs (including aliases).
-*/
-function getAllCodecNames() =
-	hash.keys(textCodecs).sort()
+// Export globally
+_G.dumpVal = dumpVal
 
-/**
-Gets an alphabetically sorted array of arrays. Each sub-array has the name of the codec as the first element and the
-codec itself as the second.
-*/
-function getAllCodecs() =
-	[[k, v] foreach k, v; textCodecs].sort(\a, b -> a[0] <=> b[0])
+// =====================================================================================================================
+// Unicode gunk
 
-/**
-\returns whether or not a codec of the given name has been registered.
-*/
-function hasCodec(name: string) =
-	name in textCodecs
-
-/**
-\returns the number of bytes needed to encode the first codepoint of the given string in UTF-8, or 0 if the codepoint is
-out of the valid range of Unicode.
-*/
+/** \returns the number of bytes needed to encode the first codepoint of the given string in UTF-8, or 0 if the
+codepoint is out of the valid range of Unicode. */
 function charUtf8Length(c: string)
 {
 	local i = c.ord()
@@ -205,12 +310,10 @@ local Utf8StartCharLengths =
 	4 4 4 4 4 4 4 4 0 0 0 0 0 0 0 0
 ];
 
-/**
-Given the value of an initial UTF-8 code unit, returns how many bytes long this character is, or 0 if this is an invalid
-initial code unit.
+/** Given the value of an initial UTF-8 code unit, returns how many bytes long this character is, or 0 if this is an
+invalid initial code unit.
 
-\throws[exceptions.RangeError] if \tt{firstByte} is not in the range \tt{[0 .. 255]}.
-*/
+\throws[exceptions.RangeError] if \tt{firstByte} is not in the range \tt{[0 .. 255]}. */
 function utf8SequenceLength(firstByte: int)
 {
 	if(firstByte < 0 || firstByte > 255)
@@ -219,41 +322,27 @@ function utf8SequenceLength(firstByte: int)
 	return Utf8StartCharLengths[firstByte]
 }
 
-/**
-UTF-8 "BOM", not so much a byte-order mark as it is a UTF-8 tag. Sometimes appears at the beginning of UTF-8 encoded
-text.
-*/
+/** UTF-8 "BOM", not so much a byte-order mark as it is a UTF-8 tag. Sometimes appears at the beginning of UTF-8 encoded
+text. */
 global BOM_UTF8 = memblock.fromArray([0xEF 0xBB 0xBF])
 
-/**
-A string representation of the above.
-*/
+/** A string representation of the above. */
 global BOM_UTF8_STR = "\uFEFF"
 
-/**
-Little-endian UTF-16 BOM.
-*/
+/** Little-endian UTF-16 BOM. */
 global BOM_UTF16_LE = memblock.fromArray([0xFF 0xFE])
 
-/**
-Big-endian UTF-16 BOM.
-*/
+/** Big-endian UTF-16 BOM. */
 global BOM_UTF16_BE = memblock.fromArray([0xFE 0xFF])
 
-/**
-Little-endian UTF-32 BOM.
-*/
+/** Little-endian UTF-32 BOM. */
 global BOM_UTF32_LE = memblock.fromArray([0xFF 0xFE 0x00 0x00])
 
-/**
-Big-endian UTF-32 BOM.
-*/
+/** Big-endian UTF-32 BOM. */
 global BOM_UTF32_BE = memblock.fromArray([0x00 0x00 0xFE 0xFF])
 
-/**
-Native and byte-swapped UTF-16 and UTF-32 BOMs. These are just aliases for the above globals, and which is "native" and
-which is "byte-swapped" is determined automatically for you.
-*/
+/** Native and byte-swapped UTF-16 and UTF-32 BOMs. These are just aliases for the above globals, and which is "native"
+and which is "byte-swapped" is determined automatically for you. */
 global BOM_UTF16, BOM_UTF16_BS
 
 /// ditto
@@ -274,19 +363,87 @@ else
 	BOM_UTF32_BS = BOM_UTF32_LE
 }
 
-/**
-The base class for all text codecs which are registered with this module. This class defines an interface which all
-codecs must implement.
-*/
+// =====================================================================================================================
+// Codecs
+
+local textCodecs = {}
+
+/** Register a text codec of the given name. The codec can then be retrieved with \link{getCodec}.
+
+\throws[exceptions.LookupError] if there is already a codec registered named \tt{name}. */
+function registerCodec(name: string, codec)
+{
+	if(name in textCodecs)
+		throw LookupError("Already a codec for '{}' registered".format(name))
+
+	textCodecs[name] = codec
+}
+
+/** Re-registers an already-registered codec with one or more alternate names.
+
+For instance, if you wanted the codec "foobar" to be accessible also as "foo-bar" or "FOOBAR", you could use:
+
+\code
+aliasCodec("foobar", "foo-bar", "FOOBAR")
+\endcode
+
+Then \tt{getCodec("foo-bar")} and \tt{getCodec("FOOBAR")} would give the same codec as \tt{getCodec("foobar")}.
+
+\param[name] is the name of the codec to alias. It must have been previously registered with \link{registerCodec}.
+\param[vararg] is one or more strings that will be registered as aliases to the given codec.
+
+\throws[exceptions.ParamError] if you don't pass at least one variadic argument.
+\throws[exceptions.TypeError] if any of the variadic arguments are not strings. */
+function aliasCodec(name: string, vararg)
+{
+	local c = getCodec(name)
+
+	if(#vararg == 0)
+		throw ParamError("Must have at least one variadic argument")
+
+	for(i: 0 .. #vararg)
+	{
+		local rename = vararg[i]
+
+		if(!isString(rename))
+			throw TypeError("All variadic arguments must be strings")
+
+		registerCodec(rename, c)
+	}
+}
+
+/** Gets the codec object that was registered with the given name.
+
+\throws[exceptions.LookupError] if there was no codec registered with the given name. */
+function getCodec(name: string)
+{
+	if(local ret = textCodecs[name])
+		return ret
+
+	throw LookupError("No codec registered for '{}'".format(name))
+}
+
+/** Gets an alphabetically sorted array of the names of all available codecs (including aliases). */
+function getAllCodecNames() =
+	hash.keys(textCodecs).sort()
+
+/** Gets an alphabetically sorted array of arrays. Each sub-array has the name of the codec as the first element and the
+codec itself as the second. */
+function getAllCodecs() =
+	[[k, v] foreach k, v; textCodecs].sort(\a, b -> a[0] <=> b[0])
+
+/** \returns whether or not a codec of the given name has been registered. */
+function hasCodec(name: string) =
+	name in textCodecs
+
+/** The base class for all text codecs which are registered with this module. This class defines an interface which all
+codecs must implement. */
 class TextCodec
 {
-	/**
-	The name of the text encoding that this codec implements.
-	*/
+	/** The name of the text encoding that this codec implements. */
 	name = ""
 
-	/**
-	Encodes a string object into a string encoding, placing the encoded data into a memblock.
+	/** Encodes a string object into a string encoding, placing the encoded data into a memblock.
 
 	\param[str] is the string to be encoded.
 	\param[dest] is the memblock that will hold the encoded data. The memblock will be resized so that the end of the
@@ -295,19 +452,15 @@ class TextCodec
 		placed. This can be equal to \tt{#dest}, which means the encoded data will be appended to the end of \tt{dest}.
 	\param[errors] controls the error handling behavior of the encoder; see this module's docs for more info.
 
-	\returns \tt{dest}.
-	*/
+	\returns \tt{dest}. */
 	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict")
 		throw NotImplementedError()
 
-	/**
-	Same as calling \link{encodeInto} with a new, empty memblock and a starting index of 0.
-	*/
+	/** Same as calling \link{encodeInto} with a new, empty memblock and a starting index of 0. */
 	function encode(str: string, errors: string = "strict") =
 		:encodeInto(str, memblock.new(0), 0, errors)
 
-	/**
-	Decodes an encoded string from a memblock into a string.
+	/** Decodes an encoded string from a memblock into a string.
 
 	\param[src] is the memblock that holds the encoded string data.
 	\param[lo] and
@@ -318,50 +471,38 @@ class TextCodec
 
 	\throws[exceptions.ValueError] if the given slice of data cannot be consumed in its entirety, such as if there
 		is an incomplete character encoding at the end of the data. If you need to be able to decode data piecemeal,
-		such as in a stream decoding situation, this is what \link{incrementalDecoder} is for.
-	*/
+		such as in a stream decoding situation, this is what \link{incrementalDecoder} is for. */
 	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
 		throw NotImplementedError()
 
-	/**
-	Same as calling \link{decodeRange} with a slice of the entire memblock.
-	*/
+	/** Same as calling \link{decodeRange} with a slice of the entire memblock. */
 	function decode(src: memblock, errors: string = "strict") =
 		:decodeRange(src, 0, #src, errors)
 
-	/**
-	\returns a new instance of a class derived from \link{IncrementalEncoder} that allows you to encode a stream of text
-	incrementally. See that class's docs for more info.
-	*/
+	/** \returns a new instance of a class derived from \link{IncrementalEncoder} that allows you to encode a stream of
+	text incrementally. See that class's docs for more info. */
 	function incrementalEncoder(errors: string = "strict")
 		throw NotImplementedError()
 
-	/**
-	\returns a new instance of a class derived from \link{IncrementalDecoder} that allows you to decode a stream of text
-	incrementally. See that class's docs for more info.
-	*/
+	/** \returns a new instance of a class derived from \link{IncrementalDecoder} that allows you to decode a stream of
+	text incrementally. See that class's docs for more info. */
 	function incrementalDecoder(errors: string = "strict")
 		throw NotImplementedError()
 }
 
-/**
-The base class for incremental text encoders, which are returned from \link{TextCodec.incrementalEncoder} methods.
+/** The base class for incremental text encoders, which are returned from \link{TextCodec.incrementalEncoder} methods.
 
 An incremental encoder does the same thing as \link{TextCodec.encodeInto} except its operation can be split up over
 multiple calls instead of being done all at once. This way large pieces of data can be encoded without having to have
-either the source or the output entirely in memory.
-*/
+either the source or the output entirely in memory. */
 class IncrementalEncoder
 {
-	/**
-	Instead of specifying the error behavior on each call, incremental encoders have it specified once in the
-	constructor.
-	*/
+	/** Instead of specifying the error behavior on each call, incremental encoders have it specified once in the
+	constructor. */
 	this(errors: string = "strict")
 		throw NotImplementedError()
 
-	/**
-	Similar to \link{TextCodec.encodeInto}.
+	/** Similar to \link{TextCodec.encodeInto}.
 
 	The \tt{final} parameter tells the function whether or not this is the last piece of string to be encoded. This way
 	the encoder can throw an error if there's insufficient input or whatever. Also, if the \tt{final} parameter is true,
@@ -372,43 +513,33 @@ class IncrementalEncoder
 	\param[start] same as in \link{TextCodec.encodeInto}.
 	\param[final] is explained above.
 
-	\returns \tt{dest}.
-	*/
+	\returns \tt{dest}. */
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
 		throw NotImplementedError()
 
-	/**
-	Same as caling \link{encodeInto} with a new, empty memblock and a starting index of 0.
-	*/
+	/** Same as caling \link{encodeInto} with a new, empty memblock and a starting index of 0. */
 	function encode(str: string, final: bool = false) =
 		:encodeInto(str, memblock.new(0), 0, final)
 
-	/**
-	Resets any internal state to its initial state so that this encoder object can be used to encode a new string. This
-	will be called automatically by \link{encodeInto} if its \tt{final} param was \tt{true}.
-	*/
+	/** Resets any internal state to its initial state so that this encoder object can be used to encode a new string.
+	This will be called automatically by \link{encodeInto} if its \tt{final} param was \tt{true}. */
 	function reset()
 		throw NotImplementedError()
 }
 
-/**
-The base class for incremental text decoders, which are returned from \link{TextCodec.incrementalDecoder} methods.
+/** The base class for incremental text decoders, which are returned from \link{TextCodec.incrementalDecoder} methods.
 
 An incremental decoder does the same thing as \link{TextCodec.decodeRange} except its operation can be split up over
 multiple calls instead of being done all at once. This way large pieces of data can be decoded without having to have
-either the source or the output entirely in memory.
-*/
+either the source or the output entirely in memory. */
 class IncrementalDecoder
 {
-	/**
-	Instead of specifying the error behavior on each call, incremental decoders have it specified once in the
-	constructor.
-	*/
+	/** Instead of specifying the error behavior on each call, incremental decoders have it specified once in the
+	constructor. */
 	this(errors: string = "strict")
 		throw NotImplementedError()
 
-	/**
-	Similar to \link{TextCodec.decodeRange}.
+	/** Similar to \link{TextCodec.decodeRange}.
 
 	The \tt{final} parameter tells the function whether or not this is the last piece of string to be decoded. This way
 	the decoder can throw an error if there's insufficient input or whatever. Also, if the \tt{final} parameter is true,
@@ -423,31 +554,24 @@ class IncrementalDecoder
 	\param[hi] same as in \link{TextCodec.decodeRange}.
 	\param[final] is explained above.
 
-	\returns as much of the data as could be decoded as a string.
-	*/
+	\returns as much of the data as could be decoded as a string. */
 	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
 		throw NotImplementedError()
 
-	/**
-	Same as calling \link{decodeRange} with a slice of the entire memblock.
-	*/
+	/** Same as calling \link{decodeRange} with a slice of the entire memblock. */
 	function decode(src: memblock, final: bool = false) =
 		:decodeRange(src, 0, #src, final)
 
-	/**
-	Resets any internal state to its initial state so that this encoder object can be used to encode a new string. This
-	will be called automatically by \link{decodeRange} if its \tt{final} param was \tt{true}.
-	*/
+	/** Resets any internal state to its initial state so that this encoder object can be used to encode a new string.
+	This will be called automatically by \link{decodeRange} if its \tt{final} param was \tt{true}. */
 	function reset()
 		throw NotImplementedError()
 }
 
-/**
-A base class for incremental decoders which share a common behavior: needing to save partial character encodings from
-the end of a data block for use in the next call.
+/** A base class for incremental decoders which share a common behavior: needing to save partial character encodings
+from the end of a data block for use in the next call.
 
-Subclasses need only implement the \link{_bufferedDecode} method.
-*/
+Subclasses need only implement the \link{_bufferedDecode} method. */
 class BufferedIncrementalDecoder : IncrementalDecoder
 {
 	_errors
@@ -459,8 +583,7 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 		:_scratch = memblock.new(0)
 	}
 
-	/**
-	Subclasses just implement this method. Note that it takes both an \tt{errors} parameter \em{and} a \tt{final}
+	/** Subclasses just implement this method. Note that it takes both an \tt{errors} parameter \em{and} a \tt{final}
 	parameter.
 
 	This method should return two values. The first is the decoded string (or the empty string if there was not enough
@@ -480,8 +603,7 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 	bytes consumed.
 
 	\returns two values: the decoded string (or an empty string if nothing was decoded) and the number of bytes consumed
-		from the given slice of the memblock.
-	*/
+		from the given slice of the memblock. */
 	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
 		throw NotImplementedError()
 
