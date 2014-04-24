@@ -12,6 +12,12 @@ add_executable(croci croc.cpp)
 target_link_libraries(croci croc)
 set_property(TARGET croci PROPERTY OUTPUT_NAME "croc")
 
+if(MINGW)
+	# for some reason, linking both croc and croctest simultaneously on MinGW is INCREDIBLY slow, causing the ld
+	# processes to eat two cores for ~10 seconds. So let's force them to link serially :P
+	add_dependencies(croci croctest)
+endif()
+
 if(NOT DEFINED CROC_BUILD_BITS)
 	set(CROC_BUILD_BITS 32)
 endif()
