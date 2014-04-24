@@ -60,9 +60,142 @@ DListSep()
 	}
 DEndList()
 
+#ifdef CROC_BUILTIN_DOCS
+const char* ProcessDocs = DClass("Process")
+R"(This class lets you spawn external processes asynchronously and communicate with them in a one-way fashion.
+
+You can only have access to either its stdin or its stdout stream, but not both. This is because attempting to imitate a
+tty programmatically is asking for deadlocks because of buffering in C stdio. Or something like that.
+
+If you need to give the subprocess both input and output, you'll have to use an intermediate file and redirect it in the
+command line you pass in the constructor.
+
+\examples
+
+Here's a simple program that just lists the current directory and prints it to stdout.
+
+\code
+local p = os.Process("ls .", "r")
+console.stdout.getStream().copy(p.stream())
+writeln("Exited with code ", p.wait())
+\endcode)";
+#endif
+
+DBeginList(_ProcessMethods)
+	Docstr(DFunc("constructor") DParam("cmd", "string") DParam("mode", "string")
+	R"(Starts a new subprocess.
+
+	\param[cmd] is the command line which will be executed through the shell. As such you can use things like
+		redirection and piping. You'll have to use redirection for either input or output if you need both input and
+		output.
+	\param[mode] should be either \tt{"r"} or \tt{"w"}. If it's \tt{"r"}, the subprocess will inherit this process's
+		stdin stream, and its stdout will be redirected to a pipe which you can get with the \link{stream} method. If
+		it's \tt{"w"}, the subprocess will inherit this process's stdout stream, and its stdin will be redirected
+		instead.)"),
+
+	"constructor", 2, [](CrocThread* t) -> word_t
+	{
+		croc_hfield(t, 0, "proc");
+
+		if(!croc_isNull(t, -1))
+			croc_eh_throwStd(t, "StateError", "Calling constructor on already-initialized process");
+
+		croc_popTop(t);
+
+		croc_ex_checkParam(t, 1, CrocType_String);
+		croc_ex_checkParam(t, 2, CrocType_String);
+
+		auto cmd = getCrocstr(t, 1);
+		auto mode = getCrocstr(t, 2);
+		auto access = oscompat::FileAccess::Read;
+
+		if(mode == ATODA("r"))
+			access = oscompat::FileAccess::Read;
+		else if(mode == ATODA("w"))
+			access = oscompat::FileAccess::Write;
+		else
+			croc_eh_throwStd(t, "ValueError", "Invalid process mode");
+
+		auto proc = oscompat::openProcess(t, cmd, access);
+		auto procStream = oscompat::getProcessStream(t, proc);
+
+		if(procStream == oscompat::InvalidHandle)
+			oscompat::throwOSEx(t);
+
+		croc_pushNativeobj(t, proc);
+		croc_hfielda(t, 0, "proc");
+
+		croc_ex_lookup(t, "stream.NativeStream");
+		croc_pushNull(t);
+		croc_pushNativeobj(t, procStream);
+		croc_dup(t, 2); // gonna be either 'r' or 'w'
+		croc_call(t, -4, 1);
+		croc_hfielda(t, 0, "stream");
+
+		return 0;
+	}
+
+DListSep()
+	Docstr(DFunc("finalizer")
+	R"(Closes the subprocess if it hasn't been already.)"),
+
+	"finalizer", 0, [](CrocThread* t) -> word_t
+	{
+		croc_hfield(t, 0, "proc");
+
+		if(!croc_isNull(t, -1))
+		{
+			croc_dup(t, 0);
+			croc_pushNull(t);
+			croc_methodCall(t, -2, "wait", 0);
+		}
+
+		return 0;
+	}
+
+DListSep()
+	Docstr(DFunc("wait")
+	R"(Waits for the subprocess to complete (if it hasn't yet already) and returns its exit code as an integer.
+
+	This will block as long as necessary.)"),
+
+	"wait", 0, [](CrocThread* t) -> word_t
+	{
+		croc_hfield(t, 0, "proc");
+
+		if(croc_isNull(t, -1))
+			croc_eh_throwStd(t, "StateError", "Waiting on a dead process");
+
+		auto proc = cast(oscompat::ProcessHandle)croc_getNativeobj(t, -1);
+		auto ret = oscompat::closeProcess(t, proc);
+
+		croc_pushNull(t);
+		croc_hfielda(t, 0, "proc");
+		croc_pushInt(t, ret);
+		return 1;
+	}
+
+DListSep()
+	Docstr(DFunc("stream")
+	R"(Gets a \link{stream.NativeStream} instance which represents whichever standard stream was redirected in the
+	subprocess (see the \link{constructor} for info).)"),
+
+	"stream", 0, [](CrocThread* t) -> word_t
+	{
+		croc_hfield(t, 0, "stream");
+		return 1;
+	}
+DEndList()
+
 	word loader(CrocThread* t)
 	{
 		registerGlobals(t, _globalFuncs);
+
+		croc_class_new(t, "Process", 0);
+			croc_pushNull(t); croc_class_addHField(t, -2, "proc");
+			croc_pushNull(t); croc_class_addHField(t, -2, "stream");
+			registerMethods(t, _ProcessMethods);
+		croc_newGlobal(t, "Process");
 		return 0;
 	}
 	}
@@ -76,6 +209,12 @@ DEndList()
 		croc_ex_doc_init(t, &doc, __FILE__);
 		croc_ex_doc_push(&doc, ModuleDocs);
 			docFields(&doc, _globalFuncs);
+
+			croc_field(t, -1, "Process");
+				croc_ex_doc_push(&doc, ProcessDocs);
+				docFields(&doc, _ProcessMethods);
+				croc_ex_doc_pop(&doc, -1);
+			croc_popTop(t);
 		croc_ex_doc_pop(&doc, -1);
 		croc_ex_doc_finish(&doc);
 #endif

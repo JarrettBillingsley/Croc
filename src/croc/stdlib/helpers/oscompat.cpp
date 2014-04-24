@@ -42,6 +42,8 @@ namespace croc
 #ifdef _WIN32
 	extern "C" int _fileno(FILE* f);
 	extern "C" int _get_osfhandle(int h);
+	extern "C" FILE* _popen(const char* cmd, const char* mode);
+	extern "C" int _pclose(FILE* p);
 
 	namespace
 	{
@@ -296,6 +298,12 @@ namespace croc
 	_retry:
 		if(!ReadFile(f, cast(LPVOID)data.ptr, cast(DWORD)data.length, &bytesRead, nullptr))
 		{
+			if(GetLastError() == ERROR_BROKEN_PIPE)
+			{
+				SetLastError(ERROR_SUCCESS);
+				return 0;
+			}
+
 			pushSystemErrorMsg(t);
 			return -1;
 		}
@@ -378,7 +386,10 @@ namespace croc
 			nameBuf.free(mem);
 
 			if(GetLastError() == ERROR_ENVVAR_NOT_FOUND)
+			{
+				SetLastError(ERROR_SUCCESS);
 				return false;
+			}
 			else
 			{
 				pushSystemErrorMsg(t);
@@ -818,6 +829,36 @@ namespace croc
 	void sleep(uword msec)
 	{
 		Sleep(msec);
+	}
+
+	// =================================================================================================================
+	// Threading
+
+	ProcessHandle openProcess(CrocThread* t, crocstr cmd, FileAccess access)
+	{
+		if(auto ret = _popen(cast(const char*)cmd.ptr, access == FileAccess::Read ? "rb" : "wb"))
+			return ret;
+
+		croc_pushString(t, strerror(errno));
+		throwOSEx(t);
+		return nullptr; // dummy
+	}
+
+	FileHandle getProcessStream(CrocThread* t, ProcessHandle p)
+	{
+		return fromCFile(t, p);
+	}
+
+	int closeProcess(CrocThread* t, ProcessHandle p)
+	{
+		auto ret = _pclose(p);
+
+		if(ret != -1)
+			return ret;
+
+		croc_pushString(t, strerror(errno));
+		throwOSEx(t);
+		return 0; // dummy
 	}
 
 #else

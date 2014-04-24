@@ -94,6 +94,8 @@ namespace croc
 		Time accessed;
 	};
 
+	typedef FILE* ProcessHandle;
+
 	// Most of these functions have some kind of "invalid" return value. If that's returned, then the error message will
 	// be sitting on top of the thread's stack.
 
@@ -145,6 +147,11 @@ namespace croc
 
 	// Threading
 	void sleep(uword msec);
+
+	// Processes
+	ProcessHandle openProcess(CrocThread* t, crocstr cmd, FileAccess access);
+	FileHandle getProcessStream(CrocThread* t, ProcessHandle p);
+	int closeProcess(CrocThread* t, ProcessHandle p);
 	}
 }
 
