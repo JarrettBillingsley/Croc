@@ -390,7 +390,10 @@ local function doFile(inputFile: string, docsEnabled: string, args: array)
 			modToRun = modName
 		}
 
-		modules.runMain(modules.load(modToRun), args.expand())
+		local ret = modules.runMain(modules.load(modToRun), args.expand())
+
+		if(isInt(ret))
+			return ret
 	}
 	catch(e)
 	{
