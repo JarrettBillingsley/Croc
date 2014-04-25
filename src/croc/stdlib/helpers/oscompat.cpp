@@ -832,7 +832,7 @@ namespace croc
 	}
 
 	// =================================================================================================================
-	// Threading
+	// Processes
 
 	ProcessHandle openProcess(CrocThread* t, crocstr cmd, FileAccess access)
 	{
@@ -1468,6 +1468,38 @@ namespace croc
 			else
 				break; // hrm
 		}
+	}
+
+	// =================================================================================================================
+	// Processes
+
+	ProcessHandle openProcess(CrocThread* t, crocstr cmd, FileAccess access)
+	{
+		fflush(nullptr);
+
+		if(auto ret = popen(cast(const char*)cmd.ptr, access == FileAccess::Read ? "r" : "w"))
+			return ret;
+
+		pushSystemErrorMsg(t);
+		throwOSEx(t);
+		return nullptr; // dummy
+	}
+
+	FileHandle getProcessStream(CrocThread* t, ProcessHandle p)
+	{
+		return fromCFile(t, p);
+	}
+
+	int closeProcess(CrocThread* t, ProcessHandle p)
+	{
+		auto ret = pclose(p);
+
+		if(ret != -1)
+			return ret;
+
+		croc_pushString(t, strerror(errno));
+		throwOSEx(t);
+		return 0; // dummy
 	}
 #endif
 	}

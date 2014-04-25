@@ -127,7 +127,7 @@ DBeginList(_ProcessMethods)
 
 		croc_ex_lookup(t, "stream.NativeStream");
 		croc_pushNull(t);
-		croc_pushNativeobj(t, procStream);
+		croc_pushNativeobj(t, cast(void*)cast(uword)procStream);
 		croc_dup(t, 2); // gonna be either 'r' or 'w'
 		croc_call(t, -4, 1);
 		croc_hfielda(t, 0, "stream");
