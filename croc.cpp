@@ -81,7 +81,8 @@ The execution modes are as follows:
         or it can be a dotted.module.name. In either case, the given file or
         module is loaded/imported, and its main() function (if any) will be
         called with 'args' as the arguments. All the arguments will be
-        strings.
+        strings. If the main() function returns an integer, it will be used
+        as the exit code.
 
     croc [options] -e "string"
         String mode. 'string' will be executed as if you typed it in at the
