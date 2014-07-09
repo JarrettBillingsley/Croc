@@ -26,8 +26,9 @@ fmt is a type-specific string which specifies output
 			u unsigned
 			b/B binary
 			x/X hex
+			r\d{1,}
 	for floats:
-		[+| ][.[precision]][type]
+		[+| ][#][.[precision]][type]
 		type:
 			e/E
 			f
@@ -45,8 +46,8 @@ If no fmt string is given:
 namespace croc
 {
 	const crocstr Spaces = ATODA("                                                                ");
-	const uchar* Lowercase = cast(const uchar*)"0123456789abcdef";
-	const uchar* Uppercase = cast(const uchar*)"0123456789ABCDEF";
+	const uchar* Lowercase = cast(const uchar*)"0123456789abcdefghijklmnopqrstuvwxyz";
+	const uchar* Uppercase = cast(const uchar*)"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 	namespace
 	{
@@ -72,9 +73,9 @@ namespace croc
 			bool putSpace = false;
 			bool putPrefix = false;
 			uword width = 0;
-			// bool haveFmtType = false;
 			char fmtType = 'd';
 			int radix = 10;
+			bool isUppercase = false;
 
 			// Flags
 			if(p < e)
@@ -92,14 +93,42 @@ namespace croc
 			// Type
 			if(p < e)
 			{
-				// haveFmtType = true;
-
 				switch(*p)
 				{
 					case 'd': case 'i': p++; break; // just leave fmtType as 'd'
 					case 'u': fmtType = *p++; break;
-					case 'x': case 'X': radix = 16; fmtType = *p++; break;
-					case 'b': case 'B': radix = 2; fmtType = *p++; break;
+					case 'X': isUppercase = true;
+					case 'x': radix = 16; fmtType = *p++; break;
+					case 'B': isUppercase = true;
+					case 'b': radix = 2; fmtType = *p++; break;
+					case 'R': isUppercase = true;
+					case 'r':
+						p++;
+						radix = 0;
+
+						while(p < e && isdigit(*p))
+							radix = (radix * 10) + (*p++ - '0');
+
+						if(radix == 0)
+							croc_eh_throwStd(t, "ValueError", "invalid format string: expected radix after 'r'");
+
+						if(radix < 2 || radix > 36)
+							croc_eh_throwStd(t, "ValueError", "invalid format string: invalid radix");
+
+						if(radix == 2)
+							fmtType = isUppercase ? 'B' : 'b';
+						else if(radix == 10)
+							fmtType = 'd';
+						else if(radix == 16)
+							fmtType = isUppercase ? 'X' : 'x';
+						else
+						{
+							fmtType = 'r';
+							putPrefix = false;
+						}
+
+						break;
+
 					default: croc_eh_throwStd(t, "ValueError", "invalid format string: unknown integer format type");
 				}
 			}
@@ -122,7 +151,7 @@ namespace croc
 
 			auto dest = outbuf.ptr + outbuf.length;
 			auto x = cast(uint64_t)v;
-			auto chars = (fmtType == 'X') ? Uppercase : Lowercase;
+			auto chars = isUppercase ? Uppercase : Lowercase;
 
 			uword total = 0;
 
@@ -178,16 +207,16 @@ namespace croc
 			char fmtType = 'f';
 
 			// Flags
-			if(p < e && *p == '#')
-			{
-				trimZeroes = true;
-				p++;
-			}
-
 			if(p < e)
 			{
 				if(*p == '+') p++;
 				else if(*p == ' ') p++;
+			}
+
+			if(p < e && *p == '#')
+			{
+				trimZeroes = true;
+				p++;
 			}
 
 			// Precision
@@ -269,10 +298,6 @@ namespace croc
 					case CrocType_Float: pushed = doFloat(t, croc_getFloat(t, slot), fmt); break;
 
 					default:
-						if(!croc_hasMethod(t, slot, "toStringFmt"))
-							croc_eh_throwStd(t, "ValueError",
-								"Format string specified a custom format, but value has no toStringFmt method");
-
 						pushed = croc_dup(t, slot);
 						croc_pushNull(t);
 						croc_pushStringn(t, cast(const char*)fmt.ptr, fmt.length);

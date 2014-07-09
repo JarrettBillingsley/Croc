@@ -137,18 +137,23 @@ Fmt:
 				\li \tt{'x'} or \tt{'X'}, which outputs the number in base 16 (hexadecimal). If the \tt{'#'} flag was
 					given, the number will be prepended with \tt{'0x'} or \tt{'0X'}, respectively. These prefixes do
 					\em{not} count towards the number width.
+				\li \tt{'r'} or \tt{'R'}, followed by one or more digits. This lets you specify an arbitrary base in the
+					range 2 to 36 inclusive. Using \tt{'r'} will use lowercase letters for digits above 9, and \tt{'R'}
+					will use uppercase letters. \tt{'r2'} will behave exactly as \tt{'b'}, and \tt{'r16'} will behave
+					exactly as \tt{'x'}, including respecting the \tt{'#'} flag. \tt{'r10'} will behave exactly as
+					\tt{'d'} or \tt{'i'}.
 			\endlist
 		\li If \em{arg} is a \tt{float}, the format string must be of the format
-			\tt{'#'? ('+'|' ')? ('.' Precision?)? Type?}. Again, this is (mostly) a subset of the format specifiers for
+			\tt{('+'|' ')? '#'? ('.' Precision?)? Type?}. Again, this is (mostly) a subset of the format specifiers for
 			C's printf family, and they work the same.
-
-			The optional \tt{'#'} flag at the beginning only does anything for the \tt{'f'} format (explained below). If
-			given, it will strip extra 0s after the first place after the decimal point, similar to how \tt{'g'} works
-			by default. This flag isn't part of the normal C printf behavior, and if given for \tt{'e'} or \tt{'g'}
-			formats, it has no effect.
 
 			The optional \tt{'+'} or \tt{' '} flags at the beginning will prepend positive numbers with a plus sign or a
 			space, respectively (to make them line up nicely with negative numbers in tables).
+
+			The optional \tt{'#'} flag only does anything for the \tt{'f'} format (explained below). If given, it will
+			strip extra 0s after the first place after the decimal point, similar to how \tt{'g'} works by default. This
+			flag isn't part of the normal C printf behavior, and if given for \tt{'e'} or \tt{'g'} formats, it has no
+			effect.
 
 			Next comes the optional precision, which is just an integer and whose meaning depends on the type.
 
