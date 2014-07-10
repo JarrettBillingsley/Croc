@@ -85,4 +85,89 @@ namespace croc
 	MAKE_DOC(Global)
 	MAKE_DOC(Field)
 #endif
+
+
+
+
+
+#define _MAKE_REGISTER_MULTI(Type)\
+	void _register##Type##s(CrocThread* t, const _StdlibRegister* funcs)\
+	{\
+		for(auto f = funcs; f->info.name != nullptr; f++)\
+			croc_ex_register##Type(t, (CrocRegisterFunc { f->info.name, f->info.maxParams, f->func}));\
+	}
+
+	_MAKE_REGISTER_MULTI(Global)
+	_MAKE_REGISTER_MULTI(Field)
+	_MAKE_REGISTER_MULTI(Method)
+
+#define _MAKE_REGISTER_UV(Type)\
+	void _register##Type##UV(CrocThread* t, const _StdlibRegister* func)\
+	{\
+		uword numUVs = 0;\
+		for(auto f = func; f->info.name != nullptr; f++)\
+		{\
+			if(f[1].info.name == nullptr)\
+			{\
+				_register##Type(t, *f, numUVs);\
+				break;\
+			}\
+			else\
+			{\
+				croc_function_new(t, f->info.name, f->info.maxParams, f->func, 0);\
+				numUVs++;\
+			}\
+		}\
+	}
+
+	_MAKE_REGISTER_UV(Global)
+	_MAKE_REGISTER_UV(Field)
+	_MAKE_REGISTER_UV(Method)
+
+#define _MAKE_REGISTER(Type)\
+	void _register##Type(CrocThread* t, const _StdlibRegister& func, uword numUVs)\
+	{\
+		croc_ex_register##Type##UV(t, (CrocRegisterFunc { func.info.name, func.info.maxParams, func.func }), numUVs);\
+	}
+
+	_MAKE_REGISTER(Global)
+	_MAKE_REGISTER(Field)
+	_MAKE_REGISTER(Method)
+
+#ifdef CROC_BUILTIN_DOCS
+#define _MAKE_DOC_MULTI(Type)\
+	void _doc##Type##s(CrocDoc* d, const _StdlibRegister* funcs)\
+	{\
+		for(auto f = funcs; f->info.docs != nullptr; f++)\
+			croc_ex_doc##Type(d, f->info.docs);\
+	}
+
+	_MAKE_DOC_MULTI(Global)
+	_MAKE_DOC_MULTI(Field)
+
+#define _MAKE_DOC_UV(Type)\
+	void _doc##Type##UV(CrocDoc* d, const _StdlibRegister* func)\
+	{\
+		for(auto f = func; f->info.name != nullptr; f++)\
+		{\
+			if(f[1].info.name == nullptr)\
+			{\
+				croc_ex_doc##Type(d, f->info.docs);\
+				break;\
+			}\
+		}\
+	}
+
+	_MAKE_DOC_UV(Global)
+	_MAKE_DOC_UV(Field)
+
+#define _MAKE_DOC(Type)\
+	void _doc##Type(CrocDoc* d, const _StdlibRegister& func)\
+	{\
+		croc_ex_doc##Type(d, func.info.docs);\
+	}
+
+	_MAKE_DOC(Global)
+	_MAKE_DOC(Field)
+#endif
 }
