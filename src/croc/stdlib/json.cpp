@@ -9,9 +9,10 @@
 
 namespace croc
 {
-	namespace
-	{
-DBeginList(_globalFuncs)
+namespace
+{
+const _StdlibRegisterInfo _fromJSON_info =
+{
 	Docstr(DFunc("fromJSON") DParam("j", "string")
 	R"(Parses the JSON \tt{j} into a Croc representation using null, bool, int, float, string, table, and array.
 
@@ -25,14 +26,18 @@ DBeginList(_globalFuncs)
 	\throws[LexicalException] if there are lexical errors in \tt{j}.
 	\throws[SyntaxException] if there are syntactic errors in \tt{j}.)"),
 
-	"fromJSON", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		fromJSON(t, getCrocstr(t, 1));
-		return 1;
-	}
+	"fromJSON", 1
+};
 
-DListSep()
+word_t _fromJSON(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	fromJSON(t, getCrocstr(t, 1));
+	return 1;
+}
+
+const _StdlibRegisterInfo _toJSON_info =
+{
 	Docstr(DFunc("toJSON") DParamAny("root") DParamD("pretty", "bool", "false")
 	R"(Converts \tt{root} to a JSON string representation and returns that string.
 
@@ -48,23 +53,27 @@ DListSep()
 		conversion.
 	\throws[ValueError] if the object graph is invalid somehow.)"),
 
-	"toJSON", 2, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkAnyParam(t, 1);
-		auto pretty = croc_ex_optBoolParam(t, 2, false);
+	"toJSON", 2
+};
 
-		CrocStrBuffer buf;
-		croc_ex_buffer_init(t, &buf);
+word_t _toJSON(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+	auto pretty = croc_ex_optBoolParam(t, 2, false);
 
-		auto output = [&](crocstr s) { croc_ex_buffer_addStringn(&buf, cast(const char*)s.ptr, s.length); };
-		auto newline = [&]() { croc_ex_buffer_addString(&buf, "\n"); };
+	CrocStrBuffer buf;
+	croc_ex_buffer_init(t, &buf);
 
-		toJSON(t, 1, pretty, output, newline);
-		croc_ex_buffer_finish(&buf);
-		return 1;
-	}
+	auto output = [&](crocstr s) { croc_ex_buffer_addStringn(&buf, cast(const char*)s.ptr, s.length); };
+	auto newline = [&]() { croc_ex_buffer_addString(&buf, "\n"); };
 
-DListSep()
+	toJSON(t, 1, pretty, output, newline);
+	croc_ex_buffer_finish(&buf);
+	return 1;
+}
+
+const _StdlibRegisterInfo _writeJSON_info =
+{
 	Docstr(DFunc("writeJSON") DParamAny("dest") DParamAny("root") DParamD("pretty", "bool", "false")
 	R"(Like \link{toJSON}, but instead of returning a string, it calls methods of \tt{dest} to output the JSON.
 
@@ -78,53 +87,63 @@ DListSep()
 
 	The \link{stream.TextWriter} class satisfies this interface, but you can use any object which does.)"),
 
-	"writeJSON", 3, [](CrocThread* t) -> word_t
+	"writeJSON", 3
+};
+
+word_t _writeJSON(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 2);
+	auto pretty = croc_ex_optBoolParam(t, 3, false);
+
+	auto output = [&](crocstr s)
 	{
-		croc_ex_checkAnyParam(t, 2);
-		auto pretty = croc_ex_optBoolParam(t, 3, false);
+		croc_dup(t, 1);
+		croc_pushNull(t);
+		pushCrocstr(t, s);
+		croc_methodCall(t, -3, "write", 0);
+	};
 
-		auto output = [&](crocstr s)
-		{
-			croc_dup(t, 1);
-			croc_pushNull(t);
-			pushCrocstr(t, s);
-			croc_methodCall(t, -3, "write", 0);
-		};
-
-		auto newline = [&]()
-		{
-			croc_dup(t, 1);
-			croc_pushNull(t);
-			croc_methodCall(t, -2, "writeln", 0);
-		};
-
-		toJSON(t, 2, pretty, output, newline);
-		return 0;
-	}
-DEndList()
-
-	word loader(CrocThread* t)
+	auto newline = [&]()
 	{
-		registerGlobals(t, _globalFuncs);
-		return 0;
-	}
-	}
+		croc_dup(t, 1);
+		croc_pushNull(t);
+		croc_methodCall(t, -2, "writeln", 0);
+	};
 
-	void initJSONLib(CrocThread* t)
-	{
-		croc_ex_makeModule(t, "json", &loader);
-		croc_ex_importNS(t, "json");
+	toJSON(t, 2, pretty, output, newline);
+	return 0;
+}
+
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_fromJSON),
+	_DListItem(_toJSON),
+	_DListItem(_writeJSON),
+	_DListEnd
+};
+
+word loader(CrocThread* t)
+{
+	_registerGlobals(t, _globalFuncs);
+	return 0;
+}
+}
+
+void initJSONLib(CrocThread* t)
+{
+	croc_ex_makeModule(t, "json", &loader);
+	croc_ex_importNS(t, "json");
 #ifdef CROC_BUILTIN_DOCS
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
-		croc_ex_doc_push(&doc,
-		DModule("json")
-		R"(\link[http://en.wikipedia.org/wiki/JSON]{JSON} is a standard for structured data interchange based on the
-		JavaScript object notation. This library allows you to convert to and from JSON.)");
-			docFields(&doc, _globalFuncs);
-		croc_ex_doc_pop(&doc, -1);
-		croc_ex_doc_finish(&doc);
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_ex_doc_push(&doc,
+	DModule("json")
+	R"(\link[http://en.wikipedia.org/wiki/JSON]{JSON} is a standard for structured data interchange based on the
+	JavaScript object notation. This library allows you to convert to and from JSON.)");
+		_docFields(&doc, _globalFuncs);
+	croc_ex_doc_pop(&doc, -1);
+	croc_ex_doc_finish(&doc);
 #endif
-		croc_popTop(t);
-	}
+	croc_popTop(t);
+}
 }
