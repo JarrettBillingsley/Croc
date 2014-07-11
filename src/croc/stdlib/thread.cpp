@@ -6,9 +6,10 @@
 
 namespace croc
 {
-	namespace
-	{
-DBeginList(_globalFuncs)
+namespace
+{
+const _StdlibRegisterInfo _new_info =
+{
 	Docstr(DFunc("new") DParam("func", "function")
 	R"(Create a new thread.
 
@@ -16,14 +17,18 @@ DBeginList(_globalFuncs)
 
 	\returns the new thread.)"),
 
-	"new", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_Function);
-		croc_thread_new(t, 1);
-		return 1;
-	}
+	"new", 1
+};
 
-DListSep()
+word_t _new(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Function);
+	croc_thread_new(t, 1);
+	return 1;
+}
+
+const _StdlibRegisterInfo _halt_info =
+{
 	Docstr(DFunc("halt") DParamD("t", "thread", "null")
 	R"(Halt a thread of execution.
 
@@ -31,50 +36,69 @@ DListSep()
 		is not running, it will have a pending halt placed on it; that is, the next time it is resumed, it will halt
 		immediately.)"),
 
-	"halt", 1, [](CrocThread* t) -> word_t
-	{
-		if(croc_ex_optParam(t, 1, CrocType_Thread))
-			croc_thread_halt(croc_getThread(t, 1));
-		else
-			croc_thread_halt(t);
+	"halt", 1
+};
 
-		return 0;
-	}
+word_t _halt(CrocThread* t)
+{
+	if(croc_ex_optParam(t, 1, CrocType_Thread))
+		croc_thread_halt(croc_getThread(t, 1));
+	else
+		croc_thread_halt(t);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _current_info =
+{
 	Docstr(DFunc("current")
 	R"(\returns the current thread of execution.)"),
 
-	"current", 0, [](CrocThread* t) -> word_t
-	{
-		croc_pushThread(t, t);
-		return 1;
-	}
-DEndList()
+	"current", 0
+};
 
-DBeginList(_methodFuncs)
+word_t _current(CrocThread* t)
+{
+	croc_pushThread(t, t);
+	return 1;
+}
+
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_new),
+	_DListItem(_halt),
+	_DListItem(_current),
+	_DListEnd
+};
+
+const _StdlibRegisterInfo _reset_info =
+{
 	Docstr(DFunc("reset") DParamD("newFunc", "function", "null")
 	R"(Resets a dead thread to the initial state.
 
 	\param[newFunc] is an optional function that will replace the thread's old main function. If you pass nothing for
 	this, the thread will just use the same main function that it was created with.)"),
 
-	"reset", 1, [](CrocThread* t) -> word_t
+	"reset", 1
+};
+
+word_t _reset(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Thread);
+
+	if(croc_ex_optParam(t, 1, CrocType_Function))
 	{
-		croc_ex_checkParam(t, 0, CrocType_Thread);
-
-		if(croc_ex_optParam(t, 1, CrocType_Function))
-		{
-			croc_dup(t, 1);
-			croc_thread_resetWithFunc(t, 0);
-		}
-		else
-			croc_thread_reset(t, 0);
-
-		return 0;
+		croc_dup(t, 1);
+		croc_thread_resetWithFunc(t, 0);
 	}
+	else
+		croc_thread_reset(t, 0);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _state_info =
+{
 	Docstr(DFunc("state")
 	R"(\returns the state of this thread as one of the following strings:
 
@@ -87,105 +111,139 @@ DListSep()
 			\link{reset} on it.
 	\endlist)"),
 
-	"state", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Thread);
-		croc_pushString(t, croc_thread_getStateString(croc_getThread(t, 0)));
-		return 1;
-	}
+	"state", 0
+};
 
-DListSep()
+word_t _state(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Thread);
+	croc_pushString(t, croc_thread_getStateString(croc_getThread(t, 0)));
+	return 1;
+}
+
+const _StdlibRegisterInfo _isInitial_info =
+{
 	Docstr(DFunc("isInitial")
 	R"(These are just convenience methods to test the state of a thread without having to write out a longer string
 	comparison.
 
 	\returns a bool indicating whether this thread is in the given state.)"),
 
-	"isInitial", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Thread);
-		croc_pushBool(t, croc_thread_getState(croc_getThread(t, 0)) == CrocThreadState_Initial);
-		return 1;
-	}
+	"isInitial", 0
+};
 
-DListSep()
+word_t _isInitial(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Thread);
+	croc_pushBool(t, croc_thread_getState(croc_getThread(t, 0)) == CrocThreadState_Initial);
+	return 1;
+}
+
+const _StdlibRegisterInfo _isRunning_info =
+{
 	Docstr(DFunc("isRunning")
 	R"(ditto)"),
 
-	"isRunning", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Thread);
-		croc_pushBool(t, croc_thread_getState(croc_getThread(t, 0)) == CrocThreadState_Running);
-		return 1;
-	}
+	"isRunning", 0
+};
 
-DListSep()
+word_t _isRunning(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Thread);
+	croc_pushBool(t, croc_thread_getState(croc_getThread(t, 0)) == CrocThreadState_Running);
+	return 1;
+}
+
+const _StdlibRegisterInfo _isWaiting_info =
+{
 	Docstr(DFunc("isWaiting")
 	R"(ditto)"),
 
-	"isWaiting", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Thread);
-		croc_pushBool(t, croc_thread_getState(croc_getThread(t, 0)) == CrocThreadState_Waiting);
-		return 1;
-	}
+	"isWaiting", 0
+};
 
-DListSep()
+word_t _isWaiting(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Thread);
+	croc_pushBool(t, croc_thread_getState(croc_getThread(t, 0)) == CrocThreadState_Waiting);
+	return 1;
+}
+
+const _StdlibRegisterInfo _isSuspended_info =
+{
 	Docstr(DFunc("isSuspended")
 	R"(ditto)"),
 
-	"isSuspended", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Thread);
-		croc_pushBool(t, croc_thread_getState(croc_getThread(t, 0)) == CrocThreadState_Suspended);
-		return 1;
-	}
+	"isSuspended", 0
+};
 
-DListSep()
+word_t _isSuspended(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Thread);
+	croc_pushBool(t, croc_thread_getState(croc_getThread(t, 0)) == CrocThreadState_Suspended);
+	return 1;
+}
+
+const _StdlibRegisterInfo _isDead_info =
+{
 	Docstr(DFunc("isDead")
 	R"(ditto)"),
 
-	"isDead", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Thread);
-		croc_pushBool(t, croc_thread_getState(croc_getThread(t, 0)) == CrocThreadState_Dead);
-		return 1;
-	}
-DEndList()
+	"isDead", 0
+};
 
-	word loader(CrocThread* t)
-	{
-		registerGlobals(t, _globalFuncs);
+word_t _isDead(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Thread);
+	croc_pushBool(t, croc_thread_getState(croc_getThread(t, 0)) == CrocThreadState_Dead);
+	return 1;
+}
 
-		croc_namespace_new(t, "thread");
-			registerFields(t, _methodFuncs);
-		croc_vm_setTypeMT(t, CrocType_Thread);
-		return 0;
-	}
-	}
+const _StdlibRegister _methodFuncs[] =
+{
+	_DListItem(_reset),
+	_DListItem(_state),
+	_DListItem(_isInitial),
+	_DListItem(_isRunning),
+	_DListItem(_isWaiting),
+	_DListItem(_isSuspended),
+	_DListItem(_isDead),
+	_DListEnd
+};
 
-	void initThreadLib(CrocThread* t)
-	{
-		croc_ex_makeModule(t, "thread", &loader);
-		croc_ex_importNS(t, "thread");
+word loader(CrocThread* t)
+{
+	_registerGlobals(t, _globalFuncs);
+
+	croc_namespace_new(t, "thread");
+		_registerFields(t, _methodFuncs);
+	croc_vm_setTypeMT(t, CrocType_Thread);
+	return 0;
+}
+}
+
+void initThreadLib(CrocThread* t)
+{
+	croc_ex_makeModule(t, "thread", &loader);
+	croc_ex_importNS(t, "thread");
 #ifdef CROC_BUILTIN_DOCS
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
-		croc_ex_doc_push(&doc,
-		DModule("thread")
-		R"()");
-			docFields(&doc, _globalFuncs);
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_ex_doc_push(&doc,
+	DModule("thread")
+	R"()");
+		_docFields(&doc, _globalFuncs);
 
-			croc_vm_pushTypeMT(t, CrocType_Thread);
-				croc_ex_doc_push(&doc,
-				DNs("thread")
-				R"(This is the method namespace for thread objects.)");
-				docFields(&doc, _methodFuncs);
-				croc_ex_doc_pop(&doc, -1);
-			croc_popTop(t);
-		croc_ex_doc_pop(&doc, -1);
-		croc_ex_doc_finish(&doc);
-#endif
+		croc_vm_pushTypeMT(t, CrocType_Thread);
+			croc_ex_doc_push(&doc,
+			DNs("thread")
+			R"(This is the method namespace for thread objects.)");
+			_docFields(&doc, _methodFuncs);
+			croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
-	}
+	croc_ex_doc_pop(&doc, -1);
+	croc_ex_doc_finish(&doc);
+#endif
+	croc_popTop(t);
+}
 }
