@@ -8,59 +8,64 @@
 
 namespace croc
 {
-	namespace
+namespace
+{
+// =====================================================================================================================
+// Helpers
+
+crocstr _checkAsciiString(CrocThread* t, word idx)
+{
+	croc_ex_checkStringParam(t, idx);
+	auto obj = getStringObj(Thread::from(t), idx);
+
+	if(obj->length != obj->cpLength)
+		croc_eh_throwStd(t, "ValueError", "Parameter %" CROC_SSIZE_T_FORMAT " is not an ASCII string", idx);
+
+	return obj->toDArray();
+}
+
+int _icmp(crocstr s1, crocstr s2)
+{
+	auto len = min(s1.length, s2.length);
+	auto a = s1.slice(0, len);
+	auto b = s2.slice(0, len);
+	uword i = 0;
+
+	for(auto c: a)
 	{
-	// =================================================================================================================
-	// Helpers
+		auto cmp = Compare3(tolower(c), tolower(b[i++]));
 
-	crocstr _checkAsciiString(CrocThread* t, word idx)
-	{
-		croc_ex_checkStringParam(t, idx);
-		auto obj = getStringObj(Thread::from(t), idx);
-
-		if(obj->length != obj->cpLength)
-			croc_eh_throwStd(t, "ValueError", "Parameter %" CROC_SSIZE_T_FORMAT " is not an ASCII string", idx);
-
-		return obj->toDArray();
+		if(cmp != 0)
+			return cmp;
 	}
 
-	int _icmp(crocstr s1, crocstr s2)
-	{
-		auto len = min(s1.length, s2.length);
-		auto a = s1.slice(0, len);
-		auto b = s2.slice(0, len);
-		uword i = 0;
+	return Compare3(s1.length, s2.length);
+}
 
-		for(auto c: a)
-		{
-			auto cmp = Compare3(tolower(c), tolower(b[i++]));
+// =====================================================================================================================
+// Global funcs
 
-			if(cmp != 0)
-				return cmp;
-		}
-
-		return Compare3(s1.length, s2.length);
-	}
-
-	// =================================================================================================================
-	// Helpers
-
-DBeginList(_globalFuncs)
+const _StdlibRegisterInfo _isAscii_info =
+{
 	Docstr(DFunc("isAscii") DParam("val", "string")
 	R"(\returns a bool of whether \tt{val} is an ASCII string (that is, all its codepoints are below U+000080).)"),
 
-	"isAscii", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkStringParam(t, 1);
-		auto str = getStringObj(Thread::from(t), 1);
+	"isAscii", 1
+};
 
-		// Take advantage of the fact that we're using UTF-8... ASCII strings will have a codepoint length
-		// exactly equal to their data length
-		croc_pushBool(t, str->length == str->cpLength);
-		return 1;
-	}
+word_t _isAscii(CrocThread* t)
+{
+	croc_ex_checkStringParam(t, 1);
+	auto str = getStringObj(Thread::from(t), 1);
 
-DListSep()
+	// Take advantage of the fact that we're using UTF-8... ASCII strings will have a codepoint length
+	// exactly equal to their data length
+	croc_pushBool(t, str->length == str->cpLength);
+	return 1;
+}
+
+const _StdlibRegisterInfo _icompare_info =
+{
 	Docstr(DFunc("icompare") DParam("str1", "string") DParam("str2", "string")
 	R"(Compares two ASCII strings in a case-insensitive manner.
 
@@ -72,15 +77,19 @@ DListSep()
 
 	\throws[ValueError] if either string is not ASCII.)"),
 
-	"icompare", 2, [](CrocThread* t) -> word_t
-	{
-		auto s1 = _checkAsciiString(t, 1);
-		auto s2 = _checkAsciiString(t, 2);
-		croc_pushInt(t, _icmp(s1, s2));
-		return 1;
-	}
+	"icompare", 2
+};
 
-DListSep()
+word_t _icompare(CrocThread* t)
+{
+	auto s1 = _checkAsciiString(t, 1);
+	auto s2 = _checkAsciiString(t, 2);
+	croc_pushInt(t, _icmp(s1, s2));
+	return 1;
+}
+
+const _StdlibRegisterInfo _ifind_info =
+{
 	Docstr(DFunc("ifind") DParam("str", "string") DParam("sub", "string") DParamD("start", "int", "0")
 	R"(Searches for an occurence of \tt{sub} in \tt{this}, but searches in a case-insensitive manner.
 
@@ -93,43 +102,47 @@ DListSep()
 	\throws[ValueError] if either \tt{str} or \tt{sub} are not ASCII.
 	\throws[BoundsError] if \tt{start} is invalid.)"),
 
-	"ifind", 3, [](CrocThread* t) -> word_t
+	"ifind", 3
+};
+
+word_t _ifind(CrocThread* t)
+{
+	// Source (search) string
+	auto src = _checkAsciiString(t, 1);
+
+	// Pattern (searched) string/char
+	auto pat = _checkAsciiString(t, 2);
+
+	if(src.length < pat.length)
 	{
-		// Source (search) string
-		auto src = _checkAsciiString(t, 1);
-
-		// Pattern (searched) string/char
-		auto pat = _checkAsciiString(t, 2);
-
-		if(src.length < pat.length)
-		{
-			croc_pushInt(t, src.length);
-			return 1;
-		}
-
-		// Start index
-		auto start = croc_ex_optIndexParam(t, 3, src.length, "start", 0);
-
-		// Search
-		auto maxIdx = src.length - pat.length;
-		auto firstChar = tolower(pat[0]);
-
-		for(auto i = cast(uword)start; i < maxIdx; i++)
-		{
-			auto ch = tolower(src[i]);
-
-			if(ch == firstChar && _icmp(src.slice(i, i + pat.length), pat) == 0)
-			{
-				croc_pushInt(t, i);
-				return 1;
-			}
-		}
-
 		croc_pushInt(t, src.length);
 		return 1;
 	}
 
-DListSep()
+	// Start index
+	auto start = croc_ex_optIndexParam(t, 3, src.length, "start", 0);
+
+	// Search
+	auto maxIdx = src.length - pat.length;
+	auto firstChar = tolower(pat[0]);
+
+	for(auto i = cast(uword)start; i < maxIdx; i++)
+	{
+		auto ch = tolower(src[i]);
+
+		if(ch == firstChar && _icmp(src.slice(i, i + pat.length), pat) == 0)
+		{
+			croc_pushInt(t, i);
+			return 1;
+		}
+	}
+
+	croc_pushInt(t, src.length);
+	return 1;
+}
+
+const _StdlibRegisterInfo _irfind_info =
+{
 	Docstr(DFunc("irfind") DParam("str", "string") DParam("sub", "string") DParamD("start", "int", "#str - 1")
 	R"(Reverse case-insensitive find. Works similarly to \tt{ifind}, but the search starts with the character at
 	\tt{start} (which defaults to the last character) and goes \em{left}.
@@ -142,49 +155,53 @@ DListSep()
 	\throws[ValueError] if either \tt{str} or \tt{sub} are not ASCII.
 	\throws[BoundsError] if \tt{start} is invalid.)"),
 
-	"irfind", 3, [](CrocThread* t) -> word_t
+	"irfind", 3
+};
+
+word_t _irfind(CrocThread* t)
+{
+	// Source (search) string
+	auto src = _checkAsciiString(t, 1);
+
+	// Pattern (searched) string/char
+	auto pat = _checkAsciiString(t, 2);
+
+	if(src.length < pat.length)
 	{
-		// Source (search) string
-		auto src = _checkAsciiString(t, 1);
-
-		// Pattern (searched) string/char
-		auto pat = _checkAsciiString(t, 2);
-
-		if(src.length < pat.length)
-		{
-			croc_pushInt(t, src.length);
-			return 1;
-		}
-
-		// Start index
-		auto start = croc_ex_optIndexParam(t, 3, src.length, "start", src.length - 1);
-
-		// Search
-		auto maxIdx = src.length - pat.length;
-		auto firstChar = tolower(pat[0]);
-
-		if(cast(uword)start > maxIdx)
-			start = maxIdx;
-
-		for(auto i = cast(uword)start; ; i--)
-		{
-			auto ch = tolower(src[i]);
-
-			if(ch == firstChar && _icmp(src.slice(i, i + pat.length), pat) == 0)
-			{
-				croc_pushInt(t, i);
-				return 1;
-			}
-
-			if(i == 0)
-				break;
-		}
-
 		croc_pushInt(t, src.length);
 		return 1;
 	}
 
-DListSep()
+	// Start index
+	auto start = croc_ex_optIndexParam(t, 3, src.length, "start", src.length - 1);
+
+	// Search
+	auto maxIdx = src.length - pat.length;
+	auto firstChar = tolower(pat[0]);
+
+	if(cast(uword)start > maxIdx)
+		start = maxIdx;
+
+	for(auto i = cast(uword)start; ; i--)
+	{
+		auto ch = tolower(src[i]);
+
+		if(ch == firstChar && _icmp(src.slice(i, i + pat.length), pat) == 0)
+		{
+			croc_pushInt(t, i);
+			return 1;
+		}
+
+		if(i == 0)
+			break;
+	}
+
+	croc_pushInt(t, src.length);
+	return 1;
+}
+
+const _StdlibRegisterInfo _toLower_info =
+{
 	Docstr(DFunc("toLower") DParam("val", "string")
 	R"(Converts a string to lowercase.
 
@@ -193,22 +210,26 @@ DListSep()
 
 	\throws[ValueError] if \tt{val} is not ASCII.)"),
 
-	"toLower", 1, [](CrocThread* t) -> word_t
-	{
-		auto src = _checkAsciiString(t, 1);
-		CrocStrBuffer buf;
-		croc_ex_buffer_init(t, &buf);
-		auto dest = croc_ex_buffer_prepare(&buf, src.length);
+	"toLower", 1
+};
 
-		for(auto c: src)
-			*dest++ = tolower(c);
+word_t _toLower(CrocThread* t)
+{
+	auto src = _checkAsciiString(t, 1);
+	CrocStrBuffer buf;
+	croc_ex_buffer_init(t, &buf);
+	auto dest = croc_ex_buffer_prepare(&buf, src.length);
 
-		croc_ex_buffer_addPrepared(&buf);
-		croc_ex_buffer_finish(&buf);
-		return 1;
-	}
+	for(auto c: src)
+		*dest++ = tolower(c);
 
-DListSep()
+	croc_ex_buffer_addPrepared(&buf);
+	croc_ex_buffer_finish(&buf);
+	return 1;
+}
+
+const _StdlibRegisterInfo _toUpper_info =
+{
 	Docstr(DFunc("toUpper") DParam("val", "string")
 	R"(Converts a string to uppercase.
 
@@ -217,22 +238,26 @@ DListSep()
 
 	\throws[ValueError] if \tt{val} is not ASCII.)"),
 
-	"toUpper", 1, [](CrocThread* t) -> word_t
-	{
-		auto src = _checkAsciiString(t, 1);
-		CrocStrBuffer buf;
-		croc_ex_buffer_init(t, &buf);
-		auto dest = croc_ex_buffer_prepare(&buf, src.length);
+	"toUpper", 1
+};
 
-		for(auto c: src)
-			*dest++ = toupper(c);
+word_t _toUpper(CrocThread* t)
+{
+	auto src = _checkAsciiString(t, 1);
+	CrocStrBuffer buf;
+	croc_ex_buffer_init(t, &buf);
+	auto dest = croc_ex_buffer_prepare(&buf, src.length);
 
-		croc_ex_buffer_addPrepared(&buf);
-		croc_ex_buffer_finish(&buf);
-		return 1;
-	}
+	for(auto c: src)
+		*dest++ = toupper(c);
 
-DListSep()
+	croc_ex_buffer_addPrepared(&buf);
+	croc_ex_buffer_finish(&buf);
+	return 1;
+}
+
+const _StdlibRegisterInfo _istartsWith_info =
+{
 	Docstr(DFunc("istartsWith") DParam("str", "string") DParam("sub", "string")
 	R"(Checks if \tt{str} begins with the substring \tt{other} in a case-insensitive manner.
 
@@ -240,15 +265,19 @@ DListSep()
 
 	\throws[ValueError] if either \tt{str} or \tt{sub} are not ASCII.)"),
 
-	"istartsWith", 2, [](CrocThread* t) -> word_t
-	{
-		auto s1 = _checkAsciiString(t, 1);
-		auto s2 = _checkAsciiString(t, 2);
-		croc_pushBool(t, s1.length >= s2.length && _icmp(s1.slice(0, s2.length), s2) == 0);
-		return 1;
-	}
+	"istartsWith", 2
+};
 
-DListSep()
+word_t _istartsWith(CrocThread* t)
+{
+	auto s1 = _checkAsciiString(t, 1);
+	auto s2 = _checkAsciiString(t, 2);
+	croc_pushBool(t, s1.length >= s2.length && _icmp(s1.slice(0, s2.length), s2) == 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _iendsWith_info =
+{
 	Docstr(DFunc("iendsWith") DParam("str", "string") DParam("sub", "string")
 	R"(Checks if \tt{str} ends with the substring \tt{other} in a case-insensitive manner.
 
@@ -256,16 +285,19 @@ DListSep()
 
 	\throws[ValueError] if either \tt{str} or \tt{sub} are not ASCII.)"),
 
-	"iendsWith", 2, [](CrocThread* t) -> word_t
-	{
-		auto s1 = _checkAsciiString(t, 1);
-		auto s2 = _checkAsciiString(t, 2);
-		croc_pushBool(t, s1.length >= s2.length && _icmp(s1.slice(s1.length - s2.length, s1.length), s2) == 0);
-		return 1;
-	}
+	"iendsWith", 2
+};
 
-#define MAKE_IS(func)\
-	2, [](CrocThread* t) -> word_t\
+word_t _iendsWith(CrocThread* t)
+{
+	auto s1 = _checkAsciiString(t, 1);
+	auto s2 = _checkAsciiString(t, 2);
+	croc_pushBool(t, s1.length >= s2.length && _icmp(s1.slice(s1.length - s2.length, s1.length), s2) == 0);
+	return 1;
+}
+
+#define MAKE_IS(name, func)\
+	word_t name(CrocThread* t)\
 	{\
 		auto str = _checkAsciiString(t, 1);\
 		auto idx = croc_ex_optIndexParam(t, 2, str.length, "character", 0);\
@@ -273,7 +305,8 @@ DListSep()
 		return 1;\
 	}
 
-DListSep()
+const _StdlibRegisterInfo _isAlpha_info =
+{
 	Docstr(DFunc("isAlpha") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(These functions all work the same way: they classify a character in a string.
 
@@ -299,73 +332,138 @@ DListSep()
 	\throws[ValueError] if \tt{c} is not ASCII, or if \tt{#c == 0}.
 	\throws[BoundsError] if \tt{idx} is invalid.)"),
 
-	"isAlpha", MAKE_IS(isalpha)
+	"isAlpha", 2
+};
 
-DListSep()
+MAKE_IS(_isAlpha, isalpha)
+
+const _StdlibRegisterInfo _isAlNum_info =
+{
 	Docstr(DFunc("isAlNum") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
 
-	"isAlNum", MAKE_IS(isalnum)
+	"isAlNum", 2
+};
 
-DListSep()
+MAKE_IS(_isAlNum, isalnum)
+
+const _StdlibRegisterInfo _isLower_info =
+{
 	Docstr(DFunc("isLower") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
 
-	"isLower", MAKE_IS(islower)
+	"isLower", 2
+};
 
-DListSep()
+MAKE_IS(_isLower, islower)
+
+const _StdlibRegisterInfo _isUpper_info =
+{
 	Docstr(DFunc("isUpper") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
 
-	"isUpper", MAKE_IS(isupper)
+	"isUpper", 2
+};
 
-DListSep()
+MAKE_IS(_isUpper, isupper)
+
+const _StdlibRegisterInfo _isDigit_info =
+{
 	Docstr(DFunc("isDigit") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
 
-	"isDigit", MAKE_IS(isdigit)
+	"isDigit", 2
+};
 
-DListSep()
+MAKE_IS(_isDigit, isdigit)
+
+const _StdlibRegisterInfo _isHexDigit_info =
+{
 	Docstr(DFunc("isHexDigit") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
 
-	"isHexDigit", MAKE_IS(isxdigit)
+	"isHexDigit", 2
+};
 
-DListSep()
+MAKE_IS(_isHexDigit, isxdigit)
+
+const _StdlibRegisterInfo _isCtrl_info =
+{
 	Docstr(DFunc("isCtrl") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
 
-	"isCtrl", MAKE_IS(iscntrl)
+	"isCtrl", 2
+};
 
-DListSep()
+MAKE_IS(_isCtrl, iscntrl)
+
+const _StdlibRegisterInfo _isPunct_info =
+{
 	Docstr(DFunc("isPunct") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
 
-	"isPunct", MAKE_IS(ispunct)
+	"isPunct", 2
+};
 
-DListSep()
+MAKE_IS(_isPunct, ispunct)
+
+const _StdlibRegisterInfo _isSpace_info =
+{
 	Docstr(DFunc("isSpace") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
 
-	"isSpace", MAKE_IS(isspace)
+	"isSpace", 2
+};
 
-DListSep()
+MAKE_IS(_isSpace, isspace)
+
+const _StdlibRegisterInfo _isGraph_info =
+{
 	Docstr(DFunc("isGraph") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
 
-	"isGraph", MAKE_IS(isgraph)
+	"isGraph", 2
+};
 
-DListSep()
+MAKE_IS(_isGraph, isgraph)
+
+const _StdlibRegisterInfo _isPrint_info =
+{
 	Docstr(DFunc("isPrint") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
 
-	"isPrint", MAKE_IS(isprint)
+	"isPrint", 2
+};
 
-DEndList()
+MAKE_IS(_isPrint, isprint)
+
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_isAscii),
+	_DListItem(_icompare),
+	_DListItem(_ifind),
+	_DListItem(_irfind),
+	_DListItem(_toLower),
+	_DListItem(_toUpper),
+	_DListItem(_istartsWith),
+	_DListItem(_iendsWith),
+	_DListItem(_isAlpha),
+	_DListItem(_isAlNum),
+	_DListItem(_isLower),
+	_DListItem(_isUpper),
+	_DListItem(_isDigit),
+	_DListItem(_isHexDigit),
+	_DListItem(_isCtrl),
+	_DListItem(_isPunct),
+	_DListItem(_isSpace),
+	_DListItem(_isGraph),
+	_DListItem(_isPrint),
+	_DListEnd
+};
 
 	word loader(CrocThread* t)
 	{
-		registerGlobals(t, _globalFuncs);
+		_registerGlobals(t, _globalFuncs);
 		return 0;
 	}
 	}
@@ -387,7 +485,7 @@ DEndList()
 
 		Note that these functions (except for \link{isAscii}) will only work on ASCII strings. If passed strings which
 		contain codepoints above U+00007F, they will throw an exception.)");
-			docFields(&doc, _globalFuncs);
+			_docFields(&doc, _globalFuncs);
 		croc_ex_doc_pop(&doc, -1);
 		croc_ex_doc_finish(&doc);
 #endif
