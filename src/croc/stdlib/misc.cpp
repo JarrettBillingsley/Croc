@@ -9,122 +9,168 @@
 
 namespace croc
 {
-	namespace
-	{
-	// =================================================================================================================
-	// Function metatable
+namespace
+{
+// =====================================================================================================================
+// Function metatable
 
-DBeginList(_funcMetatable)
+const _StdlibRegisterInfo _function_isNative_info =
+{
 	Docstr(DFunc("isNative")
 	R"(\returns a bool telling if the function is implemented in native code or in Croc.)"),
 
-	"isNative", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Function);
-		croc_pushBool(t, croc_function_isNative(t, 0));
-		return 1;
-	}
+	"isNative", 0
+};
 
-DListSep()
+word_t _function_isNative(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Function);
+	croc_pushBool(t, croc_function_isNative(t, 0));
+	return 1;
+}
+
+const _StdlibRegisterInfo _function_numParams_info =
+{
 	Docstr(DFunc("numParams")
 	R"(\returns an integer telling how many \em{non-variadic} parameters the function takes.)"),
 
-	"numParams", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Function);
-		croc_pushInt(t, croc_function_getNumParams(t, 0));
-		return 1;
-	}
+	"numParams", 0
+};
 
-DListSep()
+word_t _function_numParams(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Function);
+	croc_pushInt(t, croc_function_getNumParams(t, 0));
+	return 1;
+}
+
+const _StdlibRegisterInfo _function_maxParams_info =
+{
 	Docstr(DFunc("maxParams")
 	R"(\returns an integer of how many parameters this function this may be passed without throwing an error. Passing
 	more parameters than this will guarantee that an error is thrown. Variadic functions will simply return a very large
 	number from this method.)"),
 
-	"maxParams", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Function);
-		croc_pushInt(t, croc_function_getMaxParams(t, 0));
-		return 1;
-	}
+	"maxParams", 0
+};
 
-DListSep()
+word_t _function_maxParams(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Function);
+	croc_pushInt(t, croc_function_getMaxParams(t, 0));
+	return 1;
+}
+
+const _StdlibRegisterInfo _function_isVararg_info =
+{
 	Docstr(DFunc("isVararg")
 	R"(\returns a bool telling whether or not the function takes variadic parameters.)"),
 
-	"isVararg", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Function);
-		croc_pushBool(t, croc_function_isVararg(t, 0));
-		return 1;
-	}
+	"isVararg", 0
+};
 
-DListSep()
+word_t _function_isVararg(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Function);
+	croc_pushBool(t, croc_function_isVararg(t, 0));
+	return 1;
+}
+
+const _StdlibRegisterInfo _function_isCacheable_info =
+{
 	Docstr(DFunc("isCacheable")
 	R"(\returns a bool telling whether or not a function is cacheable. Cacheable functions are script functions which
 	have no upvalues, generally speaking. A cacheable function only has a single function closure object allocated for
 	it during its lifetime. Only script functions can be cacheable; native functions always return false.)"),
 
-	"isCacheable", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Function);
-		auto f = getFunction(Thread::from(t), 0);
-		croc_pushBool(t, f->isNative ? false : f->scriptFunc->upvals.length == 0);
-		return 1;
-	}
-DEndList()
+	"isCacheable", 0
+};
 
-	// =================================================================================================================
-	// Funcdef metatable
+word_t _function_isCacheable(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Function);
+	auto f = getFunction(Thread::from(t), 0);
+	croc_pushBool(t, f->isNative ? false : f->scriptFunc->upvals.length == 0);
+	return 1;
+}
 
-DBeginList(_funcdefMetatable)
+const _StdlibRegister _function_metatable[] =
+{
+	_DListItem(_function_isNative),
+	_DListItem(_function_numParams),
+	_DListItem(_function_maxParams),
+	_DListItem(_function_isVararg),
+	_DListItem(_function_isCacheable),
+	_DListEnd
+};
+
+// =====================================================================================================================
+// Funcdef metatable
+
+const _StdlibRegisterInfo _funcdef_numParams_info =
+{
 	Docstr(DFunc("numParams")
 	R"(\returns an integer telling how many \em{non-variadic} parameters the function described by the funcdef
 	takes.)"),
 
-	"numParams", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Funcdef);
-		croc_pushInt(t, getFuncdef(Thread::from(t), 0)->numParams);
-		return 1;
-	}
+	"numParams", 0
+};
 
-DListSep()
+word_t _funcdef_numParams(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Funcdef);
+	croc_pushInt(t, getFuncdef(Thread::from(t), 0)->numParams);
+	return 1;
+}
+
+const _StdlibRegisterInfo _funcdef_isVararg_info =
+{
 	Docstr(DFunc("isVararg")
 	R"(\returns a bool telling whether or not the function described by the funcdef takes variadic parameters.)"),
 
-	"isVararg", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Funcdef);
-		croc_pushBool(t, getFuncdef(Thread::from(t), 0)->isVararg);
-		return 1;
-	}
+	"isVararg", 0
+};
 
-DListSep()
+word_t _funcdef_isVararg(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Funcdef);
+	croc_pushBool(t, getFuncdef(Thread::from(t), 0)->isVararg);
+	return 1;
+}
+
+const _StdlibRegisterInfo _funcdef_isCacheable_info =
+{
 	Docstr(DFunc("isCacheable")
 	R"(\returns a bool telling whether or not a funcdef is cacheable. Funcdefs are cacheable if they have no upvals.)"),
 
-	"isCacheable", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Funcdef);
-		croc_pushBool(t, getFuncdef(Thread::from(t), 0)->upvals.length == 0);
-		return 1;
-	}
+	"isCacheable", 0
+};
 
-DListSep()
+word_t _funcdef_isCacheable(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Funcdef);
+	croc_pushBool(t, getFuncdef(Thread::from(t), 0)->upvals.length == 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _funcdef_isCached_info =
+{
 	Docstr(DFunc("isCached")
 	R"(\returns a bool telling whether or not a funcdef has already been cached (that is, a function closure has been
 	created with it). Non-cacheable funcdefs always return \tt{false} for this.)"),
 
-	"isCached", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Funcdef);
-		croc_pushBool(t, getFuncdef(Thread::from(t), 0)->cachedFunc != nullptr);
-		return 1;
-	}
+	"isCached", 0
+};
 
-DListSep()
+word_t _funcdef_isCached(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Funcdef);
+	croc_pushBool(t, getFuncdef(Thread::from(t), 0)->cachedFunc != nullptr);
+	return 1;
+}
+
+const _StdlibRegisterInfo _funcdef_close_info =
+{
 	Docstr(DFunc("close") DParamD("env", "namespace", "null")
 	R"(Creates a function closure from this funcdef. The same rules about environment namespace apply here as elsewhere:
 	if you try to close the closure with a different namespace than it was initially closed with, it will fail.
@@ -136,85 +182,116 @@ DListSep()
 
 	\returns the new closure.)"),
 
-	"close", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Funcdef);
+	"close", 1
+};
 
-		if(croc_ex_optParam(t, 1, CrocType_Namespace))
-			croc_dup(t, 1);
-		else
-			croc_pushEnvironment(t, 1);
+word_t _funcdef_close(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Funcdef);
 
-		croc_function_newScriptWithEnv(t, 0);
-		return 1;
-	}
-DEndList()
+	if(croc_ex_optParam(t, 1, CrocType_Namespace))
+		croc_dup(t, 1);
+	else
+		croc_pushEnvironment(t, 1);
 
-	// =================================================================================================================
-	// Weak reference stuff
+	croc_function_newScriptWithEnv(t, 0);
+	return 1;
+}
 
-DBeginList(_weakrefFuncs)
+const _StdlibRegister _funcdef_metatable[] =
+{
+	_DListItem(_funcdef_numParams),
+	_DListItem(_funcdef_isVararg),
+	_DListItem(_funcdef_isCacheable),
+	_DListItem(_funcdef_isCached),
+	_DListItem(_funcdef_close),
+	_DListEnd
+};
+
+// =====================================================================================================================
+// Weak reference stuff
+
+const _StdlibRegisterInfo _weakref_info =
+{
 	Docstr(DFunc("weakref") DParamAny("obj")
 	R"(This function is used to create weak reference objects. If the given object is a value type (null, bool,
 	int, or float), it simply returns them as-is. Otherwise returns a weak reference object that refers to the
 	object. For each object, there will be exactly one weak reference object that refers to it. This means that
 	if two objects are identical, their weak references will be identical and vice versa.)"),
 
-	"weakref", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkAnyParam(t, 1);
-		croc_weakref_push(t, 1);
-		return 1;
-	}
+	"weakref", 1
+};
 
-DListSep()
+word_t _weakref(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+	croc_weakref_push(t, 1);
+	return 1;
+}
+
+const _StdlibRegisterInfo _deref_info =
+{
 	Docstr(DFunc("deref") DParam("obj", "null|bool|int|float|weakref")
 	R"(The parameter types for this might look a bit odd, but it's because this function acts as the inverse of
 	\link{weakref}. If you pass a value type into the function, it will return it as-is. Otherwise, it will
 	dereference the weak reference and return that object. If the object that the weak reference referred to has
 	been collected, it will return \tt{null}.)"),
 
-	"deref", 1, [](CrocThread* t) -> word_t
+	"deref", 1
+};
+
+word_t _deref(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+
+	switch(croc_type(t, 1))
 	{
-		croc_ex_checkAnyParam(t, 1);
+		case CrocType_Null:
+		case CrocType_Bool:
+		case CrocType_Int:
+		case CrocType_Float:
+		case CrocType_Nativeobj:
+			croc_dup(t, 1);
+			return 1;
 
-		switch(croc_type(t, 1))
-		{
-			case CrocType_Null:
-			case CrocType_Bool:
-			case CrocType_Int:
-			case CrocType_Float:
-			case CrocType_Nativeobj:
-				croc_dup(t, 1);
-				return 1;
+		case CrocType_Weakref:
+			croc_weakref_deref(t, 1);
+			return 1;
 
-			case CrocType_Weakref:
-				croc_weakref_deref(t, 1);
-				return 1;
-
-			default:
-				return croc_ex_paramTypeError(t, 1, "null|bool|int|float|nativeobj|weakref");
-		}
+		default:
+			return croc_ex_paramTypeError(t, 1, "null|bool|int|float|nativeobj|weakref");
 	}
-DEndList()
+}
 
-	// =================================================================================================================
-	// Reflection-esque stuff
+const _StdlibRegister _weakrefFuncs[] =
+{
+	_DListItem(_weakref),
+	_DListItem(_deref),
+	_DListEnd
+};
 
-DBeginList(_reflFuncs)
+// =====================================================================================================================
+// Reflection-esque stuff
+
+const _StdlibRegisterInfo _typeof_info =
+{
 	Docstr(DFunc("typeof") DParamAny("value")
 	R"(This will get the type of the passed-in value and return it as a string. Possible return values are "null",
 	"bool", "int", "float", "string", "table", "array", "function", "class", "instance", "namespace", "thread",
 	"nativeobj", "weakref", and "funcdef".)"),
 
-	"typeof", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkAnyParam(t, 1);
-		croc_pushString(t, typeToString(croc_type(t, 1)));
-		return 1;
-	}
+	"typeof", 1
+};
 
-DListSep()
+word_t _typeof(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+	croc_pushString(t, typeToString(croc_type(t, 1)));
+	return 1;
+}
+
+const _StdlibRegisterInfo _niceTypeof_info =
+{
 	Docstr(DFunc("niceTypeof") DParamAny("value")
 	R"(This will get a more human-readable version of \tt{value}'s type and return it as a string. This is good for
 	error messages and the like.
@@ -226,82 +303,104 @@ DListSep()
 
 	For all other types, returns the same thing as \link{typeof}.)"),
 
-	"niceTypeof", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkAnyParam(t, 1);
-		croc_pushTypeString(t, 1);
-		return 1;
-	}
+	"niceTypeof", 1
+};
 
-DListSep()
+word_t _niceTypeof(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+	croc_pushTypeString(t, 1);
+	return 1;
+}
+
+const _StdlibRegisterInfo _nameOf_info =
+{
 	Docstr(DFunc("nameOf") DParam("value", "class|function|namespace|funcdef")
 	R"(Returns the name of the given value as a string. This is the name that the class, function, namespace, or funcdef
 	was declared with, or an autogenerated one if it wasn't declared with a name (such as anonymous function
 	literals in certain cases).)"),
 
-	"nameOf", 1, [](CrocThread* t) -> word_t
+	"nameOf", 1
+};
+
+word_t _nameOf(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+
+	switch(croc_type(t, 1))
 	{
-		croc_ex_checkAnyParam(t, 1);
-
-		switch(croc_type(t, 1))
-		{
-			case CrocType_Function:
-			case CrocType_Class:
-			case CrocType_Namespace:
-			case CrocType_Funcdef: {
-				uword_t length;
-				auto s = croc_getNameOfn(t, 1, &length);
-				croc_pushStringn(t, s, length);
-				break;
-			}
-			default:
-				croc_ex_paramTypeError(t, 1, "function|class|namespace|funcdef");
+		case CrocType_Function:
+		case CrocType_Class:
+		case CrocType_Namespace:
+		case CrocType_Funcdef: {
+			uword_t length;
+			auto s = croc_getNameOfn(t, 1, &length);
+			croc_pushStringn(t, s, length);
+			break;
 		}
-
-		return 1;
+		default:
+			croc_ex_paramTypeError(t, 1, "function|class|namespace|funcdef");
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _hasField_info =
+{
 	Docstr(DFunc("hasField") DParamAny("value") DParam("name", "string")
 	R"(Sees if \tt{value} contains the field \tt{name}. Works for tables, namespaces, classes, and instances. For any
 	other type, always returns \tt{false}. Does not take opField metamethods into account.)"),
 
-	"hasField", 2, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkAnyParam(t, 1);
-		croc_ex_checkParam(t, 2, CrocType_String);
-		croc_pushBool(t, croc_hasFieldStk(t, 1, 2));
-		return 1;
-	}
+	"hasField", 2
+};
 
-DListSep()
+word_t _hasField(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+	croc_ex_checkParam(t, 2, CrocType_String);
+	croc_pushBool(t, croc_hasFieldStk(t, 1, 2));
+	return 1;
+}
+
+const _StdlibRegisterInfo _hasMethod_info =
+{
 	Docstr(DFunc("hasMethod") DParamAny("value") DParam("name", "string")
 	R"(Sees if the method named \tt{name} can be called on \tt{value}. Looks in metatables as well, e.g. for strings
 	and arrays. Works for all types. Does not take opMethod metamethods into account.)"),
 
-	"hasMethod", 2, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkAnyParam(t, 1);
-		croc_ex_checkParam(t, 2, CrocType_String);
-		croc_pushBool(t, croc_hasMethodStk(t, 1, 2));
-		return 1;
-	}
+	"hasMethod", 2
+};
 
-DListSep()
+word_t _hasMethod(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+	croc_ex_checkParam(t, 2, CrocType_String);
+	croc_pushBool(t, croc_hasMethodStk(t, 1, 2));
+	return 1;
+}
+
+const _StdlibRegisterInfo _isNull_info =
+{
 	Docstr(DFunc("isNull") DParamAny("o")
 	R"(All these functions return \tt{true} if the passed-in value is of the given type, and \tt{false} otherwise. The
 	fastest way to test if something is \tt{null}, however, is to use '\tt{x is null}'.)"),
-	"isNull", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkAnyParam(t, 1);
-		croc_pushBool(t, croc_type(t, 1) == CrocType_Null);
-		return 1;
-	}
+	"isNull", 1
+};
+
+word_t _isNull(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+	croc_pushBool(t, croc_type(t, 1) == CrocType_Null);
+	return 1;
+}
 
 #define MAKE_IS_PARAM(T)\
-	DListSep()\
-	Docstr(DFunc("is"#T) DParamAny("o") "ditto"),\
-	"is"#T, 1, [](CrocThread* t) -> word_t\
+	const _StdlibRegisterInfo _is##T##_info =\
+	{\
+		Docstr(DFunc("is"#T) DParamAny("o") "ditto"),\
+		"is"#T, 1\
+	};\
+	word_t _is##T(CrocThread* t)\
 	{\
 		croc_ex_checkAnyParam(t, 1);\
 		croc_pushBool(t, croc_type(t, 1) == CrocType_##T);\
@@ -323,12 +422,38 @@ DListSep()
 	MAKE_IS_PARAM(Class)
 	MAKE_IS_PARAM(Instance)
 	MAKE_IS_PARAM(Thread)
-DEndList()
 
-	// =================================================================================================================
-	// Conversions
+const _StdlibRegister _reflFuncs[] =
+{
+	_DListItem(_typeof),
+	_DListItem(_niceTypeof),
+	_DListItem(_nameOf),
+	_DListItem(_hasField),
+	_DListItem(_hasMethod),
+	_DListItem(_isNull),
+	_DListItem(_isBool),
+	_DListItem(_isInt),
+	_DListItem(_isFloat),
+	_DListItem(_isNativeobj),
+	_DListItem(_isString),
+	_DListItem(_isWeakref),
+	_DListItem(_isTable),
+	_DListItem(_isNamespace),
+	_DListItem(_isArray),
+	_DListItem(_isMemblock),
+	_DListItem(_isFunction),
+	_DListItem(_isFuncdef),
+	_DListItem(_isClass),
+	_DListItem(_isInstance),
+	_DListItem(_isThread),
+	_DListEnd
+};
 
-DBeginList(_convFuncs)
+// =====================================================================================================================
+// Conversions
+
+const _StdlibRegisterInfo _toString_info =
+{
 	Docstr(DFunc("toString") DParamAny("value") DParamD("style", "string", "\"d\"")
 	R"(This is like \link{rawToString}, but it will call any \b{\tt{toString}} metamethods defined for the value.
 	Arrays have a \b{\tt{toString}} metamethod defined for them by default, and any \b{\tt{toString}} methods defined
@@ -344,25 +469,29 @@ DBeginList(_convFuncs)
 		\li "u": Unsigned base 10.
 	\endlist)"),
 
-	"toString", 1, [](CrocThread* t) -> word_t
-	{
-		// auto numParams = croc_getStackSize(t) - 1;
-		croc_ex_checkAnyParam(t, 1);
+	"toString", 1
+};
 
-		// TODO:
-		// if(croc_isInt(t, 1))
-		// {
-		// 	auto style = croc_ex_optStringParam(t, 2, "d");
-		// 	char[80] buffer = void;
-		// 	croc_pushString(t, safeCode(t, "exceptions.ValueError", Integer_format(buffer, getInt(t, 1), style)));
-		// }
-		// else
+word_t _toString(CrocThread* t)
+{
+	// auto numParams = croc_getStackSize(t) - 1;
+	croc_ex_checkAnyParam(t, 1);
 
-		croc_pushToString(t, 1);
-		return 1;
-	}
+	// TODO:
+	// if(croc_isInt(t, 1))
+	// {
+	// 	auto style = croc_ex_optStringParam(t, 2, "d");
+	// 	char[80] buffer = void;
+	// 	croc_pushString(t, safeCode(t, "exceptions.ValueError", Integer_format(buffer, getInt(t, 1), style)));
+	// }
+	// else
 
-DListSep()
+	croc_pushToString(t, 1);
+	return 1;
+}
+
+const _StdlibRegisterInfo _rawToString_info =
+{
 	Docstr(DFunc("rawToString") DParamAny("value")
 	R"x(This returns a string representation of the given value depending on its type, as follows:
 	\blist
@@ -383,26 +512,34 @@ DListSep()
 			and <address> is the memory address of the object.
 	\endlist)x"),
 
-	"rawToString", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkAnyParam(t, 1);
-		croc_pushToStringRaw(t, 1);
-		return 1;
-	}
+	"rawToString", 1
+};
 
-DListSep()
+word_t _rawToString(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+	croc_pushToStringRaw(t, 1);
+	return 1;
+}
+
+const _StdlibRegisterInfo _toBool_info =
+{
 	Docstr(DFunc("toBool")
 	R"(This returns the truth value of the given value. \tt{null}, \tt{false}, integer 0, and float 0.0 will all return
 	\tt{false}; all other values and types will return \tt{true}.)"),
 
-	"toBool", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkAnyParam(t, 1);
-		croc_pushBool(t, croc_isTrue(t, 1));
-		return 1;
-	}
+	"toBool", 1
+};
 
-DListSep()
+word_t _toBool(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+	croc_pushBool(t, croc_isTrue(t, 1));
+	return 1;
+}
+
+const _StdlibRegisterInfo _toInt_info =
+{
 	Docstr(DFunc("toInt")
 	R"(This will convert a value into an integer. Only the following types can be converted:
 	\blist
@@ -414,30 +551,34 @@ DListSep()
 			object's \b{\tt{toInt}} method.
 	\endlist)"),
 
-	"toInt", 1, [](CrocThread* t) -> word_t
+	"toInt", 1
+};
+
+word_t _toInt(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+
+	switch(croc_type(t, 1))
 	{
-		croc_ex_checkAnyParam(t, 1);
+		case CrocType_Bool:   croc_pushInt(t, cast(crocint)croc_getBool(t, 1)); break;
+		case CrocType_Int:    croc_dup(t, 1); break;
+		case CrocType_Float:  croc_pushInt(t, cast(crocint)croc_getFloat(t, 1)); break;
 
-		switch(croc_type(t, 1))
-		{
-			case CrocType_Bool:   croc_pushInt(t, cast(crocint)croc_getBool(t, 1)); break;
-			case CrocType_Int:    croc_dup(t, 1); break;
-			case CrocType_Float:  croc_pushInt(t, cast(crocint)croc_getFloat(t, 1)); break;
+		// TODO: bug #73
+		// case CrocType_String:
+		// 	croc_pushInt(t, safeCode(t, "exceptions.ValueError", cast(crocint)Integer_toLong(getString(t, 1), 10)));
+		// 	break;
 
-			// TODO: bug #73
-			// case CrocType_String:
-			// 	croc_pushInt(t, safeCode(t, "exceptions.ValueError", cast(crocint)Integer_toLong(getString(t, 1), 10)));
-			// 	break;
-
-			default:
-				croc_pushTypeString(t, 1);
-				croc_eh_throwStd(t, "TypeError", "Cannot convert type '%s' to int", croc_getString(t, -1));
-		}
-
-		return 1;
+		default:
+			croc_pushTypeString(t, 1);
+			croc_eh_throwStd(t, "TypeError", "Cannot convert type '%s' to int", croc_getString(t, -1));
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _toFloat_info =
+{
 	Docstr(DFunc("toFloat")
 	R"(This will convert a value into a float. Only the following types can be converted:
 	\blist
@@ -449,78 +590,93 @@ DListSep()
 
 	Other types will throw an error.)"),
 
-	"toFloat", 1, [](CrocThread* t) -> word_t
+	"toFloat", 1
+};
+
+word_t _toFloat(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+
+	switch(croc_type(t, 1))
 	{
-		croc_ex_checkAnyParam(t, 1);
+		case CrocType_Bool:   croc_pushFloat(t, cast(crocfloat)croc_getBool(t, 1)); break;
+		case CrocType_Int:    croc_pushFloat(t, cast(crocfloat)croc_getInt(t, 1)); break;
+		case CrocType_Float:  croc_dup(t, 1); break;
 
-		switch(croc_type(t, 1))
-		{
-			case CrocType_Bool:   croc_pushFloat(t, cast(crocfloat)croc_getBool(t, 1)); break;
-			case CrocType_Int:    croc_pushFloat(t, cast(crocfloat)croc_getInt(t, 1)); break;
-			case CrocType_Float:  croc_dup(t, 1); break;
+		// TODO:
+		// case CrocType_String:
+		// 	pushFloat(t, safeCode(t, "exceptions.ValueError", cast(crocfloat)Float_toFloat(getString(t, 1))));
+		// 	break;
 
-			// TODO:
-			// case CrocType_String:
-			// 	pushFloat(t, safeCode(t, "exceptions.ValueError", cast(crocfloat)Float_toFloat(getString(t, 1))));
-			// 	break;
-
-			default:
-				croc_pushTypeString(t, 1);
-				croc_eh_throwStd(t, "TypeError", "Cannot convert type '%s' to float", croc_getString(t, -1));
-		}
-
-		return 1;
-	}
-DEndList()
+		default:
+			croc_pushTypeString(t, 1);
+			croc_eh_throwStd(t, "TypeError", "Cannot convert type '%s' to float", croc_getString(t, -1));
 	}
 
-	void initMiscLib(CrocThread* t)
-	{
-		croc_namespace_new(t, "function");
-			registerFields(t, _funcMetatable);
-		croc_vm_setTypeMT(t, CrocType_Function);
+	return 1;
+}
 
-		croc_namespace_new(t, "funcdef");
-			registerFields(t, _funcdefMetatable);
-		croc_vm_setTypeMT(t, CrocType_Funcdef);
+const _StdlibRegister _convFuncs[] =
+{
+	_DListItem(_toString),
+	_DListItem(_rawToString),
+	_DListItem(_toBool),
+	_DListItem(_toInt),
+	_DListItem(_toFloat),
+	_DListEnd
+};
+}
 
-		registerGlobals(t, _weakrefFuncs);
-		registerGlobals(t, _reflFuncs);
-		registerGlobals(t, _convFuncs);
+// =====================================================================================================================
+// Loader
 
-		initMiscLib_Vector(t);
-	}
+void initMiscLib(CrocThread* t)
+{
+	croc_namespace_new(t, "function");
+		_registerFields(t, _function_metatable);
+	croc_vm_setTypeMT(t, CrocType_Function);
+
+	croc_namespace_new(t, "funcdef");
+		_registerFields(t, _funcdef_metatable);
+	croc_vm_setTypeMT(t, CrocType_Funcdef);
+
+	_registerGlobals(t, _weakrefFuncs);
+	_registerGlobals(t, _reflFuncs);
+	_registerGlobals(t, _convFuncs);
+
+	initMiscLib_Vector(t);
+}
 
 #ifdef CROC_BUILTIN_DOCS
-	void docMiscLib(CrocThread* t)
-	{
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
+void docMiscLib(CrocThread* t)
+{
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
 
-		croc_ex_doc_push(&doc,
-		DModule("Misc Library")
-		R"(The base library is a set of functions dealing with some language aspects which aren't covered by the syntax
-		of the language, as well as miscellaneous functions that don't really fit anywhere else. The base library is
-		always loaded when you create an instance of the Croc VM.)");
+	croc_ex_doc_push(&doc,
+	DModule("Misc Library")
+	R"(The base library is a set of functions dealing with some language aspects which aren't covered by the syntax
+	of the language, as well as miscellaneous functions that don't really fit anywhere else. The base library is
+	always loaded when you create an instance of the Croc VM.)");
 
-		croc_vm_pushTypeMT(t, CrocType_Function);
-			docFields(&doc, _funcMetatable);
-		croc_popTop(t);
+	croc_vm_pushTypeMT(t, CrocType_Function);
+		_docFields(&doc, _function_metatable);
+	croc_popTop(t);
 
-		croc_vm_pushTypeMT(t, CrocType_Funcdef);
-			docFields(&doc, _funcdefMetatable);
-		croc_popTop(t);
+	croc_vm_pushTypeMT(t, CrocType_Funcdef);
+		_docFields(&doc, _funcdef_metatable);
+	croc_popTop(t);
 
-		docGlobals(&doc, _weakrefFuncs);
-		docGlobals(&doc, _reflFuncs);
-		docGlobals(&doc, _convFuncs);
+	_docGlobals(&doc, _weakrefFuncs);
+	_docGlobals(&doc, _reflFuncs);
+	_docGlobals(&doc, _convFuncs);
 
-		docMiscLib_Vector(t, &doc);
+	docMiscLib_Vector(t, &doc);
 
-		croc_pushGlobal(t, "_G");
-		croc_ex_doc_pop(&doc, -1);
-		croc_popTop(t);
-		croc_ex_doc_finish(&doc);
-	}
+	croc_pushGlobal(t, "_G");
+	croc_ex_doc_pop(&doc, -1);
+	croc_popTop(t);
+	croc_ex_doc_finish(&doc);
+}
 #endif
 }
