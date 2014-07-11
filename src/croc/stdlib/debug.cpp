@@ -10,208 +10,160 @@
 
 namespace croc
 {
-	namespace
-	{
-	uint8_t strToMask(crocstr str)
-	{
-		uint8_t mask = 0;
+namespace
+{
+uint8_t strToMask(crocstr str)
+{
+	uint8_t mask = 0;
 
-		if(strLocateChar(str, 'c') != str.length) mask |= CrocThreadHook_Call;
-		if(strLocateChar(str, 'r') != str.length) mask |= CrocThreadHook_Ret;
-		if(strLocateChar(str, 'l') != str.length) mask |= CrocThreadHook_Line;
+	if(strLocateChar(str, 'c') != str.length) mask |= CrocThreadHook_Call;
+	if(strLocateChar(str, 'r') != str.length) mask |= CrocThreadHook_Ret;
+	if(strLocateChar(str, 'l') != str.length) mask |= CrocThreadHook_Line;
 
-		return mask;
+	return mask;
+}
+
+crocstr maskToStr(mcrocstr buf, uint8_t mask)
+{
+	uword i = 0;
+
+	if(mask & CrocThreadHook_Call)  buf[i++] = 'c';
+	if(mask & CrocThreadHook_Ret)   buf[i++] = 'r';
+	if(mask & CrocThreadHook_Line)  buf[i++] = 'l';
+	if(mask & CrocThreadHook_Delay) buf[i++] = 'd';
+
+	return buf.slice(0, i);
+}
+
+CrocThread* getThreadParam(CrocThread* t, word& arg)
+{
+	if(croc_isValidIndex(t, 1) && croc_isThread(t, 1))
+	{
+		arg = 1;
+		return croc_getThread(t, 1);
+	}
+	else
+	{
+		arg = 0;
+		return t;
+	}
+}
+
+ActRecord* getAR(CrocThread* t, CrocThread* thread, crocint depth)
+{
+	auto maxDepth = croc_thread_getCallDepth(thread);
+
+	if(t == thread)
+	{
+		// ignore call to whatever this function is
+		if(depth < 0 || cast(uword)depth >= maxDepth - 1)
+			croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
+
+		return getActRec(Thread::from(thread), cast(uword)depth + 1);
+	}
+	else
+	{
+		if(depth < 0 || cast(uword)depth >= maxDepth)
+			croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
+
+		return getActRec(Thread::from(thread), cast(uword)depth);
+	}
+}
+
+Function* getFuncParam(CrocThread* t, CrocThread* thread, word arg)
+{
+	if(croc_isInt(t, arg))
+		return getAR(t, thread, croc_getInt(t, arg))->func;
+	else if(croc_isFunction(t, arg))
+		return getFunction(Thread::from(t), arg);
+	else
+		croc_ex_paramTypeError(t, arg, "int|function");
+
+	assert(false);
+	return nullptr; // dummy
+}
+
+Value* findLocal(CrocThread* t, CrocThread* thread, word arg, ActRecord* ar)
+{
+	crocint idx = 1;
+	String* name = nullptr;
+
+	if(croc_isInt(t, arg + 2))
+		idx = croc_getInt(t, arg + 2);
+	else if(croc_isString(t, arg + 2))
+		name = getStringObj(Thread::from(t), arg + 2);
+	else
+		croc_ex_paramTypeError(t, arg + 2, "int|string");
+
+	if(idx < 0 || ar->func == nullptr || ar->func->isNative)
+		croc_eh_throwStd(t, "BoundsError", "invalid local index '%" CROC_INTEGER_FORMAT "'", idx);
+
+	auto originalIdx = idx;
+	auto pc = cast(uword)(ar->pc - ar->func->scriptFunc->code.ptr);
+
+	for(auto &var: ar->func->scriptFunc->locVarDescs)
+	{
+		if(pc >= var.pcStart && pc < var.pcEnd)
+		{
+			if(name == nullptr)
+			{
+				if(idx == 0)
+					return &Thread::from(thread)->stack[ar->base + var.reg];
+
+				idx--;
+			}
+			else if(var.name == name)
+				return &Thread::from(thread)->stack[ar->base + var.reg];
+		}
 	}
 
-	crocstr maskToStr(mcrocstr buf, uint8_t mask)
+	if(name == nullptr)
+		croc_eh_throwStd(t, "BoundsError", "invalid local index '%" CROC_INTEGER_FORMAT "'", originalIdx);
+	else
+		croc_eh_throwStd(t, "NameError", "invalid local name '%s'", name->toCString());
+
+	return nullptr; // dummy
+}
+
+Value* findUpval(CrocThread* t, CrocThread* thread, word arg)
+{
+	auto func = getFuncParam(t, thread, arg + 1);
+
+	if(func == nullptr)
+		croc_eh_throwStd(t, "ValueError", "invalid function");
+
+	if(croc_isInt(t, arg + 2))
 	{
+		auto idx = croc_getInt(t, arg + 2);
+
+		if(idx < 0 || cast(uword)idx >= func->numUpvals)
+			croc_eh_throwStd(t, "BoundsError", "invalid upvalue index '%" CROC_INTEGER_FORMAT "'", idx);
+
+		if(func->isNative)
+			return &func->nativeUpvals()[cast(uword)idx];
+		else
+			return func->scriptUpvals()[cast(uword)idx]->value;
+	}
+	else if(croc_isString(t, arg + 2))
+	{
+		if(func->isNative)
+			croc_eh_throwStd(t, "ValueError", "cannot get upvalues by name for native functions");
+
+		auto name = getStringObj(Thread::from(t), arg + 2);
 		uword i = 0;
 
-		if(mask & CrocThreadHook_Call)  buf[i++] = 'c';
-		if(mask & CrocThreadHook_Ret)   buf[i++] = 'r';
-		if(mask & CrocThreadHook_Line)  buf[i++] = 'l';
-		if(mask & CrocThreadHook_Delay) buf[i++] = 'd';
+		for(auto n: func->scriptFunc->upvalNames)
+		{
+			if(n == name)
+				return func->scriptUpvals()[i]->value;
+		}
 
-		return buf.slice(0, i);
+		croc_eh_throwStd(t, "NameError", "invalid upvalue name '%s'", name->toCString());
 	}
 
-	CrocThread* getThreadParam(CrocThread* t, word& arg)
-	{
-		if(croc_isValidIndex(t, 1) && croc_isThread(t, 1))
-		{
-			arg = 1;
-			return croc_getThread(t, 1);
-		}
-		else
-		{
-			arg = 0;
-			return t;
-		}
-	}
-
-	ActRecord* getAR(CrocThread* t, CrocThread* thread, crocint depth)
-	{
-		auto maxDepth = croc_thread_getCallDepth(thread);
-
-		if(t == thread)
-		{
-			// ignore call to whatever this function is
-			if(depth < 0 || cast(uword)depth >= maxDepth - 1)
-				croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
-
-			return getActRec(Thread::from(thread), cast(uword)depth + 1);
-		}
-		else
-		{
-			if(depth < 0 || cast(uword)depth >= maxDepth)
-				croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
-
-			return getActRec(Thread::from(thread), cast(uword)depth);
-		}
-	}
-
-	Function* getFuncParam(CrocThread* t, CrocThread* thread, word arg)
-	{
-		if(croc_isInt(t, arg))
-			return getAR(t, thread, croc_getInt(t, arg))->func;
-		else if(croc_isFunction(t, arg))
-			return getFunction(Thread::from(t), arg);
-		else
-			croc_ex_paramTypeError(t, arg, "int|function");
-
-		assert(false);
-		return nullptr; // dummy
-	}
-
-	Value* findLocal(CrocThread* t, CrocThread* thread, word arg, ActRecord* ar)
-	{
-		crocint idx = 1;
-		String* name = nullptr;
-
-		if(croc_isInt(t, arg + 2))
-			idx = croc_getInt(t, arg + 2);
-		else if(croc_isString(t, arg + 2))
-			name = getStringObj(Thread::from(t), arg + 2);
-		else
-			croc_ex_paramTypeError(t, arg + 2, "int|string");
-
-		if(idx < 0 || ar->func == nullptr || ar->func->isNative)
-			croc_eh_throwStd(t, "BoundsError", "invalid local index '%" CROC_INTEGER_FORMAT "'", idx);
-
-		auto originalIdx = idx;
-		auto pc = cast(uword)(ar->pc - ar->func->scriptFunc->code.ptr);
-
-		for(auto &var: ar->func->scriptFunc->locVarDescs)
-		{
-			if(pc >= var.pcStart && pc < var.pcEnd)
-			{
-				if(name == nullptr)
-				{
-					if(idx == 0)
-						return &Thread::from(thread)->stack[ar->base + var.reg];
-
-					idx--;
-				}
-				else if(var.name == name)
-					return &Thread::from(thread)->stack[ar->base + var.reg];
-			}
-		}
-
-		if(name == nullptr)
-			croc_eh_throwStd(t, "BoundsError", "invalid local index '%" CROC_INTEGER_FORMAT "'", originalIdx);
-		else
-			croc_eh_throwStd(t, "NameError", "invalid local name '%s'", name->toCString());
-
-		return nullptr; // dummy
-	}
-
-	Value* findUpval(CrocThread* t, CrocThread* thread, word arg)
-	{
-		auto func = getFuncParam(t, thread, arg + 1);
-
-		if(func == nullptr)
-			croc_eh_throwStd(t, "ValueError", "invalid function");
-
-		if(croc_isInt(t, arg + 2))
-		{
-			auto idx = croc_getInt(t, arg + 2);
-
-			if(idx < 0 || cast(uword)idx >= func->numUpvals)
-				croc_eh_throwStd(t, "BoundsError", "invalid upvalue index '%" CROC_INTEGER_FORMAT "'", idx);
-
-			if(func->isNative)
-				return &func->nativeUpvals()[cast(uword)idx];
-			else
-				return func->scriptUpvals()[cast(uword)idx]->value;
-		}
-		else if(croc_isString(t, arg + 2))
-		{
-			if(func->isNative)
-				croc_eh_throwStd(t, "ValueError", "cannot get upvalues by name for native functions");
-
-			auto name = getStringObj(Thread::from(t), arg + 2);
-			uword i = 0;
-
-			for(auto n: func->scriptFunc->upvalNames)
-			{
-				if(n == name)
-					return func->scriptUpvals()[i]->value;
-			}
-
-			croc_eh_throwStd(t, "NameError", "invalid upvalue name '%s'", name->toCString());
-		}
-
-		croc_ex_paramTypeError(t, arg + 2, "int|string");
-		return nullptr;
-	}
-
-	word_t _classHFieldsOfIter(CrocThread* t)
-	{
-		croc_pushUpval(t, 0);
-		auto c = getClass(Thread::from(t), -1);
-		croc_pushUpval(t, 1);
-		auto index = cast(uword)croc_getInt(t, -1);
-		croc_pop(t, 2);
-
-		String** key;
-		Value* value;
-
-		if(c->nextHiddenField(index, key, value))
-		{
-			croc_pushInt(t, index);
-			croc_setUpval(t, 1);
-
-			push(Thread::from(t), Value::from(*key));
-			push(Thread::from(t), *value);
-			return 2;
-		}
-
-		return 0;
-	}
-
-	word_t _instanceHFieldsOfIter(CrocThread* t)
-	{
-		croc_pushUpval(t, 0);
-		auto c = getInstance(Thread::from(t), -1);
-		croc_pushUpval(t, 1);
-		auto index = cast(uword)croc_getInt(t, -1);
-		croc_pop(t, 2);
-
-		String** key;
-		Value* value;
-
-		if(c->nextHiddenField(index, key, value))
-		{
-			croc_pushInt(t, index);
-			croc_setUpval(t, 1);
-
-			push(Thread::from(t), Value::from(*key));
-			push(Thread::from(t), *value);
-			return 2;
-		}
-
-		return 0;
-	}
+	croc_ex_paramTypeError(t, arg + 2, "int|string");
+	return nullptr;
+}
 
 #ifdef CROC_BUILTIN_DOCS
 const char* ModuleDocs =
@@ -234,7 +186,8 @@ are call frames which were overwritten by tailcalls. What happens with such call
 function which takes a parameter like this.)";
 #endif
 
-DBeginList(_globalFuncs)
+const _StdlibRegisterInfo _setHook_info =
+{
 	Docstr(DFunc("setHook") DParam("hook", "function|null") DParamD("mask", "string", "\"\"")
 		DParamD("delay", "int", "0")
 	R"(\b{Takes an optional thread as its first parameter.} Sets or removes the given thread's hook function.
@@ -299,34 +252,38 @@ DBeginList(_globalFuncs)
 
 	\throws[RangeError] if \tt{delay} is invalid (negative).)"),
 
-	"setHook", 4, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
+	"setHook", 4
+};
 
-		croc_ex_checkAnyParam(t, arg + 1);
+word_t _setHook(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
 
-		if(!croc_isNull(t, arg + 1) && !croc_isFunction(t, arg + 1))
-			croc_ex_paramTypeError(t, arg + 1, "null|function");
+	croc_ex_checkAnyParam(t, arg + 1);
 
-		auto maskStr = croc_ex_optParam(t, arg + 2, CrocType_String) ? getCrocstr(t, arg + 2) : ATODA("");
-		auto delay = croc_ex_optIntParam(t, arg + 3, 0);
+	if(!croc_isNull(t, arg + 1) && !croc_isFunction(t, arg + 1))
+		croc_ex_paramTypeError(t, arg + 1, "null|function");
 
-		if(delay < 0 || cast(uword)delay > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "invalid delay value (%" CROC_INTEGER_FORMAT ")", delay);
+	auto maskStr = croc_ex_optParam(t, arg + 2, CrocType_String) ? getCrocstr(t, arg + 2) : ATODA("");
+	auto delay = croc_ex_optIntParam(t, arg + 3, 0);
 
-		auto mask = strToMask(maskStr);
+	if(delay < 0 || cast(uword)delay > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "invalid delay value (%" CROC_INTEGER_FORMAT ")", delay);
 
-		if(delay > 0)
-			mask |= CrocThreadHook_Delay;
+	auto mask = strToMask(maskStr);
 
-		croc_dup(t, arg + 1);
-		croc_transferVals(t, thread, 1);
-		croc_debug_setHookFunc(thread, mask, cast(uword)delay);
-		return 0;
-	}
+	if(delay > 0)
+		mask |= CrocThreadHook_Delay;
 
-DListSep()
+	croc_dup(t, arg + 1);
+	croc_transferVals(t, thread, 1);
+	croc_debug_setHookFunc(thread, mask, cast(uword)delay);
+	return 0;
+}
+
+const _StdlibRegisterInfo _getHook_info =
+{
 	Docstr(DFunc("getHook")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -336,39 +293,47 @@ DListSep()
 	If there is no hook function set on the thread, the hook function will be \tt{null}, the mask will be the empty
 	string, and the delay will be 0.)"),
 
-	"getHook", 1, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
+	"getHook", 1
+};
 
-		croc_debug_pushHookFunc(thread);
-		croc_transferVals(thread, t, 1);
-		uchar buf[8];
-		pushCrocstr(t, maskToStr(mcrocstr::n(buf, sizeof(buf) / sizeof(uchar)), croc_debug_getHookMask(thread)));
-		croc_pushInt(t, croc_debug_getHookDelay(thread));
-		return 3;
-	}
+word_t _getHook(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
 
-DListSep()
+	croc_debug_pushHookFunc(thread);
+	croc_transferVals(thread, t, 1);
+	uchar buf[8];
+	pushCrocstr(t, maskToStr(mcrocstr::n(buf, sizeof(buf) / sizeof(uchar)), croc_debug_getHookMask(thread)));
+	croc_pushInt(t, croc_debug_getHookDelay(thread));
+	return 3;
+}
+
+const _StdlibRegisterInfo _callDepth_info =
+{
 	Docstr(DFunc("callDepth")
 	R"(\b{Takes an optional thread as its first parameter.}
 
 	\returns the depth of the call stack of the given thread.)"),
 
-	"callDepth", 1, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
+	"callDepth", 1
+};
 
-		if(t == thread)
-			croc_pushInt(t, croc_thread_getCallDepth(t) - 1); // - 1 to ignore "callDepth" itself
-		else
-			croc_pushInt(t, croc_thread_getCallDepth(thread));
+word_t _callDepth(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
 
-		return 1;
-	}
+	if(t == thread)
+		croc_pushInt(t, croc_thread_getCallDepth(t) - 1); // - 1 to ignore "callDepth" itself
+	else
+		croc_pushInt(t, croc_thread_getCallDepth(thread));
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _sourceName_info =
+{
 	Docstr(DFunc("sourceName") DParam("func", "int|function")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -376,21 +341,25 @@ DListSep()
 	\returns the name of the source in which \tt{func} was defined (the same name that you would see in a traceback). If
 		the given function is native, or if there is no function at that call level, returns the empty string.)"),
 
-	"sourceName", 2, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto func = getFuncParam(t, thread, arg + 1);
+	"sourceName", 2
+};
 
-		if(func == nullptr || func->isNative)
-			croc_pushString(t, "");
-		else
-			push(Thread::from(t), Value::from(func->scriptFunc->locFile));
+word_t _sourceName(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto func = getFuncParam(t, thread, arg + 1);
 
-		return 1;
-	}
+	if(func == nullptr || func->isNative)
+		croc_pushString(t, "");
+	else
+		push(Thread::from(t), Value::from(func->scriptFunc->locFile));
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _sourceLine_info =
+{
 	Docstr(DFunc("sourceLine") DParam("func", "int|function")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -398,43 +367,51 @@ DListSep()
 	\returns the line of the source at which \tt{func} was defined (the same line that you would see in a traceback). If
 		the given function is native, or if there is no function at that call level, returns 0.)"),
 
-	"sourceLine", 2, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto func = getFuncParam(t, thread, arg + 1);
+	"sourceLine", 2
+};
 
-		if(func == nullptr || func->isNative)
-			croc_pushInt(t, 0);
-		else
-			croc_pushInt(t, func->scriptFunc->locLine);
+word_t _sourceLine(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto func = getFuncParam(t, thread, arg + 1);
 
-		return 1;
-	}
+	if(func == nullptr || func->isNative)
+		croc_pushInt(t, 0);
+	else
+		croc_pushInt(t, func->scriptFunc->locLine);
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _getFunc_info =
+{
 	Docstr(DFunc("getFunc") DParam("depth", "int")
 	R"(\b{Takes an optional thread as its first parameter.}
 
 	\param[depth] is an index into the call stack as described in this module's docs.
 	\returns the function at that call level, or \tt{null} if there is none.)"),
 
-	"getFunc", 2, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		croc_ex_checkIntParam(t, arg + 1);
-		auto func = getFuncParam(t, thread, arg + 1);
+	"getFunc", 2
+};
 
-		if(func == nullptr)
-			croc_pushNull(t);
-		else
-			push(Thread::from(t), Value::from(func));
+word_t _getFunc(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	croc_ex_checkIntParam(t, arg + 1);
+	auto func = getFuncParam(t, thread, arg + 1);
 
-		return 1;
-	}
+	if(func == nullptr)
+		croc_pushNull(t);
+	else
+		push(Thread::from(t), Value::from(func));
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _numLocals_info =
+{
 	Docstr(DFunc("numLocals") DParam("depth", "int")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -443,32 +420,36 @@ DListSep()
 		that are in scope at the point where the given function is currently executing. This number defines the limit
 		to the indexes you can pass to the functions which inspect locals.)"),
 
-	"numLocals", 2, [](CrocThread* t) -> word_t
+	"numLocals", 2
+};
+
+word_t _numLocals(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto ar = getAR(t, thread, croc_ex_checkIntParam(t, arg + 1));
+
+	if(ar->func == nullptr || ar->func->isNative)
+		croc_pushInt(t, 0);
+	else
 	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto ar = getAR(t, thread, croc_ex_checkIntParam(t, arg + 1));
+		crocint num = 0;
+		auto pc = cast(uword)(ar->pc - ar->func->scriptFunc->code.ptr);
 
-		if(ar->func == nullptr || ar->func->isNative)
-			croc_pushInt(t, 0);
-		else
+		for(auto &var: ar->func->scriptFunc->locVarDescs)
 		{
-			crocint num = 0;
-			auto pc = cast(uword)(ar->pc - ar->func->scriptFunc->code.ptr);
-
-			for(auto &var: ar->func->scriptFunc->locVarDescs)
-			{
-				if(pc >= var.pcStart && pc < var.pcEnd)
-					num++;
-			}
-
-			croc_pushInt(t, num);
+			if(pc >= var.pcStart && pc < var.pcEnd)
+				num++;
 		}
 
-		return 1;
+		croc_pushInt(t, num);
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _localName_info =
+{
 	Docstr(DFunc("localName") DParam("depth", "int") DParam("idx", "int")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -485,37 +466,41 @@ DListSep()
 
 	\throws[BoundsError] if \tt{idx} is out of range.)"),
 
-	"localName", 3, [](CrocThread* t) -> word_t
+	"localName", 3
+};
+
+word_t _localName(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto ar = getAR(t, thread, croc_ex_checkIntParam(t, arg + 1));
+	auto idx = croc_ex_checkIntParam(t, arg + 2);
+
+	if(idx < 0 || ar->func == nullptr || ar->func->isNative)
+		croc_eh_throwStd(t, "BoundsError", "invalid local index '%" CROC_INTEGER_FORMAT "'", idx);
+
+	auto originalIdx = idx;
+	auto pc = cast(uword)(ar->pc - ar->func->scriptFunc->code.ptr);
+
+	for(auto &var: ar->func->scriptFunc->locVarDescs)
 	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto ar = getAR(t, thread, croc_ex_checkIntParam(t, arg + 1));
-		auto idx = croc_ex_checkIntParam(t, arg + 2);
-
-		if(idx < 0 || ar->func == nullptr || ar->func->isNative)
-			croc_eh_throwStd(t, "BoundsError", "invalid local index '%" CROC_INTEGER_FORMAT "'", idx);
-
-		auto originalIdx = idx;
-		auto pc = cast(uword)(ar->pc - ar->func->scriptFunc->code.ptr);
-
-		for(auto &var: ar->func->scriptFunc->locVarDescs)
+		if(pc >= var.pcStart && pc < var.pcEnd)
 		{
-			if(pc >= var.pcStart && pc < var.pcEnd)
+			if(idx == 0)
 			{
-				if(idx == 0)
-				{
-					push(Thread::from(t), Value::from(var.name));
-					return 1;
-				}
-
-				idx--;
+				push(Thread::from(t), Value::from(var.name));
+				return 1;
 			}
-		}
 
-		return croc_eh_throwStd(t, "BoundsError", "invalid local index '%" CROC_INTEGER_FORMAT "'", originalIdx);
+			idx--;
+		}
 	}
 
-DListSep()
+	return croc_eh_throwStd(t, "BoundsError", "invalid local index '%" CROC_INTEGER_FORMAT "'", originalIdx);
+}
+
+const _StdlibRegisterInfo _getLocal_info =
+{
 	Docstr(DFunc("getLocal") DParam("depth", "int") DParam("which", "int|string")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -527,16 +512,20 @@ DListSep()
 	\throws[BoundsError] if \tt{which} is an int and is out of range.
 	\throws[NameError] if \tt{which} is a string and there is no active local of that name.)"),
 
-	"getLocal", 3, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto ar = getAR(t, thread, croc_ex_checkIntParam(t, arg + 1));
-		push(Thread::from(t), *findLocal(t, thread, arg, ar));
-		return 1;
-	}
+	"getLocal", 3
+};
 
-DListSep()
+word_t _getLocal(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto ar = getAR(t, thread, croc_ex_checkIntParam(t, arg + 1));
+	push(Thread::from(t), *findLocal(t, thread, arg, ar));
+	return 1;
+}
+
+const _StdlibRegisterInfo _setLocal_info =
+{
 	Docstr(DFunc("setLocal") DParam("depth", "int") DParam("which", "int|string") DParamAny("val")
 	R"(\b{Takes an optional thread as its first parameter.} Sets a local to the value \tt{val}.
 
@@ -547,17 +536,21 @@ DListSep()
 	\throws[BoundsError] if \tt{which} is an int and is out of range.
 	\throws[NameError] if \tt{which} is a string and there is no active local of that name.)"),
 
-	"setLocal", 4, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto ar = getAR(t, thread, croc_ex_checkIntParam(t, arg + 1));
-		croc_ex_checkAnyParam(t, arg + 3);
-		*findLocal(t, thread, arg, ar) = *getValue(Thread::from(t), arg + 3);
-		return 0;
-	}
+	"setLocal", 4
+};
 
-DListSep()
+word_t _setLocal(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto ar = getAR(t, thread, croc_ex_checkIntParam(t, arg + 1));
+	croc_ex_checkAnyParam(t, arg + 3);
+	*findLocal(t, thread, arg, ar) = *getValue(Thread::from(t), arg + 3);
+	return 0;
+}
+
+const _StdlibRegisterInfo _numUpvals_info =
+{
 	Docstr(DFunc("numUpvals") DParam("func", "int|function")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -565,21 +558,25 @@ DListSep()
 
 	\returns the number of upvalues that the given function has.)"),
 
-	"numUpvals", 2, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto func = getFuncParam(t, thread, arg + 1);
+	"numUpvals", 2
+};
 
-		if(func == nullptr)
-			croc_pushInt(t, 0);
-		else
-			croc_pushInt(t, func->numUpvals);
+word_t _numUpvals(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto func = getFuncParam(t, thread, arg + 1);
 
-		return 1;
-	}
+	if(func == nullptr)
+		croc_pushInt(t, 0);
+	else
+		croc_pushInt(t, func->numUpvals);
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _upvalName_info =
+{
 	Docstr(DFunc("upvalName") DParam("func", "int|function") DParam("idx", "int")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -589,26 +586,30 @@ DListSep()
 
 	\returns the name of the upvalue at that index, or if \tt{func} is native, returns the empty string.)"),
 
-	"upvalName", 3, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto func = getFuncParam(t, thread, arg + 1);
-		auto idx = croc_ex_checkIntParam(t, arg + 2);
+	"upvalName", 3
+};
 
-		if(func == nullptr || idx < 0 || cast(uword)idx >= func->numUpvals)
-			croc_eh_throwStd(t, "BoundsError", "invalid upvalue index '%" CROC_INTEGER_FORMAT "'", idx);
+word_t _upvalName(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto func = getFuncParam(t, thread, arg + 1);
+	auto idx = croc_ex_checkIntParam(t, arg + 2);
 
-		// Check is in case there's no debug info
-		if(func->isNative || cast(uword)idx >= func->scriptFunc->upvalNames.length)
-			croc_pushString(t, "");
-		else
-			push(Thread::from(t), Value::from(func->scriptFunc->upvalNames[cast(uword)idx]));
+	if(func == nullptr || idx < 0 || cast(uword)idx >= func->numUpvals)
+		croc_eh_throwStd(t, "BoundsError", "invalid upvalue index '%" CROC_INTEGER_FORMAT "'", idx);
 
-		return 1;
-	}
+	// Check is in case there's no debug info
+	if(func->isNative || cast(uword)idx >= func->scriptFunc->upvalNames.length)
+		croc_pushString(t, "");
+	else
+		push(Thread::from(t), Value::from(func->scriptFunc->upvalNames[cast(uword)idx]));
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _getUpval_info =
+{
 	Docstr(DFunc("getUpval") DParam("func", "int|function") DParam("which", "int|string")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -620,15 +621,19 @@ DListSep()
 	\throws[BoundsError] if \tt{which} is an int and is out of range.
 	\throws[NameError] if \tt{which} is a string and there is no upvalue of that name.)"),
 
-	"getUpval", 3, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		push(Thread::from(t), *findUpval(t, thread, arg));
-		return 1;
-	}
+	"getUpval", 3
+};
 
-DListSep()
+word_t _getUpval(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	push(Thread::from(t), *findUpval(t, thread, arg));
+	return 1;
+}
+
+const _StdlibRegisterInfo _setUpval_info =
+{
 	Docstr(DFunc("setUpval") DParam("func", "int|function") DParam("which", "int|string") DParamAny("val")
 	R"(\b{Takes an optional thread as its first parameter.} Sets an upvalue to the value \tt{val}.
 
@@ -639,16 +644,20 @@ DListSep()
 	\throws[BoundsError] if \tt{which} is an int and is out of range.
 	\throws[NameError] if \tt{which} is a string and there is no upvalue of that name.)"),
 
-	"setUpval", 4, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		croc_ex_checkAnyParam(t, arg + 3);
-		*findUpval(t, thread, arg) = *getValue(Thread::from(t), arg + 3);
-		return 0;
-	}
+	"setUpval", 4
+};
 
-DListSep()
+word_t _setUpval(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	croc_ex_checkAnyParam(t, arg + 3);
+	*findUpval(t, thread, arg) = *getValue(Thread::from(t), arg + 3);
+	return 0;
+}
+
+const _StdlibRegisterInfo _getFuncEnv_info =
+{
 	Docstr(DFunc("getFuncEnv") DParam("func", "int|function")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -656,20 +665,24 @@ DListSep()
 	\returns \tt{func}'s environment namespace.
 	\throws[ValueError] if \tt{func} is a call stack index and there is no function at that call level.)"),
 
-	"getFuncEnv", 2, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto func = getFuncParam(t, thread, arg + 1);
+	"getFuncEnv", 2
+};
 
-		if(func == nullptr)
-			croc_eh_throwStd(t, "ValueError", "no function at that call level");
+word_t _getFuncEnv(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto func = getFuncParam(t, thread, arg + 1);
 
-		push(Thread::from(t), Value::from(func->environment));
-		return 1;
-	}
+	if(func == nullptr)
+		croc_eh_throwStd(t, "ValueError", "no function at that call level");
 
-DListSep()
+	push(Thread::from(t), Value::from(func->environment));
+	return 1;
+}
+
+const _StdlibRegisterInfo _setFuncEnv_info =
+{
 	Docstr(DFunc("setFuncEnv") DParam("func", "int|function") DParam("env", "namespace")
 	R"(\b{Takes an optional thread as its first parameter.} Sets the native function \tt{func}'s environment to
 	the namespace \tt{env}.
@@ -678,28 +691,32 @@ DListSep()
 	\throws[ValueError] if \tt{func} is a call stack index and there is no function at that call level, or if \tt{func}
 		is not native.)"),
 
-	"setFuncEnv", 3, [](CrocThread* t) -> word_t
-	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto func = getFuncParam(t, thread, arg + 1);
+	"setFuncEnv", 3
+};
 
-		if(func == nullptr)
-			croc_eh_throwStd(t, "ValueError", "no function at that call level");
+word_t _setFuncEnv(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto func = getFuncParam(t, thread, arg + 1);
 
-		if(!func->isNative)
-			croc_eh_throwStd(t, "ValueError", "can only set the environment of native functions");
+	if(func == nullptr)
+		croc_eh_throwStd(t, "ValueError", "no function at that call level");
 
-		croc_ex_checkParam(t, arg + 2, CrocType_Namespace);
-		push(Thread::from(t), Value::from(func->environment));
-		push(Thread::from(t), Value::from(func));
-		croc_dup(t, arg + 2);
-		croc_function_setEnv(t, -2);
-		croc_popTop(t);
-		return 1;
-	}
+	if(!func->isNative)
+		croc_eh_throwStd(t, "ValueError", "can only set the environment of native functions");
 
-DListSep()
+	croc_ex_checkParam(t, arg + 2, CrocType_Namespace);
+	push(Thread::from(t), Value::from(func->environment));
+	push(Thread::from(t), Value::from(func));
+	croc_dup(t, arg + 2);
+	croc_function_setEnv(t, -2);
+	croc_popTop(t);
+	return 1;
+}
+
+const _StdlibRegisterInfo _currentLine_info =
+{
 	Docstr(DFunc("currentLine") DParam("depth", "int")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -707,31 +724,35 @@ DListSep()
 	\returns the line number of the last-executed instruction in the function at the given call level. If there is no
 		function at that level or if the function is native, returns 0.)"),
 
-	"currentLine", 2, [](CrocThread* t) -> word_t
+	"currentLine", 2
+};
+
+word_t _currentLine(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto depth = croc_ex_checkIntParam(t, arg + 1);
+	auto maxDepth = croc_thread_getCallDepth(thread);
+
+	if(t == thread)
 	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto depth = croc_ex_checkIntParam(t, arg + 1);
-		auto maxDepth = croc_thread_getCallDepth(thread);
+		if(depth < 0 || cast(uword)depth >= maxDepth - 1)
+			croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
 
-		if(t == thread)
-		{
-			if(depth < 0 || cast(uword)depth >= maxDepth - 1)
-				croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
-
-			croc_pushInt(t, getDebugLine(Thread::from(t), cast(uword)depth + 1));
-		}
-		else
-		{
-			if(depth < 0 || cast(uword)depth >= maxDepth)
-				croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
-
-			croc_pushInt(t, getDebugLine(Thread::from(t), cast(uword)depth));
-		}
-		return 1;
+		croc_pushInt(t, getDebugLine(Thread::from(t), cast(uword)depth + 1));
 	}
+	else
+	{
+		if(depth < 0 || cast(uword)depth >= maxDepth)
+			croc_eh_throwStd(t, "RangeError", "invalid call depth %" CROC_INTEGER_FORMAT, depth);
 
-DListSep()
+		croc_pushInt(t, getDebugLine(Thread::from(t), cast(uword)depth));
+	}
+	return 1;
+}
+
+const _StdlibRegisterInfo _lineInfo_info =
+{
 	Docstr(DFunc("lineInfo") DParam("func", "int|function")
 	R"(\b{Takes an optional thread as its first parameter.}
 
@@ -739,119 +760,135 @@ DListSep()
 	\returns a (sorted) array of all the source lines which map to at least one bytecode instruction in the given
 		function. If there is no function at that level or if the fu nction is native, returns an empty array.)"),
 
-	"lineInfo", 2, [](CrocThread* t) -> word_t
+	"lineInfo", 2
+};
+
+word_t _lineInfo(CrocThread* t)
+{
+	word arg;
+	auto thread = getThreadParam(t, arg);
+	auto func = getFuncParam(t, thread, arg + 1);
+
+	if(func == nullptr || func->isNative)
+		croc_array_new(t, 0);
+	else
 	{
-		word arg;
-		auto thread = getThreadParam(t, arg);
-		auto func = getFuncParam(t, thread, arg + 1);
+		auto info = func->scriptFunc->lineInfo;
 
-		if(func == nullptr || func->isNative)
-			croc_array_new(t, 0);
-		else
+		croc_table_new(t, info.length);
+
+		for(auto l: info)
 		{
-			auto info = func->scriptFunc->lineInfo;
-
-			croc_table_new(t, info.length);
-
-			for(auto l: info)
-			{
-				croc_pushBool(t, true);
-				croc_idxai(t, -2, l);
-			}
-
-			croc_ex_lookup(t, "hash.keys");
-			croc_pushNull(t);
-			croc_dup(t, -3);
-			croc_call(t, -3, 1);
-			croc_pushNull(t);
-			croc_methodCall(t, -2, "sort", 1);
+			croc_pushBool(t, true);
+			croc_idxai(t, -2, l);
 		}
 
-		return 1;
+		croc_ex_lookup(t, "hash.keys");
+		croc_pushNull(t);
+		croc_dup(t, -3);
+		croc_call(t, -3, 1);
+		croc_pushNull(t);
+		croc_methodCall(t, -2, "sort", 1);
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _getMetatable_info =
+{
 	Docstr(DFunc("getMetatable") DParam("type", "string")
 	R"(Gets the global type metatable for a given Croc type.
 
 	\param[type] is the name of the type, which should be one of the strings that \link{typeof} returns.
 	\returns the type metatable for that type, or \tt{null} if none has been set.)"),
 
-	"getMetatable", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		auto name = getCrocstr(t, 1);
+	"getMetatable", 1
+};
 
-		if(name == ATODA("null"))      croc_vm_pushTypeMT(t, CrocType_Null);      else
-		if(name == ATODA("bool"))      croc_vm_pushTypeMT(t, CrocType_Bool);      else
-		if(name == ATODA("int"))       croc_vm_pushTypeMT(t, CrocType_Int);       else
-		if(name == ATODA("float"))     croc_vm_pushTypeMT(t, CrocType_Float);     else
-		if(name == ATODA("nativeobj")) croc_vm_pushTypeMT(t, CrocType_Nativeobj); else
-		if(name == ATODA("string"))    croc_vm_pushTypeMT(t, CrocType_String);    else
-		if(name == ATODA("weakref"))   croc_vm_pushTypeMT(t, CrocType_Weakref);   else
-		if(name == ATODA("table"))     croc_vm_pushTypeMT(t, CrocType_Table);     else
-		if(name == ATODA("namespace")) croc_vm_pushTypeMT(t, CrocType_Namespace); else
-		if(name == ATODA("array"))     croc_vm_pushTypeMT(t, CrocType_Array);     else
-		if(name == ATODA("memblock"))  croc_vm_pushTypeMT(t, CrocType_Memblock);  else
-		if(name == ATODA("function"))  croc_vm_pushTypeMT(t, CrocType_Function);  else
-		if(name == ATODA("funcdef"))   croc_vm_pushTypeMT(t, CrocType_Funcdef);   else
-		if(name == ATODA("class"))     croc_vm_pushTypeMT(t, CrocType_Class);     else
-		if(name == ATODA("instance"))  croc_vm_pushTypeMT(t, CrocType_Instance);  else
-		if(name == ATODA("thread"))    croc_vm_pushTypeMT(t, CrocType_Thread);    else
-			croc_eh_throwStd(t, "ValueError", "invalid type name '%.*s'", cast(int)name.length, name.ptr);
+word_t _getMetatable(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	auto name = getCrocstr(t, 1);
 
-		return 1;
-	}
+	if(name == ATODA("null"))      croc_vm_pushTypeMT(t, CrocType_Null);      else
+	if(name == ATODA("bool"))      croc_vm_pushTypeMT(t, CrocType_Bool);      else
+	if(name == ATODA("int"))       croc_vm_pushTypeMT(t, CrocType_Int);       else
+	if(name == ATODA("float"))     croc_vm_pushTypeMT(t, CrocType_Float);     else
+	if(name == ATODA("nativeobj")) croc_vm_pushTypeMT(t, CrocType_Nativeobj); else
+	if(name == ATODA("string"))    croc_vm_pushTypeMT(t, CrocType_String);    else
+	if(name == ATODA("weakref"))   croc_vm_pushTypeMT(t, CrocType_Weakref);   else
+	if(name == ATODA("table"))     croc_vm_pushTypeMT(t, CrocType_Table);     else
+	if(name == ATODA("namespace")) croc_vm_pushTypeMT(t, CrocType_Namespace); else
+	if(name == ATODA("array"))     croc_vm_pushTypeMT(t, CrocType_Array);     else
+	if(name == ATODA("memblock"))  croc_vm_pushTypeMT(t, CrocType_Memblock);  else
+	if(name == ATODA("function"))  croc_vm_pushTypeMT(t, CrocType_Function);  else
+	if(name == ATODA("funcdef"))   croc_vm_pushTypeMT(t, CrocType_Funcdef);   else
+	if(name == ATODA("class"))     croc_vm_pushTypeMT(t, CrocType_Class);     else
+	if(name == ATODA("instance"))  croc_vm_pushTypeMT(t, CrocType_Instance);  else
+	if(name == ATODA("thread"))    croc_vm_pushTypeMT(t, CrocType_Thread);    else
+		croc_eh_throwStd(t, "ValueError", "invalid type name '%.*s'", cast(int)name.length, name.ptr);
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _setMetatable_info =
+{
 	Docstr(DFunc("setMetatable") DParam("type", "string") DParam("mt", "null|namespace")
 	R"(Sets or removes the global type metatable for a given Croc type.
 
 	\param[type] is the name of the type, which should be one of the strings that \link{typeof} returns.
 	\param[mt] is the metatable namespace, or \tt{null} to unset it.)"),
 
-	"setMetatable", 2, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		auto name = getCrocstr(t, 1);
+	"setMetatable", 2
+};
 
-		if(!croc_isValidIndex(t, 2) || (!croc_isNull(t, 2) && !croc_isNamespace(t, 2)))
-			croc_ex_paramTypeError(t, 2, "null|namespace");
+word_t _setMetatable(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	auto name = getCrocstr(t, 1);
 
-		croc_dup(t, 2);
+	if(!croc_isValidIndex(t, 2) || (!croc_isNull(t, 2) && !croc_isNamespace(t, 2)))
+		croc_ex_paramTypeError(t, 2, "null|namespace");
 
-		if(name == ATODA("null"))      croc_vm_setTypeMT(t, CrocType_Null);      else
-		if(name == ATODA("bool"))      croc_vm_setTypeMT(t, CrocType_Bool);      else
-		if(name == ATODA("int"))       croc_vm_setTypeMT(t, CrocType_Int);       else
-		if(name == ATODA("float"))     croc_vm_setTypeMT(t, CrocType_Float);     else
-		if(name == ATODA("nativeobj")) croc_vm_setTypeMT(t, CrocType_Nativeobj); else
-		if(name == ATODA("string"))    croc_vm_setTypeMT(t, CrocType_String);    else
-		if(name == ATODA("weakref"))   croc_vm_setTypeMT(t, CrocType_Weakref);   else
-		if(name == ATODA("table"))     croc_vm_setTypeMT(t, CrocType_Table);     else
-		if(name == ATODA("namespace")) croc_vm_setTypeMT(t, CrocType_Namespace); else
-		if(name == ATODA("array"))     croc_vm_setTypeMT(t, CrocType_Array);     else
-		if(name == ATODA("memblock"))  croc_vm_setTypeMT(t, CrocType_Memblock);  else
-		if(name == ATODA("function"))  croc_vm_setTypeMT(t, CrocType_Function);  else
-		if(name == ATODA("funcdef"))   croc_vm_setTypeMT(t, CrocType_Funcdef);   else
-		if(name == ATODA("class"))     croc_vm_setTypeMT(t, CrocType_Class);     else
-		if(name == ATODA("instance"))  croc_vm_setTypeMT(t, CrocType_Instance);  else
-		if(name == ATODA("thread"))    croc_vm_setTypeMT(t, CrocType_Thread);    else
-			croc_eh_throwStd(t, "ValueError", "invalid type name '%.*s'", cast(int)name.length, name.ptr);
+	croc_dup(t, 2);
 
-		return 0;
-	}
+	if(name == ATODA("null"))      croc_vm_setTypeMT(t, CrocType_Null);      else
+	if(name == ATODA("bool"))      croc_vm_setTypeMT(t, CrocType_Bool);      else
+	if(name == ATODA("int"))       croc_vm_setTypeMT(t, CrocType_Int);       else
+	if(name == ATODA("float"))     croc_vm_setTypeMT(t, CrocType_Float);     else
+	if(name == ATODA("nativeobj")) croc_vm_setTypeMT(t, CrocType_Nativeobj); else
+	if(name == ATODA("string"))    croc_vm_setTypeMT(t, CrocType_String);    else
+	if(name == ATODA("weakref"))   croc_vm_setTypeMT(t, CrocType_Weakref);   else
+	if(name == ATODA("table"))     croc_vm_setTypeMT(t, CrocType_Table);     else
+	if(name == ATODA("namespace")) croc_vm_setTypeMT(t, CrocType_Namespace); else
+	if(name == ATODA("array"))     croc_vm_setTypeMT(t, CrocType_Array);     else
+	if(name == ATODA("memblock"))  croc_vm_setTypeMT(t, CrocType_Memblock);  else
+	if(name == ATODA("function"))  croc_vm_setTypeMT(t, CrocType_Function);  else
+	if(name == ATODA("funcdef"))   croc_vm_setTypeMT(t, CrocType_Funcdef);   else
+	if(name == ATODA("class"))     croc_vm_setTypeMT(t, CrocType_Class);     else
+	if(name == ATODA("instance"))  croc_vm_setTypeMT(t, CrocType_Instance);  else
+	if(name == ATODA("thread"))    croc_vm_setTypeMT(t, CrocType_Thread);    else
+		croc_eh_throwStd(t, "ValueError", "invalid type name '%.*s'", cast(int)name.length, name.ptr);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _getRegistry_info =
+{
 	Docstr(DFunc("getRegistry")
 	R"(\returns the registry namespace which is used by the host to hold "hidden" globals.)"),
 
-	"getRegistry", 0, [](CrocThread* t) -> word_t
-	{
-		croc_vm_pushRegistry(t);
-		return 1;
-	}
+	"getRegistry", 0
+};
 
-DListSep()
+word_t _getRegistry(CrocThread* t)
+{
+	croc_vm_pushRegistry(t);
+	return 1;
+}
+
+const _StdlibRegisterInfo _addHField_info =
+{
 	Docstr(DFunc("addHField") DParam("cls", "class") DParam("name", "string") DParamD("val", "any", "null")
 	R"(Adds a hidden field to a class.
 
@@ -860,86 +897,154 @@ DListSep()
 		so they can have the same names.
 	\param[val] is the value to store in the field, which defaults to \tt{null}.)"),
 
-	"addHField", 3, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_Class);
-		croc_ex_checkStringParam(t, 2);
+	"addHField", 3
+};
 
-		if(!croc_isValidIndex(t, 3))
-			croc_pushNull(t);
+word_t _addHField(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Class);
+	croc_ex_checkStringParam(t, 2);
 
-		croc_dup(t, 2);
-		croc_dup(t, 3);
-		croc_class_addHFieldStk(t, 1);
-		return 0;
-	}
+	if(!croc_isValidIndex(t, 3))
+		croc_pushNull(t);
 
-DListSep()
+	croc_dup(t, 2);
+	croc_dup(t, 3);
+	croc_class_addHFieldStk(t, 1);
+	return 0;
+}
+
+const _StdlibRegisterInfo _removeHField_info =
+{
 	Docstr(DFunc("removeHField") DParam("cls", "class") DParam("name", "string")
 	R"(Removes a hidden field from a class.
 
 	\param[cls] is the class to remove the hidden field from. It must not be frozen.
 	\param[name] is the name of the hidden field to remove.)"),
 
-	"removeHField", 2, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_Class);
-		croc_ex_checkStringParam(t, 2);
-		croc_dup(t, 2);
-		croc_class_removeHFieldStk(t, 1);
-		return 0;
-	}
+	"removeHField", 2
+};
 
-DListSep()
+word_t _removeHField(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Class);
+	croc_ex_checkStringParam(t, 2);
+	croc_dup(t, 2);
+	croc_class_removeHFieldStk(t, 1);
+	return 0;
+}
+
+const _StdlibRegisterInfo _hasHField_info =
+{
 	Docstr(DFunc("hasHField") DParam("obj", "class|instance") DParam("name", "string")
 	R"(\returns a bool saying whether or not the given class or instance has a hidden field named \tt{name}.)"),
 
-	"hasHField", 2, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkStringParam(t, 2);
+	"hasHField", 2
+};
 
-		if(!croc_isInstance(t, 1) && !croc_isClass(t, 1))
-			croc_ex_paramTypeError(t, 1, "class|instance");
+word_t _hasHField(CrocThread* t)
+{
+	croc_ex_checkStringParam(t, 2);
 
-		croc_pushBool(t, croc_hasHFieldStk(t, 1, 2));
-		return 1;
-	}
+	if(!croc_isInstance(t, 1) && !croc_isClass(t, 1))
+		croc_ex_paramTypeError(t, 1, "class|instance");
 
-DListSep()
+	croc_pushBool(t, croc_hasHFieldStk(t, 1, 2));
+	return 1;
+}
+
+const _StdlibRegisterInfo _getHField_info =
+{
 	Docstr(DFunc("getHField") DParam("obj", "class|instance") DParam("name", "string")
 	R"(\returns the value of the hidden field named \tt{name} in the given class or instance.)"),
 
-	"getHField", 2, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkStringParam(t, 2);
+	"getHField", 2
+};
 
-		if(!croc_isInstance(t, 1) && !croc_isClass(t, 1))
-			croc_ex_paramTypeError(t, 1, "class|instance");
+word_t _getHField(CrocThread* t)
+{
+	croc_ex_checkStringParam(t, 2);
 
-		croc_dup(t, 2);
-		croc_hfieldStk(t, 1);
-		return 1;
-	}
+	if(!croc_isInstance(t, 1) && !croc_isClass(t, 1))
+		croc_ex_paramTypeError(t, 1, "class|instance");
 
-DListSep()
+	croc_dup(t, 2);
+	croc_hfieldStk(t, 1);
+	return 1;
+}
+
+const _StdlibRegisterInfo _setHField_info =
+{
 	Docstr(DFunc("setHField") DParam("obj", "class|instance") DParam("name", "string") DParamAny("val")
 	R"(Sets the hidden field named \tt{name} in the given class or instance to \tt{val}.)"),
 
-	"setHField", 3, [](CrocThread* t) -> word_t
+	"setHField", 3
+};
+
+word_t _setHField(CrocThread* t)
+{
+	croc_ex_checkStringParam(t, 2);
+	croc_ex_checkAnyParam(t, 3);
+
+	if(!croc_isInstance(t, 1) && !croc_isClass(t, 1))
+		croc_ex_paramTypeError(t, 1, "class|instance");
+
+	croc_dup(t, 2);
+	croc_dup(t, 3);
+	croc_hfieldaStk(t, 1);
+	return 0;
+}
+
+word_t _classHFieldsOfIter(CrocThread* t)
+{
+	croc_pushUpval(t, 0);
+	auto c = getClass(Thread::from(t), -1);
+	croc_pushUpval(t, 1);
+	auto index = cast(uword)croc_getInt(t, -1);
+	croc_pop(t, 2);
+
+	String** key;
+	Value* value;
+
+	if(c->nextHiddenField(index, key, value))
 	{
-		croc_ex_checkStringParam(t, 2);
-		croc_ex_checkAnyParam(t, 3);
+		croc_pushInt(t, index);
+		croc_setUpval(t, 1);
 
-		if(!croc_isInstance(t, 1) && !croc_isClass(t, 1))
-			croc_ex_paramTypeError(t, 1, "class|instance");
-
-		croc_dup(t, 2);
-		croc_dup(t, 3);
-		croc_hfieldaStk(t, 1);
-		return 0;
+		push(Thread::from(t), Value::from(*key));
+		push(Thread::from(t), *value);
+		return 2;
 	}
 
-DListSep()
+	return 0;
+}
+
+word_t _instanceHFieldsOfIter(CrocThread* t)
+{
+	croc_pushUpval(t, 0);
+	auto c = getInstance(Thread::from(t), -1);
+	croc_pushUpval(t, 1);
+	auto index = cast(uword)croc_getInt(t, -1);
+	croc_pop(t, 2);
+
+	String** key;
+	Value* value;
+
+	if(c->nextHiddenField(index, key, value))
+	{
+		croc_pushInt(t, index);
+		croc_setUpval(t, 1);
+
+		push(Thread::from(t), Value::from(*key));
+		push(Thread::from(t), *value);
+		return 2;
+	}
+
+	return 0;
+}
+
+const _StdlibRegisterInfo _hfieldsOf_info =
+{
 	Docstr(DFunc("hfieldsOf") DParam("obj", "class|instance")
 	R"(\returns an iterator function for iterating over the hidden fields of the given class or instance. This works
 	just like \link{object.fieldsOf}; the first index is the name of the hidden field, and the second index is the
@@ -951,42 +1056,76 @@ foreach(name, val; debug.hfieldsOf(stream.NativeStream))
 	writefln("{}: {}", name, val)
 \endcode)"),
 
-	"hfieldsOf", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkAnyParam(t, 1);
-		croc_dup(t, 1);
-		croc_pushInt(t, 0);
+	"hfieldsOf", 1
+};
 
-		if(croc_isClass(t, 1))
-			croc_function_new(t, "hfieldsOfClassIter", 1, &_classHFieldsOfIter, 2);
-		else if(croc_isInstance(t, 1))
-			croc_function_new(t, "hfieldsOfInstanceIter", 1, &_instanceHFieldsOfIter, 2);
-		else
-			croc_ex_paramTypeError(t, 1, "class|instance");
+word_t _hfieldsOf(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+	croc_dup(t, 1);
+	croc_pushInt(t, 0);
 
-		return 1;
-	}
-DEndList()
+	if(croc_isClass(t, 1))
+		croc_function_new(t, "hfieldsOfClassIter", 1, &_classHFieldsOfIter, 2);
+	else if(croc_isInstance(t, 1))
+		croc_function_new(t, "hfieldsOfInstanceIter", 1, &_instanceHFieldsOfIter, 2);
+	else
+		croc_ex_paramTypeError(t, 1, "class|instance");
 
-	word loader(CrocThread* t)
-	{
-		registerGlobals(t, _globalFuncs);
-		return 0;
-	}
-	}
+	return 1;
+}
 
-	void initDebugLib(CrocThread* t)
-	{
-		croc_ex_makeModule(t, "debug", &loader);
-		croc_ex_importNS(t, "debug");
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_setHook),
+	_DListItem(_getHook),
+	_DListItem(_callDepth),
+	_DListItem(_sourceName),
+	_DListItem(_sourceLine),
+	_DListItem(_getFunc),
+	_DListItem(_numLocals),
+	_DListItem(_localName),
+	_DListItem(_getLocal),
+	_DListItem(_setLocal),
+	_DListItem(_numUpvals),
+	_DListItem(_upvalName),
+	_DListItem(_getUpval),
+	_DListItem(_setUpval),
+	_DListItem(_getFuncEnv),
+	_DListItem(_setFuncEnv),
+	_DListItem(_currentLine),
+	_DListItem(_lineInfo),
+	_DListItem(_getMetatable),
+	_DListItem(_setMetatable),
+	_DListItem(_getRegistry),
+	_DListItem(_addHField),
+	_DListItem(_removeHField),
+	_DListItem(_hasHField),
+	_DListItem(_getHField),
+	_DListItem(_setHField),
+	_DListItem(_hfieldsOf),
+	_DListEnd
+};
+
+word loader(CrocThread* t)
+{
+	_registerGlobals(t, _globalFuncs);
+	return 0;
+}
+}
+
+void initDebugLib(CrocThread* t)
+{
+	croc_ex_makeModule(t, "debug", &loader);
+	croc_ex_importNS(t, "debug");
 #ifdef CROC_BUILTIN_DOCS
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
-		croc_ex_doc_push(&doc, ModuleDocs);
-			docFields(&doc, _globalFuncs);
-		croc_ex_doc_pop(&doc, -1);
-		croc_ex_doc_finish(&doc);
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_ex_doc_push(&doc, ModuleDocs);
+		_docFields(&doc, _globalFuncs);
+	croc_ex_doc_pop(&doc, -1);
+	croc_ex_doc_finish(&doc);
 #endif
-		croc_popTop(t);
-	}
+	croc_popTop(t);
+}
 }
