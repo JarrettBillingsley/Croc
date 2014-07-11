@@ -78,7 +78,7 @@ void pushFileTypeString(CrocThread* t, oscompat::FileType type)
 	}
 }
 
-const _StdlibRegisterInfo _inFile_info =
+const StdlibRegisterInfo _inFile_info =
 {
 	Docstr(DFunc("inFile") DParam("name", "string")
 	R"(Open an existing file for reading.
@@ -111,7 +111,7 @@ word_t _inFile(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _outFile_info =
+const StdlibRegisterInfo _outFile_info =
 {
 	Docstr(DFunc("outFile") DParam("name", "string") DParamD("mode", "string", "\"c\"")
 	R"(Opens a file for writing.
@@ -147,7 +147,7 @@ word_t _outFile(CrocThread* t)
 	return commonOpenWritable(t, false);
 }
 
-const _StdlibRegisterInfo _inoutFile_info =
+const StdlibRegisterInfo _inoutFile_info =
 {
 	Docstr(DFunc("inoutFile") DParam("name", "string") DParamD("mode", "string", "\"e\"")
 	R"(Just like \link{outFile}, except the file will also be readable. Furthermore, the mode defaults to \tt{"e"}.)"),
@@ -160,7 +160,7 @@ word_t _inoutFile(CrocThread* t)
 	return commonOpenWritable(t, true);
 }
 
-const _StdlibRegisterInfo _readTextFile_info =
+const StdlibRegisterInfo _readTextFile_info =
 {
 	Docstr(DFunc("readTextFile") DParam("name", "string") DParamD("encoding", "string", "?utf-8")
 		DParamD("errors", "string", "strict")
@@ -274,7 +274,7 @@ word_t _readTextFile(CrocThread* t)
 	return croc_methodCall(t, -4, "decode", 1);
 }
 
-const _StdlibRegisterInfo _truncate_info =
+const StdlibRegisterInfo _truncate_info =
 {
 	Docstr(DFunc("truncate") DParam("file", "instance")
 	R"(Given an open, writable file \tt{file}, truncates the contents of the file so the current position in the file
@@ -318,7 +318,7 @@ word_t _truncate(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _writeTextFile_info =
+const StdlibRegisterInfo _writeTextFile_info =
 {
 	Docstr(DFunc("writeTextFile") DParam("name", "string") DParam("data", "string")
 		DParamD("encoding", "string", "utf-8") DParamD("errors", "string", "strict")
@@ -376,7 +376,7 @@ word_t _writeTextFile(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _readMemblock_info =
+const StdlibRegisterInfo _readMemblock_info =
 {
 	Docstr(DFunc("readMemblock") DParam("name", "string")
 	R"(\returns the entire contents of the file \tt{name} as a memblock.)"),
@@ -408,7 +408,7 @@ word_t _readMemblock(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _writeMemblock_info =
+const StdlibRegisterInfo _writeMemblock_info =
 {
 	Docstr(DFunc("writeMemblock") DParam("name", "string") DParam("data", "memblock")
 	R"(Writes the contents of the memblock \tt{data} to the file \tt{name}.
@@ -448,7 +448,7 @@ word_t _writeMemblock(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _listDir_info =
+const StdlibRegisterInfo _listDir_info =
 {
 	Docstr(DFunc("listDir") DParam("path", "string") DParam("listHidden", "bool") DParam("cb", "function")
 	R"(List the contents of the directory given by \tt{path}, caling \tt{cb} once for each entry in the directory.
@@ -492,7 +492,7 @@ word_t _listDir(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _getDirListing_info =
+const StdlibRegisterInfo _getDirListing_info =
 {
 	Docstr(DFunc("getDirListing") DParam("path", "string") DParam("listHidden", "bool") DParam("kinds", "string")
 	R"(An alternative method of getting a directory listing, this returns the directory's contents as an array of
@@ -593,7 +593,7 @@ word_t _getDirListing(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _currentDir_info =
+const StdlibRegisterInfo _currentDir_info =
 {
 	Docstr(DFunc("currentDir")
 	R"(\returns the current working directory as an absolute path string.)"),
@@ -609,7 +609,7 @@ word_t _currentDir(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _changeDir_info =
+const StdlibRegisterInfo _changeDir_info =
 {
 	Docstr(DFunc("changeDir") DParam("path", "string")
 	R"(Changes the current working directory to \tt{path}.
@@ -629,7 +629,7 @@ word_t _changeDir(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _makeDir_info =
+const StdlibRegisterInfo _makeDir_info =
 {
 	Docstr(DFunc("makeDir") DParam("path", "string")
 	R"(Creates a new directory named \tt{path}.
@@ -649,7 +649,7 @@ word_t _makeDir(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _removeDir_info =
+const StdlibRegisterInfo _removeDir_info =
 {
 	Docstr(DFunc("removeDir") DParam("path", "string")
 	R"(Removes the directory named \tt{path}. The directory must be empty before it can be removed.
@@ -669,7 +669,7 @@ word_t _removeDir(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _exists_info =
+const StdlibRegisterInfo _exists_info =
 {
 	Docstr(DFunc("exists") DParam("path", "string")
 	R"(\returns a bool saying whether or not there is an accessible file or directory named \tt{path}. The key word here
@@ -686,7 +686,7 @@ word_t _exists(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _attrs_info =
+const StdlibRegisterInfo _attrs_info =
 {
 	Docstr(DFunc("attrs") DParam("path", "string") DParamD("tab", "table", "null")
 	R"(Get info on a file or directory at \tt{path} and return it as a table.
@@ -760,7 +760,7 @@ word_t _attrs(CrocThread* t)
 		return 1;\
 	}
 
-const _StdlibRegisterInfo _fileType_info =
+const StdlibRegisterInfo _fileType_info =
 {
 	Docstr(DFunc("fileType") DParam("path", "string")
 	R"(Like \link{attrs}, but gets only the file type.
@@ -772,7 +772,7 @@ const _StdlibRegisterInfo _fileType_info =
 
 MAKE_THINGER(_fileType, pushFileTypeString(t, info.type))
 
-const _StdlibRegisterInfo _fileSize_info =
+const StdlibRegisterInfo _fileSize_info =
 {
 	Docstr(DFunc("fileSize") DParam("path", "string")
 	R"(Like \link{attrs}, but gets only the file size.
@@ -784,7 +784,7 @@ const _StdlibRegisterInfo _fileSize_info =
 
 MAKE_THINGER(_fileSize, croc_pushInt(t, cast(crocint_t)info.size))
 
-const _StdlibRegisterInfo _created_info =
+const StdlibRegisterInfo _created_info =
 {
 	Docstr(DFunc("created") DParam("path", "string")
 	R"(Like \link{attrs}, but gets only the creation time.
@@ -796,7 +796,7 @@ const _StdlibRegisterInfo _created_info =
 
 MAKE_THINGER(_created, croc_pushInt(t, cast(crocint_t)info.created))
 
-const _StdlibRegisterInfo _modified_info =
+const StdlibRegisterInfo _modified_info =
 {
 	Docstr(DFunc("modified") DParam("path", "string")
 	R"(Like \link{attrs}, but gets only the file modification time.
@@ -808,7 +808,7 @@ const _StdlibRegisterInfo _modified_info =
 
 MAKE_THINGER(_modified, croc_pushInt(t, cast(crocint_t)info.modified))
 
-const _StdlibRegisterInfo _accessed_info =
+const StdlibRegisterInfo _accessed_info =
 {
 	Docstr(DFunc("accessed") DParam("path", "string")
 	R"(Like \link{attrs}, but gets only the file access time.
@@ -820,7 +820,7 @@ const _StdlibRegisterInfo _accessed_info =
 
 MAKE_THINGER(_accessed, croc_pushInt(t, cast(crocint_t)info.accessed))
 
-const _StdlibRegisterInfo _copyFromTo_info =
+const StdlibRegisterInfo _copyFromTo_info =
 {
 	Docstr(DFunc("copyFromTo") DParam("from", "string") DParam("to", "string") DParamD("force", "bool", "false")
 	R"(Copies a file named by \tt{from} to the path named by \tt{to}. The function is named this way to remind you of
@@ -847,7 +847,7 @@ word_t _copyFromTo(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _moveFromTo_info =
+const StdlibRegisterInfo _moveFromTo_info =
 {
 	Docstr(DFunc("moveFromTo") DParam("from", "string") DParam("to", "string") DParamD("force", "bool", "false")
 	R"(Moves a file or directory named by \tt{from} to the path named by \tt{to}. The function is named this way to
@@ -877,7 +877,7 @@ word_t _moveFromTo(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _remove_info =
+const StdlibRegisterInfo _remove_info =
 {
 	Docstr(DFunc("remove") DParam("path", "string")
 	R"(Removes the file or directory at \tt{path} entirely. This is an irreversible operation, so be careful!
@@ -899,7 +899,7 @@ word_t _remove(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_inFile),
 	_DListItem(_outFile),
@@ -930,7 +930,7 @@ const _StdlibRegister _globalFuncs[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 	return 0;
 }
 }
@@ -950,7 +950,7 @@ void initFileLib(CrocThread* t)
 	You should use paths with forward slashes ('/') to separate the directories for the best cross-platform
 	compatibility. This library will translate forward slash paths to backslash paths internally on Windows, but
 	even on Windows it will always return forward slash paths.)");
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 	croc_ex_doc_pop(&doc, -1);
 	croc_ex_doc_finish(&doc);
 #endif

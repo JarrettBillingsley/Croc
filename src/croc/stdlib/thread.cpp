@@ -8,7 +8,7 @@ namespace croc
 {
 namespace
 {
-const _StdlibRegisterInfo _new_info =
+const StdlibRegisterInfo _new_info =
 {
 	Docstr(DFunc("new") DParam("func", "function")
 	R"(Create a new thread.
@@ -27,7 +27,7 @@ word_t _new(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _halt_info =
+const StdlibRegisterInfo _halt_info =
 {
 	Docstr(DFunc("halt") DParamD("t", "thread", "null")
 	R"(Halt a thread of execution.
@@ -49,7 +49,7 @@ word_t _halt(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _current_info =
+const StdlibRegisterInfo _current_info =
 {
 	Docstr(DFunc("current")
 	R"(\returns the current thread of execution.)"),
@@ -63,7 +63,7 @@ word_t _current(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_new),
 	_DListItem(_halt),
@@ -71,7 +71,7 @@ const _StdlibRegister _globalFuncs[] =
 	_DListEnd
 };
 
-const _StdlibRegisterInfo _reset_info =
+const StdlibRegisterInfo _reset_info =
 {
 	Docstr(DFunc("reset") DParamD("newFunc", "function", "null")
 	R"(Resets a dead thread to the initial state.
@@ -97,7 +97,7 @@ word_t _reset(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _state_info =
+const StdlibRegisterInfo _state_info =
 {
 	Docstr(DFunc("state")
 	R"(\returns the state of this thread as one of the following strings:
@@ -121,7 +121,7 @@ word_t _state(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _isInitial_info =
+const StdlibRegisterInfo _isInitial_info =
 {
 	Docstr(DFunc("isInitial")
 	R"(These are just convenience methods to test the state of a thread without having to write out a longer string
@@ -139,7 +139,7 @@ word_t _isInitial(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _isRunning_info =
+const StdlibRegisterInfo _isRunning_info =
 {
 	Docstr(DFunc("isRunning")
 	R"(ditto)"),
@@ -154,7 +154,7 @@ word_t _isRunning(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _isWaiting_info =
+const StdlibRegisterInfo _isWaiting_info =
 {
 	Docstr(DFunc("isWaiting")
 	R"(ditto)"),
@@ -169,7 +169,7 @@ word_t _isWaiting(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _isSuspended_info =
+const StdlibRegisterInfo _isSuspended_info =
 {
 	Docstr(DFunc("isSuspended")
 	R"(ditto)"),
@@ -184,7 +184,7 @@ word_t _isSuspended(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _isDead_info =
+const StdlibRegisterInfo _isDead_info =
 {
 	Docstr(DFunc("isDead")
 	R"(ditto)"),
@@ -199,7 +199,7 @@ word_t _isDead(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _methodFuncs[] =
+const StdlibRegister _methodFuncs[] =
 {
 	_DListItem(_reset),
 	_DListItem(_state),
@@ -213,10 +213,10 @@ const _StdlibRegister _methodFuncs[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 
 	croc_namespace_new(t, "thread");
-		_registerFields(t, _methodFuncs);
+		registerFields(t, _methodFuncs);
 	croc_vm_setTypeMT(t, CrocType_Thread);
 	return 0;
 }
@@ -232,13 +232,13 @@ void initThreadLib(CrocThread* t)
 	croc_ex_doc_push(&doc,
 	DModule("thread")
 	R"()");
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 
 		croc_vm_pushTypeMT(t, CrocType_Thread);
 			croc_ex_doc_push(&doc,
 			DNs("thread")
 			R"(This is the method namespace for thread objects.)");
-			_docFields(&doc, _methodFuncs);
+			docFields(&doc, _methodFuncs);
 			croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
 	croc_ex_doc_pop(&doc, -1);

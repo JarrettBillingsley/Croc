@@ -16,7 +16,7 @@ namespace
 {
 // =====================================================================================================================
 // Global functions
-const _StdlibRegisterInfo _new_info =
+const StdlibRegisterInfo _new_info =
 {
 	Docstr(DFunc("new") DParam("size", "int") DParamD("fill", "int", "0")
 	R"(Creates a new memblock.
@@ -48,7 +48,7 @@ word_t _new(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _fromArray_info =
+const StdlibRegisterInfo _fromArray_info =
 {
 	Docstr(DFunc("fromArray") DParam("arr", "array")
 	R"(Creates a new memblock using the contents of the array as the data.
@@ -84,7 +84,7 @@ word_t _fromArray(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_new),
 	_DListItem(_fromArray),
@@ -94,7 +94,7 @@ const _StdlibRegister _globalFuncs[] =
 // =====================================================================================================================
 // Methods
 
-const _StdlibRegisterInfo _toString_info =
+const StdlibRegisterInfo _toString_info =
 {
 	Docstr(DFunc("toString")
 	R"(\returns a string representation of this memblock in the form \tt{"memblock[contents]"}.
@@ -135,7 +135,7 @@ word_t _toString(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _dup_info =
+const StdlibRegisterInfo _dup_info =
 {
 	Docstr(DFunc("dup")
 	R"(\returns a duplicate of this memblock.
@@ -154,7 +154,7 @@ word_t _dup(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _ownData_info =
+const StdlibRegisterInfo _ownData_info =
 {
 	Docstr(DFunc("ownData")
 	R"(\returns a bool indicating whether or not this memblock owns its data. If true, it can be resized freely.)"),
@@ -168,7 +168,7 @@ word_t _ownData(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _fill_info =
+const StdlibRegisterInfo _fill_info =
 {
 	Docstr(DFunc("fill") DParam("val", "int")
 	R"(Fills every byte of this memblock with the given value (wrapped to the range of an unsigned byte).
@@ -185,7 +185,7 @@ word_t _fill(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _fillSlice_info =
+const StdlibRegisterInfo _fillSlice_info =
 {
 	Docstr(DFunc("fillSlice") DParamD("lo", "int", "0") DParamD("hi", "int", "#this") DParam("val", "int")
 	R"(Fills a slice of this memblock with the given value (wrapped to the range of an unsigned byte). The slice indices
@@ -227,7 +227,7 @@ word_t _rawRead(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _readInt8_info =
+const StdlibRegisterInfo _readInt8_info =
 {
 	Docstr(DFunc("readInt8") DParam("offs", "int")
 	R"(These functions all read a numerical value of the given type from the byte offset \tt{offs}.
@@ -253,7 +253,7 @@ const _StdlibRegisterInfo _readInt8_info =
 
 #define _readInt8 _rawRead<int8_t>
 
-const _StdlibRegisterInfo _readInt16_info =
+const StdlibRegisterInfo _readInt16_info =
 {
 	Docstr(DFunc("readInt16") DParam("offs", "int") R"(ditto)"),
 	"readInt16", 1
@@ -261,7 +261,7 @@ const _StdlibRegisterInfo _readInt16_info =
 
 #define _readInt16 _rawRead<int16_t>
 
-const _StdlibRegisterInfo _readInt32_info =
+const StdlibRegisterInfo _readInt32_info =
 {
 	Docstr(DFunc("readInt32") DParam("offs", "int") R"(ditto)"),
 	"readInt32", 1
@@ -269,7 +269,7 @@ const _StdlibRegisterInfo _readInt32_info =
 
 #define _readInt32 _rawRead<int32_t>
 
-const _StdlibRegisterInfo _readInt64_info =
+const StdlibRegisterInfo _readInt64_info =
 {
 	Docstr(DFunc("readInt64") DParam("offs", "int") R"(ditto)"),
 	"readInt64", 1
@@ -277,7 +277,7 @@ const _StdlibRegisterInfo _readInt64_info =
 
 #define _readInt64 _rawRead<int64_t>
 
-const _StdlibRegisterInfo _readUInt8_info =
+const StdlibRegisterInfo _readUInt8_info =
 {
 	Docstr(DFunc("readUInt8") DParam("offs", "int") R"(ditto)"),
 	"readUInt8", 1
@@ -285,7 +285,7 @@ const _StdlibRegisterInfo _readUInt8_info =
 
 #define _readUInt8 _rawRead<uint8_t>
 
-const _StdlibRegisterInfo _readUInt16_info =
+const StdlibRegisterInfo _readUInt16_info =
 {
 	Docstr(DFunc("readUInt16") DParam("offs", "int") R"(ditto)"),
 	"readUInt16", 1
@@ -293,7 +293,7 @@ const _StdlibRegisterInfo _readUInt16_info =
 
 #define _readUInt16 _rawRead<uint16_t>
 
-const _StdlibRegisterInfo _readUInt32_info =
+const StdlibRegisterInfo _readUInt32_info =
 {
 	Docstr(DFunc("readUInt32") DParam("offs", "int") R"(ditto)"),
 	"readUInt32", 1
@@ -301,7 +301,7 @@ const _StdlibRegisterInfo _readUInt32_info =
 
 #define _readUInt32 _rawRead<uint32_t>
 
-const _StdlibRegisterInfo _readUInt64_info =
+const StdlibRegisterInfo _readUInt64_info =
 {
 	Docstr(DFunc("readUInt64") DParam("offs", "int") R"(ditto)"),
 	"readUInt64", 1
@@ -309,7 +309,7 @@ const _StdlibRegisterInfo _readUInt64_info =
 
 #define _readUInt64 _rawRead<uint64_t>
 
-const _StdlibRegisterInfo _readFloat32_info =
+const StdlibRegisterInfo _readFloat32_info =
 {
 	Docstr(DFunc("readFloat32") DParam("offs", "int") R"(ditto)"),
 	"readFloat32", 1
@@ -317,7 +317,7 @@ const _StdlibRegisterInfo _readFloat32_info =
 
 #define _readFloat32 _rawRead<float>
 
-const _StdlibRegisterInfo _readFloat64_info =
+const StdlibRegisterInfo _readFloat64_info =
 {
 	Docstr(DFunc("readFloat64") DParam("offs", "int") R"(ditto)"),
 	"readFloat64", 1
@@ -346,7 +346,7 @@ word_t _rawWrite(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _writeInt8_info =
+const StdlibRegisterInfo _writeInt8_info =
 {
 	Docstr(DFunc("writeInt8") DParam("offs", "int") DParam("val", "int")
 	R"(These functions all write the numerical value \tt{val} of the given type to the byte offset \tt{offs}.
@@ -370,7 +370,7 @@ const _StdlibRegisterInfo _writeInt8_info =
 
 #define _writeInt8 _rawWrite<int8_t>
 
-const _StdlibRegisterInfo _writeInt16_info =
+const StdlibRegisterInfo _writeInt16_info =
 {
 	Docstr(DFunc("writeInt16") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
 	"writeInt16", 2
@@ -378,7 +378,7 @@ const _StdlibRegisterInfo _writeInt16_info =
 
 #define _writeInt16 _rawWrite<int16_t>
 
-const _StdlibRegisterInfo _writeInt32_info =
+const StdlibRegisterInfo _writeInt32_info =
 {
 	Docstr(DFunc("writeInt32") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
 	"writeInt32", 2
@@ -386,7 +386,7 @@ const _StdlibRegisterInfo _writeInt32_info =
 
 #define _writeInt32 _rawWrite<int32_t>
 
-const _StdlibRegisterInfo _writeInt64_info =
+const StdlibRegisterInfo _writeInt64_info =
 {
 	Docstr(DFunc("writeInt64") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
 	"writeInt64", 2
@@ -394,7 +394,7 @@ const _StdlibRegisterInfo _writeInt64_info =
 
 #define _writeInt64 _rawWrite<int64_t>
 
-const _StdlibRegisterInfo _writeUInt8_info =
+const StdlibRegisterInfo _writeUInt8_info =
 {
 	Docstr(DFunc("writeUInt8") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
 	"writeUInt8", 2
@@ -402,7 +402,7 @@ const _StdlibRegisterInfo _writeUInt8_info =
 
 #define _writeUInt8 _rawWrite<uint8_t>
 
-const _StdlibRegisterInfo _writeUInt16_info =
+const StdlibRegisterInfo _writeUInt16_info =
 {
 	Docstr(DFunc("writeUInt16") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
 	"writeUInt16", 2
@@ -410,7 +410,7 @@ const _StdlibRegisterInfo _writeUInt16_info =
 
 #define _writeUInt16 _rawWrite<uint16_t>
 
-const _StdlibRegisterInfo _writeUInt32_info =
+const StdlibRegisterInfo _writeUInt32_info =
 {
 	Docstr(DFunc("writeUInt32") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
 	"writeUInt32", 2
@@ -418,7 +418,7 @@ const _StdlibRegisterInfo _writeUInt32_info =
 
 #define _writeUInt32 _rawWrite<uint32_t>
 
-const _StdlibRegisterInfo _writeUInt64_info =
+const StdlibRegisterInfo _writeUInt64_info =
 {
 	Docstr(DFunc("writeUInt64") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
 	"writeUInt64", 2
@@ -426,7 +426,7 @@ const _StdlibRegisterInfo _writeUInt64_info =
 
 #define _writeUInt64 _rawWrite<uint64_t>
 
-const _StdlibRegisterInfo _writeFloat32_info =
+const StdlibRegisterInfo _writeFloat32_info =
 {
 	Docstr(DFunc("writeFloat32") DParam("offs", "int") DParam("val", "int|float") R"(ditto)"),
 	"writeFloat32", 2
@@ -434,7 +434,7 @@ const _StdlibRegisterInfo _writeFloat32_info =
 
 #define _writeFloat32 _rawWrite<float>
 
-const _StdlibRegisterInfo _writeFloat64_info =
+const StdlibRegisterInfo _writeFloat64_info =
 {
 	Docstr(DFunc("writeFloat64") DParam("offs", "int") DParam("val", "int|float") R"(ditto)"),
 	"writeFloat64", 2
@@ -461,7 +461,7 @@ word_t _commonFindByte(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _findByte_info =
+const StdlibRegisterInfo _findByte_info =
 {
 	Docstr(DFunc("findByte") DParam("val", "int") DParamD("start", "int", "0")
 	R"(Find a byte equal to \tt{val} in this memblock starting at byte offset \tt{start} and going right.
@@ -478,7 +478,7 @@ const _StdlibRegisterInfo _findByte_info =
 
 #define _findByte _commonFindByte<false>
 
-const _StdlibRegisterInfo _rfindByte_info =
+const StdlibRegisterInfo _rfindByte_info =
 {
 	Docstr(DFunc("rfindByte") DParam("val", "int") DParamD("start", "int", "#this - 1")
 	R"(Find a byte equal to \tt{val} in this memblock starting at byte offset \tt{start} and going left.
@@ -510,7 +510,7 @@ word_t _commonFindBytes(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _findBytes_info =
+const StdlibRegisterInfo _findBytes_info =
 {
 	Docstr(DFunc("findBytes") DParam("sub", "memblock") DParamD("start", "int", "0")
 	R"(Same as \link{findByte}, except searches for a sequence of bytes identical to the memblock \tt{sub}.)"),
@@ -519,7 +519,7 @@ const _StdlibRegisterInfo _findBytes_info =
 
 #define _findBytes _commonFindBytes<false>
 
-const _StdlibRegisterInfo _rfindBytes_info =
+const StdlibRegisterInfo _rfindBytes_info =
 {
 	Docstr(DFunc("rfindBytes")
 	R"(Same as \link{rfindByte}, except searches for a sequence of bytes identical to the memblock \tt{sub}.)"),
@@ -528,7 +528,7 @@ const _StdlibRegisterInfo _rfindBytes_info =
 
 #define _rfindBytes _commonFindBytes<true>
 
-const _StdlibRegisterInfo _copy_info =
+const StdlibRegisterInfo _copy_info =
 {
 	Docstr(DFunc("copy") DParam("dstOffs", "int") DParam("src", "memblock") DParam("srcOffs", "int")
 		DParam("size", "int")
@@ -584,7 +584,7 @@ word_t _copy(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _compare_info =
+const StdlibRegisterInfo _compare_info =
 {
 	Docstr(DFunc("compare") DParam("lhsOffs", "int") DParam("rhs", "memblock") DParam("rhsOffs", "int")
 		DParam("size", "int")
@@ -633,7 +633,7 @@ word_t _compare(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opEquals_info =
+const StdlibRegisterInfo _opEquals_info =
 {
 	Docstr(DFunc("opEquals") DParam("other", "memblock")
 	R"(Compares two memblocks for exact data equality.
@@ -657,7 +657,7 @@ word_t _opEquals(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opCmp_info =
+const StdlibRegisterInfo _opCmp_info =
 {
 	Docstr(DFunc("opCmp") DParam("other", "memblock")
 	R"(Compares the contents of two memblocks lexicographically.
@@ -681,7 +681,7 @@ word_t _opCmp(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opCat_info =
+const StdlibRegisterInfo _opCat_info =
 {
 	Docstr(DFunc("opCat") DParam("other", "memblock")
 	R"(Concatenates two memblocks, returning a new memblock whose contents are a concatenation of the two sources.
@@ -700,7 +700,7 @@ word_t _opCat(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opCatAssign_info =
+const StdlibRegisterInfo _opCatAssign_info =
 {
 	Docstr(DFunc("opCatAssign") DVararg
 	R"(Appends memblocks to the end of this memblock, resizing this memblock to hold all the contents and copying the
@@ -755,7 +755,7 @@ word_t _opCatAssign(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegister _methodFuncs[] =
+const StdlibRegister _methodFuncs[] =
 {
 	_DListItem(_toString),
 	_DListItem(_dup),
@@ -795,7 +795,7 @@ const _StdlibRegister _methodFuncs[] =
 	_DListEnd
 };
 
-const _StdlibRegisterInfo _iterator_info =
+const StdlibRegisterInfo _iterator_info =
 {
 	nullptr,
 	"iterator", 1
@@ -814,7 +814,7 @@ word_t _iterator(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _iteratorReverse_info =
+const StdlibRegisterInfo _iteratorReverse_info =
 {
 	nullptr,
 	"iteratorReverse", 1
@@ -833,7 +833,7 @@ word_t _iteratorReverse(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _opApply_info =
+const StdlibRegisterInfo _opApply_info =
 {
 	Docstr(DFunc("opApply") DParamD("mode", "string", "null")
 	R"(Allows you to iterate over the contents of a memblock with \tt{foreach} loops.
@@ -876,7 +876,7 @@ word_t _opApply(CrocThread* t)
 	return 3;
 }
 
-const _StdlibRegister _opApplyFunc[] =
+const StdlibRegister _opApplyFunc[] =
 {
 	_DListItem(_iterator),
 	_DListItem(_iteratorReverse),
@@ -889,11 +889,11 @@ const _StdlibRegister _opApplyFunc[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 
 	croc_namespace_new(t, "memblock");
-		_registerFields(t, _methodFuncs);
-		_registerFieldUV(t, _opApplyFunc);
+		registerFields(t, _methodFuncs);
+		registerFieldUV(t, _opApplyFunc);
 		croc_field(t, -1, "opCatAssign"); croc_fielda(t, -2, "append");
 	croc_vm_setTypeMT(t, CrocType_Memblock);
 	return 0;
@@ -911,14 +911,14 @@ void initMemblockLib(CrocThread* t)
 	DModule("memblock")
 	R"(The memblock library provides built-in methods for the \tt{memblock} type, as well as the only means to
 	actually create memblocks.)");
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 
 		croc_vm_pushTypeMT(t, CrocType_Memblock);
 			croc_ex_doc_push(&doc,
 			DNs("memblock")
 			R"(This is the method namespace for memblock objects.)");
-			_docFields(&doc, _methodFuncs);
-			_docFieldUV(&doc, _opApplyFunc);
+			docFields(&doc, _methodFuncs);
+			docFieldUV(&doc, _opApplyFunc);
 			croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
 	croc_ex_doc_pop(&doc, -1);

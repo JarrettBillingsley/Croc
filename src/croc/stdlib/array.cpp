@@ -14,7 +14,7 @@ namespace
 {
 #define checkArrayParam(t, n) (croc_ex_checkParam((t), (n), CrocType_Array), getArray(Thread::from(t), (n)))
 
-const _StdlibRegisterInfo _new_info =
+const StdlibRegisterInfo _new_info =
 {
 	Docstr(DFunc("new") DParam("size", "int") DParamD("fill", "any", "null")
 	R"(Creates an array object of length \tt{size}, filling it with the value \tt{fill} (which defaults to
@@ -44,7 +44,7 @@ word_t _new(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _new2D_info =
+const StdlibRegisterInfo _new2D_info =
 {
 	Docstr(DFunc("new2D") DParam("size1", "int") DParam("size2", "int") DParamD("fill", "any", "null")
 	R"(Just like \link{new}, but creates an array of arrays. The outer array will have length \tt{size1}, and each of
@@ -91,7 +91,7 @@ word_t _new2D(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _new3D_info =
+const StdlibRegisterInfo _new3D_info =
 {
 	Docstr(DFunc("new3D") DParam("size1", "int") DParam("size2", "int") DParam("size3", "int")
 		DParamD("fill", "any", "null")
@@ -158,7 +158,7 @@ word_t _new3D(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _range_info =
+const StdlibRegisterInfo _range_info =
 {
 	Docstr(DFunc("range") DParam("val1", "int") DParamD("val2", "int", "null") DParamD("step", "int", "null")
 	R"(Creates a new array whose elements are a range of integers.
@@ -228,7 +228,7 @@ word_t _range(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opEquals_info
+const StdlibRegisterInfo _opEquals_info
 {
 	Docstr(DFunc("opEquals") DParam("other", "array")
 	R"(Compares two arrays for shallow equality.
@@ -247,7 +247,7 @@ word_t _opEquals(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _sort_info =
+const StdlibRegisterInfo _sort_info =
 {
 	Docstr(DFunc("sort") DParamD("how", "function|string", "null")
 
@@ -342,7 +342,7 @@ word_t _sort(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _reverse_info =
+const StdlibRegisterInfo _reverse_info =
 {
 	Docstr(DFunc("reverse")
 	R"(Reverses this array's elements in place.
@@ -361,7 +361,7 @@ word_t _reverse(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _dup_info =
+const StdlibRegisterInfo _dup_info =
 {
 	Docstr(DFunc("dup")
 	R"(\returns a shallow copy of this array. Only the elements are copied, not any data that they point to.)"),
@@ -379,7 +379,7 @@ word_t _dup(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _expand_info =
+const StdlibRegisterInfo _expand_info =
 {
 	Docstr(DFunc("expand")
 	R"(\returns all the elements of this array in order. In this way, you can "unpack" an array's values to pass as
@@ -406,7 +406,7 @@ word_t _expand(CrocThread* t)
 	return arr.length;
 }
 
-const _StdlibRegisterInfo _toString_info =
+const StdlibRegisterInfo _toString_info =
 {
 	Docstr(DFunc("toString")
 	R"(Returns a nice string representation of this array. This will format this array into a string that looks like a
@@ -456,7 +456,7 @@ word_t _toString(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _apply_info =
+const StdlibRegisterInfo _apply_info =
 {
 	Docstr(DFunc("apply") DParam("func", "function")
 	R"(Iterates over this array, calling the function with each element of this array, and assigns the result of the
@@ -492,7 +492,7 @@ word_t _apply(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _map_info =
+const StdlibRegisterInfo _map_info =
 {
 	Docstr(DFunc("map") DParam("func", "function")
 	R"(Same as \link{apply}, except this array is unmodified and the values returned by \tt{func} are put into a new
@@ -523,7 +523,7 @@ word_t _map(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _reduce_info =
+const StdlibRegisterInfo _reduce_info =
 {
 	Docstr(DFunc("reduce") DParam("func", "function") DParamD("start", "any", "null")
 
@@ -587,7 +587,7 @@ word_t _reduce(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _rreduce_info =
+const StdlibRegisterInfo _rreduce_info =
 {
 	Docstr(DFunc("rreduce") DParam("func", "function") DParamD("start", "any", "null")
 	R"(Similar to \link{reduce}, but treats \tt{func} as a right-associative operator, meaning it goes through this
@@ -648,7 +648,7 @@ word_t _rreduce(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _filter_info =
+const StdlibRegisterInfo _filter_info =
 {
 	Docstr(DFunc("filter") DParam("func", "function")
 	R"(Creates a new array which holds only those elements for which the given function returned \tt{true} when called
@@ -715,7 +715,7 @@ word_t _filter(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _find_info =
+const StdlibRegisterInfo _find_info =
 {
 	Docstr(DFunc("find") DParamAny("value") DParamD("start", "int", "0")
 	R"(Performs a linear search for \tt{value} in this array, starting at \tt{start} and going right.
@@ -768,7 +768,7 @@ word_t _find(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _findIf_info =
+const StdlibRegisterInfo _findIf_info =
 {
 	Docstr(DFunc("findIf") DParam("pred", "function") DParamD("start", "int", "0")
 	R"(Performs a linear search starting at \tt{start} and going right for the first element which, when passed to
@@ -823,7 +823,7 @@ word_t _findIf(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _bsearch_info =
+const StdlibRegisterInfo _bsearch_info =
 {
 	Docstr(DFunc("bsearch") DParamAny("value")
 
@@ -879,7 +879,7 @@ word_t _bsearch(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _pop_info =
+const StdlibRegisterInfo _pop_info =
 {
 	Docstr(DFunc("pop") DParamD("index", "int", "-1")
 	R"(Removes a single element from this array (by default the last one), shifting up any elements after it if there
@@ -914,7 +914,7 @@ word_t _pop(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _insert_info =
+const StdlibRegisterInfo _insert_info =
 {
 	Docstr(DFunc("insert") DParam("index", "int") DParamAny("value")
 	R"(The inverse of \link{pop}, this inserts a value into this array at a given index, shifting down any elements
@@ -957,7 +957,7 @@ word_t _insert(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _swap_info =
+const StdlibRegisterInfo _swap_info =
 {
 	Docstr(DFunc("swap") DParam("idx1", "int") DParam("idx2", "int")
 	R"(Swaps the values at the given indices.
@@ -989,7 +989,7 @@ word_t _swap(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _set_info =
+const StdlibRegisterInfo _set_info =
 {
 	Docstr(DFunc("set") DVararg
 	R"(Something like the inverse of \link{expand}, this takes a variadic number of arguments, sets this array's length
@@ -1013,7 +1013,7 @@ word_t _set(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _min_info =
+const StdlibRegisterInfo _min_info =
 {
 	Docstr(DFunc("min")
 	R"(\returns the smallest value in this array. All elements of the array must be comparable to each other for this to
@@ -1052,7 +1052,7 @@ word_t _min(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _max_info =
+const StdlibRegisterInfo _max_info =
 {
 	Docstr(DFunc("max")
 	R"(\returns the largest value in this array. All elements of the array must be comparable to each other for this to
@@ -1091,7 +1091,7 @@ word_t _max(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _extreme_info =
+const StdlibRegisterInfo _extreme_info =
 {
 	Docstr(DFunc("extreme") DParam("pred", "function")
 	R"(A generic version of \link{min} and \link{max}, this uses a predicate function to determine which element is the
@@ -1155,7 +1155,7 @@ word_t _extreme(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _any_info =
+const StdlibRegisterInfo _any_info =
 {
 	Docstr(DFunc("any") DParamD("pred", "function", "null")
 	R"(This is a generalized boolean "or" (logical disjunction) operation.
@@ -1214,7 +1214,7 @@ word_t _any(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _all_info =
+const StdlibRegisterInfo _all_info =
 {
 	Docstr(DFunc("all") DParamD("pred", "function", "null")
 	R"(This is a generalized boolean "and" (logical conjunction) operation.
@@ -1273,7 +1273,7 @@ word_t _all(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _fill_info =
+const StdlibRegisterInfo _fill_info =
 {
 	Docstr(DFunc("fill") DParamAny("value")
 	R"(Sets every element in the array to the given value.)"),
@@ -1290,7 +1290,7 @@ word_t _fill(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _append_info =
+const StdlibRegisterInfo _append_info =
 {
 	Docstr(DFunc("append") DVararg
 	R"(Appends all the arguments to the end of the array, in order. This is different from the append operator (~=),
@@ -1316,7 +1316,7 @@ word_t _append(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _count_info =
+const StdlibRegisterInfo _count_info =
 {
 	Docstr(DFunc("count") DParamAny("value") DParamD("pred", "function", "null")
 	R"(Counts the number of times \tt{value} appears in this array, optionally using a predicate function to perform the
@@ -1390,7 +1390,7 @@ word_t _count(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _countIf_info =
+const StdlibRegisterInfo _countIf_info =
 {
 	Docstr(DFunc("countIf") DParam("pred", "function")
 	R"(Very similar to \link{count}, but more general. This version simply counts the number of items for which
@@ -1434,7 +1434,7 @@ word_t _countIf(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _iterator_info =
+const StdlibRegisterInfo _iterator_info =
 {
 	nullptr,
 	"iterator", 1
@@ -1454,7 +1454,7 @@ word_t _iterator(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _iteratorReverse_info =
+const StdlibRegisterInfo _iteratorReverse_info =
 {
 	nullptr,
 	"iteratorReverse", 1
@@ -1474,7 +1474,7 @@ word_t _iteratorReverse(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _opApply_info =
+const StdlibRegisterInfo _opApply_info =
 {
 	Docstr(DFunc("opApply") DParamD("mode", "string", "null")
 	R"(This allows you to iterate over arrays using \tt{foreach} loops.
@@ -1513,7 +1513,7 @@ word_t _opApply(CrocThread* t)
 	return 3;
 }
 
-const _StdlibRegisterInfo _flatten_info =
+const StdlibRegisterInfo _flatten_info =
 {
 	Docstr(DFunc("flatten")
 	R"(Flattens a multi-dimensional array into a single-dimensional array.
@@ -1569,7 +1569,7 @@ word_t _flatten(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_new),
 	_DListItem(_new2D),
@@ -1578,7 +1578,7 @@ const _StdlibRegister _globalFuncs[] =
 	_DListEnd
 };
 
-const _StdlibRegister _methodFuncs[] =
+const StdlibRegister _methodFuncs[] =
 {
 	_DListItem(_opEquals),
 	_DListItem(_sort),
@@ -1610,7 +1610,7 @@ const _StdlibRegister _methodFuncs[] =
 	_DListEnd
 };
 
-const _StdlibRegister _opApplyFunc[] =
+const StdlibRegister _opApplyFunc[] =
 {
 	_DListItem(_iterator),
 	_DListItem(_iteratorReverse),
@@ -1618,18 +1618,18 @@ const _StdlibRegister _opApplyFunc[] =
 	_DListEnd
 };
 
-const _StdlibRegister _flattenFunc = _DListItem(_flatten);
+const StdlibRegister _flattenFunc = _DListItem(_flatten);
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 
 	croc_namespace_new(t, "array");
-		_registerFields(t, _methodFuncs);
-		_registerFieldUV(t, _opApplyFunc);
+		registerFields(t, _methodFuncs);
+		registerFieldUV(t, _opApplyFunc);
 
 			croc_table_new(t, 0);
-		_registerField(t, _flattenFunc, 1);
+		registerField(t, _flattenFunc, 1);
 	croc_vm_setTypeMT(t, CrocType_Array);
 	return 0;
 }
@@ -1645,15 +1645,15 @@ void initArrayLib(CrocThread* t)
 	croc_ex_doc_push(&doc,
 	DModule("array")
 	R"(The array library provides functionality for creating and manipulating arrays.)");
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 
 		croc_vm_pushTypeMT(t, CrocType_Array);
 			croc_ex_doc_push(&doc,
 			DNs("array")
 			R"(This is the method namespace for array objects.)");
-			_docFields(&doc, _methodFuncs);
-			_docFieldUV(&doc, _opApplyFunc);
-			_docField(&doc, _flattenFunc);
+			docFields(&doc, _methodFuncs);
+			docFieldUV(&doc, _opApplyFunc);
+			docField(&doc, _flattenFunc);
 			croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
 	croc_ex_doc_pop(&doc, -1);

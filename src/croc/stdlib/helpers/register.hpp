@@ -21,10 +21,6 @@ namespace croc
 #define DParamD CROC_DOC_PARAMD
 #define DVararg CROC_DOC_VARARG
 
-#define DBeginList(name) const StdlibRegister name[] = {{
-#define DListSep() },{
-#define DEndList() },{nullptr, nullptr, 0, nullptr}};
-
 #define _DListItem(name) {name##_info, &name}
 #define _DListEnd {{nullptr, nullptr, 0}, nullptr}
 
@@ -37,24 +33,16 @@ namespace croc
 #endif
 	}
 
+	struct StdlibRegisterInfo
+	{
+		const char* docs;
+		const char* name;
+		word maxParams;
+	};
+
 	struct StdlibRegister
 	{
-		const char* docs;
-		const char* name;
-		word maxParams;
-		CrocNativeFunc func;
-	};
-
-	struct _StdlibRegisterInfo
-	{
-		const char* docs;
-		const char* name;
-		word maxParams;
-	};
-
-	struct _StdlibRegister
-	{
-		_StdlibRegisterInfo info;
+		StdlibRegisterInfo info;
 		CrocNativeFunc func;
 	};
 
@@ -74,24 +62,6 @@ namespace croc
 	void docFieldUV(CrocDoc* d, const StdlibRegister* func);
 	void docGlobal(CrocDoc* d, const StdlibRegister& func);
 	void docField(CrocDoc* d, const StdlibRegister& func);
-#endif
-
-	void _registerGlobals(CrocThread* t, const _StdlibRegister* funcs);
-	void _registerFields(CrocThread* t, const _StdlibRegister* funcs);
-	void _registerMethods(CrocThread* t, const _StdlibRegister* funcs);
-	void _registerGlobalUV(CrocThread* t, const _StdlibRegister* func);
-	void _registerFieldUV(CrocThread* t, const _StdlibRegister* func);
-	void _registerMethodUV(CrocThread* t, const _StdlibRegister* func);
-	void _registerGlobal(CrocThread* t, const _StdlibRegister& func, uword numUVs);
-	void _registerField(CrocThread* t, const _StdlibRegister& func, uword numUVs);
-	void _registerMethod(CrocThread* t, const _StdlibRegister& func, uword numUVs);
-#ifdef CROC_BUILTIN_DOCS
-	void _docGlobals(CrocDoc* d, const _StdlibRegister* funcs);
-	void _docFields(CrocDoc* d, const _StdlibRegister* funcs);
-	void _docGlobalUV(CrocDoc* d, const _StdlibRegister* func);
-	void _docFieldUV(CrocDoc* d, const _StdlibRegister* func);
-	void _docGlobal(CrocDoc* d, const _StdlibRegister& func);
-	void _docField(CrocDoc* d, const _StdlibRegister& func);
 #endif
 
 }

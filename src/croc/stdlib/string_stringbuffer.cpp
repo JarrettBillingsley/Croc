@@ -228,7 +228,7 @@ void _fillImpl(CrocThread* t, Memblock* mb, word filler, uword lo, uword hi)
 // =====================================================================================================================
 // Methods
 
-const _StdlibRegisterInfo _constructor_info =
+const StdlibRegisterInfo _constructor_info =
 {
 	Docstr(DFunc("constructor") DParamD("init", "string|int", "null")
 	R"(If you pass nothing to the constructor, the \tt{StringBuffer} will be empty. If you pass a string, the
@@ -282,7 +282,7 @@ word_t _constructor(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _dup_info =
+const StdlibRegisterInfo _dup_info =
 {
 	Docstr(DFunc("dup")
 	R"(Creates a new \tt{StringBuffer} that is a duplicate of this one. Its length and contents will be identical.
@@ -308,7 +308,7 @@ word_t _dup(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toString_info =
+const StdlibRegisterInfo _toString_info =
 {
 	Docstr(DFunc("toString") DParamD("lo", "int", "0") DParamD("hi", "int", "#this")
 	R"(Converts this \tt{StringBuffer} to a string.
@@ -344,7 +344,7 @@ word_t _toString(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opEquals_info =
+const StdlibRegisterInfo _opEquals_info =
 {
 	Docstr(DFunc("opEquals") DParam("other", "string|StringBuffer")
 	R"(Compares this \tt{StringBuffer} to a \tt{string} or another \tt{StringBuffer} for equality. Works the same as
@@ -405,7 +405,7 @@ word_t _opEquals(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opCmp_info =
+const StdlibRegisterInfo _opCmp_info =
 {
 	Docstr(DFunc("opCmp") DParam("other", "string|StringBuffer")
 	R"(Compares this \tt{StringBuffer} to a \tt{string} or other \tt{StringBuffer}. Works the same as string
@@ -468,7 +468,7 @@ word_t _opCmp(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opLength_info =
+const StdlibRegisterInfo _opLength_info =
 {
 	Docstr(DFunc("opLength")
 	R"(Gets the length of this \tt{StringBuffer} in characters. Note that this is just the number of characters
@@ -485,7 +485,7 @@ word_t _opLength(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opLengthAssign_info =
+const StdlibRegisterInfo _opLengthAssign_info =
 {
 	Docstr(DFunc("opLengthAssign") DParam("len", "int")
 	R"(Sets the length of this \tt{StringBuffer}. If you increase the length, the new characters will be filled with
@@ -530,7 +530,7 @@ word_t _opLengthAssign(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _opIndex_info =
+const StdlibRegisterInfo _opIndex_info =
 {
 	Docstr(DFunc("opIndex") DParam("idx", "int")
 	R"(Gets the character at the given index as a string.
@@ -549,7 +549,7 @@ word_t _opIndex(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opIndexAssign_info =
+const StdlibRegisterInfo _opIndexAssign_info =
 {
 	Docstr(DFunc("opIndexAssign") DParam("idx", "int") DParam("c", "string")
 	R"(Sets the character at the given index to the given character.
@@ -570,7 +570,7 @@ word_t _opIndexAssign(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _opCat_info =
+const StdlibRegisterInfo _opCat_info =
 {
 	Docstr(DFunc("opCat") DParamAny("o")
 	R"(Concatenates this \tt{StringBuffer} with another value and returns a \b{new} \tt{StringBuffer} containing the
@@ -631,7 +631,7 @@ word_t _opCat(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opCat_r_info =
+const StdlibRegisterInfo _opCat_r_info =
 {
 	Docstr(DFunc("opCat_r") DParamAny("o")
 	R"(ditto)"),
@@ -681,7 +681,7 @@ word_t _opCat_r(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opCatAssign_info =
+const StdlibRegisterInfo _opCatAssign_info =
 {
 	Docstr(DFunc("opCatAssign") DVararg
 	R"x(\b{Also aliased to \tt{append}.} Appends its parameters to the end of this \tt{StringBuffer}.
@@ -757,7 +757,7 @@ word_t _opCatAssign(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opSlice_info =
+const StdlibRegisterInfo _opSlice_info =
 {
 	Docstr(DFunc("opSlice") DParamD("lo", "int", "0") DParamD("hi", "int", "#this")
 	R"(Slices data out of this \tt{StringBuffer} and creates a new \tt{StringBuffer} with that slice of data. Works just
@@ -782,7 +782,7 @@ word_t _opSlice(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _fill_info =
+const StdlibRegisterInfo _fill_info =
 {
 	Docstr(DFunc("fill") DParam("v", "string|array|function|StringBuffer")
 	R"(A flexible way to fill a \tt{StringBuffer} with some data. This only modifies existing data; the buffer's length
@@ -811,7 +811,7 @@ word_t _fill(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _fillRange_info =
+const StdlibRegisterInfo _fillRange_info =
 {
 	Docstr(DFunc("fillRange") DParamD("lo", "int", "0") DParamD("hi", "int", "#this")
 		DParam("v", "string|array|function|StringBuffer")
@@ -838,7 +838,7 @@ word_t _fillRange(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _fillChar_info =
+const StdlibRegisterInfo _fillChar_info =
 {
 	Docstr(DFunc("fillChar") DParam("ch", "string") DParamD("lo", "int", "0") DParamD("hi", "int", "#this")
 	R"(Sets every character to the character given by \tt{ch}, which must be a one-character string. Can optionally just
@@ -858,7 +858,7 @@ word_t _fillChar(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _insert_info =
+const StdlibRegisterInfo _insert_info =
 {
 	Docstr(DFunc("insert") DParam("idx", "int") DParamAny("val")
 	R"(Inserts the string representation of \tt{val} before the character indexed by \tt{idx}. \tt{idx} can be negative,
@@ -962,7 +962,7 @@ word_t _insert(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _remove_info =
+const StdlibRegisterInfo _remove_info =
 {
 	Docstr(DFunc("remove") DParam("lo", "int") DParamD("hi", "int", "lo + 1")
 	R"(Removes characters from a \tt{StringBuffer}, shifting the data after them (if any) down. The indices work like
@@ -1020,7 +1020,7 @@ word_t _commonFind(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _find_info =
+const StdlibRegisterInfo _find_info =
 {
 	Docstr(DFunc("find") DParam("sub", "string|StringBuffer") DParamD("start", "int", "0")
 	R"(Searches for an occurence of \tt{sub} in \tt{this}. \tt{sub} can be a string or another \tt{StringBuffer}. The
@@ -1037,7 +1037,7 @@ const _StdlibRegisterInfo _find_info =
 
 #define _find _commonFind<false>
 
-const _StdlibRegisterInfo _rfind_info =
+const StdlibRegisterInfo _rfind_info =
 {
 	Docstr(DFunc("rfind") DParam("sub", "string|StringBuffer") DParamD("start", "int", "#this - 1")
 	R"(Reverse find. Works similarly to \tt{find}, but the search starts with the character at \tt{start} (which
@@ -1054,7 +1054,7 @@ const _StdlibRegisterInfo _rfind_info =
 
 #define _rfind _commonFind<true>
 
-const _StdlibRegisterInfo _startsWith_info =
+const StdlibRegisterInfo _startsWith_info =
 {
 	Docstr(DFunc("startsWith") DParam("other", "string|StringBuffer")
 	R"(\returns a bool of whether or not \tt{this} starts with the substring \tt{other}. This is case-sensitive.)"),
@@ -1074,7 +1074,7 @@ word_t _startsWith(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _endsWith_info =
+const StdlibRegisterInfo _endsWith_info =
 {
 	Docstr(DFunc("endsWith") DParam("other", "string|StringBuffer")
 	R"(\returns a bool of whether or not \tt{this} ends with the substring \tt{other}. This is case-sensitive.)"),
@@ -1094,7 +1094,7 @@ word_t _endsWith(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _split_info =
+const StdlibRegisterInfo _split_info =
 {
 	Docstr(DFunc("split") DParam("delim", "string|StringBuffer")
 	R"(Splits \tt{this} into pieces (each piece being a new \tt{StringBuffer}) and returns an array of the split pieces.
@@ -1134,7 +1134,7 @@ word_t _split(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _vsplit_info =
+const StdlibRegisterInfo _vsplit_info =
 {
 	Docstr(DFunc("vsplit") DParam("delim", "string|StringBuffer")
 	R"(Similar to \link{split}, but instead of returning an array, returns the split pieces as multiple return values.
@@ -1171,7 +1171,7 @@ word_t _vsplit(CrocThread* t)
 	return num;
 }
 
-const _StdlibRegisterInfo _splitWS_info =
+const StdlibRegisterInfo _splitWS_info =
 {
 	Docstr(DFunc("splitWS")
 	R"(Similar to \link{split}, but splits at whitespace (spaces, tabs, newlines etc.), and all the whitespace is
@@ -1207,7 +1207,7 @@ word_t _splitWS(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _vsplitWS_info =
+const StdlibRegisterInfo _vsplitWS_info =
 {
 	Docstr(DFunc("vsplitWS")
 	R"(Similar to \link{vsplit} in that it returns multiple values, but works like \link{splitWS} instead. If \tt{this}
@@ -1238,7 +1238,7 @@ word_t _vsplitWS(CrocThread* t)
 	return num;
 }
 
-const _StdlibRegisterInfo _splitLines_info =
+const StdlibRegisterInfo _splitLines_info =
 {
 	Docstr(DFunc("splitLines")
 	R"(This will split \tt{this} at any newline characters (\tt{'\\n'}, \tt{'\\r'}, or \tt{'\\r\\n'}). The newline
@@ -1272,7 +1272,7 @@ word_t _splitLines(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _vsplitLines_info =
+const StdlibRegisterInfo _vsplitLines_info =
 {
 	Docstr(DFunc("vsplitLines")
 	R"(Similar to \link{splitLines}, but instead of returning an array, returns the split lines as multiple return
@@ -1300,7 +1300,7 @@ word_t _vsplitLines(CrocThread* t)
 	return num;
 }
 
-const _StdlibRegisterInfo _repeat_info =
+const StdlibRegisterInfo _repeat_info =
 {
 	Docstr(DFunc("repeat") DParam("n", "int")
 	R"(\returns a new \tt{StringBuffer} which is the concatenation of \tt{n} instances of \tt{this}. If \tt{n == 0},
@@ -1323,7 +1323,7 @@ word_t _repeat(CrocThread* t)
 	return croc_methodCall(t, -3, "repeat!", 1);
 }
 
-const _StdlibRegisterInfo _reverse_info =
+const StdlibRegisterInfo _reverse_info =
 {
 	Docstr(DFunc("reverse")
 	R"(\returns a new \tt{StringBuffer} whose contents are the reversal of \tt{this}.)"),
@@ -1341,7 +1341,7 @@ word_t _reverse(CrocThread* t)
 	return croc_methodCall(t, -2, "reverse!", 1);
 }
 
-const _StdlibRegisterInfo _strip_info =
+const StdlibRegisterInfo _strip_info =
 {
 	Docstr(DFunc("strip")
 	R"(\returns a new \tt{StringBuffer} whose contents are the same as \tt{this} but with any whitespace stripped from
@@ -1360,7 +1360,7 @@ word_t _strip(CrocThread* t)
 	return croc_methodCall(t, -2, "strip!", 1);
 }
 
-const _StdlibRegisterInfo _lstrip_info =
+const StdlibRegisterInfo _lstrip_info =
 {
 	Docstr(DFunc("lstrip")
 	R"(\returns a new \tt{StringBuffer} whose contents are the same as \tt{this} but with any whitespace stripped from
@@ -1379,7 +1379,7 @@ word_t _lstrip(CrocThread* t)
 	return croc_methodCall(t, -2, "lstrip!", 1);
 }
 
-const _StdlibRegisterInfo _rstrip_info =
+const StdlibRegisterInfo _rstrip_info =
 {
 	Docstr(DFunc("rstrip")
 	R"(\returns a new \tt{StringBuffer} whose contents are the same as \tt{this} but with any whitespace stripped from
@@ -1398,7 +1398,7 @@ word_t _rstrip(CrocThread* t)
 	return croc_methodCall(t, -2, "rstrip!", 1);
 }
 
-const _StdlibRegisterInfo _replace_info =
+const StdlibRegisterInfo _replace_info =
 {
 	Docstr(DFunc("replace") DParam("from", "string|StringBuffer") DParam("to", "string|StringBuffer")
 	R"(\returns a new \tt{StringBuffer} where any occurrences in \tt{this} of the string \tt{from} are replaced with the
@@ -1454,7 +1454,7 @@ word_t _replace(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _repeat_ip_info =
+const StdlibRegisterInfo _repeat_ip_info =
 {
 	Docstr(DFunc("repeat!") DParam("n", "int")
 	R"(These are all \em{in-place} versions of their corresponding methods. They work identically, except instead of
@@ -1492,7 +1492,7 @@ word_t _repeat_ip(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _reverse_ip_info =
+const StdlibRegisterInfo _reverse_ip_info =
 {
 	Docstr(DFunc("reverse!")
 	R"(ditto)"),
@@ -1518,7 +1518,7 @@ word_t _reverse_ip(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _strip_ip_info =
+const StdlibRegisterInfo _strip_ip_info =
 {
 	Docstr(DFunc("strip!")
 	R"(ditto)"),
@@ -1543,7 +1543,7 @@ word_t _strip_ip(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _lstrip_ip_info =
+const StdlibRegisterInfo _lstrip_ip_info =
 {
 	Docstr(DFunc("lstrip!")
 	R"(ditto)"),
@@ -1566,7 +1566,7 @@ word_t _lstrip_ip(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _rstrip_ip_info =
+const StdlibRegisterInfo _rstrip_ip_info =
 {
 	Docstr(DFunc("rstrip!")
 	R"(ditto)"),
@@ -1586,7 +1586,7 @@ word_t _rstrip_ip(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _replace_ip_info =
+const StdlibRegisterInfo _replace_ip_info =
 {
 	Docstr(DFunc("replace!") DParam("from", "string|StringBuffer") DParam("to", "string|StringBuffer")
 	R"(ditto)"),
@@ -1638,7 +1638,7 @@ word_t _replace_ip(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _format_info =
+const StdlibRegisterInfo _format_info =
 {
 	Docstr(DFunc("format") DParam("fmt", "string") DVararg
 	R"(Just like \link{string.format}, except the results are appended directly to the end of this \tt{StringBuffer}
@@ -1658,7 +1658,7 @@ word_t _format(CrocThread* t)
 	return croc_methodCall(t, -numPieces - 2, "append", 1);
 }
 
-const _StdlibRegisterInfo _formatln_info =
+const StdlibRegisterInfo _formatln_info =
 {
 	Docstr(DFunc("formatln") DParam("fmt", "string") DVararg
 	R"(Same as \tt{format}, but also appends the \tt{\\n} character after appending the formatted string.)"),
@@ -1674,7 +1674,7 @@ word_t _formatln(CrocThread* t)
 	return croc_methodCall(t, -3, "append", 1);
 }
 
-const _StdlibRegisterInfo _opSerialize_info =
+const StdlibRegisterInfo _opSerialize_info =
 {
 	Docstr(DFunc("opSerialize")
 	R"(These allow instances of \tt{StringBuffer} to be serialized by the \link{serialization} library.)"),
@@ -1701,7 +1701,7 @@ word_t _opSerialize(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _opDeserialize_info =
+const StdlibRegisterInfo _opDeserialize_info =
 {
 	Docstr(DFunc("opDeserialize")
 	R"(ditto)"),
@@ -1738,7 +1738,7 @@ word_t _opDeserialize(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegister _methods[] =
+const StdlibRegister _methods[] =
 {
 	_DListItem(_constructor),
 	_DListItem(_dup),
@@ -1787,7 +1787,7 @@ const _StdlibRegister _methods[] =
 	_DListEnd
 };
 
-const _StdlibRegisterInfo _iterator_info =
+const StdlibRegisterInfo _iterator_info =
 {
 	nullptr,
 	"iterator", 1
@@ -1807,7 +1807,7 @@ word_t _iterator(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _iteratorReverse_info =
+const StdlibRegisterInfo _iteratorReverse_info =
 {
 	nullptr,
 	"iteratorReverse", 1
@@ -1827,7 +1827,7 @@ word_t _iteratorReverse(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _opApply_info =
+const StdlibRegisterInfo _opApply_info =
 {
 	Docstr(DFunc("opApply") DParamD("reverse", "string", "null")
 	R"(Lets you iterate over \tt{StringBuffer}s with foreach loops just like strings. You can iterate in reverse, just
@@ -1863,7 +1863,7 @@ word_t _opApply(CrocThread* t)
 	return 3;
 }
 
-const _StdlibRegister _opApplyFunc[] =
+const StdlibRegister _opApplyFunc[] =
 {
 	_DListItem(_iterator),
 	_DListItem(_iteratorReverse),
@@ -1877,8 +1877,8 @@ void initStringLib_StringBuffer(CrocThread* t)
 	croc_class_new(t, "StringBuffer", 0);
 		croc_pushNull(t);   croc_class_addHField(t, -2, Data);
 		croc_pushInt(t, 0); croc_class_addHField(t, -2, Length);
-		_registerMethods(t, _methods);
-		_registerMethodUV(t, _opApplyFunc);
+		registerMethods(t, _methods);
+		registerMethodUV(t, _opApplyFunc);
 		croc_field(t, -1, "fillRange");   croc_class_addMethod(t, -2, "opSliceAssign");
 		croc_field(t, -1, "opCatAssign"); croc_class_addMethod(t, -2, "append");
 	croc_newGlobal(t, "StringBuffer");
@@ -1904,8 +1904,8 @@ void docStringLib_StringBuffer(CrocThread* t, CrocDoc* doc)
 		modifying version has none. For example, \link{reverse} will create a new \tt{StringBuffer}, whereas
 		\link{reverse!} will modify the given one in place.)");
 
-		_docFields(doc, _methods);
-		_docFieldUV(doc, _opApplyFunc);
+		docFields(doc, _methods);
+		docFieldUV(doc, _opApplyFunc);
 		croc_ex_doc_pop(doc, -1);
 	croc_popTop(t);
 }

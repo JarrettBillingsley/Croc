@@ -11,7 +11,7 @@ namespace croc
 {
 namespace
 {
-const _StdlibRegisterInfo _fromJSON_info =
+const StdlibRegisterInfo _fromJSON_info =
 {
 	Docstr(DFunc("fromJSON") DParam("j", "string")
 	R"(Parses the JSON \tt{j} into a Croc representation using null, bool, int, float, string, table, and array.
@@ -36,7 +36,7 @@ word_t _fromJSON(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toJSON_info =
+const StdlibRegisterInfo _toJSON_info =
 {
 	Docstr(DFunc("toJSON") DParamAny("root") DParamD("pretty", "bool", "false")
 	R"(Converts \tt{root} to a JSON string representation and returns that string.
@@ -72,7 +72,7 @@ word_t _toJSON(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _writeJSON_info =
+const StdlibRegisterInfo _writeJSON_info =
 {
 	Docstr(DFunc("writeJSON") DParamAny("dest") DParamAny("root") DParamD("pretty", "bool", "false")
 	R"(Like \link{toJSON}, but instead of returning a string, it calls methods of \tt{dest} to output the JSON.
@@ -114,7 +114,7 @@ word_t _writeJSON(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_fromJSON),
 	_DListItem(_toJSON),
@@ -124,7 +124,7 @@ const _StdlibRegister _globalFuncs[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 	return 0;
 }
 }
@@ -140,7 +140,7 @@ void initJSONLib(CrocThread* t)
 	DModule("json")
 	R"(\link[http://en.wikipedia.org/wiki/JSON]{JSON} is a standard for structured data interchange based on the
 	JavaScript object notation. This library allows you to convert to and from JSON.)");
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 	croc_ex_doc_pop(&doc, -1);
 	croc_ex_doc_finish(&doc);
 #endif

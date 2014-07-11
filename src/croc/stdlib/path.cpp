@@ -22,7 +22,7 @@ bool isAbsolute(crocstr path)
 	(path.length && path[0] == '/');
 }
 
-const _StdlibRegisterInfo _normalize_info =
+const StdlibRegisterInfo _normalize_info =
 {
 	Docstr(DFunc("normalize") DParam("path", "string")
 	R"(Normalize a path by removing redundant '.' and '..' segments, and removing consecutive slashes.
@@ -140,7 +140,7 @@ word_t _normalize(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toAbsolute_info =
+const StdlibRegisterInfo _toAbsolute_info =
 {
 	Docstr(DFunc("toAbsolute") DParam("path", "string")
 	R"(Converts a relative path \tt{path} to an absolute one (one defined from the root of the filesystem or drive).
@@ -190,7 +190,7 @@ word_t _toAbsolute(CrocThread* t)
 	return croc_call(t, -3, 1);
 }
 
-const _StdlibRegisterInfo _isAbsolute_info =
+const StdlibRegisterInfo _isAbsolute_info =
 {
 	Docstr(DFunc("isAbsolute") DParam("path", "string")
 	R"(\returns a bool of whether or not \tt{path} represents an absolute path.)"),
@@ -205,7 +205,7 @@ word_t _isAbsolute(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _join_info =
+const StdlibRegisterInfo _join_info =
 {
 	Docstr(DFunc("join") DParam("part1", "string") DVararg
 	R"(Joins together several pieces of paths into a single path. Can be called with only one parameter.
@@ -246,7 +246,7 @@ word_t _join(CrocThread* t)
 	return croc_methodCall(t, joiner, "vjoin", 1);
 }
 
-const _StdlibRegisterInfo _splitAtLastSep_info =
+const StdlibRegisterInfo _splitAtLastSep_info =
 {
 	Docstr(DFunc("splitAtLastSep") DParam("path", "string")
 	R"(Splits a path at the last separator (or the second to last if the last is the last character in \tt{path}),
@@ -303,7 +303,7 @@ word_t _splitAtLastSep(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _nameAndExt_info =
+const StdlibRegisterInfo _nameAndExt_info =
 {
 	Docstr(DFunc("nameAndExt") DParam("filename", "string")
 	R"(Given a \tt{filename}, splits it into a name component (everything before the last period) and an extension
@@ -345,7 +345,7 @@ word_t _nameAndExt(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_normalize),
 	_DListItem(_toAbsolute),
@@ -358,7 +358,7 @@ const _StdlibRegister _globalFuncs[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 	return 0;
 }
 }
@@ -374,7 +374,7 @@ void initPathLib(CrocThread* t)
 	DModule("path")
 	R"(This module provides a set of string manipulation functions for dealing with file paths. This module is safe
 	as it does not modify the filesystem, though it may read it to do its work.)");
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 	croc_ex_doc_pop(&doc, -1);
 	croc_ex_doc_finish(&doc);
 #endif

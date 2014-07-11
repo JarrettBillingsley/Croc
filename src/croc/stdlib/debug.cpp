@@ -186,7 +186,7 @@ are call frames which were overwritten by tailcalls. What happens with such call
 function which takes a parameter like this.)";
 #endif
 
-const _StdlibRegisterInfo _setHook_info =
+const StdlibRegisterInfo _setHook_info =
 {
 	Docstr(DFunc("setHook") DParam("hook", "function|null") DParamD("mask", "string", "\"\"")
 		DParamD("delay", "int", "0")
@@ -282,7 +282,7 @@ word_t _setHook(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _getHook_info =
+const StdlibRegisterInfo _getHook_info =
 {
 	Docstr(DFunc("getHook")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -309,7 +309,7 @@ word_t _getHook(CrocThread* t)
 	return 3;
 }
 
-const _StdlibRegisterInfo _callDepth_info =
+const StdlibRegisterInfo _callDepth_info =
 {
 	Docstr(DFunc("callDepth")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -332,7 +332,7 @@ word_t _callDepth(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _sourceName_info =
+const StdlibRegisterInfo _sourceName_info =
 {
 	Docstr(DFunc("sourceName") DParam("func", "int|function")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -358,7 +358,7 @@ word_t _sourceName(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _sourceLine_info =
+const StdlibRegisterInfo _sourceLine_info =
 {
 	Docstr(DFunc("sourceLine") DParam("func", "int|function")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -384,7 +384,7 @@ word_t _sourceLine(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _getFunc_info =
+const StdlibRegisterInfo _getFunc_info =
 {
 	Docstr(DFunc("getFunc") DParam("depth", "int")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -410,7 +410,7 @@ word_t _getFunc(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _numLocals_info =
+const StdlibRegisterInfo _numLocals_info =
 {
 	Docstr(DFunc("numLocals") DParam("depth", "int")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -448,7 +448,7 @@ word_t _numLocals(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _localName_info =
+const StdlibRegisterInfo _localName_info =
 {
 	Docstr(DFunc("localName") DParam("depth", "int") DParam("idx", "int")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -499,7 +499,7 @@ word_t _localName(CrocThread* t)
 	return croc_eh_throwStd(t, "BoundsError", "invalid local index '%" CROC_INTEGER_FORMAT "'", originalIdx);
 }
 
-const _StdlibRegisterInfo _getLocal_info =
+const StdlibRegisterInfo _getLocal_info =
 {
 	Docstr(DFunc("getLocal") DParam("depth", "int") DParam("which", "int|string")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -524,7 +524,7 @@ word_t _getLocal(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _setLocal_info =
+const StdlibRegisterInfo _setLocal_info =
 {
 	Docstr(DFunc("setLocal") DParam("depth", "int") DParam("which", "int|string") DParamAny("val")
 	R"(\b{Takes an optional thread as its first parameter.} Sets a local to the value \tt{val}.
@@ -549,7 +549,7 @@ word_t _setLocal(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _numUpvals_info =
+const StdlibRegisterInfo _numUpvals_info =
 {
 	Docstr(DFunc("numUpvals") DParam("func", "int|function")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -575,7 +575,7 @@ word_t _numUpvals(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _upvalName_info =
+const StdlibRegisterInfo _upvalName_info =
 {
 	Docstr(DFunc("upvalName") DParam("func", "int|function") DParam("idx", "int")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -608,7 +608,7 @@ word_t _upvalName(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _getUpval_info =
+const StdlibRegisterInfo _getUpval_info =
 {
 	Docstr(DFunc("getUpval") DParam("func", "int|function") DParam("which", "int|string")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -632,7 +632,7 @@ word_t _getUpval(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _setUpval_info =
+const StdlibRegisterInfo _setUpval_info =
 {
 	Docstr(DFunc("setUpval") DParam("func", "int|function") DParam("which", "int|string") DParamAny("val")
 	R"(\b{Takes an optional thread as its first parameter.} Sets an upvalue to the value \tt{val}.
@@ -656,7 +656,7 @@ word_t _setUpval(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _getFuncEnv_info =
+const StdlibRegisterInfo _getFuncEnv_info =
 {
 	Docstr(DFunc("getFuncEnv") DParam("func", "int|function")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -681,7 +681,7 @@ word_t _getFuncEnv(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _setFuncEnv_info =
+const StdlibRegisterInfo _setFuncEnv_info =
 {
 	Docstr(DFunc("setFuncEnv") DParam("func", "int|function") DParam("env", "namespace")
 	R"(\b{Takes an optional thread as its first parameter.} Sets the native function \tt{func}'s environment to
@@ -715,7 +715,7 @@ word_t _setFuncEnv(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _currentLine_info =
+const StdlibRegisterInfo _currentLine_info =
 {
 	Docstr(DFunc("currentLine") DParam("depth", "int")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -751,7 +751,7 @@ word_t _currentLine(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _lineInfo_info =
+const StdlibRegisterInfo _lineInfo_info =
 {
 	Docstr(DFunc("lineInfo") DParam("func", "int|function")
 	R"(\b{Takes an optional thread as its first parameter.}
@@ -794,7 +794,7 @@ word_t _lineInfo(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _getMetatable_info =
+const StdlibRegisterInfo _getMetatable_info =
 {
 	Docstr(DFunc("getMetatable") DParam("type", "string")
 	R"(Gets the global type metatable for a given Croc type.
@@ -831,7 +831,7 @@ word_t _getMetatable(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _setMetatable_info =
+const StdlibRegisterInfo _setMetatable_info =
 {
 	Docstr(DFunc("setMetatable") DParam("type", "string") DParam("mt", "null|namespace")
 	R"(Sets or removes the global type metatable for a given Croc type.
@@ -873,7 +873,7 @@ word_t _setMetatable(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _getRegistry_info =
+const StdlibRegisterInfo _getRegistry_info =
 {
 	Docstr(DFunc("getRegistry")
 	R"(\returns the registry namespace which is used by the host to hold "hidden" globals.)"),
@@ -887,7 +887,7 @@ word_t _getRegistry(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _addHField_info =
+const StdlibRegisterInfo _addHField_info =
 {
 	Docstr(DFunc("addHField") DParam("cls", "class") DParam("name", "string") DParamD("val", "any", "null")
 	R"(Adds a hidden field to a class.
@@ -914,7 +914,7 @@ word_t _addHField(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _removeHField_info =
+const StdlibRegisterInfo _removeHField_info =
 {
 	Docstr(DFunc("removeHField") DParam("cls", "class") DParam("name", "string")
 	R"(Removes a hidden field from a class.
@@ -934,7 +934,7 @@ word_t _removeHField(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _hasHField_info =
+const StdlibRegisterInfo _hasHField_info =
 {
 	Docstr(DFunc("hasHField") DParam("obj", "class|instance") DParam("name", "string")
 	R"(\returns a bool saying whether or not the given class or instance has a hidden field named \tt{name}.)"),
@@ -953,7 +953,7 @@ word_t _hasHField(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _getHField_info =
+const StdlibRegisterInfo _getHField_info =
 {
 	Docstr(DFunc("getHField") DParam("obj", "class|instance") DParam("name", "string")
 	R"(\returns the value of the hidden field named \tt{name} in the given class or instance.)"),
@@ -973,7 +973,7 @@ word_t _getHField(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _setHField_info =
+const StdlibRegisterInfo _setHField_info =
 {
 	Docstr(DFunc("setHField") DParam("obj", "class|instance") DParam("name", "string") DParamAny("val")
 	R"(Sets the hidden field named \tt{name} in the given class or instance to \tt{val}.)"),
@@ -1043,7 +1043,7 @@ word_t _instanceHFieldsOfIter(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _hfieldsOf_info =
+const StdlibRegisterInfo _hfieldsOf_info =
 {
 	Docstr(DFunc("hfieldsOf") DParam("obj", "class|instance")
 	R"(\returns an iterator function for iterating over the hidden fields of the given class or instance. This works
@@ -1075,7 +1075,7 @@ word_t _hfieldsOf(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_setHook),
 	_DListItem(_getHook),
@@ -1109,7 +1109,7 @@ const _StdlibRegister _globalFuncs[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 	return 0;
 }
 }
@@ -1122,7 +1122,7 @@ void initDebugLib(CrocThread* t)
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);
 	croc_ex_doc_push(&doc, ModuleDocs);
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 	croc_ex_doc_pop(&doc, -1);
 	croc_ex_doc_finish(&doc);
 #endif

@@ -8,7 +8,7 @@ namespace croc
 {
 namespace
 {
-const _StdlibRegisterInfo _newClass_info =
+const StdlibRegisterInfo _newClass_info =
 {
 	Docstr(DFunc("newClass") DParam("name", "string") DVararg
 	R"(A function for creating a class from a name and optional base classes. The built-in class declaration syntax in
@@ -80,7 +80,7 @@ word_t _instanceFieldsOfIter(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _fieldsOf_info =
+const StdlibRegisterInfo _fieldsOf_info =
 {
 	Docstr(DFunc("fieldsOf") DParam("value", "class|instance")
 	R"(Given a class or instance, returns an iterator function which iterates over all the fields in that object.
@@ -158,7 +158,7 @@ word_t _methodsOfIter(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _methodsOf_info =
+const StdlibRegisterInfo _methodsOf_info =
 {
 	Docstr(DFunc("methodsOf") DParam("value", "class|instance")
 	R"(Just like \link{fieldsOf}, but iterates over methods instead.
@@ -186,7 +186,7 @@ word_t _methodsOf(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _addMethod_info =
+const StdlibRegisterInfo _addMethod_info =
 {
 	Docstr(DFunc("addMethod") DParam("cls", "class") DParam("name", "string") DParamAny("value")
 	R"(Adds a new method to a class. The method can be any type, not just functions.
@@ -207,7 +207,7 @@ word_t _addMethod(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _addField_info =
+const StdlibRegisterInfo _addField_info =
 {
 	Docstr(DFunc("addField") DParam("cls", "class") DParam("name", "string") DParamD("value", "any", "null")
 	R"(Adds a new field to a class.
@@ -232,7 +232,7 @@ word_t _addField(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _addMethodOverride_info =
+const StdlibRegisterInfo _addMethodOverride_info =
 {
 	Docstr(DFunc("addMethodOverride") DParam("cls", "class") DParam("name", "string") DParamAny("value")
 	R"(Adds a new method to a class, overriding any existing method of the same name. Works just like the \tt{override}
@@ -254,7 +254,7 @@ word_t _addMethodOverride(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _addFieldOverride_info =
+const StdlibRegisterInfo _addFieldOverride_info =
 {
 	Docstr(DFunc("addFieldOverride") DParam("cls", "class") DParam("name", "string") DParamD("value", "any", "null")
 	R"(Adds a new field to a class, overriding any existing field of the same name. Works just like the \tt{override}
@@ -279,7 +279,7 @@ word_t _addFieldOverride(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _removeMember_info =
+const StdlibRegisterInfo _removeMember_info =
 {
 	Docstr(DFunc("removeMember") DParam("cls", "class") DParam("name", "string")
 	R"(Removes a member (method or field) from a class.
@@ -298,7 +298,7 @@ word_t _removeMember(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _freeze_info =
+const StdlibRegisterInfo _freeze_info =
 {
 	Docstr(DFunc("freeze") DParam("cls", "class")
 	R"(Forces a class to be frozen.
@@ -317,7 +317,7 @@ word_t _freeze(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _isFrozen_info =
+const StdlibRegisterInfo _isFrozen_info =
 {
 	Docstr(DFunc("isFrozen") DParam("cls", "class")
 	R"(\returns a bool indicating whether or not the given class is frozen.)"),
@@ -332,7 +332,7 @@ word_t _isFrozen(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _isFinalizable_info =
+const StdlibRegisterInfo _isFinalizable_info =
 {
 	Docstr(DFunc("isFinalizable") DParam("value", "class|instance")
 	R"(\returns a bool indicating whether or not the given class or instance is finalizable.
@@ -360,7 +360,7 @@ word_t _isFinalizable(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _instanceOf_info =
+const StdlibRegisterInfo _instanceOf_info =
 {
 	Docstr(DFunc("instanceOf") DParamAny("value") DParam("cls", "class")
 	R"(\returns \tt{true} if \tt{value} is an instance and it is an instance of \tt{cls}, and \tt{false} otherwise. In
@@ -384,7 +384,7 @@ word_t _instanceOf(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_newClass),
 	_DListItem(_fieldsOf),
@@ -403,7 +403,7 @@ const _StdlibRegister _globalFuncs[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 	return 0;
 }
 }
@@ -420,7 +420,7 @@ void initObjectLib(CrocThread* t)
 	R"(The \tt{object} library provides access to aspects of the object model not covered by Croc's syntax. This
 	includes adding and removing fields and methods of classes and reflecting over the members of classes and
 	instances.)");
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 	croc_ex_doc_pop(&doc, -1);
 	croc_ex_doc_finish(&doc);
 #endif

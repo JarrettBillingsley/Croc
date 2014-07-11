@@ -26,7 +26,7 @@ CrocGCLimit stringToLimit(CrocThread* t, word slot)
 		cast(int)s.length, s.ptr);
 }
 
-const _StdlibRegisterInfo _collect_info =
+const StdlibRegisterInfo _collect_info =
 {
 	Docstr(DFunc("collect")
 	R"(Performs a normal garbage collection cycle. Usually you won't have to call this because the GC will be run
@@ -43,7 +43,7 @@ word_t _collect(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _collectFull_info =
+const StdlibRegisterInfo _collectFull_info =
 {
 	Docstr(DFunc("collectFull")
 	R"(Performs a full garbage collection cycle. Most GC cycles are relatively quick, but there are some kinds of
@@ -63,7 +63,7 @@ word_t _collectFull(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _allocated_info =
+const StdlibRegisterInfo _allocated_info =
 {
 	Docstr(DFunc("allocated")
 	R"(\returns the total bytes currently allocated by this VM instance.)"),
@@ -77,7 +77,7 @@ word_t _allocated(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _limit_info =
+const StdlibRegisterInfo _limit_info =
 {
 	Docstr(DFunc("limit") DParam("type", "string") DParamD("size", "int", "null")
 	R"(Gets or sets various limits used by the garbage collector. Most have an effect on how often GC collections are
@@ -160,7 +160,7 @@ word_t _limit(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _postCallback_info =
+const StdlibRegisterInfo _postCallback_info =
 {
 	Docstr(DFunc("postCallback") DParam("cb", "function")
 	R"(The Croc GC can maintain a list of callback functions which are called whenever the GC completes a cycle.
@@ -194,7 +194,7 @@ word_t _postCallback(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _removePostCallback_info =
+const StdlibRegisterInfo _removePostCallback_info =
 {
 	Docstr(DFunc("removePostCallback") DParam("cb", "function")
 
@@ -228,7 +228,7 @@ word_t _removePostCallback(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_collect),
 	_DListItem(_collectFull),
@@ -241,7 +241,7 @@ const _StdlibRegister _globalFuncs[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 	croc_array_new(t, 0);
 	croc_ex_setRegistryVar(t, PostGCCallbacks);
 	return 0;
@@ -266,7 +266,7 @@ void docGCLib(CrocThread* t)
 	to deal with that yet, but there it is.)");
 
 	croc_pushGlobal(t, "gc");
-	_docFields(&doc, _globalFuncs);
+	docFields(&doc, _globalFuncs);
 	croc_ex_doc_pop(&doc, -1);
 	croc_popTop(t);
 	croc_ex_doc_finish(&doc);

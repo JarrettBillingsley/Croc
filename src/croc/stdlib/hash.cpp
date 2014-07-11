@@ -50,7 +50,7 @@ word_t _keysImpl(CrocThread* t, word_t slot)
 // =====================================================================================================================
 // Global functions
 
-const _StdlibRegisterInfo _dup_info =
+const StdlibRegisterInfo _dup_info =
 {
 	Docstr(DFunc("dup") DParam("t", "table")
 	R"(Makes a shallow duplicate of a table.
@@ -68,7 +68,7 @@ word_t _dup(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _keys_info =
+const StdlibRegisterInfo _keys_info =
 {
 	Docstr(DFunc("keys") DParam("h", "table|namespace")
 	R"(\returns an array containing all the keys of the given table or namespace. The order of the keys is arbitrary.
@@ -84,7 +84,7 @@ word_t _keys(CrocThread* t)
 	return _keysImpl(t, 1);
 }
 
-const _StdlibRegisterInfo _values_info =
+const StdlibRegisterInfo _values_info =
 {
 	Docstr(DFunc("values") DParam("h", "table|namespace")
 	R"(\returns an array containing all the values of the given table or namespace. The order of the values is
@@ -132,7 +132,7 @@ word_t _values(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _apply_info =
+const StdlibRegisterInfo _apply_info =
 {
 	Docstr(DFunc("apply") DParam("t", "table") DParam("f", "function")
 	R"(Similar to the \link{array.array.apply} function, this iterates over the values of the table, calling the
@@ -175,7 +175,7 @@ word_t _apply(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _map_info =
+const StdlibRegisterInfo _map_info =
 {
 	Docstr(DFunc("map") DParam("t", "table") DParam("f", "function")
 	R"(Like \link{apply}, but instead of operating in-place, creates a new table which holds the transformed key-value
@@ -211,7 +211,7 @@ word_t _map(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _reduce_info =
+const StdlibRegisterInfo _reduce_info =
 {
 	Docstr(DFunc("reduce") DParam("t", "table") DParam("f", "function") DParamD("initial", "any", "null")
 	R"(Works just like the \link{array.array.reduce} function, but the order of the values is arbitrary. \tt{f} will be
@@ -269,7 +269,7 @@ word_t _reduce(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _filter_info =
+const StdlibRegisterInfo _filter_info =
 {
 	Docstr(DFunc("filter") DParam("t", "table") DParam("f", "function")
 	R"(Similar to the \link{array.array.filter} function, this creates a new table which holds only those key-value
@@ -368,7 +368,7 @@ word_t _takeImpl(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _take_info =
+const StdlibRegisterInfo _take_info =
 {
 	Docstr(DFunc("take") DParam("h", "table|namespace")
 	R"(\returns an arbitrary key-value pair as two values (first the key, then the value). The key-value pair is not
@@ -381,7 +381,7 @@ const _StdlibRegisterInfo _take_info =
 
 #define _take _takeImpl<false>
 
-const _StdlibRegisterInfo _pop_info =
+const StdlibRegisterInfo _pop_info =
 {
 	Docstr(DFunc("pop") DParam("h", "table|namespace")
 	R"(Similar to \link{take}, but it \b{does} remove the key-value pair that is returned.
@@ -395,7 +395,7 @@ const _StdlibRegisterInfo _pop_info =
 
 #define _pop _takeImpl<true>
 
-const _StdlibRegisterInfo _clear_info =
+const StdlibRegisterInfo _clear_info =
 {
 	Docstr(DFunc("clear") DParam("h", "table|namespace")
 	R"(Removes all key-value pairs from \tt{h}.)"),
@@ -417,7 +417,7 @@ word_t _clear(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _remove_info =
+const StdlibRegisterInfo _remove_info =
 {
 	Docstr(DFunc("remove") DParam("h", "table|namespace") DParamAny("key")
 	R"(Removes from \tt{h} the key-value pair with key \tt{key}, if any exists. For tables, you can also do this by
@@ -442,7 +442,7 @@ word_t _remove(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _newNamespace_info =
+const StdlibRegisterInfo _newNamespace_info =
 {
 	Docstr(DFunc("newNamespace") DParam("name", "string") DParam("parent", "namespace|null")
 	R"(Create a new namespace.
@@ -490,7 +490,7 @@ word_t _newNamespace(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_dup),
 	_DListItem(_keys),
@@ -559,7 +559,7 @@ word_t _table_modIterator(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _table_opApply_info =
+const StdlibRegisterInfo _table_opApply_info =
 {
 	Docstr(DFunc("opApply") DParamD("mode", "string", "null")
 	R"(Iterate over the key-value pairs of a table.
@@ -595,7 +595,7 @@ word_t _table_opApply(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _tableMetamethods[] =
+const StdlibRegister _tableMetamethods[] =
 {
 	_DListItem(_table_opApply),
 	_DListEnd
@@ -653,7 +653,7 @@ word_t _namespace_modIterator(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _namespace_opApply_info =
+const StdlibRegisterInfo _namespace_opApply_info =
 {
 	Docstr(DFunc("opApply") DParamD("mode", "string", "null")
 	R"(Iterate over the key-value pairs of a namespace.
@@ -689,7 +689,7 @@ word_t _namespace_opApply(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _namespaceMetamethods[] =
+const StdlibRegister _namespaceMetamethods[] =
 {
 	_DListItem(_namespace_opApply),
 	_DListEnd
@@ -700,14 +700,14 @@ const _StdlibRegister _namespaceMetamethods[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 
 	croc_namespace_new(t, "table");
-		_registerFields(t, _tableMetamethods);
+		registerFields(t, _tableMetamethods);
 	croc_vm_setTypeMT(t, CrocType_Table);
 
 	croc_namespace_new(t, "namespace");
-		_registerFields(t, _namespaceMetamethods);
+		registerFields(t, _namespaceMetamethods);
 	croc_vm_setTypeMT(t, CrocType_Namespace);
 
 	croc_pushStringn(t, hash_weaktables_croc_text, hash_weaktables_croc_length);
@@ -739,13 +739,13 @@ void initHashLib(CrocThread* t)
 	DModule("hash")
 	R"(This library contains functionality common to both tables and namespaces, which are two similar kinds of hash
 	tables. It also defines the opApply methods for tables and namespaces.)");
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 
 		croc_vm_pushTypeMT(t, CrocType_Table);
 			croc_ex_doc_push(&doc,
 			DNs("table")
 			R"()");
-			_docFields(&doc, _tableMetamethods);
+			docFields(&doc, _tableMetamethods);
 			croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
 
@@ -753,7 +753,7 @@ void initHashLib(CrocThread* t)
 			croc_ex_doc_push(&doc,
 			DNs("namespace")
 			R"()");
-			_docFields(&doc, _namespaceMetamethods);
+			docFields(&doc, _namespaceMetamethods);
 			croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
 

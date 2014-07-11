@@ -14,7 +14,7 @@ namespace
 // =====================================================================================================================
 // Function metatable
 
-const _StdlibRegisterInfo _function_isNative_info =
+const StdlibRegisterInfo _function_isNative_info =
 {
 	Docstr(DFunc("isNative")
 	R"(\returns a bool telling if the function is implemented in native code or in Croc.)"),
@@ -29,7 +29,7 @@ word_t _function_isNative(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _function_numParams_info =
+const StdlibRegisterInfo _function_numParams_info =
 {
 	Docstr(DFunc("numParams")
 	R"(\returns an integer telling how many \em{non-variadic} parameters the function takes.)"),
@@ -44,7 +44,7 @@ word_t _function_numParams(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _function_maxParams_info =
+const StdlibRegisterInfo _function_maxParams_info =
 {
 	Docstr(DFunc("maxParams")
 	R"(\returns an integer of how many parameters this function this may be passed without throwing an error. Passing
@@ -61,7 +61,7 @@ word_t _function_maxParams(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _function_isVararg_info =
+const StdlibRegisterInfo _function_isVararg_info =
 {
 	Docstr(DFunc("isVararg")
 	R"(\returns a bool telling whether or not the function takes variadic parameters.)"),
@@ -76,7 +76,7 @@ word_t _function_isVararg(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _function_isCacheable_info =
+const StdlibRegisterInfo _function_isCacheable_info =
 {
 	Docstr(DFunc("isCacheable")
 	R"(\returns a bool telling whether or not a function is cacheable. Cacheable functions are script functions which
@@ -94,7 +94,7 @@ word_t _function_isCacheable(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _function_metatable[] =
+const StdlibRegister _function_metatable[] =
 {
 	_DListItem(_function_isNative),
 	_DListItem(_function_numParams),
@@ -107,7 +107,7 @@ const _StdlibRegister _function_metatable[] =
 // =====================================================================================================================
 // Funcdef metatable
 
-const _StdlibRegisterInfo _funcdef_numParams_info =
+const StdlibRegisterInfo _funcdef_numParams_info =
 {
 	Docstr(DFunc("numParams")
 	R"(\returns an integer telling how many \em{non-variadic} parameters the function described by the funcdef
@@ -123,7 +123,7 @@ word_t _funcdef_numParams(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _funcdef_isVararg_info =
+const StdlibRegisterInfo _funcdef_isVararg_info =
 {
 	Docstr(DFunc("isVararg")
 	R"(\returns a bool telling whether or not the function described by the funcdef takes variadic parameters.)"),
@@ -138,7 +138,7 @@ word_t _funcdef_isVararg(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _funcdef_isCacheable_info =
+const StdlibRegisterInfo _funcdef_isCacheable_info =
 {
 	Docstr(DFunc("isCacheable")
 	R"(\returns a bool telling whether or not a funcdef is cacheable. Funcdefs are cacheable if they have no upvals.)"),
@@ -153,7 +153,7 @@ word_t _funcdef_isCacheable(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _funcdef_isCached_info =
+const StdlibRegisterInfo _funcdef_isCached_info =
 {
 	Docstr(DFunc("isCached")
 	R"(\returns a bool telling whether or not a funcdef has already been cached (that is, a function closure has been
@@ -169,7 +169,7 @@ word_t _funcdef_isCached(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _funcdef_close_info =
+const StdlibRegisterInfo _funcdef_close_info =
 {
 	Docstr(DFunc("close") DParamD("env", "namespace", "null")
 	R"(Creates a function closure from this funcdef. The same rules about environment namespace apply here as elsewhere:
@@ -198,7 +198,7 @@ word_t _funcdef_close(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _funcdef_metatable[] =
+const StdlibRegister _funcdef_metatable[] =
 {
 	_DListItem(_funcdef_numParams),
 	_DListItem(_funcdef_isVararg),
@@ -211,7 +211,7 @@ const _StdlibRegister _funcdef_metatable[] =
 // =====================================================================================================================
 // Weak reference stuff
 
-const _StdlibRegisterInfo _weakref_info =
+const StdlibRegisterInfo _weakref_info =
 {
 	Docstr(DFunc("weakref") DParamAny("obj")
 	R"(This function is used to create weak reference objects. If the given object is a value type (null, bool,
@@ -229,7 +229,7 @@ word_t _weakref(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _deref_info =
+const StdlibRegisterInfo _deref_info =
 {
 	Docstr(DFunc("deref") DParam("obj", "null|bool|int|float|weakref")
 	R"(The parameter types for this might look a bit odd, but it's because this function acts as the inverse of
@@ -263,7 +263,7 @@ word_t _deref(CrocThread* t)
 	}
 }
 
-const _StdlibRegister _weakrefFuncs[] =
+const StdlibRegister _weakrefFuncs[] =
 {
 	_DListItem(_weakref),
 	_DListItem(_deref),
@@ -273,7 +273,7 @@ const _StdlibRegister _weakrefFuncs[] =
 // =====================================================================================================================
 // Reflection-esque stuff
 
-const _StdlibRegisterInfo _typeof_info =
+const StdlibRegisterInfo _typeof_info =
 {
 	Docstr(DFunc("typeof") DParamAny("value")
 	R"(This will get the type of the passed-in value and return it as a string. Possible return values are "null",
@@ -290,7 +290,7 @@ word_t _typeof(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _niceTypeof_info =
+const StdlibRegisterInfo _niceTypeof_info =
 {
 	Docstr(DFunc("niceTypeof") DParamAny("value")
 	R"(This will get a more human-readable version of \tt{value}'s type and return it as a string. This is good for
@@ -313,7 +313,7 @@ word_t _niceTypeof(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _nameOf_info =
+const StdlibRegisterInfo _nameOf_info =
 {
 	Docstr(DFunc("nameOf") DParam("value", "class|function|namespace|funcdef")
 	R"(Returns the name of the given value as a string. This is the name that the class, function, namespace, or funcdef
@@ -345,7 +345,7 @@ word_t _nameOf(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _hasField_info =
+const StdlibRegisterInfo _hasField_info =
 {
 	Docstr(DFunc("hasField") DParamAny("value") DParam("name", "string")
 	R"(Sees if \tt{value} contains the field \tt{name}. Works for tables, namespaces, classes, and instances. For any
@@ -362,7 +362,7 @@ word_t _hasField(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _hasMethod_info =
+const StdlibRegisterInfo _hasMethod_info =
 {
 	Docstr(DFunc("hasMethod") DParamAny("value") DParam("name", "string")
 	R"(Sees if the method named \tt{name} can be called on \tt{value}. Looks in metatables as well, e.g. for strings
@@ -379,7 +379,7 @@ word_t _hasMethod(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _isNull_info =
+const StdlibRegisterInfo _isNull_info =
 {
 	Docstr(DFunc("isNull") DParamAny("o")
 	R"(All these functions return \tt{true} if the passed-in value is of the given type, and \tt{false} otherwise. The
@@ -395,7 +395,7 @@ word_t _isNull(CrocThread* t)
 }
 
 #define MAKE_IS_PARAM(T)\
-	const _StdlibRegisterInfo _is##T##_info =\
+	const StdlibRegisterInfo _is##T##_info =\
 	{\
 		Docstr(DFunc("is"#T) DParamAny("o") "ditto"),\
 		"is"#T, 1\
@@ -423,7 +423,7 @@ word_t _isNull(CrocThread* t)
 	MAKE_IS_PARAM(Instance)
 	MAKE_IS_PARAM(Thread)
 
-const _StdlibRegister _reflFuncs[] =
+const StdlibRegister _reflFuncs[] =
 {
 	_DListItem(_typeof),
 	_DListItem(_niceTypeof),
@@ -452,7 +452,7 @@ const _StdlibRegister _reflFuncs[] =
 // =====================================================================================================================
 // Conversions
 
-const _StdlibRegisterInfo _toString_info =
+const StdlibRegisterInfo _toString_info =
 {
 	Docstr(DFunc("toString") DParamAny("value") DParamD("style", "string", "\"d\"")
 	R"(This is like \link{rawToString}, but it will call any \b{\tt{toString}} metamethods defined for the value.
@@ -490,7 +490,7 @@ word_t _toString(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _rawToString_info =
+const StdlibRegisterInfo _rawToString_info =
 {
 	Docstr(DFunc("rawToString") DParamAny("value")
 	R"x(This returns a string representation of the given value depending on its type, as follows:
@@ -522,7 +522,7 @@ word_t _rawToString(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toBool_info =
+const StdlibRegisterInfo _toBool_info =
 {
 	Docstr(DFunc("toBool")
 	R"(This returns the truth value of the given value. \tt{null}, \tt{false}, integer 0, and float 0.0 will all return
@@ -538,7 +538,7 @@ word_t _toBool(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toInt_info =
+const StdlibRegisterInfo _toInt_info =
 {
 	Docstr(DFunc("toInt")
 	R"(This will convert a value into an integer. Only the following types can be converted:
@@ -577,7 +577,7 @@ word_t _toInt(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toFloat_info =
+const StdlibRegisterInfo _toFloat_info =
 {
 	Docstr(DFunc("toFloat")
 	R"(This will convert a value into a float. Only the following types can be converted:
@@ -616,7 +616,7 @@ word_t _toFloat(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _convFuncs[] =
+const StdlibRegister _convFuncs[] =
 {
 	_DListItem(_toString),
 	_DListItem(_rawToString),
@@ -633,16 +633,16 @@ const _StdlibRegister _convFuncs[] =
 void initMiscLib(CrocThread* t)
 {
 	croc_namespace_new(t, "function");
-		_registerFields(t, _function_metatable);
+		registerFields(t, _function_metatable);
 	croc_vm_setTypeMT(t, CrocType_Function);
 
 	croc_namespace_new(t, "funcdef");
-		_registerFields(t, _funcdef_metatable);
+		registerFields(t, _funcdef_metatable);
 	croc_vm_setTypeMT(t, CrocType_Funcdef);
 
-	_registerGlobals(t, _weakrefFuncs);
-	_registerGlobals(t, _reflFuncs);
-	_registerGlobals(t, _convFuncs);
+	registerGlobals(t, _weakrefFuncs);
+	registerGlobals(t, _reflFuncs);
+	registerGlobals(t, _convFuncs);
 
 	initMiscLib_Vector(t);
 }
@@ -660,16 +660,16 @@ void docMiscLib(CrocThread* t)
 	always loaded when you create an instance of the Croc VM.)");
 
 	croc_vm_pushTypeMT(t, CrocType_Function);
-		_docFields(&doc, _function_metatable);
+		docFields(&doc, _function_metatable);
 	croc_popTop(t);
 
 	croc_vm_pushTypeMT(t, CrocType_Funcdef);
-		_docFields(&doc, _funcdef_metatable);
+		docFields(&doc, _funcdef_metatable);
 	croc_popTop(t);
 
-	_docGlobals(&doc, _weakrefFuncs);
-	_docGlobals(&doc, _reflFuncs);
-	_docGlobals(&doc, _convFuncs);
+	docGlobals(&doc, _weakrefFuncs);
+	docGlobals(&doc, _reflFuncs);
+	docGlobals(&doc, _convFuncs);
 
 	docMiscLib_Vector(t, &doc);
 

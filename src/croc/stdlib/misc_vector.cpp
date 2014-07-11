@@ -411,7 +411,7 @@ T _maxImpl(DArray<T> arr)
 	return m;
 }
 
-const _StdlibRegisterInfo _constructor_info =
+const StdlibRegisterInfo _constructor_info =
 {
 	Docstr(DFunc("constructor") DParam("type", "string") DParam("size", "int") DParamD("filler", "any", "null")
 	R"(Constructor.
@@ -467,7 +467,7 @@ word_t _constructor(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _fromArray_info =
+const StdlibRegisterInfo _fromArray_info =
 {
 	Docstr(DFunc("fromArray") DParam("type", "string") DParam("arr", "array")
 	R"(A convenience function to convert an \tt{array} into a Vector.
@@ -497,7 +497,7 @@ word_t _fromArray(CrocThread* t)
 	return croc_call(t, -5, 1);
 }
 
-const _StdlibRegisterInfo _range_info =
+const StdlibRegisterInfo _range_info =
 {
 	Docstr(DFunc("range") DParam("type", "string") DParam("val1", "int|float") DParamD("val2", "int|float", "null")
 		DParamD("step", "int|float", "1")
@@ -562,7 +562,7 @@ word_t _range(CrocThread* t)
 	return croc_eh_throwStd(t, "ValueError", "Invalid type code '%.*s'", cast(int)type.length, type.ptr);
 }
 
-const _StdlibRegisterInfo _type_info =
+const StdlibRegisterInfo _type_info =
 {
 	Docstr(DFunc("type") DParamD("type", "string", "null")
 	R"(Gets or sets the type of this Vector.
@@ -620,7 +620,7 @@ word_t _type(CrocThread* t)
 	}
 }
 
-const _StdlibRegisterInfo _itemSize_info =
+const StdlibRegisterInfo _itemSize_info =
 {
 	Docstr(DFunc("itemSize")
 	R"(\returns the size of one item of this Vector in bytes.)"),
@@ -635,7 +635,7 @@ word_t _itemSize(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toArray_info =
+const StdlibRegisterInfo _toArray_info =
 {
 	Docstr(DFunc("toArray") DParamD("lo", "int", "0") DParamD("hi", "int", "#this")
 	R"(Converts this Vector or a slice of it into an \tt{array}.
@@ -667,7 +667,7 @@ word_t _toArray(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toString_info =
+const StdlibRegisterInfo _toString_info =
 {
 	Docstr(DFunc("toString")
 	R"(\returns a string representation of this Vector.
@@ -720,7 +720,7 @@ word_t _toString(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _getMemblock_info =
+const StdlibRegisterInfo _getMemblock_info =
 {
 	Docstr(DFunc("getMemblock")
 	R"(\returns the underlying \tt{memblock} in which this Vector stores its data.
@@ -740,7 +740,7 @@ word_t _getMemblock(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _dup_info =
+const StdlibRegisterInfo _dup_info =
 {
 	Docstr(DFunc("dup")
 	R"(Duplicates this Vector.
@@ -767,7 +767,7 @@ word_t _dup(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _reverse_info =
+const StdlibRegisterInfo _reverse_info =
 {
 	Docstr(DFunc("reverse")
 	R"(Reverses the elements of this Vector.
@@ -794,7 +794,7 @@ word_t _reverse(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _sort_info =
+const StdlibRegisterInfo _sort_info =
 {
 	Docstr(DFunc("sort")
 	R"(Sorts the elements of this Vector in ascending order.
@@ -827,7 +827,7 @@ word_t _sort(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _apply_info =
+const StdlibRegisterInfo _apply_info =
 {
 	Docstr(DFunc("apply") DParam("func", "function")
 	R"(Like \link{array.apply}, calls a function on each element of this Vector and assigns the results back into it.
@@ -888,7 +888,7 @@ word_t _apply(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _map_info =
+const StdlibRegisterInfo _map_info =
 {
 	Docstr(DFunc("map") DParam("func", "function")
 	R"(Same as \link{apply}, except puts the results into a new Vector instead of operating in-place.
@@ -914,7 +914,7 @@ word_t _map(CrocThread* t)
 	return croc_methodCall(t, -3, "apply", 1);
 }
 
-const _StdlibRegisterInfo _min_info =
+const StdlibRegisterInfo _min_info =
 {
 	Docstr(DFunc("min")
 	R"(Finds the smallest value in this Vector.
@@ -950,7 +950,7 @@ word_t _min(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _max_info =
+const StdlibRegisterInfo _max_info =
 {
 	Docstr(DFunc("max")
 	R"(Finds the largest value in this Vector.
@@ -986,7 +986,7 @@ word_t _max(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _insert_info =
+const StdlibRegisterInfo _insert_info =
 {
 	Docstr(DFunc("insert") DParam("idx", "int") DParam("val", "int|float|Vector")
 	R"(Inserts a single number or another Vector's contents at the given position.
@@ -1099,7 +1099,7 @@ word_t _insert(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _remove_info =
+const StdlibRegisterInfo _remove_info =
 {
 	Docstr(DFunc("remove") DParam("lo", "int") DParamD("hi", "int", "lo + 1")
 	R"(Removes one or more items from this Vector, shifting the data after the removed data up.
@@ -1151,7 +1151,7 @@ word_t _remove(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _pop_info =
+const StdlibRegisterInfo _pop_info =
 {
 	Docstr(DFunc("pop") DParamD("idx", "int", "-1")
 	R"(Removes one item from anywhere in this Vector (the last item by default) and returns its value, like
@@ -1194,7 +1194,7 @@ word_t _pop(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _sum_info =
+const StdlibRegisterInfo _sum_info =
 {
 	Docstr(DFunc("sum")
 	R"(Sums all the elements in this Vector, returning 0 or 0.0 if empty.
@@ -1244,7 +1244,7 @@ word_t _sum(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _product_info =
+const StdlibRegisterInfo _product_info =
 {
 	Docstr(DFunc("product")
 	R"(Multiplies all the elements in this Vector together, returning 1 or 1.0 if empty.
@@ -1294,7 +1294,7 @@ word_t _product(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _copyRange_info =
+const StdlibRegisterInfo _copyRange_info =
 {
 	Docstr(DFunc("copyRange") DParamD("lo1", "int", "0") DParamD("hi1", "int", "#this") DParam("other", "Vector")
 		DParamD("lo2", "int", "0") DParamD("hi2", "int", "lo2 + (hi - lo)")
@@ -1350,7 +1350,7 @@ word_t _copyRange(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _fill_info =
+const StdlibRegisterInfo _fill_info =
 {
 	Docstr(DFunc("fill") DParam("val", "int|float|function|array|Vector")
 	R"(A flexible way to fill a Vector with data.
@@ -1387,7 +1387,7 @@ word_t _fill(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _fillRange_info =
+const StdlibRegisterInfo _fillRange_info =
 {
 	Docstr(DFunc("fillRange") DParamD("lo", "int", "0") DParamD("hi", "int", "#this")
 		DParam("val", "int|float|function|array|Vector")
@@ -1413,7 +1413,7 @@ word_t _fillRange(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opEquals_info =
+const StdlibRegisterInfo _opEquals_info =
 {
 	Docstr(DFunc("opEquals") DParam("other", "Vector")
 	R"(Checks if two Vectors have the same contents. Both Vectors must be the same type.
@@ -1449,7 +1449,7 @@ word_t _opEquals(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opCmp_info =
+const StdlibRegisterInfo _opCmp_info =
 {
 	Docstr(DFunc("opCmp") DParam("other", "Vector")
 	R"(Compares two Vectors lexicographically. Both Vectors must be the same type.
@@ -1501,7 +1501,7 @@ word_t _opCmp(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opLength_info =
+const StdlibRegisterInfo _opLength_info =
 {
 	Docstr(DFunc("opLength")
 	R"(Gets the number of items in this Vector.
@@ -1518,7 +1518,7 @@ word_t _opLength(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opLengthAssign_info =
+const StdlibRegisterInfo _opLengthAssign_info =
 {
 	Docstr(DFunc("opLengthAssign") DParam("len", "int")
 	R"(Sets the number of items in this Vector.
@@ -1548,7 +1548,7 @@ word_t _opLengthAssign(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _opIndex_info =
+const StdlibRegisterInfo _opIndex_info =
 {
 	Docstr(DFunc("opIndex") DParam("idx", "int")
 	R"(Gets a single item from this Vector at the given index.
@@ -1568,7 +1568,7 @@ word_t _opIndex(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opIndexAssign_info =
+const StdlibRegisterInfo _opIndexAssign_info =
 {
 	Docstr(DFunc("opIndexAssign") DParam("idx", "int") DParam("val", "int|float")
 	R"(Sets a single item in this Vector at the given index to the given value.
@@ -1595,7 +1595,7 @@ word_t _opIndexAssign(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _opSlice_info =
+const StdlibRegisterInfo _opSlice_info =
 {
 	Docstr(DFunc("opSlice") DParamD("lo", "int", "0") DParamD("hi", "int", "#this")
 	R"(Creates a new Vector whose data is a copy of a slice of this Vector.
@@ -1628,7 +1628,7 @@ word_t _opSlice(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _opSerialize_info =
+const StdlibRegisterInfo _opSerialize_info =
 {
 	Docstr(DFunc("opSerialize")
 	R"(These are methods meant to work with the \tt{serialization} library, allowing instances of \tt{Vector} to be
@@ -1655,7 +1655,7 @@ word_t _opSerialize(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _opDeserialize_info =
+const StdlibRegisterInfo _opDeserialize_info =
 {
 	Docstr(DFunc("opDeserialize")
 	R"(ditto)"),
@@ -1686,7 +1686,7 @@ word_t _opDeserialize(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _opCat_info =
+const StdlibRegisterInfo _opCat_info =
 {
 	Docstr(DFunc("opCat") DParam("other", "int|float|Vector")
 	R"(Concatenates this Vector with a number or another Vector, returning a new Vector that is the concatenation of the
@@ -1748,7 +1748,7 @@ word_t _opCat(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opCat_r_info =
+const StdlibRegisterInfo _opCat_r_info =
 {
 	Docstr(DFunc("opCat_r") DParam("other", "int|float")
 	R"(ditto)"),
@@ -1779,7 +1779,7 @@ word_t _opCat_r(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _opCatAssign_info =
+const StdlibRegisterInfo _opCatAssign_info =
 {
 	Docstr(DFunc("opCatAssign") DVararg
 	R"(Appends one or more values or Vectors to the end of this Vector, in place.
@@ -1892,7 +1892,7 @@ word_t _opCatAssign(CrocThread* t)
 		return 1;\
 	}
 
-const _StdlibRegisterInfo _add_info =
+const StdlibRegisterInfo _add_info =
 {
 	Docstr(DFunc("add") DParam("other", "int|float|Vector")
 	R"(These all implement binary mathematical operators on Vectors. All return new Vector objects as the results.
@@ -1909,7 +1909,7 @@ const _StdlibRegisterInfo _add_info =
 
 MAKE_OP(add)
 
-const _StdlibRegisterInfo _sub_info =
+const StdlibRegisterInfo _sub_info =
 {
 	Docstr(DFunc("sub") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -1918,7 +1918,7 @@ const _StdlibRegisterInfo _sub_info =
 
 MAKE_OP(sub)
 
-const _StdlibRegisterInfo _mul_info =
+const StdlibRegisterInfo _mul_info =
 {
 	Docstr(DFunc("mul") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -1927,7 +1927,7 @@ const _StdlibRegisterInfo _mul_info =
 
 MAKE_OP(mul)
 
-const _StdlibRegisterInfo _div_info =
+const StdlibRegisterInfo _div_info =
 {
 	Docstr(DFunc("div") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -1936,7 +1936,7 @@ const _StdlibRegisterInfo _div_info =
 
 MAKE_OP(div)
 
-const _StdlibRegisterInfo _mod_info =
+const StdlibRegisterInfo _mod_info =
 {
 	Docstr(DFunc("mod") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -2001,7 +2001,7 @@ MAKE_OP(mod)
 	}
 
 
-const _StdlibRegisterInfo _addeq_info =
+const StdlibRegisterInfo _addeq_info =
 {
 	Docstr(DFunc("addeq") DParam("other", "int|float|Vector")
 	R"(These all implement reflexive mathematical operators on Vectors. All operate in-place on this Vector.
@@ -2015,7 +2015,7 @@ const _StdlibRegisterInfo _addeq_info =
 
 MAKE_OP_EQ(addeq, _vecAdd, _vecAdd)
 
-const _StdlibRegisterInfo _subeq_info =
+const StdlibRegisterInfo _subeq_info =
 {
 	Docstr(DFunc("subeq") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -2024,7 +2024,7 @@ const _StdlibRegisterInfo _subeq_info =
 
 MAKE_OP_EQ(subeq, _vecSub, _vecSub)
 
-const _StdlibRegisterInfo _muleq_info =
+const StdlibRegisterInfo _muleq_info =
 {
 	Docstr(DFunc("muleq") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -2033,7 +2033,7 @@ const _StdlibRegisterInfo _muleq_info =
 
 MAKE_OP_EQ(muleq, _vecMul, _vecMul)
 
-const _StdlibRegisterInfo _diveq_info =
+const StdlibRegisterInfo _diveq_info =
 {
 	Docstr(DFunc("diveq") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -2042,7 +2042,7 @@ const _StdlibRegisterInfo _diveq_info =
 
 MAKE_OP_EQ(diveq, _vecDiv, _vecDiv)
 
-const _StdlibRegisterInfo _modeq_info =
+const StdlibRegisterInfo _modeq_info =
 {
 	Docstr(DFunc("modeq") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -2068,7 +2068,7 @@ MAKE_OP_EQ(modeq, _vecMod, _vecModFloat)
 		return 1;\
 	}
 
-const _StdlibRegisterInfo _revsub_info =
+const StdlibRegisterInfo _revsub_info =
 {
 	Docstr(DFunc("revsub") DParam("other", "int|float|Vector")
 	R"x(These allow you to perform binary mathematical operations where this Vector will be used as the second operand
@@ -2086,7 +2086,7 @@ const _StdlibRegisterInfo _revsub_info =
 
 MAKE_REV(sub)
 
-const _StdlibRegisterInfo _revdiv_info =
+const StdlibRegisterInfo _revdiv_info =
 {
 	Docstr(DFunc("revdiv") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -2095,7 +2095,7 @@ const _StdlibRegisterInfo _revdiv_info =
 
 MAKE_REV(div)
 
-const _StdlibRegisterInfo _revmod_info =
+const StdlibRegisterInfo _revmod_info =
 {
 	Docstr(DFunc("revmod") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -2160,7 +2160,7 @@ MAKE_REV(mod)
 		return 0;\
 	}
 
-const _StdlibRegisterInfo _revsubeq_info =
+const StdlibRegisterInfo _revsubeq_info =
 {
 	Docstr(DFunc("revsubeq") DParam("other", "int|float|Vector")
 	R"(These allow you to perform in-place reflexive operations where this Vector will be used as the second operand
@@ -2175,7 +2175,7 @@ const _StdlibRegisterInfo _revsubeq_info =
 
 MAKE_REV_EQ(revsubeq, _vecSub, _vecSub, _revVecSubVal, _revVecSubVal)
 
-const _StdlibRegisterInfo _revdiveq_info =
+const StdlibRegisterInfo _revdiveq_info =
 {
 	Docstr(DFunc("revdiveq") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -2184,7 +2184,7 @@ const _StdlibRegisterInfo _revdiveq_info =
 
 MAKE_REV_EQ(revdiveq, _vecDiv, _vecDiv, _revVecDivVal, _revVecDivVal)
 
-const _StdlibRegisterInfo _revmodeq_info =
+const StdlibRegisterInfo _revmodeq_info =
 {
 	Docstr(DFunc("revmodeq") DParam("other", "int|float|Vector")
 	R"(ditto)"),
@@ -2193,7 +2193,7 @@ const _StdlibRegisterInfo _revmodeq_info =
 
 MAKE_REV_EQ(revmodeq, _vecMod, _vecModFloat, _revVecModVal, _revVecModFloatVal)
 
-const _StdlibRegister _methods[] =
+const StdlibRegister _methods[] =
 {
 	_DListItem(_constructor),
 	_DListItem(_fromArray),
@@ -2249,7 +2249,7 @@ const _StdlibRegister _methods[] =
 	_DListEnd
 };
 
-const _StdlibRegisterInfo _iterator_info =
+const StdlibRegisterInfo _iterator_info =
 {
 	nullptr,
 	"iterator", 1
@@ -2268,7 +2268,7 @@ word_t _iterator(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _iteratorReverse_info =
+const StdlibRegisterInfo _iteratorReverse_info =
 {
 	nullptr,
 	"iteratorReverse", 1
@@ -2287,7 +2287,7 @@ word_t _iteratorReverse(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _opApply_info =
+const StdlibRegisterInfo _opApply_info =
 {
 	Docstr(DFunc("opApply") DParamD("mode", "string", "\"\"")
 	R"(Allows you to iterate over the contents of a Vector using a \tt{foreach} loop.
@@ -2327,7 +2327,7 @@ word_t _opApply(CrocThread* t)
 	return 3;
 }
 
-const _StdlibRegister _opApplyFunc[] =
+const StdlibRegister _opApplyFunc[] =
 {
 	_DListItem(_iterator),
 	_DListItem(_iteratorReverse),
@@ -2341,8 +2341,8 @@ void initMiscLib_Vector(CrocThread* t)
 	croc_class_new(t, "Vector", 0);
 		croc_pushNull(t);   croc_class_addHField(t, -2, Data);
 		croc_pushInt(t, 0); croc_class_addHField(t, -2, Kind);
-		_registerMethods(t, _methods);
-		_registerMethodUV(t, _opApplyFunc);
+		registerMethods(t, _methods);
+		registerMethodUV(t, _opApplyFunc);
 		croc_field(t, -1, "fillRange");   croc_class_addMethod(t, -2, "opSliceAssign");
 		croc_field(t, -1, "opCatAssign"); croc_class_addMethod(t, -2, "append");
 	croc_newGlobal(t, "Vector");
@@ -2395,8 +2395,8 @@ void docMiscLib_Vector(CrocThread* t, CrocDoc* doc)
 		Vector, an exception will be thrown the next time a method is called on the Vector that uses that memblock.
 
 		All methods, unless otherwise documented, return the Vector object on which they were called.)");
-		_docFields(doc, _methods);
-		_docFieldUV(doc, _opApplyFunc);
+		docFields(doc, _methods);
+		docFieldUV(doc, _opApplyFunc);
 		croc_ex_doc_pop(doc, -1);
 	croc_popTop(t);
 }

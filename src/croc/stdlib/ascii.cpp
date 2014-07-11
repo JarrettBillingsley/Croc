@@ -45,7 +45,7 @@ int _icmp(crocstr s1, crocstr s2)
 // =====================================================================================================================
 // Global funcs
 
-const _StdlibRegisterInfo _isAscii_info =
+const StdlibRegisterInfo _isAscii_info =
 {
 	Docstr(DFunc("isAscii") DParam("val", "string")
 	R"(\returns a bool of whether \tt{val} is an ASCII string (that is, all its codepoints are below U+000080).)"),
@@ -64,7 +64,7 @@ word_t _isAscii(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _icompare_info =
+const StdlibRegisterInfo _icompare_info =
 {
 	Docstr(DFunc("icompare") DParam("str1", "string") DParam("str2", "string")
 	R"(Compares two ASCII strings in a case-insensitive manner.
@@ -88,7 +88,7 @@ word_t _icompare(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _ifind_info =
+const StdlibRegisterInfo _ifind_info =
 {
 	Docstr(DFunc("ifind") DParam("str", "string") DParam("sub", "string") DParamD("start", "int", "0")
 	R"(Searches for an occurence of \tt{sub} in \tt{this}, but searches in a case-insensitive manner.
@@ -141,7 +141,7 @@ word_t _ifind(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _irfind_info =
+const StdlibRegisterInfo _irfind_info =
 {
 	Docstr(DFunc("irfind") DParam("str", "string") DParam("sub", "string") DParamD("start", "int", "#str - 1")
 	R"(Reverse case-insensitive find. Works similarly to \tt{ifind}, but the search starts with the character at
@@ -200,7 +200,7 @@ word_t _irfind(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toLower_info =
+const StdlibRegisterInfo _toLower_info =
 {
 	Docstr(DFunc("toLower") DParam("val", "string")
 	R"(Converts a string to lowercase.
@@ -228,7 +228,7 @@ word_t _toLower(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toUpper_info =
+const StdlibRegisterInfo _toUpper_info =
 {
 	Docstr(DFunc("toUpper") DParam("val", "string")
 	R"(Converts a string to uppercase.
@@ -256,7 +256,7 @@ word_t _toUpper(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _istartsWith_info =
+const StdlibRegisterInfo _istartsWith_info =
 {
 	Docstr(DFunc("istartsWith") DParam("str", "string") DParam("sub", "string")
 	R"(Checks if \tt{str} begins with the substring \tt{other} in a case-insensitive manner.
@@ -276,7 +276,7 @@ word_t _istartsWith(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _iendsWith_info =
+const StdlibRegisterInfo _iendsWith_info =
 {
 	Docstr(DFunc("iendsWith") DParam("str", "string") DParam("sub", "string")
 	R"(Checks if \tt{str} ends with the substring \tt{other} in a case-insensitive manner.
@@ -305,7 +305,7 @@ word_t _iendsWith(CrocThread* t)
 		return 1;\
 	}
 
-const _StdlibRegisterInfo _isAlpha_info =
+const StdlibRegisterInfo _isAlpha_info =
 {
 	Docstr(DFunc("isAlpha") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(These functions all work the same way: they classify a character in a string.
@@ -337,7 +337,7 @@ const _StdlibRegisterInfo _isAlpha_info =
 
 MAKE_IS(_isAlpha, isalpha)
 
-const _StdlibRegisterInfo _isAlNum_info =
+const StdlibRegisterInfo _isAlNum_info =
 {
 	Docstr(DFunc("isAlNum") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
@@ -347,7 +347,7 @@ const _StdlibRegisterInfo _isAlNum_info =
 
 MAKE_IS(_isAlNum, isalnum)
 
-const _StdlibRegisterInfo _isLower_info =
+const StdlibRegisterInfo _isLower_info =
 {
 	Docstr(DFunc("isLower") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
@@ -357,7 +357,7 @@ const _StdlibRegisterInfo _isLower_info =
 
 MAKE_IS(_isLower, islower)
 
-const _StdlibRegisterInfo _isUpper_info =
+const StdlibRegisterInfo _isUpper_info =
 {
 	Docstr(DFunc("isUpper") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
@@ -367,7 +367,7 @@ const _StdlibRegisterInfo _isUpper_info =
 
 MAKE_IS(_isUpper, isupper)
 
-const _StdlibRegisterInfo _isDigit_info =
+const StdlibRegisterInfo _isDigit_info =
 {
 	Docstr(DFunc("isDigit") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
@@ -377,7 +377,7 @@ const _StdlibRegisterInfo _isDigit_info =
 
 MAKE_IS(_isDigit, isdigit)
 
-const _StdlibRegisterInfo _isHexDigit_info =
+const StdlibRegisterInfo _isHexDigit_info =
 {
 	Docstr(DFunc("isHexDigit") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
@@ -387,7 +387,7 @@ const _StdlibRegisterInfo _isHexDigit_info =
 
 MAKE_IS(_isHexDigit, isxdigit)
 
-const _StdlibRegisterInfo _isCtrl_info =
+const StdlibRegisterInfo _isCtrl_info =
 {
 	Docstr(DFunc("isCtrl") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
@@ -397,7 +397,7 @@ const _StdlibRegisterInfo _isCtrl_info =
 
 MAKE_IS(_isCtrl, iscntrl)
 
-const _StdlibRegisterInfo _isPunct_info =
+const StdlibRegisterInfo _isPunct_info =
 {
 	Docstr(DFunc("isPunct") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
@@ -407,7 +407,7 @@ const _StdlibRegisterInfo _isPunct_info =
 
 MAKE_IS(_isPunct, ispunct)
 
-const _StdlibRegisterInfo _isSpace_info =
+const StdlibRegisterInfo _isSpace_info =
 {
 	Docstr(DFunc("isSpace") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
@@ -417,7 +417,7 @@ const _StdlibRegisterInfo _isSpace_info =
 
 MAKE_IS(_isSpace, isspace)
 
-const _StdlibRegisterInfo _isGraph_info =
+const StdlibRegisterInfo _isGraph_info =
 {
 	Docstr(DFunc("isGraph") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
@@ -427,7 +427,7 @@ const _StdlibRegisterInfo _isGraph_info =
 
 MAKE_IS(_isGraph, isgraph)
 
-const _StdlibRegisterInfo _isPrint_info =
+const StdlibRegisterInfo _isPrint_info =
 {
 	Docstr(DFunc("isPrint") DParam("c", "string") DParamD("idx", "int", "0")
 	R"(ditto)"),
@@ -437,7 +437,7 @@ const _StdlibRegisterInfo _isPrint_info =
 
 MAKE_IS(_isPrint, isprint)
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_isAscii),
 	_DListItem(_icompare),
@@ -463,7 +463,7 @@ const _StdlibRegister _globalFuncs[] =
 
 	word loader(CrocThread* t)
 	{
-		_registerGlobals(t, _globalFuncs);
+		registerGlobals(t, _globalFuncs);
 		return 0;
 	}
 	}
@@ -485,7 +485,7 @@ const _StdlibRegister _globalFuncs[] =
 
 		Note that these functions (except for \link{isAscii}) will only work on ASCII strings. If passed strings which
 		contain codepoints above U+00007F, they will throw an exception.)");
-			_docFields(&doc, _globalFuncs);
+			docFields(&doc, _globalFuncs);
 		croc_ex_doc_pop(&doc, -1);
 		croc_ex_doc_finish(&doc);
 #endif

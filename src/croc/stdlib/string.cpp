@@ -21,7 +21,7 @@ inline crocstr checkCrocstrParam(CrocThread* t, word_t slot)
 	return ret;
 }
 
-const _StdlibRegisterInfo _format_info =
+const StdlibRegisterInfo _format_info =
 {
 	Docstr(DFunc("format") DVararg
 	R"(Creates a formatted output string by converting the parameters to strings and inserting them as specified by
@@ -182,7 +182,7 @@ word_t _format(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _join_info =
+const StdlibRegisterInfo _join_info =
 {
 	Docstr(DFunc("join") DParam("arr", "array")
 	R"(The inverse of the \link{split} method. This joins together the elements of \tt{arr} using \tt{this} as the
@@ -251,7 +251,7 @@ word_t _join(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _vjoin_info =
+const StdlibRegisterInfo _vjoin_info =
 {
 	Docstr(DFunc("vjoin") DVararg
 	R"(Like \link{join}, but joins its list of variadic parameters instead of an array. The functionality is otherwise
@@ -297,7 +297,7 @@ word_t _vjoin(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toInt_info =
+const StdlibRegisterInfo _toInt_info =
 {
 	Docstr(DFunc("toInt") DParamD("base", "int", "10")
 	R"(Converts \tt{this} into an integer. The optional \tt{base} parameter defaults to 10, but you can use any base
@@ -329,7 +329,7 @@ word_t _toInt(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _toFloat_info =
+const StdlibRegisterInfo _toFloat_info =
 {
 	Docstr(DFunc("toFloat")
 	R"(Converts \tt{this} into a float.
@@ -356,7 +356,7 @@ word_t _toFloat(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _ord_info =
+const StdlibRegisterInfo _ord_info =
 {
 	Docstr(DFunc("ord") DParamD("idx", "int", "0")
 	R"(Gets the integer codepoint value of the character at the given index, which defaults to 0.
@@ -400,7 +400,7 @@ word_t _commonFind(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _find_info =
+const StdlibRegisterInfo _find_info =
 {
 	Docstr(DFunc("find") DParam("sub", "string") DParamD("start", "int", "0")
 	R"(Searches for an occurence of \tt{sub} in \tt{this}.
@@ -418,7 +418,7 @@ const _StdlibRegisterInfo _find_info =
 
 #define _find _commonFind<false>
 
-const _StdlibRegisterInfo _rfind_info =
+const StdlibRegisterInfo _rfind_info =
 {
 	Docstr(DFunc("rfind") DParam("sub", "string") DParamD("start", "int", "#s - 1")
 	R"(Reverse find. Works similarly to \tt{find}, but the search starts with the character at \tt{start} (which
@@ -436,7 +436,7 @@ const _StdlibRegisterInfo _rfind_info =
 
 #define _rfind _commonFind<true>
 
-const _StdlibRegisterInfo _repeat_info =
+const StdlibRegisterInfo _repeat_info =
 {
 	Docstr(DFunc("repeat") DParam("n", "int")
 	R"(\returns a string which is the concatenation of \tt{n} instances of \tt{this}. So \tt{"hello".repeat(3)} will
@@ -468,7 +468,7 @@ word_t _repeat(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _reverse_info =
+const StdlibRegisterInfo _reverse_info =
 {
 	Docstr(DFunc("reverse")
 	R"(\returns a string which is the reversal of \tt{this}. Only the codepoints are reversed; no higher-level structure
@@ -527,7 +527,7 @@ word_t _reverse(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _split_info =
+const StdlibRegisterInfo _split_info =
 {
 	Docstr(DFunc("split") DParam("delim", "string")
 	R"(The inverse of the \link{join} method. Splits \tt{this} into pieces and returns an array of the split pieces.
@@ -565,7 +565,7 @@ word_t _split(CrocThread* t)
 
 const uword VSplitMax = 20;
 
-const _StdlibRegisterInfo _vsplit_info =
+const StdlibRegisterInfo _vsplit_info =
 {
 	Docstr(DFunc("vsplit") DParam("delim", "string")
 	R"(Similar to \link{split}, but instead of returning an array, returns the split pieces as multiple return values.
@@ -599,7 +599,7 @@ word_t _vsplit(CrocThread* t)
 
 const char* Whitespace = " \t\v\r\n\f";
 
-const _StdlibRegisterInfo _splitWS_info =
+const StdlibRegisterInfo _splitWS_info =
 {
 	Docstr(DFunc("splitWS")
 	R"(Similar to \link{split}, but splits at whitespace (spaces, tabs, newlines etc.).
@@ -637,7 +637,7 @@ word_t _splitWS(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _vsplitWS_info =
+const StdlibRegisterInfo _vsplitWS_info =
 {
 	Docstr(DFunc("vsplitWS")
 	R"(Like \link{splitWS}, but returns multiple values like \link{vsplit}. Again, if the string splits into more than
@@ -667,7 +667,7 @@ word_t _vsplitWS(CrocThread* t)
 	return num;
 }
 
-const _StdlibRegisterInfo _splitLines_info =
+const StdlibRegisterInfo _splitLines_info =
 {
 	Docstr(DFunc("splitLines")
 	R"(This will split the string at any newline characters (\tt{'\\n'}, \tt{'\\r'}, or \tt{'\\r\\n'}), removing the
@@ -701,7 +701,7 @@ word_t _splitLines(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _vsplitLines_info =
+const StdlibRegisterInfo _vsplitLines_info =
 {
 	Docstr(DFunc("vsplitLines")
 	R"(Like \link{splitLines}, but returns multiple values like \link{vsplit}. Same deal!)"),
@@ -727,7 +727,7 @@ word_t _vsplitLines(CrocThread* t)
 	return num;
 }
 
-const _StdlibRegisterInfo _strip_info =
+const StdlibRegisterInfo _strip_info =
 {
 	Docstr(DFunc("strip")
 	R"(Strips any whitespace from the beginning and end of the string.)"),
@@ -741,7 +741,7 @@ word_t _strip(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _lstrip_info =
+const StdlibRegisterInfo _lstrip_info =
 {
 	Docstr(DFunc("lstrip")
 	R"(Strips any whitespace from just the beginning of the string.)"),
@@ -755,7 +755,7 @@ word_t _lstrip(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _rstrip_info =
+const StdlibRegisterInfo _rstrip_info =
 {
 	Docstr(DFunc("rstrip")
 	R"(Strips any whitespace from just the end of the string.)"),
@@ -769,7 +769,7 @@ word_t _rstrip(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _replace_info =
+const StdlibRegisterInfo _replace_info =
 {
 	Docstr(DFunc("replace") DParam("from", "string") DParam("to", "string")
 	R"(Replaces any occurrences in \tt{this} of the string \tt{from} with the string \tt{to}.)"),
@@ -795,7 +795,7 @@ word_t _replace(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _startsWith_info =
+const StdlibRegisterInfo _startsWith_info =
 {
 	Docstr(DFunc("startsWith") DParam("other", "string")
 	R"(\returns a bool indicating whether or not \tt{this} starts with the substring \tt{other}.)"),
@@ -811,7 +811,7 @@ word_t _startsWith(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _endsWith_info =
+const StdlibRegisterInfo _endsWith_info =
 {
 	Docstr(DFunc("endsWith") DParam("other", "string")
 	R"(\returns a bool indicating whether or not \tt{this} ends with the substring \tt{other}.)"),
@@ -875,7 +875,7 @@ word_t _iteratorReverse(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _opApply_info =
+const StdlibRegisterInfo _opApply_info =
 {
 	Docstr(DFunc("opApply") DParamD("mode", "string", "null")
 	R"(This allows you to iterate over the individual characters of the string with a \tt{foreach} loop. It gives two
@@ -916,7 +916,7 @@ word_t _opApply(CrocThread* t)
 	return 3;
 }
 
-const _StdlibRegister _methodFuncs[] =
+const StdlibRegister _methodFuncs[] =
 {
 	_DListItem(_format),
 	_DListItem(_join),
@@ -949,7 +949,7 @@ word loader(CrocThread* t)
 	initStringLib_StringBuffer(t);
 
 	croc_namespace_new(t, "string");
-		_registerFields(t, _methodFuncs);
+		registerFields(t, _methodFuncs);
 	croc_vm_setTypeMT(t, CrocType_String);
 	return 0;
 }
@@ -979,7 +979,7 @@ void docStringLib(CrocThread* t)
 		Remember that strings in Croc are immutable. These method never operate on the object on which they were
 		called. They will always return new strings distinct from the original string.)");
 
-		_docFields(&doc, _methodFuncs);
+		docFields(&doc, _methodFuncs);
 
 		croc_ex_doc_pop(&doc, -1);
 	croc_popTop(t);

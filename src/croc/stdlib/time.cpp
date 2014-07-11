@@ -71,7 +71,7 @@ international time and date formatting etc. These things would be much better de
 internationalization library.)";
 #endif
 
-const _StdlibRegisterInfo _microTime_info =
+const StdlibRegisterInfo _microTime_info =
 {
 	Docstr(DFunc("microTime")
 	R"(\returns an integer which is a microseond-accurate count of some kind. The values returned by this function can
@@ -99,7 +99,7 @@ word_t _microTime(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _timex_info =
+const StdlibRegisterInfo _timex_info =
 {
 	Docstr(DFunc("timex") DParamAny("f")
 	R"(Given any callable value \tt{f}, calls \tt{f} and measures how long it takes to complete.
@@ -121,7 +121,7 @@ word_t _timex(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _clockTime_info =
+const StdlibRegisterInfo _clockTime_info =
 {
 	Docstr(DFunc("clockTime")
 	R"(\returns an integer which is a count of the number of microseconds since the Unix epoch (1 Jan 1970).
@@ -143,7 +143,7 @@ word_t _clockTime(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _timeToTableUTC_info =
+const StdlibRegisterInfo _timeToTableUTC_info =
 {
 	Docstr(DFunc("timeToTableUTC") DParamD("time", "int", "null") DParamD("ret", "table", "null")
 	R"(Converts a clock time (such as returned from \link{clockTime}) into a table which holds the the date and time
@@ -179,7 +179,7 @@ word_t _timeToTableUTC(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _timeToTableLocal_info =
+const StdlibRegisterInfo _timeToTableLocal_info =
 {
 	Docstr(DFunc("timeToTableLocal") DParamD("time", "int", "null") DParamD("ret", "table", "null")
 	R"(Just like \link{timeToTableUTC}, except the fields in the returned table will be calculated according to the
@@ -197,7 +197,7 @@ word_t _timeToTableLocal(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _timeFromTableUTC_info =
+const StdlibRegisterInfo _timeFromTableUTC_info =
 {
 	Docstr(DFunc("timeFromTableUTC") DParam("tab", "table")
 	R"(The inverse of \link{timeToTableUTC}, converts a table with the appropriate fields into a integer clock time
@@ -231,7 +231,7 @@ word_t _timeFromTableUTC(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _timeFromTableLocal_info =
+const StdlibRegisterInfo _timeFromTableLocal_info =
 {
 	Docstr(DFunc("timeFromTableLocal") DParam("tab", "table")
 	R"(The inverse of \link{timeToTableLocal}. This works just like \link{timeFromTableUTC} except it interprets the
@@ -249,7 +249,7 @@ word_t _timeFromTableLocal(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_microTime),
 	_DListItem(_timex),
@@ -287,7 +287,7 @@ writeln(t.time()) // prints 0
 \endcode)";
 #endif
 
-const _StdlibRegisterInfo _start_info =
+const StdlibRegisterInfo _start_info =
 {
 	Docstr(DFunc("start")
 	R"(Starts the timer, or if it's already running, does nothing.)"),
@@ -310,7 +310,7 @@ word_t _start(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _stop_info =
+const StdlibRegisterInfo _stop_info =
 {
 	Docstr(DFunc("stop")
 	R"(Stops the timer, or if it's not running, does nothing.)"),
@@ -336,7 +336,7 @@ word_t _stop(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _reset_info =
+const StdlibRegisterInfo _reset_info =
 {
 	Docstr(DFunc("reset")
 	R"(Stops the timer and resets its accumulated time to 0.)"),
@@ -353,7 +353,7 @@ word_t _reset(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _time_info =
+const StdlibRegisterInfo _time_info =
 {
 	Docstr(DFunc("time")
 	R"(\returns the total time elapsed on this timer. If this timer is running, returns the accumulated time plus any
@@ -382,7 +382,7 @@ word_t _time(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _Timer_methods[] =
+const StdlibRegister _Timer_methods[] =
 {
 	_DListItem(_start),
 	_DListItem(_stop),
@@ -393,13 +393,13 @@ const _StdlibRegister _Timer_methods[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 
 	croc_class_new(t, "Timer", 0);
 		croc_pushBool(t, false); croc_class_addField(t, -2, "_running");
 		croc_pushInt(t, 0);      croc_class_addField(t, -2, "_start");
 		croc_pushInt(t, 0);      croc_class_addField(t, -2, "_total");
-		_registerMethods(t, _Timer_methods);
+		registerMethods(t, _Timer_methods);
 	croc_newGlobal(t, "Timer");
 
 	return 0;
@@ -415,11 +415,11 @@ void initTimeLib(CrocThread* t)
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);
 	croc_ex_doc_push(&doc, ModuleDocs);
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 
 		croc_field(t, -1, "Timer");
 		croc_ex_doc_push(&doc, TimerClassDocs);
-			_docFields(&doc, _Timer_methods);
+			docFields(&doc, _Timer_methods);
 		croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
 	croc_ex_doc_pop(&doc, -1);

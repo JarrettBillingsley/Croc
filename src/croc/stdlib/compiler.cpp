@@ -44,7 +44,7 @@ uword _stringToFlag(CrocThread* t, word idx)
 	return 0; // dummy
 }
 
-const _StdlibRegisterInfo _setFlags_info =
+const StdlibRegisterInfo _setFlags_info =
 {
 	Docstr(DFunc("setFlags") DVararg
 	R"(Enable and disable VM-wide compiler flags. These control whether or not code is generated for various optional
@@ -91,7 +91,7 @@ word_t _setFlags(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _getFlags_info =
+const StdlibRegisterInfo _getFlags_info =
 {
 	Docstr(DFunc("getFlags")
 	R"(\returns an array of strings containing the compiler's currently enabled flags. See \link{setFlags} for which
@@ -143,7 +143,7 @@ word_t _compileModuleImpl(CrocThread* t, bool dt)
 	_pushResultToString(t, result);
 	return 2;
 }
-const _StdlibRegisterInfo _compileModule_info =
+const StdlibRegisterInfo _compileModule_info =
 {
 	Docstr(DFunc("compileModule") DParam("source", "string") DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Compiles a Croc module.
@@ -203,7 +203,7 @@ word_t _compileStmtsImpl(CrocThread* t, bool dt)
 	return 2;
 }
 
-const _StdlibRegisterInfo _compileStmts_info =
+const StdlibRegisterInfo _compileStmts_info =
 {
 	Docstr(DFunc("compileStmts") DParam("source", "string") DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Compiles a list of Croc statements. Almost identical to \link{compileModule} except there should be no
@@ -242,7 +242,7 @@ word_t _compileExprImpl(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _compileExpr_info =
+const StdlibRegisterInfo _compileExpr_info =
 {
 	Docstr(DFunc("compileExpr") DParam("source", "string") DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Compiles a single Croc expression into a function which takes variadic arguments and returns the result of
@@ -271,7 +271,7 @@ word_t _compileExpr(CrocThread* t)
 	return _compileExprImpl(t);
 }
 
-const _StdlibRegisterInfo _compileModuleDT_info =
+const StdlibRegisterInfo _compileModuleDT_info =
 {
 	Docstr(DFunc("compileModuleDT") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
@@ -300,7 +300,7 @@ word_t _compileModuleDT(CrocThread* t)
 	return _compileModuleImpl(t, true);
 }
 
-const _StdlibRegisterInfo _compileStmtsDT_info =
+const StdlibRegisterInfo _compileStmtsDT_info =
 {
 	Docstr(DFunc("compileStmtsDT") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
@@ -322,7 +322,7 @@ word_t _compileStmtsDT(CrocThread* t)
 	return _compileStmtsImpl(t, true);
 }
 
-const _StdlibRegisterInfo _compileModuleEx_info =
+const StdlibRegisterInfo _compileModuleEx_info =
 {
 	Docstr(DFunc("compileModuleEx") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
@@ -345,7 +345,7 @@ word_t _compileModuleEx(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _compileStmtsEx_info =
+const StdlibRegisterInfo _compileStmtsEx_info =
 {
 	Docstr(DFunc("compileStmtsEx") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
@@ -366,7 +366,7 @@ word_t _compileStmtsEx(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _compileExprEx_info =
+const StdlibRegisterInfo _compileExprEx_info =
 {
 	Docstr(DFunc("compileExprEx") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
@@ -387,7 +387,7 @@ word_t _compileExprEx(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _compileModuleDTEx_info =
+const StdlibRegisterInfo _compileModuleDTEx_info =
 {
 	Docstr(DFunc("compileModuleDTEx") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
@@ -408,7 +408,7 @@ word_t _compileModuleDTEx(CrocThread* t)
 	return 3;
 }
 
-const _StdlibRegisterInfo _compileStmtsDTEx_info =
+const StdlibRegisterInfo _compileStmtsDTEx_info =
 {
 	Docstr(DFunc("compileStmtsDTEx") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
@@ -431,7 +431,7 @@ word_t _compileStmtsDTEx(CrocThread* t)
 	return 2;
 }
 
-const _StdlibRegisterInfo _runString_info =
+const StdlibRegisterInfo _runString_info =
 {
 	Docstr(DFunc("runString") DParam("source", "string") DParamD("filename", "string", "\"<compiled from string>\"")
 		DParamD("env", "namespace", "null")
@@ -472,7 +472,7 @@ word_t _runString(CrocThread* t)
 	return croc_call(t, -2, -1);
 }
 
-const _StdlibRegisterInfo _eval_info =
+const StdlibRegisterInfo _eval_info =
 {
 	Docstr(DFunc("eval") DParam("source", "string") DParamD("filename", "string", "\"<compiled from string>\"")
 		DParamD("env", "namespace", "null")
@@ -513,7 +513,7 @@ word_t _eval(CrocThread* t)
 	return croc_call(t, -2, -1);
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_setFlags),
 	_DListItem(_getFlags),
@@ -534,7 +534,7 @@ const _StdlibRegister _globalFuncs[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 	return 0;
 }
 }
@@ -551,7 +551,7 @@ void initCompilerLib(CrocThread* t)
 	R"(This module gives you access to the Croc compiler. Often you won't need to deal with the compiler directly as
 	the module system takes care of loading most of your code, but if you need to dynamically compile something or
 	write a new module system, this is the interface.)");
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 	croc_ex_doc_pop(&doc, -1);
 	croc_ex_doc_finish(&doc);
 #endif

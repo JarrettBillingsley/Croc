@@ -12,7 +12,7 @@ namespace croc
 {
 namespace
 {
-const _StdlibRegisterInfo _abs_info =
+const StdlibRegisterInfo _abs_info =
 {
 	Docstr(DFunc("abs") DParam("v", "int|float")
 	R"(\returns the absolute value of the number. The returned value will be the same type as was passed in.)"),
@@ -58,7 +58,7 @@ word_t _abs(CrocThread* t)
 	word_t _##NAME(CrocThread* t)\
 	{ croc_pushBool(t, REALNAME(croc_ex_checkNumParam(t, 1))); return 1; }
 
-const _StdlibRegisterInfo _sin_info =
+const StdlibRegisterInfo _sin_info =
 {
 	Docstr(DFunc("sin") DParam("v", "int|float")
 	R"(\returns the sine of the angle, which is assumed to be in radians. Always returns a \tt{float}.)"),
@@ -67,7 +67,7 @@ const _StdlibRegisterInfo _sin_info =
 
 MATHFUNC1(sin)
 
-const _StdlibRegisterInfo _cos_info =
+const StdlibRegisterInfo _cos_info =
 {
 	Docstr(DFunc("cos") DParam("v", "int|float")
 	R"(\returns the cosine of the angle, which is assumed to be in radians. Always returns a \tt{float}.)"),
@@ -76,7 +76,7 @@ const _StdlibRegisterInfo _cos_info =
 
 MATHFUNC1(cos)
 
-const _StdlibRegisterInfo _tan_info =
+const StdlibRegisterInfo _tan_info =
 {
 	Docstr(DFunc("tan") DParam("v", "int|float")
 	R"(\returns the tangent of the angle, which is assumed to be in radians. Always returns a \tt{float}.)"),
@@ -85,7 +85,7 @@ const _StdlibRegisterInfo _tan_info =
 
 MATHFUNC1(tan)
 
-const _StdlibRegisterInfo _asin_info =
+const StdlibRegisterInfo _asin_info =
 {
 	Docstr(DFunc("asin") DParam("v", "int|float")
 	R"(\returns the inverse sine of the number. Always returns a \tt{float}. Returns \link{nan} if the input is outside
@@ -95,7 +95,7 @@ const _StdlibRegisterInfo _asin_info =
 
 MATHFUNC1(asin)
 
-const _StdlibRegisterInfo _acos_info =
+const StdlibRegisterInfo _acos_info =
 {
 	Docstr(DFunc("acos") DParam("v", "int|float")
 	R"(\returns the inverse cosine of the number. Always returns a \tt{float}. Returns \link{nan} if the input is
@@ -105,7 +105,7 @@ const _StdlibRegisterInfo _acos_info =
 
 MATHFUNC1(acos)
 
-const _StdlibRegisterInfo _atan_info =
+const StdlibRegisterInfo _atan_info =
 {
 	Docstr(DFunc("atan") DParam("v", "int|float")
 	R"(\returns the inverse tangent of the number. Always returns a \tt{float} in the range [-pi / 2, pi / 2]. This
@@ -115,7 +115,7 @@ const _StdlibRegisterInfo _atan_info =
 
 MATHFUNC1(atan)
 
-const _StdlibRegisterInfo _atan2_info =
+const StdlibRegisterInfo _atan2_info =
 {
 	Docstr(DFunc("atan2") DParam("dy", "int|float") DParam("dx", "int|float")
 	R"(\returns the inverse tangent, extended to all four quadrants by passing the x and y distances separately.
@@ -131,7 +131,7 @@ const _StdlibRegisterInfo _atan2_info =
 
 MATHFUNC2(atan2)
 
-const _StdlibRegisterInfo _sqrt_info =
+const StdlibRegisterInfo _sqrt_info =
 {
 	Docstr(DFunc("sqrt") DParam("v", "int|float")
 	R"(\returns the square root of the input. Returns \tt{-\link{nan}} if a number less than 0 is given. The result is
@@ -141,7 +141,7 @@ const _StdlibRegisterInfo _sqrt_info =
 
 MATHFUNC1(sqrt)
 
-const _StdlibRegisterInfo _cbrt_info =
+const StdlibRegisterInfo _cbrt_info =
 {
 	Docstr(DFunc("cbrt") DParam("v", "int|float")
 	R"(\returns the cube root of the input. The result is always a float. This works for all inputs in the range
@@ -151,7 +151,7 @@ const _StdlibRegisterInfo _cbrt_info =
 
 MATHFUNC1(cbrt)
 
-const _StdlibRegisterInfo _pow_info =
+const StdlibRegisterInfo _pow_info =
 {
 	Docstr(DFunc("pow") DParam("base", "int|float") DParam("exp", "int|float")
 	R"(\returns \tt{base} raised to the \tt{exp} power. Fractional and negative powers are legal as well. Always returns
@@ -161,7 +161,7 @@ const _StdlibRegisterInfo _pow_info =
 
 MATHFUNC2(pow)
 
-const _StdlibRegisterInfo _exp_info =
+const StdlibRegisterInfo _exp_info =
 {
 	Docstr(DFunc("exp") DParam("v", "int|float")
 	R"(\returns \em{e}\sup{v}. Always returns a float.)"),
@@ -170,7 +170,7 @@ const _StdlibRegisterInfo _exp_info =
 
 MATHFUNC1(exp)
 
-const _StdlibRegisterInfo _ln_info =
+const StdlibRegisterInfo _ln_info =
 {
 	Docstr(DFunc("ln") DParam("v", "int|float")
 	R"(\returns the natural logarithm of \tt{v}. This is the inverse of \link{exp}. Always returns a float.)"),
@@ -179,7 +179,7 @@ const _StdlibRegisterInfo _ln_info =
 
 MATHFUNCRENAME(ln, log)
 
-const _StdlibRegisterInfo _log2_info =
+const StdlibRegisterInfo _log2_info =
 {
 	Docstr(DFunc("log2") DParam("v", "int|float")
 	R"(\returns the base-2 logarithm of \tt{v}. This is the inverse if 2\sup{v}. Always returns a float.)"),
@@ -188,7 +188,7 @@ const _StdlibRegisterInfo _log2_info =
 
 MATHFUNC1(log2)
 
-const _StdlibRegisterInfo _log10_info =
+const StdlibRegisterInfo _log10_info =
 {
 	Docstr(DFunc("log10") DParam("v", "int|float")
 	R"(\returns the base-10 logarithm of \tt{v}. This is the inverse if 10\sup{v}. Always returns a float.)"),
@@ -197,7 +197,7 @@ const _StdlibRegisterInfo _log10_info =
 
 MATHFUNC1(log10)
 
-const _StdlibRegisterInfo _hypot_info =
+const StdlibRegisterInfo _hypot_info =
 {
 	Docstr(DFunc("hypot") DParam("dx", "int|float") DParam("dy", "int|float")
 	R"(\returns the length of the hypotenuse of a right triangle given sides of length \tt{dx} and \tt{dy}. This is the
@@ -207,7 +207,7 @@ const _StdlibRegisterInfo _hypot_info =
 
 MATHFUNC2(hypot)
 
-const _StdlibRegisterInfo _gamma_info =
+const StdlibRegisterInfo _gamma_info =
 {
 	Docstr(DFunc("gamma") DParam("v", "int|float")
 	R"(\returns the gamma function of the input. Always returns a float.
@@ -220,7 +220,7 @@ const _StdlibRegisterInfo _gamma_info =
 
 MATHFUNCRENAME(gamma, tgamma)
 
-const _StdlibRegisterInfo _lgamma_info =
+const StdlibRegisterInfo _lgamma_info =
 {
 	Docstr(DFunc("lgamma") DParam("v", "int|float")
 	R"(\returns the natural log of the \link{gamma} function of the input.)"),
@@ -229,7 +229,7 @@ const _StdlibRegisterInfo _lgamma_info =
 
 MATHFUNC1(lgamma)
 
-const _StdlibRegisterInfo _ceil_info =
+const StdlibRegisterInfo _ceil_info =
 {
 	Docstr(DFunc("ceil") DParam("v", "int|float")
 	R"(\returns \tt{v} rounded up to the next integer closer to infinity, or if \tt{v} is already a whole number,
@@ -239,7 +239,7 @@ const _StdlibRegisterInfo _ceil_info =
 
 MATHFUNC1(ceil)
 
-const _StdlibRegisterInfo _floor_info =
+const StdlibRegisterInfo _floor_info =
 {
 	Docstr(DFunc("floor") DParam("v", "int|float")
 	R"(\returns \tt{v} rounded down to the next integer closer to negative infinity, or if \tt{v} is already a whole
@@ -249,7 +249,7 @@ const _StdlibRegisterInfo _floor_info =
 
 MATHFUNC1(floor)
 
-const _StdlibRegisterInfo _round_info =
+const StdlibRegisterInfo _round_info =
 {
 	Docstr(DFunc("round") DParam("v", "int|float")
 	R"(\returns \tt{v} rounded to the nearest integer, or if \tt{v} is already a whole number, returns it unmodified.
@@ -259,7 +259,7 @@ const _StdlibRegisterInfo _round_info =
 
 MATHFUNC1(round)
 
-const _StdlibRegisterInfo _trunc_info =
+const StdlibRegisterInfo _trunc_info =
 {
 	Docstr(DFunc("trunc") DParam("v", "int|float")
 	R"(\returns the whole number part of the value, discarding the digits after the decimal point. \b{Always returns a
@@ -269,7 +269,7 @@ const _StdlibRegisterInfo _trunc_info =
 
 MATHFUNC1(trunc)
 
-const _StdlibRegisterInfo _iceil_info =
+const StdlibRegisterInfo _iceil_info =
 {
 	Docstr(DFunc("iceil") DParam("v", "int|float")
 	R"(These functions operate the same as \link{ceil}, \link{floor}, \link{round}, and \link{trunc}, except the value
@@ -279,7 +279,7 @@ const _StdlibRegisterInfo _iceil_info =
 
 IMATHFUNC(ceil)
 
-const _StdlibRegisterInfo _ifloor_info =
+const StdlibRegisterInfo _ifloor_info =
 {
 	Docstr(DFunc("ifloor") DParam("v", "int|float")
 	R"(ditto)"),
@@ -288,7 +288,7 @@ const _StdlibRegisterInfo _ifloor_info =
 
 IMATHFUNC(floor)
 
-const _StdlibRegisterInfo _iround_info =
+const StdlibRegisterInfo _iround_info =
 {
 	Docstr(DFunc("iround") DParam("v", "int|float")
 	R"(ditto)"),
@@ -297,7 +297,7 @@ const _StdlibRegisterInfo _iround_info =
 
 IMATHFUNC(round)
 
-const _StdlibRegisterInfo _itrunc_info =
+const StdlibRegisterInfo _itrunc_info =
 {
 	Docstr(DFunc("itrunc") DParam("v", "int|float")
 	R"(ditto)"),
@@ -306,7 +306,7 @@ const _StdlibRegisterInfo _itrunc_info =
 
 IMATHFUNC(trunc)
 
-const _StdlibRegisterInfo _isNan_info =
+const StdlibRegisterInfo _isNan_info =
 {
 	Docstr(DFunc("isNan") DParam("v", "int|float")
 	R"(\returns \tt{true} if the input is \link{nan}, and \tt{false} otherwise.)"),
@@ -315,7 +315,7 @@ const _StdlibRegisterInfo _isNan_info =
 
 BOOLMATHFUNC(isNan, std::isnan)
 
-const _StdlibRegisterInfo _isInf_info =
+const StdlibRegisterInfo _isInf_info =
 {
 	Docstr(DFunc("isInf") DParam("v", "int|float")
 	R"(\returns \tt{true} if the input is positive or negative infinity, and \tt{false} otherwise.)"),
@@ -324,7 +324,7 @@ const _StdlibRegisterInfo _isInf_info =
 
 BOOLMATHFUNC(isInf, std::isinf)
 
-const _StdlibRegisterInfo _sign_info =
+const StdlibRegisterInfo _sign_info =
 {
 	Docstr(DFunc("sign") DParam("v", "int|float")
 	R"(\returns an integer representing the sign of the number. If \tt{v < 0}, returns -1; if \tt{v > 0}, returns 1; and
@@ -363,7 +363,7 @@ word_t _sign(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _rand_info =
+const StdlibRegisterInfo _rand_info =
 {
 	Docstr(DFunc("rand") DParamD("a", "int", "null") DParamD("b", "int", "null")
 	R"(\returns a random integer.
@@ -419,7 +419,7 @@ word_t _rand(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _frand_info =
+const StdlibRegisterInfo _frand_info =
 {
 	Docstr(DFunc("frand") DParamD("a", "int|float", "null") DParamD("b", "int|float", "null")
 	R"(\returns a random float.
@@ -463,7 +463,7 @@ word_t _frand(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _max_info =
+const StdlibRegisterInfo _max_info =
 {
 	Docstr(DFunc("max") DVararg
 	R"(\returns the largest value of its parameters. Note that this is a generic function; the parameters don't have to
@@ -504,7 +504,7 @@ word_t _max(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _min_info =
+const StdlibRegisterInfo _min_info =
 {
 	Docstr(DFunc("min") DVararg
 	R"(\returns the smallest value of its parameters. Note that this is a generic function; the parameters don't have to
@@ -545,7 +545,7 @@ word_t _min(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_abs),
 	_DListItem(_sin),
@@ -636,7 +636,7 @@ word loader(CrocThread* t)
 	croc_pushFloat(t, std::numeric_limits<crocfloat>::min());       croc_newGlobal(t, "floatMin");
 	croc_pushFloat(t, std::numeric_limits<crocfloat>::max());       croc_newGlobal(t, "floatMax");
 
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 	return 0;
 }
 }
@@ -652,7 +652,7 @@ void initMathLib(CrocThread* t)
 	DModule("math")
 	R"(Math functions. What more is there to say?)");
 		croc_ex_docFields(&doc, _constDocs);
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 	croc_ex_doc_pop(&doc, -1);
 	croc_ex_doc_finish(&doc);
 #endif

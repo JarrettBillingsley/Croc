@@ -205,7 +205,7 @@ const char* _Location_fieldDocs[] =
 };
 #endif
 
-const _StdlibRegisterInfo _Location_constructor_info =
+const StdlibRegisterInfo _Location_constructor_info =
 {
 	Docstr(DFunc("constructor") DParamD("file", "string", "null") DParamD("line", "int", "-1")
 		DParamD("col", "int", "Location.Script")
@@ -231,7 +231,7 @@ word_t _Location_constructor(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _Location_toString_info =
+const StdlibRegisterInfo _Location_toString_info =
 {
 	Docstr(DFunc("toString")
 	R"x(Gives a string representation of the location, in the following formats:
@@ -311,7 +311,7 @@ word_t _Location_toString(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _Location_methods[] =
+const StdlibRegister _Location_methods[] =
 {
 	_DListItem(_Location_constructor),
 	_DListItem(_Location_toString),
@@ -330,7 +330,7 @@ void initLocationClass(CrocThread* t, Thread* t_)
 		croc_pushInt(t, 0);       croc_class_addField(t, -2, "line");
 		croc_pushInt(t, Unknown); croc_class_addField(t, -2, "col");
 
-		_registerMethods(t, _Location_methods);
+		registerMethods(t, _Location_methods);
 
 		t_->vm->location = getClass(t_, -1);
 	croc_newGlobal(t, "Location");
@@ -342,7 +342,7 @@ void docLocationClass(CrocThread* t, CrocDoc* doc)
 	croc_field(t, -1, "Location");
 	croc_ex_doc_push(doc, _Location_docs);
 	croc_ex_docFields(doc, _Location_fieldDocs);
-	_docFields(doc, _Location_methods);
+	docFields(doc, _Location_methods);
 	croc_ex_doc_pop(doc, -1);
 	croc_popTop(t);
 }
@@ -392,7 +392,7 @@ const char* _Throwable_fieldDocs[] =
 };
 #endif
 
-const _StdlibRegisterInfo _Throwable_constructor_info =
+const StdlibRegisterInfo _Throwable_constructor_info =
 {
 	Docstr(DFunc("constructor") DParamD("msg", "string", "\"\"") DParamD("cause", "Throwable", "null")
 	R"(Constructor. All parameters are optional.
@@ -420,7 +420,7 @@ word_t _Throwable_constructor(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _Throwable_toString_info =
+const StdlibRegisterInfo _Throwable_toString_info =
 {
 	Docstr(DFunc("toString")
 	R"(Gives a string representation of the exception. It is in the format \tt{"<exception type> at <location>: <msg>"}.
@@ -470,7 +470,7 @@ word_t _Throwable_toString(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _Throwable_setLocation_info =
+const StdlibRegisterInfo _Throwable_setLocation_info =
 {
 	Docstr(DFunc("setLocation") DParam("loc", "Location")
 	R"(Acts as a setter for the \tt{location} field. This is occasionally useful when programmatically building
@@ -494,7 +494,7 @@ word_t _Throwable_setLocation(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _Throwable_setCause_info =
+const StdlibRegisterInfo _Throwable_setCause_info =
 {
 	Docstr(DFunc("setCause") DParam("cause", "instance")
 	R"x(Acts as a setter for the \tt{cause} field. This can be useful when throwing an exception that is caused by
@@ -513,7 +513,7 @@ word_t _Throwable_setCause(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _Throwable_tracebackString_info =
+const StdlibRegisterInfo _Throwable_tracebackString_info =
 {
 	Docstr(DFunc("tracebackString")
 	R"(Gets a string representation of the \tt{traceback} field. The first entry is preceded by "Traceback: ". Each
@@ -555,7 +555,7 @@ word_t _Throwable_tracebackString(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _Throwable_methods[] =
+const StdlibRegister _Throwable_methods[] =
 {
 	_DListItem(_Throwable_constructor),
 	_DListItem(_Throwable_toString),
@@ -577,7 +577,7 @@ void initThrowableClass(CrocThread* t, Thread* t_)
 		croc_pushNull(t);       croc_class_addField(t, -2, "cause");
 		croc_array_new(t, 0);   croc_class_addField(t, -2, "traceback");
 
-		_registerMethods(t, _Throwable_methods);
+		registerMethods(t, _Throwable_methods);
 
 		*t_->vm->stdExceptions.insert(t_->vm->mem, String::create(t_->vm, ATODA("Throwable"))) = getClass(t_, -1);
 	croc_newGlobal(t, "Throwable");
@@ -589,7 +589,7 @@ void docThrowableClass(CrocThread* t, CrocDoc* doc)
 	croc_field(t, -1, "Throwable");
 	croc_ex_doc_push(doc, _Throwable_docs);
 	croc_ex_docFields(doc, _Throwable_fieldDocs);
-	_docFields(doc, _Throwable_methods);
+	docFields(doc, _Throwable_methods);
 	croc_ex_doc_pop(doc, -1);
 	croc_popTop(t);
 }
@@ -598,7 +598,7 @@ void docThrowableClass(CrocThread* t, CrocDoc* doc)
 // =====================================================================================================================
 // Globals
 
-const _StdlibRegisterInfo _stdException_info =
+const StdlibRegisterInfo _stdException_info =
 {
 	Docstr(DFunc("stdException") DParam("name", "string")
 	R"(Gets one of the standard exception types by name.
@@ -615,7 +615,7 @@ word_t _stdException(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _rethrow_info =
+const StdlibRegisterInfo _rethrow_info =
 {
 	Docstr(DFunc("rethrow") DParam("ex", "instance")
 	R"(Rethrows the exception \tt{ex}. This is the same as throwing it normally, except the traceback is not
@@ -631,7 +631,7 @@ word_t _rethrow(CrocThread* t)
 	return croc_eh_rethrow(t);
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_stdException),
 	_DListItem(_rethrow),
@@ -646,7 +646,7 @@ word loader(CrocThread* t)
 	auto t_ = Thread::from(t);
 	initLocationClass(t, t_);
 	initThrowableClass(t, t_);
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 	registerStdEx(t, t_);
 	return 0;
 }
@@ -677,7 +677,7 @@ void docExceptionsLib(CrocThread* t)
 	croc_pushGlobal(t, "exceptions");
 	docLocationClass(t, &doc);
 	docThrowableClass(t, &doc);
-	_docFields(&doc, _globalFuncs);
+	docFields(&doc, _globalFuncs);
 	docStdEx(t, &doc);
 	croc_ex_doc_pop(&doc, -1);
 	croc_popTop(t);

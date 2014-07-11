@@ -11,7 +11,7 @@ namespace croc
 {
 namespace
 {
-const _StdlibRegisterInfo _getVar_info =
+const StdlibRegisterInfo _getVar_info =
 {
 	Docstr(DFunc("getVar") DParam("name", "string") DParamD("defaultVal", "string", "null")
 	R"(Get the value of the environment variable named \tt{name}.
@@ -43,7 +43,7 @@ word_t _getVar(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _getAllVars_info =
+const StdlibRegisterInfo _getAllVars_info =
 {
 	Docstr(DFunc("getAllVars")
 	R"(\returns a table containing all variables in this process's environment. The keys are the names and the values
@@ -58,7 +58,7 @@ word_t _getAllVars(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _setVar_info =
+const StdlibRegisterInfo _setVar_info =
 {
 	Docstr(DFunc("setVar") DParam("name", "string") DParamD("val", "string", "null")
 	R"(Set or unset a variable in this process's environment.
@@ -84,7 +84,7 @@ word_t _setVar(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_getVar),
 	_DListItem(_getAllVars),
@@ -94,7 +94,7 @@ const _StdlibRegister _globalFuncs[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 	return 0;
 }
 }
@@ -109,7 +109,7 @@ void initEnvLib(CrocThread* t)
 	croc_ex_doc_push(&doc,
 	DModule("env")
 	R"(This small module allows you to get and set process environment variables.)");
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 	croc_ex_doc_pop(&doc, -1);
 	croc_ex_doc_finish(&doc);
 #endif

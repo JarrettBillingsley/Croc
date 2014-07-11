@@ -19,7 +19,7 @@ DModule("os")
 R"(This module contains some unsafe operating system interfaces for things like spawning processes.)";
 #endif
 
-const _StdlibRegisterInfo _haveShell_info =
+const StdlibRegisterInfo _haveShell_info =
 {
 	Docstr(DFunc("haveShell")
 	R"(\returns a bool indicating whether or not there is a shell command processor available. If there is, you can use
@@ -34,7 +34,7 @@ word_t _haveShell(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _shellCmd_info =
+const StdlibRegisterInfo _shellCmd_info =
 {
 	Docstr(DFunc("shellCmd") DParam("cmd", "string")
 	R"(Executes the string \tt{cmd} through the system's shell command processor, spawning a subprocess. Execution of
@@ -51,7 +51,7 @@ word_t _shellCmd(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _sleep_info =
+const StdlibRegisterInfo _sleep_info =
 {
 	Docstr(DFunc("sleep") DParam("duration", "float")
 	R"(Pauses execution of the current system thread for at least \tt{duration} seconds.)"),
@@ -71,7 +71,7 @@ word_t _sleep(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegister _globalFuncs[] =
+const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_haveShell),
 	_DListItem(_shellCmd),
@@ -100,7 +100,7 @@ writeln("Exited with code ", p.wait())
 \endcode)";
 #endif
 
-const _StdlibRegisterInfo _Process_constructor_info =
+const StdlibRegisterInfo _Process_constructor_info =
 {
 	Docstr(DFunc("constructor") DParam("cmd", "string") DParam("mode", "string")
 	R"(Starts a new subprocess.
@@ -158,7 +158,7 @@ word_t _Process_constructor(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _Process_finalizer_info =
+const StdlibRegisterInfo _Process_finalizer_info =
 {
 	Docstr(DFunc("finalizer")
 	R"(Closes the subprocess if it hasn't been already.)"),
@@ -180,7 +180,7 @@ word_t _Process_finalizer(CrocThread* t)
 	return 0;
 }
 
-const _StdlibRegisterInfo _Process_wait_info =
+const StdlibRegisterInfo _Process_wait_info =
 {
 	Docstr(DFunc("wait")
 	R"(Waits for the subprocess to complete (if it hasn't yet already) and returns its exit code as an integer.
@@ -206,7 +206,7 @@ word_t _Process_wait(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegisterInfo _Process_stream_info =
+const StdlibRegisterInfo _Process_stream_info =
 {
 	Docstr(DFunc("stream")
 	R"(Gets a \link{stream.NativeStream} instance which represents whichever standard stream was redirected in the
@@ -221,7 +221,7 @@ word_t _Process_stream(CrocThread* t)
 	return 1;
 }
 
-const _StdlibRegister _Process_methods[] =
+const StdlibRegister _Process_methods[] =
 {
 	_DListItem(_Process_constructor),
 	_DListItem(_Process_finalizer),
@@ -232,12 +232,12 @@ const _StdlibRegister _Process_methods[] =
 
 word loader(CrocThread* t)
 {
-	_registerGlobals(t, _globalFuncs);
+	registerGlobals(t, _globalFuncs);
 
 	croc_class_new(t, "Process", 0);
 		croc_pushNull(t); croc_class_addHField(t, -2, "proc");
 		croc_pushNull(t); croc_class_addHField(t, -2, "stream");
-		_registerMethods(t, _Process_methods);
+		registerMethods(t, _Process_methods);
 	croc_newGlobal(t, "Process");
 	return 0;
 }
@@ -251,11 +251,11 @@ void initOSLib(CrocThread* t)
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);
 	croc_ex_doc_push(&doc, ModuleDocs);
-		_docFields(&doc, _globalFuncs);
+		docFields(&doc, _globalFuncs);
 
 		croc_field(t, -1, "Process");
 			croc_ex_doc_push(&doc, ProcessDocs);
-			_docFields(&doc, _Process_methods);
+			docFields(&doc, _Process_methods);
 			croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
 	croc_ex_doc_pop(&doc, -1);
