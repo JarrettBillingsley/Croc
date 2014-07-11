@@ -8,38 +8,43 @@
 
 namespace croc
 {
-	namespace
-	{
-	const char* PostGCCallbacks = "gc.postGCCallbacks";
+namespace
+{
+const char* PostGCCallbacks = "gc.postGCCallbacks";
 
-	CrocGCLimit stringToLimit(CrocThread* t, word slot)
-	{
-		auto s = getCrocstr(t, slot);
+CrocGCLimit stringToLimit(CrocThread* t, word slot)
+{
+	auto s = getCrocstr(t, slot);
 
-		if(s == ATODA("nurseryLimit")) return CrocGCLimit_NurseryLimit;
-		if(s == ATODA("metadataLimit")) return CrocGCLimit_MetadataLimit;
-		if(s == ATODA("nurserySizeCutoff")) return CrocGCLimit_NurserySizeCutoff;
-		if(s == ATODA("cycleCollectInterval")) return CrocGCLimit_CycleCollectInterval;
-		if(s == ATODA("cycleMetadataLimit")) return CrocGCLimit_CycleMetadataLimit;
+	if(s == ATODA("nurseryLimit")) return CrocGCLimit_NurseryLimit;
+	if(s == ATODA("metadataLimit")) return CrocGCLimit_MetadataLimit;
+	if(s == ATODA("nurserySizeCutoff")) return CrocGCLimit_NurserySizeCutoff;
+	if(s == ATODA("cycleCollectInterval")) return CrocGCLimit_CycleCollectInterval;
+	if(s == ATODA("cycleMetadataLimit")) return CrocGCLimit_CycleMetadataLimit;
 
-		return cast(CrocGCLimit)croc_eh_throwStd(t, "ValueError", "Invalid limit type '%.*s'",
-			cast(int)s.length, s.ptr);
-	}
+	return cast(CrocGCLimit)croc_eh_throwStd(t, "ValueError", "Invalid limit type '%.*s'",
+		cast(int)s.length, s.ptr);
+}
 
-DBeginList(_globalFuncs)
+const _StdlibRegisterInfo _collect_info =
+{
 	Docstr(DFunc("collect")
 	R"(Performs a normal garbage collection cycle. Usually you won't have to call this because the GC will be run
 	periodically on its own, but sometimes it's useful to force a cycle.
 
 	\returns the number of bytes reclaimed by the GC.)"),
 
-	"collect", 0, [](CrocThread* t) -> word_t
-	{
-		croc_pushInt(t, croc_gc_collect(t));
-		return 1;
-	}
+	"collect", 0
+};
 
-DListSep()
+word_t _collect(CrocThread* t)
+{
+	croc_pushInt(t, croc_gc_collect(t));
+	return 1;
+}
+
+const _StdlibRegisterInfo _collectFull_info =
+{
 	Docstr(DFunc("collectFull")
 	R"(Performs a full garbage collection cycle. Most GC cycles are relatively quick, but there are some kinds of
 	objects which are put off for once-in-a-while processing because they would be too expensive to process every cycle.
@@ -49,23 +54,31 @@ DListSep()
 
 	\returns the number of bytes reclaimed by the GC.)"),
 
-	"collectFull", 0, [](CrocThread* t) -> word_t
-	{
-		croc_pushInt(t, croc_gc_collectFull(t));
-		return 1;
-	}
+	"collectFull", 0
+};
 
-DListSep()
+word_t _collectFull(CrocThread* t)
+{
+	croc_pushInt(t, croc_gc_collectFull(t));
+	return 1;
+}
+
+const _StdlibRegisterInfo _allocated_info =
+{
 	Docstr(DFunc("allocated")
 	R"(\returns the total bytes currently allocated by this VM instance.)"),
 
-	"allocated", 0, [](CrocThread* t) -> word_t
-	{
-		croc_pushInt(t, croc_vm_bytesAllocated(t));
-		return 1;
-	}
+	"allocated", 0
+};
 
-DListSep()
+word_t _allocated(CrocThread* t)
+{
+	croc_pushInt(t, croc_vm_bytesAllocated(t));
+	return 1;
+}
+
+const _StdlibRegisterInfo _limit_info =
+{
 	Docstr(DFunc("limit") DParam("type", "string") DParamD("size", "int", "null")
 	R"(Gets or sets various limits used by the garbage collector. Most have an effect on how often GC collections are
 	run. You can set these limits to better suit your program, or to enforce certain behaviors, but setting them
@@ -124,27 +137,31 @@ DListSep()
 			as well. Thus the cycle collector must be run to reclaim ALL dead objects.
 	\endlist)"),
 
-	"limit", 2, [](CrocThread* t) -> word_t
+	"limit", 2
+};
+
+word_t _limit(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	auto limType = stringToLimit(t, 1);
+
+	if(croc_isValidIndex(t, 2))
 	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		auto limType = stringToLimit(t, 1);
+		auto lim = croc_ex_checkIntParam(t, 2);
 
-		if(croc_isValidIndex(t, 2))
-		{
-			auto lim = croc_ex_checkIntParam(t, 2);
+		if(lim < 0 || cast(uword)lim > std::numeric_limits<uword_t>::max())
+			croc_eh_throwStd(t, "RangeError", "Invalid limit (%" CROC_INTEGER_FORMAT ")", lim);
 
-			if(lim < 0 || cast(uword)lim > std::numeric_limits<uword_t>::max())
-				croc_eh_throwStd(t, "RangeError", "Invalid limit (%" CROC_INTEGER_FORMAT ")", lim);
-
-			croc_pushInt(t, croc_gc_setLimit(t, limType, cast(uword_t)lim));
-		}
-		else
-			croc_pushInt(t, croc_gc_getLimit(t, limType));
-
-		return 1;
+		croc_pushInt(t, croc_gc_setLimit(t, limType, cast(uword_t)lim));
 	}
+	else
+		croc_pushInt(t, croc_gc_getLimit(t, limType));
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _postCallback_info =
+{
 	Docstr(DFunc("postCallback") DParam("cb", "function")
 	R"(The Croc GC can maintain a list of callback functions which are called whenever the GC completes a cycle.
 	Sometimes this can be a useful feature, but it's probably best not to overuse it; after all, the GC can run
@@ -159,83 +176,100 @@ DListSep()
 	If you try to register one function more than once, nothing will happen; each function will only be called once per
 	GC cycle.)"),
 
-	"postCallback", 1, [](CrocThread* t) -> word_t
+	"postCallback", 1
+};
+
+word_t _postCallback(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Function);
+
+	auto callbacks = croc_ex_pushRegistryVar(t, PostGCCallbacks);
+
+	if(!croc_in(t, 1, callbacks))
 	{
-		croc_ex_checkParam(t, 1, CrocType_Function);
-
-		auto callbacks = croc_ex_pushRegistryVar(t, PostGCCallbacks);
-
-		if(!croc_in(t, 1, callbacks))
-		{
-			croc_dup(t, 1);
-			croc_cateq(t, callbacks, 1);
-		}
-
-		return 0;
+		croc_dup(t, 1);
+		croc_cateq(t, callbacks, 1);
 	}
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _removePostCallback_info =
+{
 	Docstr(DFunc("removePostCallback") DParam("cb", "function")
 
 	R"(Removes a post-GC callback function that was previously added with \link{gc.postCallback}. If the given function
 	is not in the list of callbacks, nothing happens.)"),
 
-	"removePostCallback", 1, [](CrocThread* t) -> word_t
+	"removePostCallback", 1
+};
+
+word_t _removePostCallback(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Function);
+
+	auto callbacks = croc_ex_pushRegistryVar(t, PostGCCallbacks);
+
+	croc_dupTop(t);
+	croc_pushNull(t);
+	croc_dup(t, 1);
+	croc_methodCall(t, -3, "find", 1);
+	auto idx = croc_getInt(t, -1);
+	croc_popTop(t);
+
+	if(idx != croc_len(t, callbacks))
 	{
-		croc_ex_checkParam(t, 1, CrocType_Function);
-
-		auto callbacks = croc_ex_pushRegistryVar(t, PostGCCallbacks);
-
 		croc_dupTop(t);
 		croc_pushNull(t);
-		croc_dup(t, 1);
-		croc_methodCall(t, -3, "find", 1);
-		auto idx = croc_getInt(t, -1);
-		croc_popTop(t);
-
-		if(idx != croc_len(t, callbacks))
-		{
-			croc_dupTop(t);
-			croc_pushNull(t);
-			croc_pushInt(t, idx);
-			croc_methodCall(t, -3, "pop", 0);
-		}
-
-		return 0;
-	}
-DEndList()
-
-	word loader(CrocThread* t)
-	{
-		registerGlobals(t, _globalFuncs);
-		croc_array_new(t, 0);
-		croc_ex_setRegistryVar(t, PostGCCallbacks);
-		return 0;
-	}
+		croc_pushInt(t, idx);
+		croc_methodCall(t, -3, "pop", 0);
 	}
 
-	void initGCLib(CrocThread* t)
-	{
-		croc_ex_makeModule(t, "gc", &loader);
-		croc_ex_import(t, "gc");
-	}
+	return 0;
+}
+
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_collect),
+	_DListItem(_collectFull),
+	_DListItem(_allocated),
+	_DListItem(_limit),
+	_DListItem(_postCallback),
+	_DListItem(_removePostCallback),
+	_DListEnd
+};
+
+word loader(CrocThread* t)
+{
+	_registerGlobals(t, _globalFuncs);
+	croc_array_new(t, 0);
+	croc_ex_setRegistryVar(t, PostGCCallbacks);
+	return 0;
+}
+}
+
+void initGCLib(CrocThread* t)
+{
+	croc_ex_makeModule(t, "gc", &loader);
+	croc_ex_import(t, "gc");
+}
 
 #ifdef CROC_BUILTIN_DOCS
-	void docGCLib(CrocThread* t)
-	{
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
-		croc_ex_doc_push(&doc,
-		DModule("gc")
-		R"(This library is the interface to the Croc garbage collector. This interface might differ from implementation
-		to implementation since different implementations can use different garbage collection algorithms. Not sure how
-		to deal with that yet, but there it is.)");
+void docGCLib(CrocThread* t)
+{
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_ex_doc_push(&doc,
+	DModule("gc")
+	R"(This library is the interface to the Croc garbage collector. This interface might differ from implementation
+	to implementation since different implementations can use different garbage collection algorithms. Not sure how
+	to deal with that yet, but there it is.)");
 
-		croc_pushGlobal(t, "gc");
-		docFields(&doc, _globalFuncs);
-		croc_ex_doc_pop(&doc, -1);
-		croc_popTop(t);
-		croc_ex_doc_finish(&doc);
-	}
+	croc_pushGlobal(t, "gc");
+	_docFields(&doc, _globalFuncs);
+	croc_ex_doc_pop(&doc, -1);
+	croc_popTop(t);
+	croc_ex_doc_finish(&doc);
+}
 #endif
 }
