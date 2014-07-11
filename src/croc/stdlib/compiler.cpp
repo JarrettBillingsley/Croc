@@ -8,114 +8,44 @@
 
 namespace croc
 {
-	namespace
-	{
-	void _pushFlagsArray(CrocThread* t, uword f)
-	{
-		auto start = croc_getStackSize(t);
+namespace
+{
+void _pushFlagsArray(CrocThread* t, uword f)
+{
+	auto start = croc_getStackSize(t);
 
-		if(f & CrocCompilerFlags_TypeConstraints) croc_pushString(t, "typeconstraints");
-		if(f & CrocCompilerFlags_Asserts)         croc_pushString(t, "asserts");
-		if(f & CrocCompilerFlags_Debug)           croc_pushString(t, "debug");
-		if(f & CrocCompilerFlags_Docs)            croc_pushString(t, "docs");
+	if(f & CrocCompilerFlags_TypeConstraints) croc_pushString(t, "typeconstraints");
+	if(f & CrocCompilerFlags_Asserts)         croc_pushString(t, "asserts");
+	if(f & CrocCompilerFlags_Debug)           croc_pushString(t, "debug");
+	if(f & CrocCompilerFlags_Docs)            croc_pushString(t, "docs");
 
-		croc_array_newFromStack(t, croc_getStackSize(t) - start);
-	}
+	croc_array_newFromStack(t, croc_getStackSize(t) - start);
+}
 
-	uword _stringToFlag(CrocThread* t, word idx)
-	{
-		croc_ex_checkParam(t, idx, CrocType_String);
-		auto s = getCrocstr(t, idx);
+uword _stringToFlag(CrocThread* t, word idx)
+{
+	croc_ex_checkParam(t, idx, CrocType_String);
+	auto s = getCrocstr(t, idx);
 
-		if(s == ATODA("typeconstraints"))
-			return CrocCompilerFlags_TypeConstraints;
-		if(s == ATODA("asserts"))
-			return CrocCompilerFlags_Asserts;
-		if(s == ATODA("debug"))
-			return CrocCompilerFlags_Debug;
-		if(s == ATODA("docs"))
-			return CrocCompilerFlags_Docs;
-		if(s == ATODA("all"))
-			return CrocCompilerFlags_All;
-		if(s == ATODA("alldocs"))
-			return CrocCompilerFlags_AllDocs;
+	if(s == ATODA("typeconstraints"))
+		return CrocCompilerFlags_TypeConstraints;
+	if(s == ATODA("asserts"))
+		return CrocCompilerFlags_Asserts;
+	if(s == ATODA("debug"))
+		return CrocCompilerFlags_Debug;
+	if(s == ATODA("docs"))
+		return CrocCompilerFlags_Docs;
+	if(s == ATODA("all"))
+		return CrocCompilerFlags_All;
+	if(s == ATODA("alldocs"))
+		return CrocCompilerFlags_AllDocs;
 
-		croc_eh_throwStd(t, "ValueError", "Invalid flag '%.*s'", cast(int)s.length, s.ptr);
-		return 0; // dummy
-	}
+	croc_eh_throwStd(t, "ValueError", "Invalid flag '%.*s'", cast(int)s.length, s.ptr);
+	return 0; // dummy
+}
 
-	void _pushResultToString(CrocThread* t, word result)
-	{
-		switch(result)
-		{
-			case CrocCompilerReturn_UnexpectedEOF: croc_pushString(t, "unexpectedeof"); break;
-			case CrocCompilerReturn_LoneStatement: croc_pushString(t, "lonestatement"); break;
-			case CrocCompilerReturn_DanglingDoc:   croc_pushString(t, "danglingdoc");   break;
-			case CrocCompilerReturn_Error:         croc_pushString(t, "error");         break;
-			default: assert(false);
-		}
-	}
-
-	word_t _compileModuleImpl(CrocThread* t, bool dt)
-	{
-		croc_ex_checkStringParam(t, 1);
-		auto name = croc_ex_optStringParam(t, 2, "<compiled from string>");
-
-		croc_dup(t, 1);
-		const char* modName;
-		auto result = (dt ? croc_compiler_compileModuleDT : croc_compiler_compileModule)(t, name, &modName);
-
-		if(result >= 0)
-		{
-			croc_pushString(t, modName);
-
-			if(dt)
-			{
-				croc_moveToTop(t, -3);
-				return 3;
-			}
-			else
-				return 2;
-		}
-
-		_pushResultToString(t, result);
-		return 2;
-	}
-
-	word_t _compileStmtsImpl(CrocThread* t, bool dt)
-	{
-		croc_ex_checkStringParam(t, 1);
-		auto name = croc_ex_optStringParam(t, 2, "<compiled from string>");
-		croc_dup(t, 1);
-		auto result = (dt ? croc_compiler_compileStmtsDT : croc_compiler_compileStmts)(t, name);
-
-		if(result >= 0)
-		{
-			if(dt)
-				croc_swapTop(t);
-
-			return dt ? 2 : 1;
-		}
-
-		_pushResultToString(t, result);
-		return 2;
-	}
-
-	word_t _compileExprImpl(CrocThread* t)
-	{
-		croc_ex_checkStringParam(t, 1);
-		auto name = croc_ex_optStringParam(t, 2, "<compiled from string>");
-		croc_dup(t, 1);
-		auto result = croc_compiler_compileExpr(t, name);
-
-		if(result >= 0)
-			return 1;
-
-		_pushResultToString(t, result);
-		return 2;
-	}
-
-DBeginList(_globalFuncs)
+const _StdlibRegisterInfo _setFlags_info =
+{
 	Docstr(DFunc("setFlags") DVararg
 	R"(Enable and disable VM-wide compiler flags. These control whether or not code is generated for various optional
 	language features.
@@ -147,29 +77,74 @@ local oldFlags = compiler.setFlags("alldocs")
 compiler.setFlags(oldFlags.expand()) // restore old flags
 \endcode)"),
 
-	"setFlags", -1, [](CrocThread* t) -> word_t
-	{
-		uword f = 0;
+	"setFlags", -1
+};
 
-		for(uword i = 1; i < croc_getStackSize(t); i++)
-			f |= _stringToFlag(t, i);
+word_t _setFlags(CrocThread* t)
+{
+	uword f = 0;
 
-		_pushFlagsArray(t, croc_compiler_setFlags(t, f));
-		return 1;
-	}
+	for(uword i = 1; i < croc_getStackSize(t); i++)
+		f |= _stringToFlag(t, i);
 
-DListSep()
+	_pushFlagsArray(t, croc_compiler_setFlags(t, f));
+	return 1;
+}
+
+const _StdlibRegisterInfo _getFlags_info =
+{
 	Docstr(DFunc("getFlags")
 	R"(\returns an array of strings containing the compiler's currently enabled flags. See \link{setFlags} for which
 	strings it may return (except for \tt{"all"} and \tt{"alldocs"}).)"),
 
-	"getFlags", 0, [](CrocThread* t) -> word_t
+	"getFlags", 0
+};
+
+word_t _getFlags(CrocThread* t)
+{
+	_pushFlagsArray(t, croc_compiler_getFlags(t));
+	return 1;
+}
+
+void _pushResultToString(CrocThread* t, word result)
+{
+	switch(result)
 	{
-		_pushFlagsArray(t, croc_compiler_getFlags(t));
-		return 1;
+		case CrocCompilerReturn_UnexpectedEOF: croc_pushString(t, "unexpectedeof"); break;
+		case CrocCompilerReturn_LoneStatement: croc_pushString(t, "lonestatement"); break;
+		case CrocCompilerReturn_DanglingDoc:   croc_pushString(t, "danglingdoc");   break;
+		case CrocCompilerReturn_Error:         croc_pushString(t, "error");         break;
+		default: assert(false);
+	}
+}
+
+word_t _compileModuleImpl(CrocThread* t, bool dt)
+{
+	croc_ex_checkStringParam(t, 1);
+	auto name = croc_ex_optStringParam(t, 2, "<compiled from string>");
+
+	croc_dup(t, 1);
+	const char* modName;
+	auto result = (dt ? croc_compiler_compileModuleDT : croc_compiler_compileModule)(t, name, &modName);
+
+	if(result >= 0)
+	{
+		croc_pushString(t, modName);
+
+		if(dt)
+		{
+			croc_moveToTop(t, -3);
+			return 3;
+		}
+		else
+			return 2;
 	}
 
-DListSep()
+	_pushResultToString(t, result);
+	return 2;
+}
+const _StdlibRegisterInfo _compileModule_info =
+{
 	Docstr(DFunc("compileModule") DParam("source", "string") DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Compiles a Croc module.
 
@@ -201,12 +176,35 @@ DListSep()
 	the code, whereas a \tt{"lonestatement"} error might mean that evaluating the code as an expression and displaying
 	its result would be better.)"),
 
-	"compileModule", 2, [](CrocThread* t) -> word_t
+	"compileModule", 2
+};
+
+word_t _compileModule(CrocThread* t)
+{
+	return _compileModuleImpl(t, false);
+}
+
+word_t _compileStmtsImpl(CrocThread* t, bool dt)
+{
+	croc_ex_checkStringParam(t, 1);
+	auto name = croc_ex_optStringParam(t, 2, "<compiled from string>");
+	croc_dup(t, 1);
+	auto result = (dt ? croc_compiler_compileStmtsDT : croc_compiler_compileStmts)(t, name);
+
+	if(result >= 0)
 	{
-		return _compileModuleImpl(t, false);
+		if(dt)
+			croc_swapTop(t);
+
+		return dt ? 2 : 1;
 	}
 
-DListSep()
+	_pushResultToString(t, result);
+	return 2;
+}
+
+const _StdlibRegisterInfo _compileStmts_info =
+{
 	Docstr(DFunc("compileStmts") DParam("source", "string") DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Compiles a list of Croc statements. Almost identical to \link{compileModule} except there should be no
 	\tt{module} statement at the beginning of the code.
@@ -222,12 +220,30 @@ DListSep()
 
 	If compilation failed, it returns the exact same things as \link{compileModule}.)"),
 
-	"compileStmts", 2, [](CrocThread* t) -> word_t
-	{
-		return _compileStmtsImpl(t, false);
-	}
+	"compileStmts", 2
+};
 
-DListSep()
+word_t _compileStmts(CrocThread* t)
+{
+	return _compileStmtsImpl(t, false);
+}
+
+word_t _compileExprImpl(CrocThread* t)
+{
+	croc_ex_checkStringParam(t, 1);
+	auto name = croc_ex_optStringParam(t, 2, "<compiled from string>");
+	croc_dup(t, 1);
+	auto result = croc_compiler_compileExpr(t, name);
+
+	if(result >= 0)
+		return 1;
+
+	_pushResultToString(t, result);
+	return 2;
+}
+
+const _StdlibRegisterInfo _compileExpr_info =
+{
 	Docstr(DFunc("compileExpr") DParam("source", "string") DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Compiles a single Croc expression into a function which takes variadic arguments and returns the result of
 	evaluating that expression.
@@ -247,12 +263,16 @@ DListSep()
 
 	If compilation failed, it returns the exact same things as \link{compileModule}.)"),
 
-	"compileExpr", 2, [](CrocThread* t) -> word_t
-	{
-		return _compileExprImpl(t);
-	}
+	"compileExpr", 2
+};
 
-DListSep()
+word_t _compileExpr(CrocThread* t)
+{
+	return _compileExprImpl(t);
+}
+
+const _StdlibRegisterInfo _compileModuleDT_info =
+{
 	Docstr(DFunc("compileModuleDT") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Works just like \link{compileModule} but additionally extracts the module's top-level documentation table as
@@ -272,12 +292,16 @@ DListSep()
 
 	If compilation failed, it returns the exact same things as \link{compileModule}.)"),
 
-	"compileModuleDT", 2, [](CrocThread* t) -> word_t
-	{
-		return _compileModuleImpl(t, true);
-	}
+	"compileModuleDT", 2
+};
 
-DListSep()
+word_t _compileModuleDT(CrocThread* t)
+{
+	return _compileModuleImpl(t, true);
+}
+
+const _StdlibRegisterInfo _compileStmtsDT_info =
+{
 	Docstr(DFunc("compileStmtsDT") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(This is to \link{compileStmts} as \link{compileModuleDT} is to \link{compileModule}.
@@ -290,101 +314,125 @@ DListSep()
 
 	If compilation failed, it returns the exact same things as \link{compileStmts}.)"),
 
-	"compileStmtsDT", 2, [](CrocThread* t) -> word_t
-	{
-		return _compileStmtsImpl(t, true);
-	}
+	"compileStmtsDT", 2
+};
 
-DListSep()
+word_t _compileStmtsDT(CrocThread* t)
+{
+	return _compileStmtsImpl(t, true);
+}
+
+const _StdlibRegisterInfo _compileModuleEx_info =
+{
 	Docstr(DFunc("compileModuleEx") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Just like \link{compileModule}, except if compilation failed, it rethrows the exception, so this function only
 	ever returns successfully.)"),
 
-	"compileModuleEx", 2, [](CrocThread* t) -> word_t
+	"compileModuleEx", 2
+};
+
+word_t _compileModuleEx(CrocThread* t)
+{
+	_compileModuleImpl(t, false);
+
+	if(!croc_isFuncdef(t, -2))
 	{
-		_compileModuleImpl(t, false);
-
-		if(!croc_isFuncdef(t, -2))
-		{
-			croc_popTop(t);
-			croc_eh_throw(t);
-		}
-
-		return 2;
+		croc_popTop(t);
+		croc_eh_throw(t);
 	}
 
-DListSep()
+	return 2;
+}
+
+const _StdlibRegisterInfo _compileStmtsEx_info =
+{
 	Docstr(DFunc("compileStmtsEx") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Just like \link{compileStmts}, except if compilation failed, it rethrows the exception, so this function only
 	ever returns successfully.)"),
 
-	"compileStmtsEx", 2, [](CrocThread* t) -> word_t
-	{
-		if(_compileStmtsImpl(t, false) == 2)
-		{
-			croc_popTop(t);
-			croc_eh_throw(t);
-		}
+	"compileStmtsEx", 2
+};
 
-		return 1;
+word_t _compileStmtsEx(CrocThread* t)
+{
+	if(_compileStmtsImpl(t, false) == 2)
+	{
+		croc_popTop(t);
+		croc_eh_throw(t);
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _compileExprEx_info =
+{
 	Docstr(DFunc("compileExprEx") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Just like \link{compileExpr}, except if compilation failed, it rethrows the exception, so this function only
 	ever returns successfully.)"),
 
-	"compileExprEx", 2, [](CrocThread* t) -> word_t
-	{
-		if(_compileExprImpl(t) == 2)
-		{
-			croc_popTop(t);
-			croc_eh_throw(t);
-		}
+	"compileExprEx", 2
+};
 
-		return 1;
+word_t _compileExprEx(CrocThread* t)
+{
+	if(_compileExprImpl(t) == 2)
+	{
+		croc_popTop(t);
+		croc_eh_throw(t);
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _compileModuleDTEx_info =
+{
 	Docstr(DFunc("compileModuleDTEx") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Just like \link{compileModuleDT}, except if compilation failed, it rethrows the exception, so this function only
 	ever returns successfully.)"),
 
-	"compileModuleDTEx", 2, [](CrocThread* t) -> word_t
-	{
-		if(_compileModuleImpl(t, true) == 2)
-		{
-			croc_popTop(t);
-			croc_eh_throw(t);
-		}
+	"compileModuleDTEx", 2
+};
 
-		return 3;
+word_t _compileModuleDTEx(CrocThread* t)
+{
+	if(_compileModuleImpl(t, true) == 2)
+	{
+		croc_popTop(t);
+		croc_eh_throw(t);
 	}
 
-DListSep()
+	return 3;
+}
+
+const _StdlibRegisterInfo _compileStmtsDTEx_info =
+{
 	Docstr(DFunc("compileStmtsDTEx") DParam("source", "string")
 		DParamD("filename", "string", "\"<compiled from string>\"")
 	R"(Just like \link{compileStmtsDT}, except if compilation failed, it rethrows the exception, so this function only
 	ever returns successfully.)"),
 
-	"compileStmtsDTEx", 2, [](CrocThread* t) -> word_t
+	"compileStmtsDTEx", 2
+};
+
+word_t _compileStmtsDTEx(CrocThread* t)
+{
+	_compileStmtsImpl(t, true);
+
+	if(!croc_isFuncdef(t, -2))
 	{
-		_compileStmtsImpl(t, true);
-
-		if(!croc_isFuncdef(t, -2))
-		{
-			croc_popTop(t);
-			croc_eh_throw(t);
-		}
-
-		return 2;
+		croc_popTop(t);
+		croc_eh_throw(t);
 	}
 
-DListSep()
+	return 2;
+}
+
+const _StdlibRegisterInfo _runString_info =
+{
 	Docstr(DFunc("runString") DParam("source", "string") DParamD("filename", "string", "\"<compiled from string>\"")
 		DParamD("env", "namespace", "null")
 	R"(A little convenience function to run a string of code containing Croc statements.
@@ -401,27 +449,31 @@ DListSep()
 
 	\returns any values that the compiled code returned after being executed.)"),
 
-	"runString", 3, [](CrocThread* t) -> word_t
+	"runString", 3
+};
+
+word_t _runString(CrocThread* t)
+{
+	auto haveEnv = croc_ex_optParam(t, 3, CrocType_Namespace);
+
+	if(_compileStmtsImpl(t, false) == 2)
 	{
-		auto haveEnv = croc_ex_optParam(t, 3, CrocType_Namespace);
-
-		if(_compileStmtsImpl(t, false) == 2)
-		{
-			croc_popTop(t);
-			croc_eh_throw(t);
-		}
-
-		if(haveEnv)
-			croc_dup(t, 3);
-		else
-			croc_pushCurEnvironment(t);
-
-		croc_function_newScriptWithEnv(t, -2);
-		croc_pushNull(t);
-		return croc_call(t, -2, -1);
+		croc_popTop(t);
+		croc_eh_throw(t);
 	}
 
-DListSep()
+	if(haveEnv)
+		croc_dup(t, 3);
+	else
+		croc_pushCurEnvironment(t);
+
+	croc_function_newScriptWithEnv(t, -2);
+	croc_pushNull(t);
+	return croc_call(t, -2, -1);
+}
+
+const _StdlibRegisterInfo _eval_info =
+{
 	Docstr(DFunc("eval") DParam("source", "string") DParamD("filename", "string", "\"<compiled from string>\"")
 		DParamD("env", "namespace", "null")
 	R"(Similar to \link{runString}, but evaluates a single expression instead of statements.
@@ -438,50 +490,71 @@ DListSep()
 
 	\returns the result of evaluating the expression.)"),
 
-	"eval", 3, [](CrocThread* t) -> word_t
+	"eval", 3
+};
+
+word_t _eval(CrocThread* t)
+{
+	auto haveEnv = croc_ex_optParam(t, 3, CrocType_Namespace);
+
+	if(_compileExprImpl(t) == 2)
 	{
-		auto haveEnv = croc_ex_optParam(t, 3, CrocType_Namespace);
-
-		if(_compileExprImpl(t) == 2)
-		{
-			croc_popTop(t);
-			croc_eh_throw(t);
-		}
-
-		if(haveEnv)
-			croc_dup(t, 3);
-		else
-			croc_pushCurEnvironment(t);
-
-		croc_function_newScriptWithEnv(t, -2);
-		croc_pushNull(t);
-		return croc_call(t, -2, -1);
-	}
-DEndList()
-
-	word loader(CrocThread* t)
-	{
-		registerGlobals(t, _globalFuncs);
-		return 0;
-	}
-	}
-
-	void initCompilerLib(CrocThread* t)
-	{
-		croc_ex_makeModule(t, "compiler", &loader);
-		croc_ex_importNS(t, "compiler");
-#ifdef CROC_BUILTIN_DOCS
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
-		croc_ex_doc_push(&doc,
-		DModule("compiler")
-		R"(This module gives you access to the Croc compiler. Often you won't need to deal with the compiler directly as
-		the module system takes care of loading most of your code, but if you need to dynamically compile something or
-		write a new module system, this is the interface.)");
-			docFields(&doc, _globalFuncs);
-		croc_ex_doc_pop(&doc, -1);
-		croc_ex_doc_finish(&doc);
-#endif
 		croc_popTop(t);
+		croc_eh_throw(t);
 	}
+
+	if(haveEnv)
+		croc_dup(t, 3);
+	else
+		croc_pushCurEnvironment(t);
+
+	croc_function_newScriptWithEnv(t, -2);
+	croc_pushNull(t);
+	return croc_call(t, -2, -1);
+}
+
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_setFlags),
+	_DListItem(_getFlags),
+	_DListItem(_compileModule),
+	_DListItem(_compileStmts),
+	_DListItem(_compileExpr),
+	_DListItem(_compileModuleDT),
+	_DListItem(_compileStmtsDT),
+	_DListItem(_compileModuleEx),
+	_DListItem(_compileStmtsEx),
+	_DListItem(_compileExprEx),
+	_DListItem(_compileModuleDTEx),
+	_DListItem(_compileStmtsDTEx),
+	_DListItem(_runString),
+	_DListItem(_eval),
+	_DListEnd
+};
+
+word loader(CrocThread* t)
+{
+	_registerGlobals(t, _globalFuncs);
+	return 0;
+}
+}
+
+void initCompilerLib(CrocThread* t)
+{
+	croc_ex_makeModule(t, "compiler", &loader);
+	croc_ex_importNS(t, "compiler");
+#ifdef CROC_BUILTIN_DOCS
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_ex_doc_push(&doc,
+	DModule("compiler")
+	R"(This module gives you access to the Croc compiler. Often you won't need to deal with the compiler directly as
+	the module system takes care of loading most of your code, but if you need to dynamically compile something or
+	write a new module system, this is the interface.)");
+		_docFields(&doc, _globalFuncs);
+	croc_ex_doc_pop(&doc, -1);
+	croc_ex_doc_finish(&doc);
+#endif
+	croc_popTop(t);
+}
 }
