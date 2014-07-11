@@ -9,76 +9,77 @@
 
 namespace croc
 {
-	namespace
-	{
-	oscompat::FileCreate checkModeParam(CrocThread* t, word_t slot, crocchar_t def)
-	{
-		auto mode = croc_ex_optCharParam(t, slot, def);
+namespace
+{
+oscompat::FileCreate checkModeParam(CrocThread* t, word_t slot, crocchar_t def)
+{
+	auto mode = croc_ex_optCharParam(t, slot, def);
 
-		switch(mode)
-		{
-			case 'e': return oscompat::FileCreate::OpenExisting;
-			case 'a': return oscompat::FileCreate::Append;
-			case 'c': return oscompat::FileCreate::CreateIfNeeded;
-			case 'x': return oscompat::FileCreate::MustNotExist;
-			default:
-				croc_eh_throwStd(t, "ValueError", "Unknown open mode '%c'", mode);
-				return oscompat::FileCreate::OpenExisting; // dummy
-		}
+	switch(mode)
+	{
+		case 'e': return oscompat::FileCreate::OpenExisting;
+		case 'a': return oscompat::FileCreate::Append;
+		case 'c': return oscompat::FileCreate::CreateIfNeeded;
+		case 'x': return oscompat::FileCreate::MustNotExist;
+		default:
+			croc_eh_throwStd(t, "ValueError", "Unknown open mode '%c'", mode);
+			return oscompat::FileCreate::OpenExisting; // dummy
+	}
+}
+
+void pushNativeStream(CrocThread* t, oscompat::FileHandle f, const char* mode)
+{
+	croc_ex_lookup(t, "stream.NativeStream");
+	croc_pushNull(t);
+	croc_pushNativeobj(t, cast(void*)cast(uword)f);
+	croc_pushString(t, mode);
+	croc_call(t, -4, 1);
+}
+
+word_t commonOpenWritable(CrocThread* t, bool readable)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	auto name = getCrocstr(t, 1);
+	auto createMode = checkModeParam(t, 2, readable ? 'e' : 'c');
+	auto f = oscompat::openFile(t, name, readable ? oscompat::FileAccess::ReadWrite : oscompat::FileAccess::Write,
+		createMode);
+
+	if(f == oscompat::InvalidHandle)
+	{
+		croc_pushFormat(t, "Error opening '%.*s' for %swriting: ",
+			cast(int)name.length, name.ptr, readable ? "reading and " : "");
+		croc_swapTop(t);
+		croc_cat(t, 2);
+		oscompat::throwIOEx(t);
 	}
 
-	void pushNativeStream(CrocThread* t, oscompat::FileHandle f, const char* mode)
+	pushNativeStream(t, f, readable ? "rwsc" : "wsc");
+
+	if(createMode == oscompat::FileCreate::Append)
 	{
-		croc_ex_lookup(t, "stream.NativeStream");
+		croc_dupTop(t);
 		croc_pushNull(t);
-		croc_pushNativeobj(t, cast(void*)cast(uword)f);
-		croc_pushString(t, mode);
-		croc_call(t, -4, 1);
+		croc_pushInt(t, 0);
+		croc_pushChar(t, 'e');
+		croc_methodCall(t, -4, "seek", 0);
 	}
 
-	word_t commonOpenWritable(CrocThread* t, bool readable)
+	return 1;
+}
+
+void pushFileTypeString(CrocThread* t, oscompat::FileType type)
+{
+	switch(type)
 	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		auto name = getCrocstr(t, 1);
-		auto createMode = checkModeParam(t, 2, readable ? 'e' : 'c');
-		auto f = oscompat::openFile(t, name, readable ? oscompat::FileAccess::ReadWrite : oscompat::FileAccess::Write,
-			createMode);
-
-		if(f == oscompat::InvalidHandle)
-		{
-			croc_pushFormat(t, "Error opening '%.*s' for %swriting: ",
-				cast(int)name.length, name.ptr, readable ? "reading and " : "");
-			croc_swapTop(t);
-			croc_cat(t, 2);
-			oscompat::throwIOEx(t);
-		}
-
-		pushNativeStream(t, f, readable ? "rwsc" : "wsc");
-
-		if(createMode == oscompat::FileCreate::Append)
-		{
-			croc_dupTop(t);
-			croc_pushNull(t);
-			croc_pushInt(t, 0);
-			croc_pushChar(t, 'e');
-			croc_methodCall(t, -4, "seek", 0);
-		}
-
-		return 1;
+		case oscompat::FileType::File:  croc_pushString(t, "file");  break;
+		case oscompat::FileType::Dir:   croc_pushString(t, "dir");   break;
+		case oscompat::FileType::Link:  croc_pushString(t, "link");  break;
+		case oscompat::FileType::Other: croc_pushString(t, "other"); break;
 	}
+}
 
-	void pushFileTypeString(CrocThread* t, oscompat::FileType type)
-	{
-		switch(type)
-		{
-			case oscompat::FileType::File:  croc_pushString(t, "file");  break;
-			case oscompat::FileType::Dir:   croc_pushString(t, "dir");   break;
-			case oscompat::FileType::Link:  croc_pushString(t, "link");  break;
-			case oscompat::FileType::Other: croc_pushString(t, "other"); break;
-		}
-	}
-
-DBeginList(_globalFuncs)
+const _StdlibRegisterInfo _inFile_info =
+{
 	Docstr(DFunc("inFile") DParam("name", "string")
 	R"(Open an existing file for reading.
 
@@ -89,25 +90,29 @@ DBeginList(_globalFuncs)
 
 	\throws[OSException] if the file could not be opened for some reason.)"),
 
-	"inFile", 1, [](CrocThread* t) -> word_t
+	"inFile", 1
+};
+
+word_t _inFile(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	auto name = getCrocstr(t, 1);
+	auto f = oscompat::openFile(t, name, oscompat::FileAccess::Read, oscompat::FileCreate::OpenExisting);
+
+	if(f == oscompat::InvalidHandle)
 	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		auto name = getCrocstr(t, 1);
-		auto f = oscompat::openFile(t, name, oscompat::FileAccess::Read, oscompat::FileCreate::OpenExisting);
-
-		if(f == oscompat::InvalidHandle)
-		{
-			croc_pushFormat(t, "Error opening '%.*s' for reading: ", cast(int)name.length, name.ptr);
-			croc_swapTop(t);
-			croc_cat(t, 2);
-			oscompat::throwIOEx(t);
-		}
-
-		pushNativeStream(t, f, "rsc");
-		return 1;
+		croc_pushFormat(t, "Error opening '%.*s' for reading: ", cast(int)name.length, name.ptr);
+		croc_swapTop(t);
+		croc_cat(t, 2);
+		oscompat::throwIOEx(t);
 	}
 
-DListSep()
+	pushNativeStream(t, f, "rsc");
+	return 1;
+}
+
+const _StdlibRegisterInfo _outFile_info =
+{
 	Docstr(DFunc("outFile") DParam("name", "string") DParamD("mode", "string", "\"c\"")
 	R"(Opens a file for writing.
 
@@ -134,21 +139,29 @@ DListSep()
 
 	\throws[OSException] if the file could not be opened for some reason.)"),
 
-	"outFile", 2, [](CrocThread* t) -> word_t
-	{
-		return commonOpenWritable(t, false);
-	}
+	"outFile", 2
+};
 
-DListSep()
+word_t _outFile(CrocThread* t)
+{
+	return commonOpenWritable(t, false);
+}
+
+const _StdlibRegisterInfo _inoutFile_info =
+{
 	Docstr(DFunc("inoutFile") DParam("name", "string") DParamD("mode", "string", "\"e\"")
 	R"(Just like \link{outFile}, except the file will also be readable. Furthermore, the mode defaults to \tt{"e"}.)"),
 
-	"inoutFile", 2, [](CrocThread* t) -> word_t
-	{
-		return commonOpenWritable(t, true);
-	}
+	"inoutFile", 2
+};
 
-DListSep()
+word_t _inoutFile(CrocThread* t)
+{
+	return commonOpenWritable(t, true);
+}
+
+const _StdlibRegisterInfo _readTextFile_info =
+{
 	Docstr(DFunc("readTextFile") DParam("name", "string") DParamD("encoding", "string", "?utf-8")
 		DParamD("errors", "string", "strict")
 	R"(Reads the contents of a text file, decoding it according to the given \tt{encoding}, and returns the entire file
@@ -170,95 +183,99 @@ DListSep()
 
 	\returns the decoded contents of the file.)"),
 
-	"readTextFile", 3, [](CrocThread* t) -> word_t
+	"readTextFile", 3
+};
+
+word_t _readTextFile(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	auto haveEncoding = croc_ex_optParam(t, 2, CrocType_String);
+	auto haveErrors = croc_ex_optParam(t, 3, CrocType_String);
+	croc_setStackSize(t, 4);
+
+	bool detectBOM = true;
+	bool failOnNoBOM = false;
+
+	if(haveEncoding)
 	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		auto haveEncoding = croc_ex_optParam(t, 2, CrocType_String);
-		auto haveErrors = croc_ex_optParam(t, 3, CrocType_String);
-		croc_setStackSize(t, 4);
-
-		bool detectBOM = true;
-		bool failOnNoBOM = false;
-
-		if(haveEncoding)
+		if(croc_getString(t, 2)[0] == '?')
 		{
-			if(croc_getString(t, 2)[0] == '?')
-			{
-				// Slice off '?'
-				croc_pushInt(t, 1);
-				croc_pushNull(t);
-				croc_slice(t, 2);
-				croc_replace(t, 2);
-			}
-			else
-				detectBOM = false;
+			// Slice off '?'
+			croc_pushInt(t, 1);
+			croc_pushNull(t);
+			croc_slice(t, 2);
+			croc_replace(t, 2);
+		}
+		else
+			detectBOM = false;
 
-			if(croc_len(t, 2) == 0)
-				failOnNoBOM = true;
+		if(croc_len(t, 2) == 0)
+			failOnNoBOM = true;
+	}
+	else
+	{
+		croc_pushString(t, "utf-8");
+		croc_replace(t, 2);
+	}
+
+	if(!haveErrors)
+	{
+		croc_pushString(t, "strict");
+		croc_replace(t, 3);
+	}
+
+	// local f = inFile(name)
+	auto f = croc_pushGlobal(t, "inFile");
+	croc_pushNull(t);
+	croc_dup(t, 1);
+	croc_call(t, f, 1);
+
+	// local data = f.readAll()
+	auto data = croc_dup(t, f);
+	croc_pushNull(t);
+	croc_methodCall(t, data, "readAll", 1);
+
+	// f.close()
+	croc_dup(t, f);
+	croc_pushNull(t);
+	croc_methodCall(t, -2, "close", 0);
+
+	if(detectBOM)
+	{
+		// local codec = text.detectBOM(data)
+		auto codec = croc_pushGlobal(t, "text");
+		croc_pushNull(t);
+		croc_dup(t, data);
+		croc_methodCall(t, codec, "detectBOM", 1);
+
+		if(croc_isNull(t, -1))
+		{
+			if(failOnNoBOM)
+				croc_eh_throwStd(t, "UnicodeError", "Could not detect text encoding");
+
+			// Otherwise, the fallback codec is sitting in slot 2
+			croc_popTop(t);
 		}
 		else
 		{
-			croc_pushString(t, "utf-8");
+			// encoding = codec
 			croc_replace(t, 2);
 		}
-
-		if(!haveErrors)
-		{
-			croc_pushString(t, "strict");
-			croc_replace(t, 3);
-		}
-
-		// local f = inFile(name)
-		auto f = croc_pushGlobal(t, "inFile");
-		croc_pushNull(t);
-		croc_dup(t, 1);
-		croc_call(t, f, 1);
-
-		// local data = f.readAll()
-		auto data = croc_dup(t, f);
-		croc_pushNull(t);
-		croc_methodCall(t, data, "readAll", 1);
-
-		// f.close()
-		croc_dup(t, f);
-		croc_pushNull(t);
-		croc_methodCall(t, -2, "close", 0);
-
-		if(detectBOM)
-		{
-			// local codec = text.detectBOM(data)
-			auto codec = croc_pushGlobal(t, "text");
-			croc_pushNull(t);
-			croc_dup(t, data);
-			croc_methodCall(t, codec, "detectBOM", 1);
-
-			if(croc_isNull(t, -1))
-			{
-				if(failOnNoBOM)
-					croc_eh_throwStd(t, "UnicodeError", "Could not detect text encoding");
-
-				// Otherwise, the fallback codec is sitting in slot 2
-				croc_popTop(t);
-			}
-			else
-			{
-				// encoding = codec
-				croc_replace(t, 2);
-			}
-		}
-
-		// return text.getCodec(encoding).decode(data, errors)
-		croc_pushGlobal(t, "text");
-		croc_pushNull(t);
-		croc_dup(t, 2);
-		croc_methodCall(t, -3, "getCodec", 1);
-		croc_pushNull(t);
-		croc_dup(t, data);
-		croc_dup(t, 3);
-		return croc_methodCall(t, -4, "decode", 1);
 	}
 
-DListSep()
+	// return text.getCodec(encoding).decode(data, errors)
+	croc_pushGlobal(t, "text");
+	croc_pushNull(t);
+	croc_dup(t, 2);
+	croc_methodCall(t, -3, "getCodec", 1);
+	croc_pushNull(t);
+	croc_dup(t, data);
+	croc_dup(t, 3);
+	return croc_methodCall(t, -4, "decode", 1);
+}
+
+const _StdlibRegisterInfo _truncate_info =
+{
 	Docstr(DFunc("truncate") DParam("file", "instance")
 	R"(Given an open, writable file \tt{file}, truncates the contents of the file so the current position in the file
 	becomes the end of the file.
@@ -275,30 +292,34 @@ DListSep()
 	\throws[IOException] if \tt{file} could not be truncated for some reason (either because it was invalid or for some
 		other reason).)"),
 
-	"truncate", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_Instance);
+	"truncate", 1
+};
 
-		if(!croc_hasHField(t, 1, "handle"))
-			croc_eh_throwStd(t, "ValueError", "File object has no 'handle' hidden field");
+word_t _truncate(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Instance);
 
-		croc_hfield(t, 1, "handle");
+	if(!croc_hasHField(t, 1, "handle"))
+		croc_eh_throwStd(t, "ValueError", "File object has no 'handle' hidden field");
 
-		if(!croc_isNativeobj(t, -1))
-			croc_eh_throwStd(t, "TypeError", "File object's 'handle' hidden field is not a nativeobj");
+	croc_hfield(t, 1, "handle");
 
-		auto handle = cast(oscompat::FileHandle)cast(uword)croc_getNativeobj(t, -1);
+	if(!croc_isNativeobj(t, -1))
+		croc_eh_throwStd(t, "TypeError", "File object's 'handle' hidden field is not a nativeobj");
 
-		if(!oscompat::isValidHandle(handle))
-			croc_eh_throwStd(t, "ValueError", "File object's handle is invalid");
+	auto handle = cast(oscompat::FileHandle)cast(uword)croc_getNativeobj(t, -1);
 
-		if(!oscompat::truncate(t, handle))
-			oscompat::throwIOEx(t);
+	if(!oscompat::isValidHandle(handle))
+		croc_eh_throwStd(t, "ValueError", "File object's handle is invalid");
 
-		return 0;
-	}
+	if(!oscompat::truncate(t, handle))
+		oscompat::throwIOEx(t);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _writeTextFile_info =
+{
 	Docstr(DFunc("writeTextFile") DParam("name", "string") DParam("data", "string")
 		DParamD("encoding", "string", "utf-8") DParamD("errors", "string", "strict")
 	R"(Writes the contents of the string \tt{data} to the file \tt{name}, encoding it with \tt{encoding}.
@@ -311,76 +332,84 @@ DListSep()
 	\param[encoding] is the text encoding to use, as found in the \link{text} library.
 	\param[errors] is how malformed text should be read, as specified by the \link{text} library.)"),
 
-	"writeTextFile", 4, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		croc_ex_checkParam(t, 2, CrocType_String);
-		auto haveEncoding = croc_ex_optParam(t, 3, CrocType_String);
-		auto haveErrors = croc_ex_optParam(t, 4, CrocType_String);
+	"writeTextFile", 4
+};
 
-		// local f = outFile(name, 'c')
-		auto f = croc_pushGlobal(t, "outFile");
-		croc_pushNull(t);
-		croc_dup(t, 1);
-		croc_pushChar(t, 'c');
-		croc_call(t, f, 1);
+word_t _writeTextFile(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	croc_ex_checkParam(t, 2, CrocType_String);
+	auto haveEncoding = croc_ex_optParam(t, 3, CrocType_String);
+	auto haveErrors = croc_ex_optParam(t, 4, CrocType_String);
 
-		// f.writeExact(text.getCodec(encoding).encode(data, errors))
-		croc_dup(t, f);
-		croc_pushNull(t);
-		croc_pushGlobal(t, "text");
-		croc_pushNull(t);
-		if(haveEncoding)
-			croc_dup(t, 3);
-		else
-			croc_pushString(t, "utf-8");
-		croc_methodCall(t, -3, "getCodec", 1);
-		croc_pushNull(t);
-		croc_dup(t, 2);
-		if(haveErrors)
-			croc_dup(t, 4);
-		else
-			croc_pushString(t, "strict");
-		croc_methodCall(t, -4, "encode", 1);
-		croc_methodCall(t, -3, "writeExact", 0);
+	// local f = outFile(name, 'c')
+	auto f = croc_pushGlobal(t, "outFile");
+	croc_pushNull(t);
+	croc_dup(t, 1);
+	croc_pushChar(t, 'c');
+	croc_call(t, f, 1);
 
-		// f.close()
-		croc_dup(t, f);
-		croc_pushNull(t);
-		croc_methodCall(t, -2, "close", 0);
+	// f.writeExact(text.getCodec(encoding).encode(data, errors))
+	croc_dup(t, f);
+	croc_pushNull(t);
+	croc_pushGlobal(t, "text");
+	croc_pushNull(t);
+	if(haveEncoding)
+		croc_dup(t, 3);
+	else
+		croc_pushString(t, "utf-8");
+	croc_methodCall(t, -3, "getCodec", 1);
+	croc_pushNull(t);
+	croc_dup(t, 2);
+	if(haveErrors)
+		croc_dup(t, 4);
+	else
+		croc_pushString(t, "strict");
+	croc_methodCall(t, -4, "encode", 1);
+	croc_methodCall(t, -3, "writeExact", 0);
 
-		return 0;
-	}
+	// f.close()
+	croc_dup(t, f);
+	croc_pushNull(t);
+	croc_methodCall(t, -2, "close", 0);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _readMemblock_info =
+{
 	Docstr(DFunc("readMemblock") DParam("name", "string")
 	R"(\returns the entire contents of the file \tt{name} as a memblock.)"),
 
-	"readMemblock", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
+	"readMemblock", 1
+};
 
-		// local f = inFile(name)
-		auto f = croc_pushGlobal(t, "inFile");
-		croc_pushNull(t);
-		croc_dup(t, 1);
-		croc_call(t, f, 1);
+word_t _readMemblock(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
 
-		// local ret = f.readAll()
-		auto data = croc_dup(t, f);
-		croc_pushNull(t);
-		croc_methodCall(t, data, "readAll", 1);
+	// local f = inFile(name)
+	auto f = croc_pushGlobal(t, "inFile");
+	croc_pushNull(t);
+	croc_dup(t, 1);
+	croc_call(t, f, 1);
 
-		// f.close()
-		croc_dup(t, f);
-		croc_pushNull(t);
-		croc_methodCall(t, -2, "close", 0);
+	// local ret = f.readAll()
+	auto data = croc_dup(t, f);
+	croc_pushNull(t);
+	croc_methodCall(t, data, "readAll", 1);
 
-		// return ret
-		return 1;
-	}
+	// f.close()
+	croc_dup(t, f);
+	croc_pushNull(t);
+	croc_methodCall(t, -2, "close", 0);
 
-DListSep()
+	// return ret
+	return 1;
+}
+
+const _StdlibRegisterInfo _writeMemblock_info =
+{
 	Docstr(DFunc("writeMemblock") DParam("name", "string") DParam("data", "memblock")
 	R"(Writes the contents of the memblock \tt{data} to the file \tt{name}.
 
@@ -390,33 +419,37 @@ DListSep()
 	\param[name] is the name of the file to write.
 	\param[data] is the memblock which will be written out as the file's data.)"),
 
-	"writeMemblock", 2, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		croc_ex_checkParam(t, 2, CrocType_Memblock);
+	"writeMemblock", 2
+};
 
-		// local f = outFile(name, 'c')
-		auto f = croc_pushGlobal(t, "outFile");
-		croc_pushNull(t);
-		croc_dup(t, 1);
-		croc_pushChar(t, 'c');
-		croc_call(t, f, 1);
+word_t _writeMemblock(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	croc_ex_checkParam(t, 2, CrocType_Memblock);
 
-		// f.writeExact(data)
-		croc_dup(t, f);
-		croc_pushNull(t);
-		croc_dup(t, 2);
-		croc_methodCall(t, -3, "writeExact", 0);
+	// local f = outFile(name, 'c')
+	auto f = croc_pushGlobal(t, "outFile");
+	croc_pushNull(t);
+	croc_dup(t, 1);
+	croc_pushChar(t, 'c');
+	croc_call(t, f, 1);
 
-		// f.close()
-		croc_dup(t, f);
-		croc_pushNull(t);
-		croc_methodCall(t, -2, "close", 0);
+	// f.writeExact(data)
+	croc_dup(t, f);
+	croc_pushNull(t);
+	croc_dup(t, 2);
+	croc_methodCall(t, -3, "writeExact", 0);
 
-		return 0;
-	}
+	// f.close()
+	croc_dup(t, f);
+	croc_pushNull(t);
+	croc_methodCall(t, -2, "close", 0);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _listDir_info =
+{
 	Docstr(DFunc("listDir") DParam("path", "string") DParam("listHidden", "bool") DParam("cb", "function")
 	R"(List the contents of the directory given by \tt{path}, caling \tt{cb} once for each entry in the directory.
 
@@ -431,32 +464,36 @@ DListSep()
 
 	\throws[OSException] if there was some kind of error listing the directory.)"),
 
-	"listDir", 3, [](CrocThread* t) -> word_t
+	"listDir", 3
+};
+
+word_t _listDir(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	auto listHidden = croc_ex_checkBoolParam(t, 2);
+	croc_ex_checkParam(t, 3, CrocType_Function);
+
+	auto ok = oscompat::listDir(t, getCrocstr(t, 1), listHidden, [&](oscompat::FileType type)
 	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		auto listHidden = croc_ex_checkBoolParam(t, 2);
-		croc_ex_checkParam(t, 3, CrocType_Function);
+		croc_dup(t, 3);
+		croc_pushNull(t);
+		croc_dup(t, -3);
+		pushFileTypeString(t, type);
 
-		auto ok = oscompat::listDir(t, getCrocstr(t, 1), listHidden, [&](oscompat::FileType type)
-		{
-			croc_dup(t, 3);
-			croc_pushNull(t);
-			croc_dup(t, -3);
-			pushFileTypeString(t, type);
+		croc_call(t, -4, 1);
+		auto ret = croc_isBool(t, -1) ? croc_getBool(t, -1) : true;
+		croc_popTop(t);
+		return ret;
+	});
 
-			croc_call(t, -4, 1);
-			auto ret = croc_isBool(t, -1) ? croc_getBool(t, -1) : true;
-			croc_popTop(t);
-			return ret;
-		});
+	if(!ok)
+		oscompat::throwOSEx(t);
 
-		if(!ok)
-			oscompat::throwOSEx(t);
+	return 0;
+}
 
-		return 0;
-	}
-
-DListSep()
+const _StdlibRegisterInfo _getDirListing_info =
+{
 	Docstr(DFunc("getDirListing") DParam("path", "string") DParam("listHidden", "bool") DParam("kinds", "string")
 	R"(An alternative method of getting a directory listing, this returns the directory's contents as an array of
 	strings.
@@ -477,156 +514,180 @@ DListSep()
 
 	\throws[ValueError] if \tt{kinds} doesn't contain at least one of the specified characters.)"),
 
-	"getDirListing", 3, [](CrocThread* t) -> word_t
+	"getDirListing", 3
+};
+
+word_t _getDirListing(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	auto listHidden = croc_ex_checkBoolParam(t, 2);
+	croc_ex_checkParam(t, 3, CrocType_String);
+
+	bool listFiles = false;
+	bool listDirs = false;
+	bool listLinks = false;
+	bool listOther = false;
+
+	for(auto c: getCrocstr(t, 3))
 	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		auto listHidden = croc_ex_checkBoolParam(t, 2);
-		croc_ex_checkParam(t, 3, CrocType_String);
-
-		bool listFiles = false;
-		bool listDirs = false;
-		bool listLinks = false;
-		bool listOther = false;
-
-		for(auto c: getCrocstr(t, 3))
+		switch(c)
 		{
-			switch(c)
-			{
-				case 'f': listFiles = true; break;
-				case 'd': listDirs = true; break;
-				case 'l': listLinks = true; break;
-				case 'o': listOther = true; break;
-				default: break;
-			}
+			case 'f': listFiles = true; break;
+			case 'd': listDirs = true; break;
+			case 'l': listLinks = true; break;
+			case 'o': listOther = true; break;
+			default: break;
 		}
-
-		if(!listFiles && !listDirs && !listOther)
-			croc_eh_throwStd(t, "ValueError", "'kinds' parameter must contain at least one of 'f', 'd', 'l', and 'o'");
-
-		auto ret = croc_array_new(t, 0);
-
-		auto ok = oscompat::listDir(t, getCrocstr(t, 1), listHidden, [&](oscompat::FileType type)
-		{
-			switch(type)
-			{
-				case oscompat::FileType::File:
-					if(listFiles)
-					{
-						croc_dupTop(t);
-						croc_cateq(t, ret, 1);
-					}
-					break;
-
-				case oscompat::FileType::Dir:
-					if(listDirs)
-					{
-						croc_dupTop(t);
-						croc_pushString(t, "/");
-						croc_cat(t, 2);
-						croc_cateq(t, ret, 1);
-					}
-					break;
-
-				case oscompat::FileType::Link:
-					if(listLinks)
-					{
-						croc_dupTop(t);
-						croc_cateq(t, ret, 1);
-					}
-					break;
-
-				case oscompat::FileType::Other:
-					if(listOther)
-					{
-						croc_dupTop(t);
-						croc_cateq(t, ret, 1);
-					}
-					break;
-			}
-
-			return true;
-		});
-
-		if(!ok)
-			oscompat::throwOSEx(t);
-
-		return 1;
 	}
 
-DListSep()
+	if(!listFiles && !listDirs && !listOther)
+		croc_eh_throwStd(t, "ValueError", "'kinds' parameter must contain at least one of 'f', 'd', 'l', and 'o'");
+
+	auto ret = croc_array_new(t, 0);
+
+	auto ok = oscompat::listDir(t, getCrocstr(t, 1), listHidden, [&](oscompat::FileType type)
+	{
+		switch(type)
+		{
+			case oscompat::FileType::File:
+				if(listFiles)
+				{
+					croc_dupTop(t);
+					croc_cateq(t, ret, 1);
+				}
+				break;
+
+			case oscompat::FileType::Dir:
+				if(listDirs)
+				{
+					croc_dupTop(t);
+					croc_pushString(t, "/");
+					croc_cat(t, 2);
+					croc_cateq(t, ret, 1);
+				}
+				break;
+
+			case oscompat::FileType::Link:
+				if(listLinks)
+				{
+					croc_dupTop(t);
+					croc_cateq(t, ret, 1);
+				}
+				break;
+
+			case oscompat::FileType::Other:
+				if(listOther)
+				{
+					croc_dupTop(t);
+					croc_cateq(t, ret, 1);
+				}
+				break;
+		}
+
+		return true;
+	});
+
+	if(!ok)
+		oscompat::throwOSEx(t);
+
+	return 1;
+}
+
+const _StdlibRegisterInfo _currentDir_info =
+{
 	Docstr(DFunc("currentDir")
 	R"(\returns the current working directory as an absolute path string.)"),
 
-	"currentDir", 0, [](CrocThread* t) -> word_t
-	{
-		if(!oscompat::pushCurrentDir(t))
-			oscompat::throwOSEx(t);
+	"currentDir", 0
+};
 
-		return 1;
-	}
+word_t _currentDir(CrocThread* t)
+{
+	if(!oscompat::pushCurrentDir(t))
+		oscompat::throwOSEx(t);
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _changeDir_info =
+{
 	Docstr(DFunc("changeDir") DParam("path", "string")
 	R"(Changes the current working directory to \tt{path}.
 
 	\throws[OSException] if \tt{path} is an invalid directory to change to.)"),
 
-	"changeDir", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
+	"changeDir", 1
+};
 
-		if(!oscompat::changeDir(t, getCrocstr(t, 1)))
-			oscompat::throwOSEx(t);
+word_t _changeDir(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
 
-		return 0;
-	}
+	if(!oscompat::changeDir(t, getCrocstr(t, 1)))
+		oscompat::throwOSEx(t);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _makeDir_info =
+{
 	Docstr(DFunc("makeDir") DParam("path", "string")
 	R"(Creates a new directory named \tt{path}.
 
 	\throws[OSException] if \tt{path} is invalid or cannot be created.)"),
 
-	"makeDir", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
+	"makeDir", 1
+};
 
-		if(!oscompat::makeDir(t, getCrocstr(t, 1)))
-			oscompat::throwOSEx(t);
+word_t _makeDir(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
 
-		return 0;
-	}
+	if(!oscompat::makeDir(t, getCrocstr(t, 1)))
+		oscompat::throwOSEx(t);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _removeDir_info =
+{
 	Docstr(DFunc("removeDir") DParam("path", "string")
 	R"(Removes the directory named \tt{path}. The directory must be empty before it can be removed.
 
 	\throws[OSException] if \tt{path} is invalid cannot be removed.)"),
 
-	"removeDir", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
+	"removeDir", 1
+};
 
-		if(!oscompat::removeDir(t, getCrocstr(t, 1)))
-			oscompat::throwOSEx(t);
+word_t _removeDir(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
 
-		return 0;
-	}
+	if(!oscompat::removeDir(t, getCrocstr(t, 1)))
+		oscompat::throwOSEx(t);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _exists_info =
+{
 	Docstr(DFunc("exists") DParam("path", "string")
 	R"(\returns a bool saying whether or not there is an accessible file or directory named \tt{path}. The key word here
 	is "accessible". If you try to test the existence of a file you don't have permissions to access, this function will
 	return false rather than throw an exception.)"),
 
-	"exists", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		croc_pushBool(t, oscompat::getInfo(t, getCrocstr(t, 1), nullptr));
-		return 1;
-	}
+	"exists", 1
+};
 
-DListSep()
+word_t _exists(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	croc_pushBool(t, oscompat::getInfo(t, getCrocstr(t, 1), nullptr));
+	return 1;
+}
+
+const _StdlibRegisterInfo _attrs_info =
+{
 	Docstr(DFunc("attrs") DParam("path", "string") DParamD("tab", "table", "null")
 	R"(Get info on a file or directory at \tt{path} and return it as a table.
 
@@ -650,34 +711,37 @@ DListSep()
 
 	\throws[OSException] if the attributes could not be retrieved.)"),
 
-	"attrs", 2, [](CrocThread* t) -> word_t
+	"attrs", 2
+};
+
+word_t _attrs(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	auto name = getCrocstr(t, 1);
+	auto ret = croc_ex_optParam(t, 2, CrocType_Table) ? 2 : croc_table_new(t, 0);
+
+	oscompat::FileInfo info;
+
+	if(!oscompat::getInfo(t, name, &info))
 	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		auto name = getCrocstr(t, 1);
-		auto ret = croc_ex_optParam(t, 2, CrocType_Table) ? 2 : croc_table_new(t, 0);
-
-		oscompat::FileInfo info;
-
-		if(!oscompat::getInfo(t, name, &info))
-		{
-			croc_pushFormat(t, "Error getting attributes for '%.*s': ", cast(int)name.length, name.ptr);
-			oscompat::pushSystemErrorMsg(t);
-			croc_cat(t, 2);
-			oscompat::throwOSEx(t);
-		}
-
-		pushFileTypeString(t, info.type);              croc_fielda(t, ret, "type");
-		croc_pushInt(t, cast(crocint_t)info.size);     croc_fielda(t, ret, "size");
-		croc_pushInt(t, cast(crocint_t)info.created);  croc_fielda(t, ret, "created");
-		croc_pushInt(t, cast(crocint_t)info.modified); croc_fielda(t, ret, "modified");
-		croc_pushInt(t, cast(crocint_t)info.accessed); croc_fielda(t, ret, "accessed");
-
-		croc_dup(t, ret);
-		return 1;
+		croc_pushFormat(t, "Error getting attributes for '%.*s': ", cast(int)name.length, name.ptr);
+		oscompat::pushSystemErrorMsg(t);
+		croc_cat(t, 2);
+		oscompat::throwOSEx(t);
 	}
 
-#define MAKE_THINGER(ONE_LINE_OF_CODE)\
-	[](CrocThread* t) -> word_t\
+	pushFileTypeString(t, info.type);              croc_fielda(t, ret, "type");
+	croc_pushInt(t, cast(crocint_t)info.size);     croc_fielda(t, ret, "size");
+	croc_pushInt(t, cast(crocint_t)info.created);  croc_fielda(t, ret, "created");
+	croc_pushInt(t, cast(crocint_t)info.modified); croc_fielda(t, ret, "modified");
+	croc_pushInt(t, cast(crocint_t)info.accessed); croc_fielda(t, ret, "accessed");
+
+	croc_dup(t, ret);
+	return 1;
+}
+
+#define MAKE_THINGER(NAME, ONE_LINE_OF_CODE)\
+	word_t NAME(CrocThread* t)\
 	{\
 		croc_ex_checkParam(t, 1, CrocType_String);\
 		auto name = getCrocstr(t, 1);\
@@ -696,47 +760,68 @@ DListSep()
 		return 1;\
 	}
 
-DListSep()
+const _StdlibRegisterInfo _fileType_info =
+{
 	Docstr(DFunc("fileType") DParam("path", "string")
 	R"(Like \link{attrs}, but gets only the file type.
 
 	\throws[OSException] if \tt{path} could not be accessed.)"),
 
-	"fileType", 1, MAKE_THINGER(pushFileTypeString(t, info.type))
+	"fileType", 1
+};
 
-DListSep()
+MAKE_THINGER(_fileType, pushFileTypeString(t, info.type))
+
+const _StdlibRegisterInfo _fileSize_info =
+{
 	Docstr(DFunc("fileSize") DParam("path", "string")
 	R"(Like \link{attrs}, but gets only the file size.
 
 	\throws[OSException] if \tt{path} could not be accessed.)"),
 
-	"fileSize", 1, MAKE_THINGER(croc_pushInt(t, cast(crocint_t)info.size))
+	"fileSize", 1
+};
 
-DListSep()
+MAKE_THINGER(_fileSize, croc_pushInt(t, cast(crocint_t)info.size))
+
+const _StdlibRegisterInfo _created_info =
+{
 	Docstr(DFunc("created") DParam("path", "string")
 	R"(Like \link{attrs}, but gets only the creation time.
 
 	\throws[OSException] if \tt{path} could not be accessed.)"),
 
-	"created", 1, MAKE_THINGER(croc_pushInt(t, cast(crocint_t)info.created))
+	"created", 1
+};
 
-DListSep()
+MAKE_THINGER(_created, croc_pushInt(t, cast(crocint_t)info.created))
+
+const _StdlibRegisterInfo _modified_info =
+{
 	Docstr(DFunc("modified") DParam("path", "string")
 	R"(Like \link{attrs}, but gets only the file modification time.
 
 	\throws[OSException] if \tt{path} could not be accessed.)"),
 
-	"modified", 1, MAKE_THINGER(croc_pushInt(t, cast(crocint_t)info.modified))
+	"modified", 1
+};
 
-DListSep()
+MAKE_THINGER(_modified, croc_pushInt(t, cast(crocint_t)info.modified))
+
+const _StdlibRegisterInfo _accessed_info =
+{
 	Docstr(DFunc("accessed") DParam("path", "string")
 	R"(Like \link{attrs}, but gets only the file access time.
 
 	\throws[OSException] if \tt{path} could not be accessed.)"),
 
-	"accessed", 1, MAKE_THINGER(croc_pushInt(t, cast(crocint_t)info.accessed))
+	"accessed", 1
+};
 
-DListSep()
+MAKE_THINGER(_accessed, croc_pushInt(t, cast(crocint_t)info.accessed))
+
+const _StdlibRegisterInfo _copyFromTo_info =
+{
 	Docstr(DFunc("copyFromTo") DParam("from", "string") DParam("to", "string") DParamD("force", "bool", "false")
 	R"(Copies a file named by \tt{from} to the path named by \tt{to}. The function is named this way to remind you of
 	the order of the arguments.
@@ -747,19 +832,23 @@ DListSep()
 
 	\throws[OSException] if \tt{from} could not be copied to \tt{to}.)"),
 
-	"copyFromTo", 3, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		croc_ex_checkParam(t, 2, CrocType_String);
-		auto force = croc_ex_optBoolParam(t, 3, false);
+	"copyFromTo", 3
+};
 
-		if(!oscompat::copyFromTo(t, getCrocstr(t, 1), getCrocstr(t, 2), force))
-			oscompat::throwOSEx(t);
+word_t _copyFromTo(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	croc_ex_checkParam(t, 2, CrocType_String);
+	auto force = croc_ex_optBoolParam(t, 3, false);
 
-		return 0;
-	}
+	if(!oscompat::copyFromTo(t, getCrocstr(t, 1), getCrocstr(t, 2), force))
+		oscompat::throwOSEx(t);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _moveFromTo_info =
+{
 	Docstr(DFunc("moveFromTo") DParam("from", "string") DParam("to", "string") DParamD("force", "bool", "false")
 	R"(Moves a file or directory named by \tt{from} to the path named by \tt{to}. The function is named this way to
 	remind you of the order of the arguments.
@@ -773,19 +862,23 @@ DListSep()
 
 	\throws[OSException] if \tt{from} could not be moved to \tt{to}.)"),
 
-	"moveFromTo", 3, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
-		croc_ex_checkParam(t, 2, CrocType_String);
-		auto force = croc_ex_optBoolParam(t, 3, false);
+	"moveFromTo", 3
+};
 
-		if(!oscompat::moveFromTo(t, getCrocstr(t, 1), getCrocstr(t, 2), force))
-			oscompat::throwOSEx(t);
+word_t _moveFromTo(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
+	croc_ex_checkParam(t, 2, CrocType_String);
+	auto force = croc_ex_optBoolParam(t, 3, false);
 
-		return 0;
-	}
+	if(!oscompat::moveFromTo(t, getCrocstr(t, 1), getCrocstr(t, 2), force))
+		oscompat::throwOSEx(t);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _remove_info =
+{
 	Docstr(DFunc("remove") DParam("path", "string")
 	R"(Removes the file or directory at \tt{path} entirely. This is an irreversible operation, so be careful!
 
@@ -793,43 +886,74 @@ DListSep()
 
 	\throws[OSException] if \tt{path} could not be removed.)"),
 
-	"remove", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_String);
+	"remove", 1
+};
 
-		if(!oscompat::remove(t, getCrocstr(t, 1)))
-			oscompat::throwOSEx(t);
+word_t _remove(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_String);
 
-		return 0;
-	}
-DEndList()
+	if(!oscompat::remove(t, getCrocstr(t, 1)))
+		oscompat::throwOSEx(t);
 
-	word loader(CrocThread* t)
-	{
-		registerGlobals(t, _globalFuncs);
-		return 0;
-	}
-	}
+	return 0;
+}
 
-	void initFileLib(CrocThread* t)
-	{
-		croc_ex_makeModule(t, "file", &loader);
-		croc_ex_importNS(t, "file");
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_inFile),
+	_DListItem(_outFile),
+	_DListItem(_inoutFile),
+	_DListItem(_readTextFile),
+	_DListItem(_truncate),
+	_DListItem(_writeTextFile),
+	_DListItem(_readMemblock),
+	_DListItem(_writeMemblock),
+	_DListItem(_listDir),
+	_DListItem(_getDirListing),
+	_DListItem(_currentDir),
+	_DListItem(_changeDir),
+	_DListItem(_makeDir),
+	_DListItem(_removeDir),
+	_DListItem(_exists),
+	_DListItem(_attrs),
+	_DListItem(_fileType),
+	_DListItem(_fileSize),
+	_DListItem(_created),
+	_DListItem(_modified),
+	_DListItem(_accessed),
+	_DListItem(_copyFromTo),
+	_DListItem(_moveFromTo),
+	_DListItem(_remove),
+	_DListEnd
+};
+
+word loader(CrocThread* t)
+{
+	_registerGlobals(t, _globalFuncs);
+	return 0;
+}
+}
+
+void initFileLib(CrocThread* t)
+{
+	croc_ex_makeModule(t, "file", &loader);
+	croc_ex_importNS(t, "file");
 #ifdef CROC_BUILTIN_DOCS
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
-		croc_ex_doc_push(&doc,
-		DModule("file")
-		R"(This module provides access to the host file system. With it you can read, write, create, and delete files
-		and directories.
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_ex_doc_push(&doc,
+	DModule("file")
+	R"(This module provides access to the host file system. With it you can read, write, create, and delete files
+	and directories.
 
-		You should use paths with forward slashes ('/') to separate the directories for the best cross-platform
-		compatibility. This library will translate forward slash paths to backslash paths internally on Windows, but
-		even on Windows it will always return forward slash paths.)");
-			docFields(&doc, _globalFuncs);
-		croc_ex_doc_pop(&doc, -1);
-		croc_ex_doc_finish(&doc);
+	You should use paths with forward slashes ('/') to separate the directories for the best cross-platform
+	compatibility. This library will translate forward slash paths to backslash paths internally on Windows, but
+	even on Windows it will always return forward slash paths.)");
+		_docFields(&doc, _globalFuncs);
+	croc_ex_doc_pop(&doc, -1);
+	croc_ex_doc_finish(&doc);
 #endif
-		croc_popTop(t);
-	}
+	croc_popTop(t);
+}
 }
