@@ -11,54 +11,73 @@
 
 namespace croc
 {
-	namespace
-	{
+namespace
+{
 #ifdef CROC_BUILTIN_DOCS
 const char* ModuleDocs =
 DModule("os")
 R"(This module contains some unsafe operating system interfaces for things like spawning processes.)";
 #endif
 
-DBeginList(_globalFuncs)
+const _StdlibRegisterInfo _haveShell_info =
+{
 	Docstr(DFunc("haveShell")
 	R"(\returns a bool indicating whether or not there is a shell command processor available. If there is, you can use
 	the \link{shellCmd} function to run shell commands.)"),
 
-	"haveShell", 0, [](CrocThread* t) -> word_t
-	{
-		croc_pushBool(t, system(nullptr) ? true : false);
-		return 1;
-	}
+	"haveShell", 0
+};
 
-DListSep()
+word_t _haveShell(CrocThread* t)
+{
+	croc_pushBool(t, system(nullptr) ? true : false);
+	return 1;
+}
+
+const _StdlibRegisterInfo _shellCmd_info =
+{
 	Docstr(DFunc("shellCmd") DParam("cmd", "string")
 	R"(Executes the string \tt{cmd} through the system's shell command processor, spawning a subprocess. Execution of
 	the calling process waits until the subprocess completes.
 
 	\returns the exit code from the subprocess as an integer. The meaning of this code is platform-dependent.)"),
 
-	"shellCmd", 1, [](CrocThread* t) -> word_t
-	{
-		croc_pushInt(t, system(croc_ex_checkStringParam(t, 1)));
-		return 1;
-	}
+	"shellCmd", 1
+};
 
-DListSep()
+word_t _shellCmd(CrocThread* t)
+{
+	croc_pushInt(t, system(croc_ex_checkStringParam(t, 1)));
+	return 1;
+}
+
+const _StdlibRegisterInfo _sleep_info =
+{
 	Docstr(DFunc("sleep") DParam("duration", "float")
 	R"(Pauses execution of the current system thread for at least \tt{duration} seconds.)"),
 
-	"sleep", 1, [](CrocThread* t) -> word_t
-	{
-		auto dur = croc_ex_checkNumParam(t, 1);
+	"sleep", 1
+};
 
-		if(dur < 0)
-			croc_eh_throwStd(t, "RangeError", "Invalid sleep duration: %g", dur);
+word_t _sleep(CrocThread* t)
+{
+	auto dur = croc_ex_checkNumParam(t, 1);
 
-		if(dur > 0)
-			oscompat::sleep(cast(uword)(dur * 1000));
-		return 0;
-	}
-DEndList()
+	if(dur < 0)
+		croc_eh_throwStd(t, "RangeError", "Invalid sleep duration: %g", dur);
+
+	if(dur > 0)
+		oscompat::sleep(cast(uword)(dur * 1000));
+	return 0;
+}
+
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_haveShell),
+	_DListItem(_shellCmd),
+	_DListItem(_sleep),
+	_DListEnd
+};
 
 #ifdef CROC_BUILTIN_DOCS
 const char* ProcessDocs = DClass("Process")
@@ -81,7 +100,8 @@ writeln("Exited with code ", p.wait())
 \endcode)";
 #endif
 
-DBeginList(_ProcessMethods)
+const _StdlibRegisterInfo _Process_constructor_info =
+{
 	Docstr(DFunc("constructor") DParam("cmd", "string") DParam("mode", "string")
 	R"(Starts a new subprocess.
 
@@ -93,131 +113,154 @@ DBeginList(_ProcessMethods)
 		it's \tt{"w"}, the subprocess will inherit this process's stdout stream, and its stdin will be redirected
 		instead.)"),
 
-	"constructor", 2, [](CrocThread* t) -> word_t
-	{
-		croc_hfield(t, 0, "proc");
+	"constructor", 2
+};
 
-		if(!croc_isNull(t, -1))
-			croc_eh_throwStd(t, "StateError", "Calling constructor on already-initialized process");
+word_t _Process_constructor(CrocThread* t)
+{
+	croc_hfield(t, 0, "proc");
 
-		croc_popTop(t);
+	if(!croc_isNull(t, -1))
+		croc_eh_throwStd(t, "StateError", "Calling constructor on already-initialized process");
 
-		croc_ex_checkParam(t, 1, CrocType_String);
-		croc_ex_checkParam(t, 2, CrocType_String);
+	croc_popTop(t);
 
-		auto cmd = getCrocstr(t, 1);
-		auto mode = getCrocstr(t, 2);
-		auto access = oscompat::FileAccess::Read;
+	croc_ex_checkParam(t, 1, CrocType_String);
+	croc_ex_checkParam(t, 2, CrocType_String);
 
-		if(mode == ATODA("r"))
-			access = oscompat::FileAccess::Read;
-		else if(mode == ATODA("w"))
-			access = oscompat::FileAccess::Write;
-		else
-			croc_eh_throwStd(t, "ValueError", "Invalid process mode");
+	auto cmd = getCrocstr(t, 1);
+	auto mode = getCrocstr(t, 2);
+	auto access = oscompat::FileAccess::Read;
 
-		auto proc = oscompat::openProcess(t, cmd, access);
-		auto procStream = oscompat::getProcessStream(t, proc);
+	if(mode == ATODA("r"))
+		access = oscompat::FileAccess::Read;
+	else if(mode == ATODA("w"))
+		access = oscompat::FileAccess::Write;
+	else
+		croc_eh_throwStd(t, "ValueError", "Invalid process mode");
 
-		if(procStream == oscompat::InvalidHandle)
-			oscompat::throwOSEx(t);
+	auto proc = oscompat::openProcess(t, cmd, access);
+	auto procStream = oscompat::getProcessStream(t, proc);
 
-		croc_pushNativeobj(t, proc);
-		croc_hfielda(t, 0, "proc");
+	if(procStream == oscompat::InvalidHandle)
+		oscompat::throwOSEx(t);
 
-		croc_ex_lookup(t, "stream.NativeStream");
-		croc_pushNull(t);
-		croc_pushNativeobj(t, cast(void*)cast(uword)procStream);
-		croc_dup(t, 2); // gonna be either 'r' or 'w'
-		croc_call(t, -4, 1);
-		croc_hfielda(t, 0, "stream");
+	croc_pushNativeobj(t, proc);
+	croc_hfielda(t, 0, "proc");
 
-		return 0;
-	}
+	croc_ex_lookup(t, "stream.NativeStream");
+	croc_pushNull(t);
+	croc_pushNativeobj(t, cast(void*)cast(uword)procStream);
+	croc_dup(t, 2); // gonna be either 'r' or 'w'
+	croc_call(t, -4, 1);
+	croc_hfielda(t, 0, "stream");
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _Process_finalizer_info =
+{
 	Docstr(DFunc("finalizer")
 	R"(Closes the subprocess if it hasn't been already.)"),
 
-	"finalizer", 0, [](CrocThread* t) -> word_t
+	"finalizer", 0
+};
+
+word_t _Process_finalizer(CrocThread* t)
+{
+	croc_hfield(t, 0, "proc");
+
+	if(!croc_isNull(t, -1))
 	{
-		croc_hfield(t, 0, "proc");
-
-		if(!croc_isNull(t, -1))
-		{
-			croc_dup(t, 0);
-			croc_pushNull(t);
-			croc_methodCall(t, -2, "wait", 0);
-		}
-
-		return 0;
+		croc_dup(t, 0);
+		croc_pushNull(t);
+		croc_methodCall(t, -2, "wait", 0);
 	}
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _Process_wait_info =
+{
 	Docstr(DFunc("wait")
 	R"(Waits for the subprocess to complete (if it hasn't yet already) and returns its exit code as an integer.
 
 	This will block as long as necessary.)"),
 
-	"wait", 0, [](CrocThread* t) -> word_t
-	{
-		croc_hfield(t, 0, "proc");
+	"wait", 0
+};
 
-		if(croc_isNull(t, -1))
-			croc_eh_throwStd(t, "StateError", "Waiting on a dead process");
+word_t _Process_wait(CrocThread* t)
+{
+	croc_hfield(t, 0, "proc");
 
-		auto proc = cast(oscompat::ProcessHandle)croc_getNativeobj(t, -1);
-		auto ret = oscompat::closeProcess(t, proc);
+	if(croc_isNull(t, -1))
+		croc_eh_throwStd(t, "StateError", "Waiting on a dead process");
 
-		croc_pushNull(t);
-		croc_hfielda(t, 0, "proc");
-		croc_pushInt(t, ret);
-		return 1;
-	}
+	auto proc = cast(oscompat::ProcessHandle)croc_getNativeobj(t, -1);
+	auto ret = oscompat::closeProcess(t, proc);
 
-DListSep()
+	croc_pushNull(t);
+	croc_hfielda(t, 0, "proc");
+	croc_pushInt(t, ret);
+	return 1;
+}
+
+const _StdlibRegisterInfo _Process_stream_info =
+{
 	Docstr(DFunc("stream")
 	R"(Gets a \link{stream.NativeStream} instance which represents whichever standard stream was redirected in the
 	subprocess (see the \link{constructor} for info).)"),
 
-	"stream", 0, [](CrocThread* t) -> word_t
-	{
-		croc_hfield(t, 0, "stream");
-		return 1;
-	}
-DEndList()
+	"stream", 0
+};
 
-	word loader(CrocThread* t)
-	{
-		registerGlobals(t, _globalFuncs);
+word_t _Process_stream(CrocThread* t)
+{
+	croc_hfield(t, 0, "stream");
+	return 1;
+}
 
-		croc_class_new(t, "Process", 0);
-			croc_pushNull(t); croc_class_addHField(t, -2, "proc");
-			croc_pushNull(t); croc_class_addHField(t, -2, "stream");
-			registerMethods(t, _ProcessMethods);
-		croc_newGlobal(t, "Process");
-		return 0;
-	}
-	}
+const _StdlibRegister _Process_methods[] =
+{
+	_DListItem(_Process_constructor),
+	_DListItem(_Process_finalizer),
+	_DListItem(_Process_wait),
+	_DListItem(_Process_stream),
+	_DListEnd
+};
 
-	void initOSLib(CrocThread* t)
-	{
-		croc_ex_makeModule(t, "os", &loader);
-		croc_ex_importNS(t, "os");
+word loader(CrocThread* t)
+{
+	_registerGlobals(t, _globalFuncs);
+
+	croc_class_new(t, "Process", 0);
+		croc_pushNull(t); croc_class_addHField(t, -2, "proc");
+		croc_pushNull(t); croc_class_addHField(t, -2, "stream");
+		_registerMethods(t, _Process_methods);
+	croc_newGlobal(t, "Process");
+	return 0;
+}
+}
+
+void initOSLib(CrocThread* t)
+{
+	croc_ex_makeModule(t, "os", &loader);
+	croc_ex_importNS(t, "os");
 #ifdef CROC_BUILTIN_DOCS
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
-		croc_ex_doc_push(&doc, ModuleDocs);
-			docFields(&doc, _globalFuncs);
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_ex_doc_push(&doc, ModuleDocs);
+		_docFields(&doc, _globalFuncs);
 
-			croc_field(t, -1, "Process");
-				croc_ex_doc_push(&doc, ProcessDocs);
-				docFields(&doc, _ProcessMethods);
-				croc_ex_doc_pop(&doc, -1);
-			croc_popTop(t);
-		croc_ex_doc_pop(&doc, -1);
-		croc_ex_doc_finish(&doc);
-#endif
+		croc_field(t, -1, "Process");
+			croc_ex_doc_push(&doc, ProcessDocs);
+			_docFields(&doc, _Process_methods);
+			croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
-	}
+	croc_ex_doc_pop(&doc, -1);
+	croc_ex_doc_finish(&doc);
+#endif
+	croc_popTop(t);
+}
 }
