@@ -6,10 +6,10 @@
 
 namespace croc
 {
-	namespace
-	{
-	// =================================================================================================================
-	// Standard exceptions
+namespace
+{
+// =====================================================================================================================
+// Standard exceptions
 struct ExDesc
 {
 	const char* name;
@@ -122,47 +122,56 @@ struct ExDesc
 	{nullptr, nullptr}
 };
 
-	void registerStdEx(CrocThread* t, Thread* t_)
+void registerStdEx(CrocThread* t, Thread* t_)
+{
+	auto _G = croc_pushGlobal(t, "_G");
+	auto Throwable = croc_pushGlobal(t, "Throwable");
+
+	for(auto d = _exDescs; d->name != nullptr; d++)
 	{
-		auto _G = croc_pushGlobal(t, "_G");
-		auto Throwable = croc_pushGlobal(t, "Throwable");
+		croc_dup(t, Throwable);
+		croc_class_new(t, d->name, 1);
+		*t_->vm->stdExceptions.insert(t_->vm->mem, String::create(t_->vm, atoda(d->name))) = getClass(t_, -1);
+		croc_dupTop(t);
+		croc_fielda(t, _G, d->name);
+		croc_newGlobal(t, d->name);
+	}
 
-		for(auto d = _exDescs; d->name != nullptr; d++)
-		{
-			croc_dup(t, Throwable);
-			croc_class_new(t, d->name, 1);
-			*t_->vm->stdExceptions.insert(t_->vm->mem, String::create(t_->vm, atoda(d->name))) = getClass(t_, -1);
-			croc_dupTop(t);
-			croc_fielda(t, _G, d->name);
-			croc_newGlobal(t, d->name);
-		}
+	croc_fielda(t, _G, "Throwable");
+	croc_popTop(t);
+}
 
-		croc_fielda(t, _G, "Throwable");
+#ifdef CROC_BUILTIN_DOCS
+void docStdEx(CrocThread* t, CrocDoc* doc)
+{
+	for(auto d = _exDescs; d->name != nullptr; d++)
+	{
+		croc_field(t, -1, d->name);
+		croc_ex_doc_push(doc, d->docs);
+		croc_ex_doc_pop(doc, -1);
 		croc_popTop(t);
 	}
-
-#ifdef CROC_BUILTIN_DOCS
-	void docStdEx(CrocThread* t, CrocDoc* doc)
-	{
-		for(auto d = _exDescs; d->name != nullptr; d++)
-		{
-			croc_field(t, -1, d->name);
-			croc_ex_doc_push(doc, d->docs);
-			croc_ex_doc_pop(doc, -1);
-			croc_popTop(t);
-		}
-	}
+}
 #endif
 
-	// =================================================================================================================
-	// Location
+// =====================================================================================================================
+// Location
 
-	const crocint Unknown = 0;
-	const crocint Native = -1;
-	const crocint Script = -2;
+const crocint Unknown = 0;
+const crocint Native = -1;
+const crocint Script = -2;
 
 #ifdef CROC_BUILTIN_DOCS
-const char* _locationFieldDocs[] =
+const char* _Location_docs =
+	DClass("Location")
+	R"(This class holds a source location, which is used in exception tracebacks and compilation errors.
+
+	There two kinds of locations: compile-time and runtime. Compile-time locations have a column number > 0 and indicate
+	the exact location within a source file where something went wrong. Runtime locations have a column number <= 0, in
+	which case the exact kind of location is encoded in the column number as one of \link{Location.Unknown},
+	\link{Location.Native}, or \link{Location.Script}.)";
+
+const char* _Location_fieldDocs[] =
 {
 	DField("Unknown")
 	R"(This is one of the types of locations that can be put in the \tt{col} field. It means that there isn't enough
@@ -196,29 +205,34 @@ const char* _locationFieldDocs[] =
 };
 #endif
 
-DBeginList(_locationMethods)
+const _StdlibRegisterInfo _Location_constructor_info =
+{
 	Docstr(DFunc("constructor") DParamD("file", "string", "null") DParamD("line", "int", "-1")
 		DParamD("col", "int", "Location.Script")
 	R"(Constructor. All parameters are optional. When passed \tt{null} for \tt{file}, the \tt{line} and \tt{col}
 	parameters are ignored, constructing an "Unknown" location.)"),
 
-	"constructor", 3, [](CrocThread* t) -> word_t
-	{
-		auto file = croc_ex_optStringParam(t, 1, nullptr);
+	"constructor", 3
+};
 
-		if(file == nullptr)
-			return 0;
+word_t _Location_constructor(CrocThread* t)
+{
+	auto file = croc_ex_optStringParam(t, 1, nullptr);
 
-		auto line = croc_ex_optIntParam(t, 2, -1);
-		auto col = croc_ex_optIntParam(t, 3, Script);
-
-		croc_pushString(t, file); croc_fielda(t, 0, "file");
-		croc_pushInt(t, line);    croc_fielda(t, 0, "line");
-		croc_pushInt(t, col);     croc_fielda(t, 0, "col");
+	if(file == nullptr)
 		return 0;
-	}
 
-DListSep()
+	auto line = croc_ex_optIntParam(t, 2, -1);
+	auto col = croc_ex_optIntParam(t, 3, Script);
+
+	croc_pushString(t, file); croc_fielda(t, 0, "file");
+	croc_pushInt(t, line);    croc_fielda(t, 0, "line");
+	croc_pushInt(t, col);     croc_fielda(t, 0, "col");
+	return 0;
+}
+
+const _StdlibRegisterInfo _Location_toString_info =
+{
 	Docstr(DFunc("toString")
 	R"x(Gives a string representation of the location, in the following formats:
 	\blist
@@ -228,118 +242,126 @@ DListSep()
 		\li otherwise - \tt{"file(line:col)"}
 	\endlist)x"),
 
-	"toString", 0, [](CrocThread* t) -> word_t
+	"toString", 0
+};
+
+word_t _Location_toString(CrocThread* t)
+{
+	croc_field(t, 0, "col");
+
+	switch(croc_getInt(t, -1))
 	{
-		croc_field(t, 0, "col");
-
-		switch(croc_getInt(t, -1))
-		{
-			case Unknown: {
-				croc_pushString(t, "<unknown location>");
-				break;
-			}
-			case Native: {
-				croc_field(t, 0, "file");
-				croc_pushString(t, "(native)");
-				croc_cat(t, 2);
-				break;
-			}
-			case Script: {
-				auto first = croc_field(t, 0, "file");
-				croc_pushString(t, "(");
-
-				croc_field(t, 0, "line");
-
-				if(croc_getInt(t, -1) < 1)
-					croc_pushString(t, "?");
-				else
-					croc_pushToStringRaw(t, -1);
-
-				croc_insertAndPop(t, -2);
-
-				croc_pushString(t, ")");
-				croc_cat(t, croc_getStackSize(t) - first);
-				break;
-			}
-			default: {
-				auto first = croc_field(t, 0, "file");
-				croc_pushString(t, "(");
-
-				croc_field(t, 0, "line");
-
-				if(croc_getInt(t, -1) < 1)
-					croc_pushString(t, "?");
-				else
-					croc_pushToStringRaw(t, -1);
-
-				croc_insertAndPop(t, -2);
-
-				croc_pushString(t, ":");
-
-				croc_field(t, 0, "col");
-
-				if(croc_getInt(t, -1) < 0)
-					croc_pushString(t, "?");
-				else
-					croc_pushToStringRaw(t, -1);
-
-				croc_insertAndPop(t, -2);
-
-				croc_pushString(t, ")");
-				croc_cat(t, croc_getStackSize(t) - first);
-				break;
-			}
+		case Unknown: {
+			croc_pushString(t, "<unknown location>");
+			break;
 		}
+		case Native: {
+			croc_field(t, 0, "file");
+			croc_pushString(t, "(native)");
+			croc_cat(t, 2);
+			break;
+		}
+		case Script: {
+			auto first = croc_field(t, 0, "file");
+			croc_pushString(t, "(");
 
-		return 1;
+			croc_field(t, 0, "line");
+
+			if(croc_getInt(t, -1) < 1)
+				croc_pushString(t, "?");
+			else
+				croc_pushToStringRaw(t, -1);
+
+			croc_insertAndPop(t, -2);
+
+			croc_pushString(t, ")");
+			croc_cat(t, croc_getStackSize(t) - first);
+			break;
+		}
+		default: {
+			auto first = croc_field(t, 0, "file");
+			croc_pushString(t, "(");
+
+			croc_field(t, 0, "line");
+
+			if(croc_getInt(t, -1) < 1)
+				croc_pushString(t, "?");
+			else
+				croc_pushToStringRaw(t, -1);
+
+			croc_insertAndPop(t, -2);
+
+			croc_pushString(t, ":");
+
+			croc_field(t, 0, "col");
+
+			if(croc_getInt(t, -1) < 0)
+				croc_pushString(t, "?");
+			else
+				croc_pushToStringRaw(t, -1);
+
+			croc_insertAndPop(t, -2);
+
+			croc_pushString(t, ")");
+			croc_cat(t, croc_getStackSize(t) - first);
+			break;
+		}
 	}
-DEndList()
+
+	return 1;
+}
+
+const _StdlibRegister _Location_methods[] =
+{
+	_DListItem(_Location_constructor),
+	_DListItem(_Location_toString),
+	_DListEnd
+};
+
+void initLocationClass(CrocThread* t, Thread* t_)
+{
+	croc_class_new(t, "Location", 0);
+		// add these as methods so they don't get unnecessarily duplicated into every instance
+		croc_pushInt(t, Unknown); croc_class_addMethod(t, -2, "Unknown");
+		croc_pushInt(t, Native);  croc_class_addMethod(t, -2, "Native");
+		croc_pushInt(t, Script);  croc_class_addMethod(t, -2, "Script");
+
+		croc_pushString(t, "");   croc_class_addField(t, -2, "file");
+		croc_pushInt(t, 0);       croc_class_addField(t, -2, "line");
+		croc_pushInt(t, Unknown); croc_class_addField(t, -2, "col");
+
+		_registerMethods(t, _Location_methods);
+
+		t_->vm->location = getClass(t_, -1);
+	croc_newGlobal(t, "Location");
+}
 
 #ifdef CROC_BUILTIN_DOCS
-const char* _locationClassDocs =
-	DClass("Location")
-	R"(This class holds a source location, which is used in exception tracebacks and compilation errors.
-
-	There two kinds of locations: compile-time and runtime. Compile-time locations have a column number > 0 and indicate
-	the exact location within a source file where something went wrong. Runtime locations have a column number <= 0, in
-	which case the exact kind of location is encoded in the column number as one of \link{Location.Unknown},
-	\link{Location.Native}, or \link{Location.Script}.)";
+void docLocationClass(CrocThread* t, CrocDoc* doc)
+{
+	croc_field(t, -1, "Location");
+	croc_ex_doc_push(doc, _Location_docs);
+	croc_ex_docFields(doc, _Location_fieldDocs);
+	_docFields(doc, _Location_methods);
+	croc_ex_doc_pop(doc, -1);
+	croc_popTop(t);
+}
 #endif
-	void initLocationClass(CrocThread* t, Thread* t_)
-	{
-		croc_class_new(t, "Location", 0);
-			// add these as methods so they don't get unnecessarily duplicated into every instance
-			croc_pushInt(t, Unknown); croc_class_addMethod(t, -2, "Unknown");
-			croc_pushInt(t, Native);  croc_class_addMethod(t, -2, "Native");
-			croc_pushInt(t, Script);  croc_class_addMethod(t, -2, "Script");
 
-			croc_pushString(t, "");   croc_class_addField(t, -2, "file");
-			croc_pushInt(t, 0);       croc_class_addField(t, -2, "line");
-			croc_pushInt(t, Unknown); croc_class_addField(t, -2, "col");
-
-			registerMethods(t, _locationMethods);
-
-			t_->vm->location = getClass(t_, -1);
-		croc_newGlobal(t, "Location");
-	}
+// =====================================================================================================================
+// Throwable
 
 #ifdef CROC_BUILTIN_DOCS
-	void docLocationClass(CrocThread* t, CrocDoc* doc)
-	{
-		croc_field(t, -1, "Location");
-		croc_ex_doc_push(doc, _locationClassDocs);
-		croc_ex_docFields(doc, _locationFieldDocs);
-		docFields(doc, _locationMethods);
-		croc_ex_doc_pop(doc, -1);
-		croc_popTop(t);
-	}
-#endif
+const char* _Throwable_docs =
+	DClass("Throwable")
+	R"(This class defines the interface that the VM expects throwable exception types to have, along with some useful
+	methods. You can throw instances of any class type in Croc, but you can save a lot of time writing your own
+	exception classes by just deriving from this class.
 
-	// =================================================================================================================
-	// Throwable
+	This class is also exported into the global namespace, so you can access it without having to import it from this
+	module.)";
 
-#ifdef CROC_BUILTIN_DOCS
-const char* _throwableFieldDocs[] =
+const char* _Throwable_fieldDocs[] =
 {
 	DFieldV("location", "Location()")
 	R"(The location where this exception was thrown. See the \link{exceptions.Location} class documentation for more
@@ -370,7 +392,8 @@ const char* _throwableFieldDocs[] =
 };
 #endif
 
-DBeginList(_throwableMethods)
+const _StdlibRegisterInfo _Throwable_constructor_info =
+{
 	Docstr(DFunc("constructor") DParamD("msg", "string", "\"\"") DParamD("cause", "Throwable", "null")
 	R"(Constructor. All parameters are optional.
 
@@ -378,23 +401,27 @@ DBeginList(_throwableMethods)
 		by the EH mechanism in any way. Defaults to the empty string.
 	\param[cause] The exception that caused this exception to be thrown. Defaults to none (null).)"),
 
-	"constructor", 2, [](CrocThread* t) -> word_t
-	{
-		auto msg = croc_ex_optStringParam(t, 1, "");
+	"constructor", 2
+};
 
-		if(croc_isValidIndex(t, 2))
-			croc_dup(t, 2);
-		else
-			croc_pushNull(t);
+word_t _Throwable_constructor(CrocThread* t)
+{
+	auto msg = croc_ex_optStringParam(t, 1, "");
 
-		croc_fielda(t, 0, "cause");
+	if(croc_isValidIndex(t, 2))
+		croc_dup(t, 2);
+	else
+		croc_pushNull(t);
 
-		croc_pushString(t, msg);
-		croc_fielda(t, 0, "msg");
-		return 0;
-	}
+	croc_fielda(t, 0, "cause");
 
-DListSep()
+	croc_pushString(t, msg);
+	croc_fielda(t, 0, "msg");
+	return 0;
+}
+
+const _StdlibRegisterInfo _Throwable_toString_info =
+{
 	Docstr(DFunc("toString")
 	R"(Gives a string representation of the exception. It is in the format \tt{"<exception type> at <location>: <msg>"}.
 
@@ -402,231 +429,259 @@ DListSep()
 	be followed by a newline, \tt{"Caused by:"}, another newline, and the string representation of \tt{cause}. This will
 	continue recursively, meaning there may be several layers of causes in one representation.)"),
 
-	"toString", 0, [](CrocThread* t) -> word_t
+	"toString", 0
+};
+
+word_t _Throwable_toString(CrocThread* t)
+{
+	auto first = croc_superOf(t, 0);
+	croc_pushString(t, croc_getNameOf(t, first));
+	croc_insertAndPop(t, first);
+	croc_pushString(t, " at ");
+	croc_field(t, 0, "location");
+	croc_pushNull(t);
+	croc_methodCall(t, -2, "toString", 1);
+
+	croc_field(t, 0, "msg");
+
+	if(croc_len(t, -1) > 0)
 	{
-		auto first = croc_superOf(t, 0);
-		croc_pushString(t, croc_getNameOf(t, first));
-		croc_insertAndPop(t, first);
-		croc_pushString(t, " at ");
-		croc_field(t, 0, "location");
+		croc_pushString(t, ": ");
+		croc_insert(t, -2);
+	}
+	else
+		croc_popTop(t);
+
+	first = croc_cat(t, croc_getStackSize(t) - first);
+
+	croc_field(t, 0, "cause");
+
+	if(croc_isNull(t, -1))
+		croc_popTop(t);
+	else
+	{
+		croc_pushString(t, "\nCaused by:\n");
+		croc_insert(t, -2);
 		croc_pushNull(t);
 		croc_methodCall(t, -2, "toString", 1);
-
-		croc_field(t, 0, "msg");
-
-		if(croc_len(t, -1) > 0)
-		{
-			croc_pushString(t, ": ");
-			croc_insert(t, -2);
-		}
-		else
-			croc_popTop(t);
-
-		first = croc_cat(t, croc_getStackSize(t) - first);
-
-		croc_field(t, 0, "cause");
-
-		if(croc_isNull(t, -1))
-			croc_popTop(t);
-		else
-		{
-			croc_pushString(t, "\nCaused by:\n");
-			croc_insert(t, -2);
-			croc_pushNull(t);
-			croc_methodCall(t, -2, "toString", 1);
-			croc_cat(t, croc_getStackSize(t) - first);
-		}
-
-		return 1;
+		croc_cat(t, croc_getStackSize(t) - first);
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _Throwable_setLocation_info =
+{
 	Docstr(DFunc("setLocation") DParam("loc", "Location")
 	R"(Acts as a setter for the \tt{location} field. This is occasionally useful when programmatically building
 	exception objects such as in the compiler.)"),
 
-	"setLocation", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_Instance);
+	"setLocation", 1
+};
 
-		croc_eh_pushLocationClass(t);
-		if(!croc_isInstanceOf(t, 1, -1))
-			croc_ex_paramTypeError(t, 1, "instance of Location");
-		croc_popTop(t);
+word_t _Throwable_setLocation(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Instance);
 
-		croc_dup(t, 1);
-		croc_fielda(t, 0, "location");
-		croc_dup(t, 0);
-		return 1;
-	}
+	croc_eh_pushLocationClass(t);
+	if(!croc_isInstanceOf(t, 1, -1))
+		croc_ex_paramTypeError(t, 1, "instance of Location");
+	croc_popTop(t);
 
-DListSep()
+	croc_dup(t, 1);
+	croc_fielda(t, 0, "location");
+	croc_dup(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _Throwable_setCause_info =
+{
 	Docstr(DFunc("setCause") DParam("cause", "instance")
 	R"x(Acts as a setter for the \tt{cause} field. This can be useful when throwing an exception that is caused by
 	another exception. Rather than forcing an exception constructor to take the cause as a parameter, you can simply use
 	\tt{"throw SomeException().setCause(ex)"} instead.)x"),
 
-	"setCause", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_Instance);
-		croc_dup(t, 1);
-		croc_fielda(t, 0, "cause");
-		croc_dup(t, 0);
-		return 1;
-	}
+	"setCause", 1
+};
 
-DListSep()
+word_t _Throwable_setCause(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Instance);
+	croc_dup(t, 1);
+	croc_fielda(t, 0, "cause");
+	croc_dup(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _Throwable_tracebackString_info =
+{
 	Docstr(DFunc("tracebackString")
 	R"(Gets a string representation of the \tt{traceback} field. The first entry is preceded by "Traceback: ". Each
 	subsequent entry is preceded by a newline, some whitespace, and "at: ".)"),
 
-	"tracebackString", 0, [](CrocThread* t) -> word_t
+	"tracebackString", 0
+};
+
+word_t _Throwable_tracebackString(CrocThread* t)
+{
+	auto traceback = croc_field(t, 0, "traceback");
+	auto tblen = croc_len(t, traceback);
+
+	if(tblen == 0)
 	{
-		auto traceback = croc_field(t, 0, "traceback");
-		auto tblen = croc_len(t, traceback);
+		croc_pushString(t, "");
+		return 1;
+	}
 
-		if(tblen == 0)
-		{
-			croc_pushString(t, "");
-			return 1;
-		}
+	CrocStrBuffer s;
+	croc_ex_buffer_init(t, &s);
+	croc_ex_buffer_addString(&s, "Traceback: ");
 
-		CrocStrBuffer s;
-		croc_ex_buffer_init(t, &s);
-		croc_ex_buffer_addString(&s, "Traceback: ");
+	croc_idxi(t, traceback, 0);
+	croc_pushNull(t);
+	croc_methodCall(t, -2, "toString", 1);
+	croc_ex_buffer_addTop(&s);
 
-		croc_idxi(t, traceback, 0);
+	for(crocint i = 1; i < tblen; i++)
+	{
+		croc_ex_buffer_addString(&s, "\n       at: ");
+		croc_idxi(t, traceback, i);
 		croc_pushNull(t);
 		croc_methodCall(t, -2, "toString", 1);
 		croc_ex_buffer_addTop(&s);
-
-		for(crocint i = 1; i < tblen; i++)
-		{
-			croc_ex_buffer_addString(&s, "\n       at: ");
-			croc_idxi(t, traceback, i);
-			croc_pushNull(t);
-			croc_methodCall(t, -2, "toString", 1);
-			croc_ex_buffer_addTop(&s);
-		}
-
-		croc_ex_buffer_finish(&s);
-		return 1;
 	}
-DEndList()
+
+	croc_ex_buffer_finish(&s);
+	return 1;
+}
+
+const _StdlibRegister _Throwable_methods[] =
+{
+	_DListItem(_Throwable_constructor),
+	_DListItem(_Throwable_toString),
+	_DListItem(_Throwable_setLocation),
+	_DListItem(_Throwable_setCause),
+	_DListItem(_Throwable_tracebackString),
+	_DListEnd
+};
+
+void initThrowableClass(CrocThread* t, Thread* t_)
+{
+	croc_class_new(t, "Throwable", 0);
+		croc_pushGlobal(t, "Location");
+		croc_pushNull(t);
+		croc_call(t, -2, 1);
+		croc_class_addField(t, -2, "location");
+
+		croc_pushString(t, ""); croc_class_addField(t, -2, "msg");
+		croc_pushNull(t);       croc_class_addField(t, -2, "cause");
+		croc_array_new(t, 0);   croc_class_addField(t, -2, "traceback");
+
+		_registerMethods(t, _Throwable_methods);
+
+		*t_->vm->stdExceptions.insert(t_->vm->mem, String::create(t_->vm, ATODA("Throwable"))) = getClass(t_, -1);
+	croc_newGlobal(t, "Throwable");
+}
 
 #ifdef CROC_BUILTIN_DOCS
-const char* _throwableClassDocs =
-	DClass("Throwable")
-	R"(This class defines the interface that the VM expects throwable exception types to have, along with some useful
-	methods. You can throw instances of any class type in Croc, but you can save a lot of time writing your own
-	exception classes by just deriving from this class.
-
-	This class is also exported into the global namespace, so you can access it without having to import it from this
-	module.)";
-#endif
-	void initThrowableClass(CrocThread* t, Thread* t_)
-	{
-		croc_class_new(t, "Throwable", 0);
-			croc_pushGlobal(t, "Location");
-			croc_pushNull(t);
-			croc_call(t, -2, 1);
-			croc_class_addField(t, -2, "location");
-
-			croc_pushString(t, ""); croc_class_addField(t, -2, "msg");
-			croc_pushNull(t);       croc_class_addField(t, -2, "cause");
-			croc_array_new(t, 0);   croc_class_addField(t, -2, "traceback");
-
-			registerMethods(t, _throwableMethods);
-
-			*t_->vm->stdExceptions.insert(t_->vm->mem, String::create(t_->vm, ATODA("Throwable"))) = getClass(t_, -1);
-		croc_newGlobal(t, "Throwable");
-	}
-
-#ifdef CROC_BUILTIN_DOCS
-	void docThrowableClass(CrocThread* t, CrocDoc* doc)
-	{
-		croc_field(t, -1, "Throwable");
-		croc_ex_doc_push(doc, _throwableClassDocs);
-		croc_ex_docFields(doc, _throwableFieldDocs);
-		docFields(doc, _throwableMethods);
-		croc_ex_doc_pop(doc, -1);
-		croc_popTop(t);
-	}
+void docThrowableClass(CrocThread* t, CrocDoc* doc)
+{
+	croc_field(t, -1, "Throwable");
+	croc_ex_doc_push(doc, _Throwable_docs);
+	croc_ex_docFields(doc, _Throwable_fieldDocs);
+	_docFields(doc, _Throwable_methods);
+	croc_ex_doc_pop(doc, -1);
+	croc_popTop(t);
+}
 #endif
 
-	// =================================================================================================================
-	// Globals
+// =====================================================================================================================
+// Globals
 
-DBeginList(_globalFuncs)
+const _StdlibRegisterInfo _stdException_info =
+{
 	Docstr(DFunc("stdException") DParam("name", "string")
 	R"(Gets one of the standard exception types by name.
 
 	\returns one of the standard exception classes.
 	\throws[NameError] if the given name does not name a standard exception type.)"),
 
-	"stdException", 1, [](CrocThread* t) -> word_t
-	{
-		croc_eh_pushStd(t, croc_ex_checkStringParam(t, 1));
-		return 1;
-	}
+	"stdException", 1
+};
 
-DListSep()
+word_t _stdException(CrocThread* t)
+{
+	croc_eh_pushStd(t, croc_ex_checkStringParam(t, 1));
+	return 1;
+}
+
+const _StdlibRegisterInfo _rethrow_info =
+{
 	Docstr(DFunc("rethrow") DParam("ex", "instance")
 	R"(Rethrows the exception \tt{ex}. This is the same as throwing it normally, except the traceback is not
 	modified.)"),
 
-	"rethrow", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 1, CrocType_Instance);
-		croc_dup(t, 1);
-		return croc_eh_rethrow(t);
-	}
-DEndList()
+	"rethrow", 1
+};
 
-	// =================================================================================================================
-	// Loader
+word_t _rethrow(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Instance);
+	croc_dup(t, 1);
+	return croc_eh_rethrow(t);
+}
 
-	word loader(CrocThread* t)
-	{
-		auto t_ = Thread::from(t);
-		initLocationClass(t, t_);
-		initThrowableClass(t, t_);
-		registerGlobals(t, _globalFuncs);
-		registerStdEx(t, t_);
-		return 0;
-	}
-	}
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_stdException),
+	_DListItem(_rethrow),
+	_DListEnd
+};
 
-	void initExceptionsLib(CrocThread* t)
-	{
-		croc_ex_makeModule(t, "exceptions", &loader);
-		croc_ex_import(t, "exceptions");
-	}
+// =====================================================================================================================
+// Loader
+
+word loader(CrocThread* t)
+{
+	auto t_ = Thread::from(t);
+	initLocationClass(t, t_);
+	initThrowableClass(t, t_);
+	_registerGlobals(t, _globalFuncs);
+	registerStdEx(t, t_);
+	return 0;
+}
+}
+
+void initExceptionsLib(CrocThread* t)
+{
+	croc_ex_makeModule(t, "exceptions", &loader);
+	croc_ex_import(t, "exceptions");
+}
 
 #ifdef CROC_BUILTIN_DOCS
-	void docExceptionsLib(CrocThread* t)
-	{
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
-		croc_ex_doc_push(&doc,
-		DModule("exceptions")
-		R"x(This library defines the standard exception types. These types are used by the standard libraries and by the
-		VM itself. You are encouraged to use these types as well in your own code, though there is no requirement to do
-		so.
+void docExceptionsLib(CrocThread* t)
+{
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_ex_doc_push(&doc,
+	DModule("exceptions")
+	R"x(This library defines the standard exception types. These types are used by the standard libraries and by the
+	VM itself. You are encouraged to use these types as well in your own code, though there is no requirement to do
+	so.
 
-		Exception types ending in "Exception" are for generally "non-fatal" exceptions, and those ending in "Error" are
-		for generally fatal errors which mean consistency has failed and the program needs to be fixed.
+	Exception types ending in "Exception" are for generally "non-fatal" exceptions, and those ending in "Error" are
+	for generally fatal errors which mean consistency has failed and the program needs to be fixed.
 
-		All the standard exception types are also exported into the global namespace, so they can be accessed
-		without having to import them from this module.)x");
-		croc_pushGlobal(t, "exceptions");
-		docLocationClass(t, &doc);
-		docThrowableClass(t, &doc);
-		docFields(&doc, _globalFuncs);
-		docStdEx(t, &doc);
-		croc_ex_doc_pop(&doc, -1);
-		croc_popTop(t);
-		croc_ex_doc_finish(&doc);
-	}
+	All the standard exception types are also exported into the global namespace, so they can be accessed
+	without having to import them from this module.)x");
+	croc_pushGlobal(t, "exceptions");
+	docLocationClass(t, &doc);
+	docThrowableClass(t, &doc);
+	_docFields(&doc, _globalFuncs);
+	docStdEx(t, &doc);
+	croc_ex_doc_pop(&doc, -1);
+	croc_popTop(t);
+	croc_ex_doc_finish(&doc);
+}
 #endif
 }
