@@ -10,80 +10,89 @@
 
 namespace croc
 {
-	namespace
-	{
+namespace
+{
 #define checkArrayParam(t, n) (croc_ex_checkParam((t), (n), CrocType_Array), getArray(Thread::from(t), (n)))
 
-DBeginList(_globalFuncs)
+const _StdlibRegisterInfo _new_info =
+{
 	Docstr(DFunc("new") DParam("size", "int") DParamD("fill", "any", "null")
 	R"(Creates an array object of length \tt{size}, filling it with the value \tt{fill} (which defaults to
 	\tt{null}).
 
 	\throws[RangeError] if \tt{size} is invalid.)"),
 
-	"new", 2, [](CrocThread* t) -> word_t
+	"new", 2
+};
+
+word_t _new(CrocThread* t)
+{
+	auto length = croc_ex_checkIntParam(t, 1);
+	auto haveFill = croc_isValidIndex(t, 2);
+
+	if(length < 0 || cast(uword)length > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Invalid length: %" CROC_INTEGER_FORMAT, length);
+
+	croc_array_new(t, cast(uword)length);
+
+	if(haveFill)
 	{
-		auto length = croc_ex_checkIntParam(t, 1);
-		auto haveFill = croc_isValidIndex(t, 2);
-
-		if(length < 0 || cast(uword)length > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Invalid length: %" CROC_INTEGER_FORMAT, length);
-
-		croc_array_new(t, cast(uword)length);
-
-		if(haveFill)
-		{
-			croc_dup(t, 2);
-			croc_array_fill(t, -2);
-		}
-
-		return 1;
+		croc_dup(t, 2);
+		croc_array_fill(t, -2);
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _new2D_info =
+{
 	Docstr(DFunc("new2D") DParam("size1", "int") DParam("size2", "int") DParamD("fill", "any", "null")
 	R"(Just like \link{new}, but creates an array of arrays. The outer array will have length \tt{size1}, and each of
 	its elements will be an array of length \tt{size2}. Each of the sub-arrays will be filled with \tt{fill}.
 
 	\throws[RangeError] if \tt{size1} or \tt{size2} is invalid.)"),
 
-	"new2D", 3, [](CrocThread* t) -> word_t
+	"new2D", 3
+};
+
+word_t _new2D(CrocThread* t)
+{
+	auto length1 = croc_ex_checkIntParam(t, 1);
+	auto length2 = croc_ex_checkIntParam(t, 2);
+	auto haveFill = croc_isValidIndex(t, 3);
+
+	if(length1 <= 0 || cast(uword)length1 > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Invalid first dimension length: %" CROC_INTEGER_FORMAT, length1);
+
+	if(length2 < 0 || cast(uword)length2 > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Invalid second dimension length: %" CROC_INTEGER_FORMAT, length2);
+
+	croc_array_new(t, cast(uword)length1);
+
+	if(haveFill)
 	{
-		auto length1 = croc_ex_checkIntParam(t, 1);
-		auto length2 = croc_ex_checkIntParam(t, 2);
-		auto haveFill = croc_isValidIndex(t, 3);
-
-		if(length1 <= 0 || cast(uword)length1 > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Invalid first dimension length: %" CROC_INTEGER_FORMAT, length1);
-
-		if(length2 < 0 || cast(uword)length2 > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Invalid second dimension length: %" CROC_INTEGER_FORMAT, length2);
-
-		croc_array_new(t, cast(uword)length1);
-
-		if(haveFill)
+		for(uword i = 0; i < cast(uword)length1; i++)
 		{
-			for(uword i = 0; i < cast(uword)length1; i++)
-			{
-				croc_array_new(t, cast(uword)length2);
-				croc_dup(t, 3);
-				croc_array_fill(t, -2);
-				croc_idxai(t, -2, i);
-			}
+			croc_array_new(t, cast(uword)length2);
+			croc_dup(t, 3);
+			croc_array_fill(t, -2);
+			croc_idxai(t, -2, i);
 		}
-		else
+	}
+	else
+	{
+		for(uword i = 0; i < cast(uword)length1; i++)
 		{
-			for(uword i = 0; i < cast(uword)length1; i++)
-			{
-				croc_array_new(t, cast(uword)length2);
-				croc_idxai(t, -2, i);
-			}
+			croc_array_new(t, cast(uword)length2);
+			croc_idxai(t, -2, i);
 		}
-
-		return 1;
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _new3D_info =
+{
 	Docstr(DFunc("new3D") DParam("size1", "int") DParam("size2", "int") DParam("size3", "int")
 		DParamD("fill", "any", "null")
 	R"(Just like \link{new2D}, but creates an array of arrays of arrays. The outer array has length \tt{size1}; its
@@ -92,61 +101,65 @@ DListSep()
 
 	\throws[RangeError] if \tt{size1}, \tt{size2}, or \tt{size3} is invalid.)"),
 
-	"new3D", 4, [](CrocThread* t) -> word_t
+	"new3D", 4
+};
+
+word_t _new3D(CrocThread* t)
+{
+	auto length1 = croc_ex_checkIntParam(t, 1);
+	auto length2 = croc_ex_checkIntParam(t, 2);
+	auto length3 = croc_ex_checkIntParam(t, 3);
+	auto haveFill = croc_isValidIndex(t, 4);
+
+	if(length1 <= 0 || cast(uword)length1 > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Invalid first dimension length: %" CROC_INTEGER_FORMAT, length1);
+
+	if(length2 <= 0 || cast(uword)length2 > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Invalid second dimension length: %" CROC_INTEGER_FORMAT, length2);
+
+	if(length3 < 0 || cast(uword)length3 > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Invalid third dimension length: %" CROC_INTEGER_FORMAT, length3);
+
+	croc_array_new(t, cast(uword)length1);
+
+	if(haveFill)
 	{
-		auto length1 = croc_ex_checkIntParam(t, 1);
-		auto length2 = croc_ex_checkIntParam(t, 2);
-		auto length3 = croc_ex_checkIntParam(t, 3);
-		auto haveFill = croc_isValidIndex(t, 4);
-
-		if(length1 <= 0 || cast(uword)length1 > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Invalid first dimension length: %" CROC_INTEGER_FORMAT, length1);
-
-		if(length2 <= 0 || cast(uword)length2 > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Invalid second dimension length: %" CROC_INTEGER_FORMAT, length2);
-
-		if(length3 < 0 || cast(uword)length3 > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Invalid third dimension length: %" CROC_INTEGER_FORMAT, length3);
-
-		croc_array_new(t, cast(uword)length1);
-
-		if(haveFill)
+		for(uword i = 0; i < cast(uword)length1; i++)
 		{
-			for(uword i = 0; i < cast(uword)length1; i++)
+			croc_array_new(t, cast(uword)length2);
+
+			for(uword j = 0; j < cast(uword)length2; j++)
 			{
-				croc_array_new(t, cast(uword)length2);
-
-				for(uword j = 0; j < cast(uword)length2; j++)
-				{
-					croc_array_new(t, cast(uword)length3);
-					croc_dup(t, 4);
-					croc_array_fill(t, -2);
-					croc_idxai(t, -2, j);
-				}
-
-				croc_idxai(t, -2, i);
+				croc_array_new(t, cast(uword)length3);
+				croc_dup(t, 4);
+				croc_array_fill(t, -2);
+				croc_idxai(t, -2, j);
 			}
+
+			croc_idxai(t, -2, i);
 		}
-		else
+	}
+	else
+	{
+		for(uword i = 0; i < cast(uword)length1; i++)
 		{
-			for(uword i = 0; i < cast(uword)length1; i++)
+			croc_array_new(t, cast(uword)length2);
+
+			for(uword j = 0; j < cast(uword)length2; j++)
 			{
-				croc_array_new(t, cast(uword)length2);
-
-				for(uword j = 0; j < cast(uword)length2; j++)
-				{
-					croc_array_new(t, cast(uword)length3);
-					croc_idxai(t, -2, j);
-				}
-
-				croc_idxai(t, -2, i);
+				croc_array_new(t, cast(uword)length3);
+				croc_idxai(t, -2, j);
 			}
-		}
 
-		return 1;
+			croc_idxai(t, -2, i);
+		}
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _range_info =
+{
 	Docstr(DFunc("range") DParam("val1", "int") DParamD("val2", "int", "null") DParamD("step", "int", "null")
 	R"(Creates a new array whose elements are a range of integers.
 
@@ -165,70 +178,77 @@ DListSep()
 
 	\throws[RangeError] if \tt{step <= 0} or if the resulting array would be too large.)"),
 
-	"range", 3, [](CrocThread* t) -> word_t
+	"range", 3
+};
+
+word_t _range(CrocThread* t)
+{
+	auto v1 = croc_ex_checkIntParam(t, 1);
+	crocint v2;
+	crocint step = 1;
+
+	switch(croc_getStackSize(t) - 1)
 	{
-		auto v1 = croc_ex_checkIntParam(t, 1);
-		crocint v2;
-		crocint step = 1;
-
-		switch(croc_getStackSize(t) - 1)
-		{
-			case 1: v2 = v1; v1 = 0; break;
-			case 2: v2 = croc_ex_checkIntParam(t, 2); break;
-			default:
-				v2 = croc_ex_checkIntParam(t, 2);
-				step = croc_ex_checkIntParam(t, 3);
-		}
-
-		if(step <= 0)
-			croc_eh_throwStd(t, "RangeError", "Step may not be negative or 0");
-
-		crocint range = abs(v2 - v1);
-		crocint size = range / step;
-
-		if((range % step) != 0)
-			size++;
-
-		if(cast(uword)size > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Array is too big");
-
-		croc_array_new(t, cast(uword)size);
-		auto data = getArray(Thread::from(t), -1)->toDArray();
-		auto val = v1;
-
-		// no write barrier here. the array is new and we're filling it with scalars.
-
-		if(v2 < v1)
-		{
-			for(uword i = 0; val > v2; i++, val -= step)
-				data[i].value = Value::from(val);
-		}
-		else
-		{
-			for(uword i = 0; val < v2; i++, val += step)
-				data[i].value = Value::from(val);
-		}
-
-		return 1;
+		case 1: v2 = v1; v1 = 0; break;
+		case 2: v2 = croc_ex_checkIntParam(t, 2); break;
+		default:
+			v2 = croc_ex_checkIntParam(t, 2);
+			step = croc_ex_checkIntParam(t, 3);
 	}
-DEndList()
 
-DBeginList(_methodFuncs)
+	if(step <= 0)
+		croc_eh_throwStd(t, "RangeError", "Step may not be negative or 0");
+
+	crocint range = abs(v2 - v1);
+	crocint size = range / step;
+
+	if((range % step) != 0)
+		size++;
+
+	if(cast(uword)size > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Array is too big");
+
+	croc_array_new(t, cast(uword)size);
+	auto data = getArray(Thread::from(t), -1)->toDArray();
+	auto val = v1;
+
+	// no write barrier here. the array is new and we're filling it with scalars.
+
+	if(v2 < v1)
+	{
+		for(uword i = 0; val > v2; i++, val -= step)
+			data[i].value = Value::from(val);
+	}
+	else
+	{
+		for(uword i = 0; val < v2; i++, val += step)
+			data[i].value = Value::from(val);
+	}
+
+	return 1;
+}
+
+const _StdlibRegisterInfo _opEquals_info
+{
 	Docstr(DFunc("opEquals") DParam("other", "array")
 	R"(Compares two arrays for shallow equality.
 
 	Shallow equality means two arrays are equal if they are the same length, and for each index i, \tt{this[i] is
 	other[i]} is true. This does not call opEquals metamethods on any of this arrays' elements.)"),
 
-	"opEquals", 1, [](CrocThread* t) -> word_t
-	{
-		auto a = checkArrayParam(t, 0)->toDArray();
-		auto b = checkArrayParam(t, 1)->toDArray();
-		croc_pushBool(t, a == b);
-		return 1;
-	}
+	"opEquals", 1
+};
 
-DListSep()
+word_t _opEquals(CrocThread* t)
+{
+	auto a = checkArrayParam(t, 0)->toDArray();
+	auto b = checkArrayParam(t, 1)->toDArray();
+	croc_pushBool(t, a == b);
+	return 1;
+}
+
+const _StdlibRegisterInfo _sort_info =
+{
 	Docstr(DFunc("sort") DParamD("how", "function|string", "null")
 
 	R"(Sorts this array in-place. This is \b{not} a stable sort. This implementation uses smoothsort, which gives best-
@@ -249,106 +269,118 @@ DListSep()
 	\returns this array.
 	\throws[TypeError] if \tt{how} was a function and it returned something other than an \tt{int}.)"),
 
-	"sort", 1, [](CrocThread* t) -> word_t
+	"sort", 1
+};
+
+word_t _sort(CrocThread* t)
+{
+	auto arr = checkArrayParam(t, 0);
+
+	std::function<bool(Array::Slot, Array::Slot)> pred;
+
+	auto t_ = Thread::from(t);
+
+	if(croc_isValidIndex(t, 1))
 	{
-		auto arr = checkArrayParam(t, 0);
-
-		std::function<bool(Array::Slot, Array::Slot)> pred;
-
-		auto t_ = Thread::from(t);
-
-		if(croc_isValidIndex(t, 1))
+		if(croc_isString(t, 1))
 		{
-			if(croc_isString(t, 1))
+			if(getCrocstr(t, 1) == ATODA("reverse"))
 			{
-				if(getCrocstr(t, 1) == ATODA("reverse"))
-				{
-					pred = [&](Array::Slot v1, Array::Slot v2)
-					{
-						push(t_, v1.value);
-						push(t_, v2.value);
-						auto v = croc_cmp(t, -2, -1);
-						croc_pop(t, 2);
-						return v < 0;
-					};
-				}
-				else
-					croc_eh_throwStd(t, "ValueError", "Unknown array sorting method");
-			}
-			else
-			{
-				croc_ex_checkParam(t, 1, CrocType_Function);
-				croc_dupTop(t);
-
 				pred = [&](Array::Slot v1, Array::Slot v2)
 				{
-					auto reg = croc_dupTop(t);
-					croc_pushNull(t);
 					push(t_, v1.value);
 					push(t_, v2.value);
-					croc_call(t, reg, 1);
-
-					if(!croc_isInt(t, -1))
-					{
-						croc_pushTypeString(t, -1);
-						croc_eh_throwStd(t, "TypeError", "comparison function expected to return 'int', not '%s'",
-							croc_getString(t, -1));
-					}
-
-					auto v = croc_getInt(t, -1);
-					croc_popTop(t);
-					return v >= 0;
+					auto v = croc_cmp(t, -2, -1);
+					croc_pop(t, 2);
+					return v < 0;
 				};
 			}
+			else
+				croc_eh_throwStd(t, "ValueError", "Unknown array sorting method");
 		}
 		else
 		{
+			croc_ex_checkParam(t, 1, CrocType_Function);
+			croc_dupTop(t);
+
 			pred = [&](Array::Slot v1, Array::Slot v2)
 			{
+				auto reg = croc_dupTop(t);
+				croc_pushNull(t);
 				push(t_, v1.value);
 				push(t_, v2.value);
-				auto v = croc_cmp(t, -2, -1);
-				croc_pop(t, 2);
+				croc_call(t, reg, 1);
+
+				if(!croc_isInt(t, -1))
+				{
+					croc_pushTypeString(t, -1);
+					croc_eh_throwStd(t, "TypeError", "comparison function expected to return 'int', not '%s'",
+						croc_getString(t, -1));
+				}
+
+				auto v = croc_getInt(t, -1);
+				croc_popTop(t);
 				return v >= 0;
 			};
 		}
-
-		// No write barrier. we're just moving items around, the items themselves don't change.
-		arrSort(arr->toDArray(), pred);
-		croc_dup(t, 0);
-		return 1;
+	}
+	else
+	{
+		pred = [&](Array::Slot v1, Array::Slot v2)
+		{
+			push(t_, v1.value);
+			push(t_, v2.value);
+			auto v = croc_cmp(t, -2, -1);
+			croc_pop(t, 2);
+			return v >= 0;
+		};
 	}
 
-DListSep()
+	// No write barrier. we're just moving items around, the items themselves don't change.
+	arrSort(arr->toDArray(), pred);
+	croc_dup(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _reverse_info =
+{
 	Docstr(DFunc("reverse")
 	R"(Reverses this array's elements in place.
 
 	\returns this array.)"),
 
-	"reverse", 0, [](CrocThread* t) -> word_t
-	{
-		auto arr = checkArrayParam(t, 0)->toDArray();
-		// No write barrier. Just moving items around.
-		arrReverse(arr);
-		croc_dup(t, 0);
-		return 1;
-	}
+	"reverse", 0
+};
 
-DListSep()
+word_t _reverse(CrocThread* t)
+{
+	auto arr = checkArrayParam(t, 0)->toDArray();
+	// No write barrier. Just moving items around.
+	arrReverse(arr);
+	croc_dup(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _dup_info =
+{
 	Docstr(DFunc("dup")
 	R"(\returns a shallow copy of this array. Only the elements are copied, not any data that they point to.)"),
 
-	"dup", 0, [](CrocThread* t) -> word_t
-	{
-		auto src = checkArrayParam(t, 0);
-		croc_array_new(t, cast(uword)croc_len(t, 0));
-		auto t_ = Thread::from(t);
-		auto dest = getArray(t_, -1);
-		dest->sliceAssign(t_->vm->mem, 0, dest->length, src);
-		return 1;
-	}
+	"dup", 0
+};
 
-DListSep()
+word_t _dup(CrocThread* t)
+{
+	auto src = checkArrayParam(t, 0);
+	croc_array_new(t, cast(uword)croc_len(t, 0));
+	auto t_ = Thread::from(t);
+	auto dest = getArray(t_, -1);
+	dest->sliceAssign(t_->vm->mem, 0, dest->length, src);
+	return 1;
+}
+
+const _StdlibRegisterInfo _expand_info =
+{
 	Docstr(DFunc("expand")
 	R"(\returns all the elements of this array in order. In this way, you can "unpack" an array's values to pass as
 	separate parameters to a function, or as return values, etc.
@@ -356,22 +388,26 @@ DListSep()
 	\throws[ValueError] if this array is longer than 50 elements. Trying to return so many values can be a memory
 		problem (and usually indicates a bug).)"),
 
-	"expand", 0, [](CrocThread* t) -> word_t
-	{
-		auto arr = checkArrayParam(t, 0)->toDArray();
+	"expand", 0
+};
 
-		if(arr.length > 50)
-			croc_eh_throwStd(t, "ValueError", "Array too large to expand (more than 50 elements)");
+word_t _expand(CrocThread* t)
+{
+	auto arr = checkArrayParam(t, 0)->toDArray();
 
-		auto t_ = Thread::from(t);
+	if(arr.length > 50)
+		croc_eh_throwStd(t, "ValueError", "Array too large to expand (more than 50 elements)");
 
-		for(auto &val: arr)
-			push(t_, val.value);
+	auto t_ = Thread::from(t);
 
-		return arr.length;
-	}
+	for(auto &val: arr)
+		push(t_, val.value);
 
-DListSep()
+	return arr.length;
+}
+
+const _StdlibRegisterInfo _toString_info =
+{
 	Docstr(DFunc("toString")
 	R"(Returns a nice string representation of this array. This will format this array into a string that looks like a
 	Croc expression, like "[1, 2, 3]". String elements will also be surrounded by double quotes.
@@ -380,44 +416,48 @@ DListSep()
 	loops if this array references itself directly or indirectly. To get a more complete representation of an array,
 	look at the \link{dumpVal} function (though that only outputs to the console).)"),
 
-	"toString", 0, [](CrocThread* t) -> word_t
+	"toString", 0
+};
+
+word_t _toString(CrocThread* t)
+{
+	CrocStrBuffer buf;
+	croc_ex_buffer_init(t, &buf);
+	croc_ex_buffer_addChar(&buf, '[');
+	auto length = cast(uword)croc_len(t, 0);
+
+	for(uword i = 0; i < length; i++)
 	{
-		CrocStrBuffer buf;
-		croc_ex_buffer_init(t, &buf);
-		croc_ex_buffer_addChar(&buf, '[');
-		auto length = cast(uword)croc_len(t, 0);
+		croc_idxi(t, 0, i);
 
-		for(uword i = 0; i < length; i++)
+		if(croc_isString(t, -1))
 		{
-			croc_idxi(t, 0, i);
-
-			if(croc_isString(t, -1))
-			{
-				// this is GC-safe since the string is stored in the array
-				uword n;
-				auto s = croc_getStringn(t, -1, &n);
-				croc_popTop(t);
-				croc_ex_buffer_addChar(&buf, '"');
-				croc_ex_buffer_addStringn(&buf, s, n);
-				croc_ex_buffer_addChar(&buf, '"');
-			}
-			else
-			{
-				croc_pushToStringRaw(t, -1);
-				croc_insertAndPop(t, -2);
-				croc_ex_buffer_addTop(&buf);
-			}
-
-			if(i < length - 1)
-				croc_ex_buffer_addString(&buf, ", ");
+			// this is GC-safe since the string is stored in the array
+			uword n;
+			auto s = croc_getStringn(t, -1, &n);
+			croc_popTop(t);
+			croc_ex_buffer_addChar(&buf, '"');
+			croc_ex_buffer_addStringn(&buf, s, n);
+			croc_ex_buffer_addChar(&buf, '"');
+		}
+		else
+		{
+			croc_pushToStringRaw(t, -1);
+			croc_insertAndPop(t, -2);
+			croc_ex_buffer_addTop(&buf);
 		}
 
-		croc_ex_buffer_addChar(&buf, ']');
-		croc_ex_buffer_finish(&buf);
-		return 1;
+		if(i < length - 1)
+			croc_ex_buffer_addString(&buf, ", ");
 	}
 
-DListSep()
+	croc_ex_buffer_addChar(&buf, ']');
+	croc_ex_buffer_finish(&buf);
+	return 1;
+}
+
+const _StdlibRegisterInfo _apply_info =
+{
 	Docstr(DFunc("apply") DParam("func", "function")
 	R"(Iterates over this array, calling the function with each element of this array, and assigns the result of the
 	function back into the corresponding array element.
@@ -429,54 +469,62 @@ DListSep()
 
 	\returns this array.)"),
 
-	"apply", 1, [](CrocThread* t) -> word_t
+	"apply", 1
+};
+
+word_t _apply(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkParam(t, 1, CrocType_Function);
+
+	auto t_ = Thread::from(t);
+	uword i = 0;
+	for(auto &v: data)
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkParam(t, 1, CrocType_Function);
-
-		auto t_ = Thread::from(t);
-		uword i = 0;
-		for(auto &v: data)
-		{
-			auto reg = croc_dup(t, 1);
-			croc_dup(t, 0);
-			push(t_, v.value);
-			croc_call(t, reg, 1);
-			croc_idxai(t, 0, i++);
-		}
-
+		auto reg = croc_dup(t, 1);
 		croc_dup(t, 0);
-		return 1;
+		push(t_, v.value);
+		croc_call(t, reg, 1);
+		croc_idxai(t, 0, i++);
 	}
 
-DListSep()
+	croc_dup(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _map_info =
+{
 	Docstr(DFunc("map") DParam("func", "function")
 	R"(Same as \link{apply}, except this array is unmodified and the values returned by \tt{func} are put into a new
 	array of the same length.
 
 	\returns the new array.)"),
 
-	"map", 1, [](CrocThread* t) -> word_t
+	"map", 1
+};
+
+word_t _map(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkParam(t, 1, CrocType_Function);
+	auto newArr = croc_array_new(t, cast(uword)croc_len(t, 0));
+
+	auto t_ = Thread::from(t);
+	uword i = 0;
+	for(auto &v: data)
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkParam(t, 1, CrocType_Function);
-		auto newArr = croc_array_new(t, cast(uword)croc_len(t, 0));
-
-		auto t_ = Thread::from(t);
-		uword i = 0;
-		for(auto &v: data)
-		{
-			auto reg = croc_dup(t, 1);
-			croc_dup(t, 0);
-			push(t_, v.value);
-			croc_call(t, reg, 1);
-			croc_idxai(t, newArr, i);
-		}
-
-		return 1;
+		auto reg = croc_dup(t, 1);
+		croc_dup(t, 0);
+		push(t_, v.value);
+		croc_call(t, reg, 1);
+		croc_idxai(t, newArr, i);
 	}
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _reduce_info =
+{
 	Docstr(DFunc("reduce") DParam("func", "function") DParamD("start", "any", "null")
 
 	R"(Also known as \tt{fold} or \tt{foldl} (left fold) in many functional languages. This function takes a function
@@ -495,48 +543,52 @@ DListSep()
 
 	\throws[ParamError] if \tt{#this == 0} and no value was passed for \tt{start}.)"),
 
-	"reduce", 2, [](CrocThread* t) -> word_t
+	"reduce", 2
+};
+
+word_t _reduce(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkParam(t, 1, CrocType_Function);
+	auto haveInitial = croc_isValidIndex(t, 2);
+
+	if(data.length == 0)
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkParam(t, 1, CrocType_Function);
-		auto haveInitial = croc_isValidIndex(t, 2);
-
-		if(data.length == 0)
-		{
-			if(!haveInitial)
-				croc_eh_throwStd(t, "ParamError", "Attempting to reduce an empty array without an initial value");
-			else
-			{
-				croc_dup(t, 2);
-				return 1;
-			}
-		}
-
-		uword start = 0;
-		auto t_ = Thread::from(t);
-
 		if(!haveInitial)
-		{
-			push(t_, data[0].value);
-			start = 1;
-		}
+			croc_eh_throwStd(t, "ParamError", "Attempting to reduce an empty array without an initial value");
 		else
-			croc_dup(t, 2);
-
-		for(auto &v: data.slice(start, data.length))
 		{
-			croc_dup(t, 1);
-			croc_pushNull(t);
-			croc_dup(t, -3);
-			push(t_, v.value);
-			croc_call(t, -4, 1);
-			croc_insertAndPop(t, -2);
+			croc_dup(t, 2);
+			return 1;
 		}
-
-		return 1;
 	}
 
-DListSep()
+	uword start = 0;
+	auto t_ = Thread::from(t);
+
+	if(!haveInitial)
+	{
+		push(t_, data[0].value);
+		start = 1;
+	}
+	else
+		croc_dup(t, 2);
+
+	for(auto &v: data.slice(start, data.length))
+	{
+		croc_dup(t, 1);
+		croc_pushNull(t);
+		croc_dup(t, -3);
+		push(t_, v.value);
+		croc_call(t, -4, 1);
+		croc_insertAndPop(t, -2);
+	}
+
+	return 1;
+}
+
+const _StdlibRegisterInfo _rreduce_info =
+{
 	Docstr(DFunc("rreduce") DParam("func", "function") DParamD("start", "any", "null")
 	R"(Similar to \link{reduce}, but treats \tt{func} as a right-associative operator, meaning it goes through this
 	array's elements in reverse order.
@@ -552,48 +604,52 @@ DListSep()
 
 	\throws[ParamError] if \tt{#this == 0} and no value was passed for \tt{start}.)"),
 
-	"rreduce", 2, [](CrocThread* t) -> word_t
+	"rreduce", 2
+};
+
+word_t _rreduce(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkParam(t, 1, CrocType_Function);
+	auto haveInitial = croc_isValidIndex(t, 2);
+
+	if(data.length == 0)
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkParam(t, 1, CrocType_Function);
-		auto haveInitial = croc_isValidIndex(t, 2);
-
-		if(data.length == 0)
-		{
-			if(!haveInitial)
-				croc_eh_throwStd(t, "ParamError", "Attempting to reduce an empty array without an initial value");
-			else
-			{
-				croc_dup(t, 2);
-				return 1;
-			}
-		}
-
-		uword start = data.length;
-		auto t_ = Thread::from(t);
-
 		if(!haveInitial)
-		{
-			start--;
-			push(t_, data[start].value);
-		}
+			croc_eh_throwStd(t, "ParamError", "Attempting to reduce an empty array without an initial value");
 		else
-			croc_dup(t, 2);
-
-		for(auto &v: data.slice(0, start).reverse())
 		{
-			croc_dup(t, 1);
-			croc_pushNull(t);
-			push(t_, v.value);
-			croc_dup(t, -4);
-			croc_call(t, -4, 1);
-			croc_insertAndPop(t, -2);
+			croc_dup(t, 2);
+			return 1;
 		}
-
-		return 1;
 	}
 
-DListSep()
+	uword start = data.length;
+	auto t_ = Thread::from(t);
+
+	if(!haveInitial)
+	{
+		start--;
+		push(t_, data[start].value);
+	}
+	else
+		croc_dup(t, 2);
+
+	for(auto &v: data.slice(0, start).reverse())
+	{
+		croc_dup(t, 1);
+		croc_pushNull(t);
+		push(t_, v.value);
+		croc_dup(t, -4);
+		croc_call(t, -4, 1);
+		croc_insertAndPop(t, -2);
+	}
+
+	return 1;
+}
+
+const _StdlibRegisterInfo _filter_info =
+{
 	Docstr(DFunc("filter") DParam("func", "function")
 	R"(Creates a new array which holds only those elements for which the given function returned \tt{true} when called
 	with elements from the source array.
@@ -608,55 +664,59 @@ DListSep()
 
 	\throws[TypeError] if \tt{func} returns anything other than a bool.)"),
 
-	"filter", 1, [](CrocThread* t) -> word_t
+	"filter", 1
+};
+
+word_t _filter(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkParam(t, 1, CrocType_Function);
+
+	auto newLen = data.length / 2;
+	auto retArray = croc_array_new(t, cast(uword)newLen);
+	uword retIdx = 0;
+	auto t_ = Thread::from(t);
+	uword i = 0;
+
+	for(auto &v: data)
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkParam(t, 1, CrocType_Function);
+		croc_dup(t, 1);
+		croc_dup(t, 0);
+		croc_pushInt(t, i++);
+		push(t_, v.value);
+		croc_call(t, -4, 1);
 
-		auto newLen = data.length / 2;
-		auto retArray = croc_array_new(t, cast(uword)newLen);
-		uword retIdx = 0;
-		auto t_ = Thread::from(t);
-		uword i = 0;
-
-		for(auto &v: data)
+		if(!croc_isBool(t, -1))
 		{
-			croc_dup(t, 1);
-			croc_dup(t, 0);
-			croc_pushInt(t, i++);
-			push(t_, v.value);
-			croc_call(t, -4, 1);
-
-			if(!croc_isBool(t, -1))
-			{
-				croc_pushTypeString(t, -1);
-				croc_eh_throwStd(t, "TypeError", "filter function expected to return 'bool', not '%s'",
-					croc_getString(t, -1));
-			}
-
-			if(croc_getBool(t, -1))
-			{
-				if(retIdx >= newLen)
-				{
-					newLen += 10;
-					croc_pushInt(t, newLen);
-					croc_lena(t, retArray);
-				}
-
-				push(t_, v.value);
-				croc_idxai(t, retArray, retIdx++);
-			}
-
-			croc_popTop(t);
+			croc_pushTypeString(t, -1);
+			croc_eh_throwStd(t, "TypeError", "filter function expected to return 'bool', not '%s'",
+				croc_getString(t, -1));
 		}
 
-		croc_pushInt(t, retIdx);
-		croc_lena(t, retArray);
-		croc_dup(t, retArray);
-		return 1;
+		if(croc_getBool(t, -1))
+		{
+			if(retIdx >= newLen)
+			{
+				newLen += 10;
+				croc_pushInt(t, newLen);
+				croc_lena(t, retArray);
+			}
+
+			push(t_, v.value);
+			croc_idxai(t, retArray, retIdx++);
+		}
+
+		croc_popTop(t);
 	}
 
-DListSep()
+	croc_pushInt(t, retIdx);
+	croc_lena(t, retArray);
+	croc_dup(t, retArray);
+	return 1;
+}
+
+const _StdlibRegisterInfo _find_info =
+{
 	Docstr(DFunc("find") DParamAny("value") DParamD("start", "int", "0")
 	R"(Performs a linear search for \tt{value} in this array, starting at \tt{start} and going right.
 
@@ -674,38 +734,42 @@ DListSep()
 
 	\throws[BoundsError] if \tt{start} is invalid.)"),
 
-	"find", 2, [](CrocThread* t) -> word_t
+	"find", 2
+};
+
+word_t _find(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkAnyParam(t, 1);
+	auto searchedType = croc_type(t, 1);
+	auto start = croc_ex_optIndexParam(t, 2, data.length, "start", 0);
+	auto t_ = Thread::from(t);
+	uword i = start;
+
+	for(auto &v: data.sliceToEnd(start))
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkAnyParam(t, 1);
-		auto searchedType = croc_type(t, 1);
-		auto start = croc_ex_optIndexParam(t, 2, data.length, "start", 0);
-		auto t_ = Thread::from(t);
-		uword i = start;
-
-		for(auto &v: data.sliceToEnd(start))
+		if(searchedType == v.value.type)
 		{
-			if(searchedType == v.value.type)
+			push(t_, v.value);
+
+			if(croc_cmp(t, 1, -1) == 0)
 			{
-				push(t_, v.value);
-
-				if(croc_cmp(t, 1, -1) == 0)
-				{
-					croc_pushInt(t, i);
-					return 1;
-				}
-
-				croc_popTop(t);
+				croc_pushInt(t, i);
+				return 1;
 			}
 
-			i++;
+			croc_popTop(t);
 		}
 
-		croc_pushLen(t, 0);
-		return 1;
+		i++;
 	}
 
-DListSep()
+	croc_pushLen(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _findIf_info =
+{
 	Docstr(DFunc("findIf") DParam("pred", "function") DParamD("start", "int", "0")
 	R"(Performs a linear search starting at \tt{start} and going right for the first element which, when passed to
 	\tt{pred}, causes \tt{pred} to return \tt{true}. This is a generic form of \link{find}.
@@ -720,43 +784,47 @@ DListSep()
 	\throws[BoundsError] if \tt{start} is invalid.
 	\throws[TypeError] if \tt{pred} returns something other than a bool.)"),
 
-	"findIf", 2, [](CrocThread* t) -> word_t
+	"findIf", 2
+};
+
+word_t _findIf(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkParam(t, 1, CrocType_Function);
+	auto start = croc_ex_optIndexParam(t, 2, data.length, "start", 0);
+	auto t_ = Thread::from(t);
+	uword i = start;
+
+	for(auto &v: data.sliceToEnd(start))
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkParam(t, 1, CrocType_Function);
-		auto start = croc_ex_optIndexParam(t, 2, data.length, "start", 0);
-		auto t_ = Thread::from(t);
-		uword i = start;
+		auto reg = croc_dup(t, 1);
+		croc_pushNull(t);
+		push(t_, v.value);
+		croc_call(t, reg, 1);
 
-		for(auto &v: data.sliceToEnd(start))
+		if(!croc_isBool(t, -1))
 		{
-			auto reg = croc_dup(t, 1);
-			croc_pushNull(t);
-			push(t_, v.value);
-			croc_call(t, reg, 1);
-
-			if(!croc_isBool(t, -1))
-			{
-				croc_pushTypeString(t, -1);
-				croc_eh_throwStd(t, "TypeError", "find function expected to return 'bool', not '%s'",
-					croc_getString(t, -1));
-			}
-
-			if(croc_getBool(t, -1))
-			{
-				croc_pushInt(t, i);
-				return 1;
-			}
-
-			croc_popTop(t);
-			i++;
+			croc_pushTypeString(t, -1);
+			croc_eh_throwStd(t, "TypeError", "find function expected to return 'bool', not '%s'",
+				croc_getString(t, -1));
 		}
 
-		croc_pushLen(t, 0);
-		return 1;
+		if(croc_getBool(t, -1))
+		{
+			croc_pushInt(t, i);
+			return 1;
+		}
+
+		croc_popTop(t);
+		i++;
 	}
 
-DListSep()
+	croc_pushLen(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _bsearch_info =
+{
 	Docstr(DFunc("bsearch") DParamAny("value")
 
 	R"(Performs a binary search for the value in this array. The array must be sorted for this search to work properly.
@@ -764,51 +832,55 @@ DListSep()
 
 	\returns \tt{#this} if the value wasn't found, or its index if it was.)"),
 
-	"bsearch", 1, [](CrocThread* t) -> word_t
+	"bsearch", 1
+};
+
+word_t _bsearch(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkAnyParam(t, 1);
+
+	uword lo = 0;
+	uword hi = data.length - 1;
+	auto t_ = Thread::from(t);
+
+	while((hi - lo) > 8)
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkAnyParam(t, 1);
+		uword mid = (lo + hi) >> 1;
+		push(t_, data[mid].value);
+		auto cmp = croc_cmp(t, 1, -1);
+		croc_popTop(t);
 
-		uword lo = 0;
-		uword hi = data.length - 1;
-		auto t_ = Thread::from(t);
-
-		while((hi - lo) > 8)
+		if(cmp == 0)
 		{
-			uword mid = (lo + hi) >> 1;
-			push(t_, data[mid].value);
-			auto cmp = croc_cmp(t, 1, -1);
-			croc_popTop(t);
-
-			if(cmp == 0)
-			{
-				croc_pushInt(t, mid);
-				return 1;
-			}
-			else if(cmp < 0)
-				hi = mid - 1;
-			else
-				lo = mid + 1;
+			croc_pushInt(t, mid);
+			return 1;
 		}
-
-		for(uword i = lo; i <= hi; i++)
-		{
-			push(t_, data[i].value);
-
-			if(croc_cmp(t, 1, -1) == 0)
-			{
-				croc_pushInt(t, i);
-				return 1;
-			}
-
-			croc_popTop(t);
-		}
-
-		croc_pushLen(t, 0);
-		return 1;
+		else if(cmp < 0)
+			hi = mid - 1;
+		else
+			lo = mid + 1;
 	}
 
-DListSep()
+	for(uword i = lo; i <= hi; i++)
+	{
+		push(t_, data[i].value);
+
+		if(croc_cmp(t, 1, -1) == 0)
+		{
+			croc_pushInt(t, i);
+			return 1;
+		}
+
+		croc_popTop(t);
+	}
+
+	croc_pushLen(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _pop_info =
+{
 	Docstr(DFunc("pop") DParamD("index", "int", "-1")
 	R"(Removes a single element from this array (by default the last one), shifting up any elements after it if there
 	are any, and returns the removed value.
@@ -822,24 +894,28 @@ DListSep()
 	\throws[ValueError] if \tt{#this == 0}.
 	\throws[BoundsError] if \tt{index} is invalid.)"),
 
-	"pop", 1, [](CrocThread* t) -> word_t
-	{
-		auto arr = checkArrayParam(t, 0);
-		auto data = arr->toDArray();
-		auto index = croc_ex_optIndexParam(t, 1, data.length, "array", -1);
-		auto t_ = Thread::from(t);
-		push(t_, data[index].value);
-		arr->idxa(t_->vm->mem, index, Value::nullValue); // to trigger write barrier
+	"pop", 1
+};
 
-		for(uword i = cast(uword)index; i < data.length - 1; i++)
-			data[i] = data[i + 1];
+word_t _pop(CrocThread* t)
+{
+	auto arr = checkArrayParam(t, 0);
+	auto data = arr->toDArray();
+	auto index = croc_ex_optIndexParam(t, 1, data.length, "array", -1);
+	auto t_ = Thread::from(t);
+	push(t_, data[index].value);
+	arr->idxa(t_->vm->mem, index, Value::nullValue); // to trigger write barrier
 
-		data[data.length - 1].value = Value::nullValue; // to NOT trigger write barrier ;P
-		arr->resize(t_->vm->mem, data.length - 1);
-		return 1;
-	}
+	for(uword i = cast(uword)index; i < data.length - 1; i++)
+		data[i] = data[i + 1];
 
-DListSep()
+	data[data.length - 1].value = Value::nullValue; // to NOT trigger write barrier ;P
+	arr->resize(t_->vm->mem, data.length - 1);
+	return 1;
+}
+
+const _StdlibRegisterInfo _insert_info =
+{
 	Docstr(DFunc("insert") DParam("index", "int") DParamAny("value")
 	R"(The inverse of \link{pop}, this inserts a value into this array at a given index, shifting down any elements
 	after if if there are any.
@@ -853,32 +929,36 @@ DListSep()
 
 	\throws[BoundsError] if \tt{index} is invalid.)"),
 
-	"insert", 2, [](CrocThread* t) -> word_t
-	{
-		auto arr = checkArrayParam(t, 0);
-		auto data = arr->toDArray();
-		crocint index = croc_ex_checkIntParam(t, 1);
-		croc_ex_checkAnyParam(t, 2);
+	"insert", 2
+};
 
-		if(index < 0)
-			index += data.length;
+word_t _insert(CrocThread* t)
+{
+	auto arr = checkArrayParam(t, 0);
+	auto data = arr->toDArray();
+	crocint index = croc_ex_checkIntParam(t, 1);
+	croc_ex_checkAnyParam(t, 2);
 
-		if(index < 0 || cast(uword)index > data.length)
-			croc_eh_throwStd(t, "BoundsError", "Invalid array index: %" CROC_INTEGER_FORMAT, index);
+	if(index < 0)
+		index += data.length;
 
-		arr->resize(Thread::from(t)->vm->mem, data.length + 1);
-		data = arr->toDArray(); // might have been invalidated
+	if(index < 0 || cast(uword)index > data.length)
+		croc_eh_throwStd(t, "BoundsError", "Invalid array index: %" CROC_INTEGER_FORMAT, index);
 
-		for(uword i = data.length - 1; i > cast(uword)index; i--)
-			data[i] = data[i - 1];
+	arr->resize(Thread::from(t)->vm->mem, data.length + 1);
+	data = arr->toDArray(); // might have been invalidated
 
-		croc_dup(t, 2);
-		croc_idxai(t, 0, index);
-		croc_dup(t, 0);
-		return 1;
-	}
+	for(uword i = data.length - 1; i > cast(uword)index; i--)
+		data[i] = data[i - 1];
 
-DListSep()
+	croc_dup(t, 2);
+	croc_idxai(t, 0, index);
+	croc_dup(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _swap_info =
+{
 	Docstr(DFunc("swap") DParam("idx1", "int") DParam("idx2", "int")
 	R"(Swaps the values at the given indices.
 
@@ -889,24 +969,28 @@ DListSep()
 
 	\throws[BoundsError] if \tt{idx1} or \tt{idx2} is invalid.)"),
 
-	"swap", 2, [](CrocThread* t) -> word_t
+	"swap", 2
+};
+
+word_t _swap(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+	auto idx1 = croc_ex_checkIndexParam(t, 1, data.length, "array");
+	auto idx2 = croc_ex_checkIndexParam(t, 2, data.length, "array");
+
+	if(idx1 != idx2)
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
-		auto idx1 = croc_ex_checkIndexParam(t, 1, data.length, "array");
-		auto idx2 = croc_ex_checkIndexParam(t, 2, data.length, "array");
-
-		if(idx1 != idx2)
-		{
-			auto tmp = data[idx1];
-			data[idx1] = data[idx2];
-			data[idx2] = tmp;
-		}
-
-		croc_dup(t, 0);
-		return 1;
+		auto tmp = data[idx1];
+		data[idx1] = data[idx2];
+		data[idx2] = tmp;
 	}
 
-DListSep()
+	croc_dup(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _set_info =
+{
 	Docstr(DFunc("set") DVararg
 	R"(Something like the inverse of \link{expand}, this takes a variadic number of arguments, sets this array's length
 	to the number of arguments passed, and copies the arguments into this array.
@@ -915,88 +999,100 @@ DListSep()
 
 	\returns this array.)"),
 
-	"set", -1, [](CrocThread* t) -> word_t
-	{
-		auto numParams = croc_getStackSize(t) - 1;
-		auto arr = checkArrayParam(t, 0);
-		auto t_ = Thread::from(t);
-		arr->resize(t_->vm->mem, numParams);
-		arr->sliceAssign(t_->vm->mem, 0, numParams, t_->stack.slice(t_->stackIndex - numParams, t_->stackIndex));
-		croc_dup(t, 0);
-		return 1;
-	}
+	"set", -1
+};
 
-DListSep()
+word_t _set(CrocThread* t)
+{
+	auto numParams = croc_getStackSize(t) - 1;
+	auto arr = checkArrayParam(t, 0);
+	auto t_ = Thread::from(t);
+	arr->resize(t_->vm->mem, numParams);
+	arr->sliceAssign(t_->vm->mem, 0, numParams, t_->stack.slice(t_->stackIndex - numParams, t_->stackIndex));
+	croc_dup(t, 0);
+	return 1;
+}
+
+const _StdlibRegisterInfo _min_info =
+{
 	Docstr(DFunc("min")
 	R"(\returns the smallest value in this array. All elements of the array must be comparable to each other for this to
 	work. If this array only has one value, returns that value.
 
 	\throws[ValueError] if this array is empty.)"),
 
-	"min", 0, [](CrocThread* t) -> word_t
+	"min", 0
+};
+
+word_t _min(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+
+	if(data.length == 0)
+		croc_eh_throwStd(t, "ValueError", "Array is empty");
+
+	uword extremeIdx = 0;
+	auto t_ = Thread::from(t);
+	push(t_, data[0].value);
+
+	for(uword i = 1; i < data.length; i++)
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
+		push(t_, data[i].value);
 
-		if(data.length == 0)
-			croc_eh_throwStd(t, "ValueError", "Array is empty");
-
-		uword extremeIdx = 0;
-		auto t_ = Thread::from(t);
-		push(t_, data[0].value);
-
-		for(uword i = 1; i < data.length; i++)
+		if(croc_cmp(t, -1, -2) < 0)
 		{
-			push(t_, data[i].value);
-
-			if(croc_cmp(t, -1, -2) < 0)
-			{
-				extremeIdx = i;
-				croc_insert(t, -2);
-			}
-
-			croc_popTop(t);
+			extremeIdx = i;
+			croc_insert(t, -2);
 		}
 
-		croc_pushInt(t, extremeIdx);
-		return 2;
+		croc_popTop(t);
 	}
 
-DListSep()
+	croc_pushInt(t, extremeIdx);
+	return 2;
+}
+
+const _StdlibRegisterInfo _max_info =
+{
 	Docstr(DFunc("max")
 	R"(\returns the largest value in this array. All elements of the array must be comparable to each other for this to
 	work. If this array only has one value, returns that value.
 
 	\throws[ValueError] if this array is empty.)"),
 
-	"max", 0, [](CrocThread* t) -> word_t
+	"max", 0
+};
+
+word_t _max(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+
+	if(data.length == 0)
+		croc_eh_throwStd(t, "ValueError", "Array is empty");
+
+	uword extremeIdx = 0;
+	auto t_ = Thread::from(t);
+	push(t_, data[0].value);
+
+	for(uword i = 1; i < data.length; i++)
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
+		push(t_, data[i].value);
 
-		if(data.length == 0)
-			croc_eh_throwStd(t, "ValueError", "Array is empty");
-
-		uword extremeIdx = 0;
-		auto t_ = Thread::from(t);
-		push(t_, data[0].value);
-
-		for(uword i = 1; i < data.length; i++)
+		if(croc_cmp(t, -1, -2) > 0)
 		{
-			push(t_, data[i].value);
-
-			if(croc_cmp(t, -1, -2) > 0)
-			{
-				extremeIdx = i;
-				croc_insert(t, -2);
-			}
-
-			croc_popTop(t);
+			extremeIdx = i;
+			croc_insert(t, -2);
 		}
 
-		croc_pushInt(t, extremeIdx);
-		return 2;
+		croc_popTop(t);
 	}
 
-DListSep()
+	croc_pushInt(t, extremeIdx);
+	return 2;
+}
+
+const _StdlibRegisterInfo _extreme_info =
+{
 	Docstr(DFunc("extreme") DParam("pred", "function")
 	R"(A generic version of \link{min} and \link{max}, this uses a predicate function to determine which element is the
 	most "extreme." If this
@@ -1015,48 +1111,52 @@ DListSep()
 	\throws[TypeError] if \tt{pred} returns anything other than a bool.
 	)"),
 
-	"extreme", 1, [](CrocThread* t) -> word_t
+	"extreme", 1
+};
+
+word_t _extreme(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkParam(t, 1, CrocType_Function);
+
+	if(data.length == 0)
+		croc_eh_throwStd(t, "ValueError", "Array is empty");
+
+	uword extremeIdx = 0;
+	auto extreme = data[0].value;
+	auto t_ = Thread::from(t);
+
+	for(uword i = 1; i < data.length; i++)
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkParam(t, 1, CrocType_Function);
+		croc_dup(t, 1);
+		croc_pushNull(t);
+		push(t_, data[i].value);
+		push(t_, extreme);
+		croc_call(t, -4, 1);
 
-		if(data.length == 0)
-			croc_eh_throwStd(t, "ValueError", "Array is empty");
-
-		uword extremeIdx = 0;
-		auto extreme = data[0].value;
-		auto t_ = Thread::from(t);
-
-		for(uword i = 1; i < data.length; i++)
+		if(!croc_isBool(t, -1))
 		{
-			croc_dup(t, 1);
-			croc_pushNull(t);
-			push(t_, data[i].value);
-			push(t_, extreme);
-			croc_call(t, -4, 1);
-
-			if(!croc_isBool(t, -1))
-			{
-				croc_pushTypeString(t, -1);
-				croc_eh_throwStd(t, "TypeError", "extrema function should return 'bool', not '%s'",
-					croc_getString(t, -1));
-			}
-
-			if(croc_getBool(t, -1))
-			{
-				extreme = data[i].value;
-				extremeIdx = i;
-			}
-
-			croc_popTop(t);
+			croc_pushTypeString(t, -1);
+			croc_eh_throwStd(t, "TypeError", "extrema function should return 'bool', not '%s'",
+				croc_getString(t, -1));
 		}
 
-		push(t_, extreme);
-		croc_pushInt(t, extremeIdx);
-		return 2;
+		if(croc_getBool(t, -1))
+		{
+			extreme = data[i].value;
+			extremeIdx = i;
+		}
+
+		croc_popTop(t);
 	}
 
-DListSep()
+	push(t_, extreme);
+	croc_pushInt(t, extremeIdx);
+	return 2;
+}
+
+const _StdlibRegisterInfo _any_info =
+{
 	Docstr(DFunc("any") DParamD("pred", "function", "null")
 	R"(This is a generalized boolean "or" (logical disjunction) operation.
 
@@ -1071,47 +1171,51 @@ DListSep()
 
 	\returns \tt{false} if called on an empty array.)"),
 
-	"any", 1, [](CrocThread* t) -> word_t
+	"any", 1
+};
+
+word_t _any(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+
+	if(croc_ex_optParam(t, 1, CrocType_Function))
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
+		auto t_ = Thread::from(t);
 
-		if(croc_ex_optParam(t, 1, CrocType_Function))
+		for(auto &v: data)
 		{
-			auto t_ = Thread::from(t);
+			croc_dup(t, 1);
+			croc_pushNull(t);
+			push(t_, v.value);
+			croc_call(t, -3, 1);
 
-			for(auto &v: data)
+			if(croc_isTrue(t, -1))
 			{
-				croc_dup(t, 1);
-				croc_pushNull(t);
-				push(t_, v.value);
-				croc_call(t, -3, 1);
+				croc_pushBool(t, true);
+				return 1;
+			}
 
-				if(croc_isTrue(t, -1))
-				{
-					croc_pushBool(t, true);
-					return 1;
-				}
-
-				croc_popTop(t);
+			croc_popTop(t);
+		}
+	}
+	else
+	{
+		for(auto &v: data)
+		{
+			if(!v.value.isFalse())
+			{
+				croc_pushBool(t, true);
+				return 1;
 			}
 		}
-		else
-		{
-			for(auto &v: data)
-			{
-				if(!v.value.isFalse())
-				{
-					croc_pushBool(t, true);
-					return 1;
-				}
-			}
-		}
-
-		croc_pushBool(t, false);
-		return 1;
 	}
 
-DListSep()
+	croc_pushBool(t, false);
+	return 1;
+}
+
+const _StdlibRegisterInfo _all_info =
+{
 	Docstr(DFunc("all") DParamD("pred", "function", "null")
 	R"(This is a generalized boolean "and" (logical conjunction) operation.
 
@@ -1126,82 +1230,94 @@ DListSep()
 
 	\returns \tt{true} if called on an empty array.)"),
 
-	"all", 1, [](CrocThread* t) -> word_t
+	"all", 1
+};
+
+word_t _all(CrocThread* t)
+{
+	auto data = checkArrayParam(t, 0)->toDArray();
+
+	if(croc_ex_optParam(t, 1, CrocType_Function))
 	{
-		auto data = checkArrayParam(t, 0)->toDArray();
+		auto t_ = Thread::from(t);
 
-		if(croc_ex_optParam(t, 1, CrocType_Function))
+		for(auto &v: data)
 		{
-			auto t_ = Thread::from(t);
+			croc_dup(t, 1);
+			croc_pushNull(t);
+			push(t_, v.value);
+			croc_call(t, -3, 1);
 
-			for(auto &v: data)
+			if(!croc_isTrue(t, -1))
 			{
-				croc_dup(t, 1);
-				croc_pushNull(t);
-				push(t_, v.value);
-				croc_call(t, -3, 1);
+				croc_pushBool(t, false);
+				return 1;
+			}
 
-				if(!croc_isTrue(t, -1))
-				{
-					croc_pushBool(t, false);
-					return 1;
-				}
-
-				croc_popTop(t);
+			croc_popTop(t);
+		}
+	}
+	else
+	{
+		for(auto &v: data)
+		{
+			if(v.value.isFalse())
+			{
+				croc_pushBool(t, false);
+				return 1;
 			}
 		}
-		else
-		{
-			for(auto &v: data)
-			{
-				if(v.value.isFalse())
-				{
-					croc_pushBool(t, false);
-					return 1;
-				}
-			}
-		}
-
-		croc_pushBool(t, true);
-		return 1;
 	}
 
-DListSep()
+	croc_pushBool(t, true);
+	return 1;
+}
+
+const _StdlibRegisterInfo _fill_info =
+{
 	Docstr(DFunc("fill") DParamAny("value")
 	R"(Sets every element in the array to the given value.)"),
 
-	"fill", 1, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Array);
-		croc_ex_checkAnyParam(t, 1);
-		croc_dup(t, 1);
-		croc_array_fill(t, 0);
-		return 0;
-	}
+	"fill", 1
+};
 
-DListSep()
+word_t _fill(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Array);
+	croc_ex_checkAnyParam(t, 1);
+	croc_dup(t, 1);
+	croc_array_fill(t, 0);
+	return 0;
+}
+
+const _StdlibRegisterInfo _append_info =
+{
 	Docstr(DFunc("append") DVararg
 	R"(Appends all the arguments to the end of the array, in order. This is different from the append operator (~=),
 	because arrays will be appended as a single value, instead of having their elements appended.)"),
 
-	"append", -1, [](CrocThread* t) -> word_t
-	{
-		auto arr = checkArrayParam(t, 0);
-		auto numParams = croc_getStackSize(t) - 1;
+	"append", -1
+};
 
-		if(numParams == 0)
-			return 0;
+word_t _append(CrocThread* t)
+{
+	auto arr = checkArrayParam(t, 0);
+	auto numParams = croc_getStackSize(t) - 1;
 
-		auto oldlen = arr->length;
-		auto t_ = Thread::from(t);
-		arr->resize(t_->vm->mem, arr->length + numParams);
-		arr->sliceAssign(t_->vm->mem, oldlen, oldlen + numParams,
-			t_->stack.slice(t_->stackIndex - numParams, t_->stackIndex));
-
+	if(numParams == 0)
 		return 0;
-	}
 
-DListSep()
+	auto oldlen = arr->length;
+	auto t_ = Thread::from(t);
+	arr->resize(t_->vm->mem, arr->length + numParams);
+	arr->sliceAssign(t_->vm->mem, oldlen, oldlen + numParams,
+		t_->stack.slice(t_->stackIndex - numParams, t_->stackIndex));
+
+	return 0;
+}
+
+const _StdlibRegisterInfo _count_info =
+{
 	Docstr(DFunc("count") DParamAny("value") DParamD("pred", "function", "null")
 	R"(Counts the number of times \tt{value} appears in this array, optionally using a predicate function to perform the
 	comparison.
@@ -1222,76 +1338,25 @@ DListSep()
 
 	\throws[TypeError] if \tt{pred} is a function and it returns anything other than a bool.)"),
 
-	"count", 2, [](CrocThread* t) -> word_t
+	"count", 2
+};
+
+word_t _count(CrocThread* t)
+{
+	auto arr = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkAnyParam(t, 1);
+	auto t_ = Thread::from(t);
+	auto searched = *getValue(t_, 1);
+	uword count = 0;
+
+	if(croc_ex_optParam(t, 2, CrocType_Function))
 	{
-		auto arr = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkAnyParam(t, 1);
-		auto t_ = Thread::from(t);
-		auto searched = *getValue(t_, 1);
-		uword count = 0;
-
-		if(croc_ex_optParam(t, 2, CrocType_Function))
-		{
-			for(auto &val: arr)
-			{
-				auto reg = croc_dup(t, 2);
-				croc_pushNull(t);
-				push(t_, val.value);
-				push(t_, searched);
-				croc_call(t, reg, 1);
-
-				if(!croc_isBool(t, -1))
-				{
-					croc_pushTypeString(t, -1);
-					croc_eh_throwStd(t, "TypeError", "count predicate expected to return 'bool', not '%s'",
-						croc_getString(t, -1));
-				}
-
-				if(croc_getBool(t, -1))
-					count++;
-
-				croc_popTop(t);
-			}
-		}
-		else
-		{
-			for(auto &val: arr)
-			{
-				push(t_, val.value);
-				push(t_, searched);
-
-				if(croc_equals(t, -2, -1))
-					count++;
-
-				croc_pop(t, 2);
-			}
-		}
-
-		croc_pushInt(t, count);
-		return 1;
-	}
-
-DListSep()
-	Docstr(DFunc("countIf") DParam("pred", "function")
-	R"(Very similar to \link{count}, but more general. This version simply counts the number of items for which
-	\tt{pred} returns true.
-
-	\returns that count.
-
-	\throws[TypeError] if \tt{pred} returns anything other than a bool.)"),
-
-	"countIf", 1, [](CrocThread* t) -> word_t
-	{
-		auto arr = checkArrayParam(t, 0)->toDArray();
-		croc_ex_checkParam(t, 1, CrocType_Function);
-		uword count = 0;
-		auto t_ = Thread::from(t);
-
 		for(auto &val: arr)
 		{
-			auto reg = croc_dup(t, 1);
+			auto reg = croc_dup(t, 2);
 			croc_pushNull(t);
 			push(t_, val.value);
+			push(t_, searched);
 			croc_call(t, reg, 1);
 
 			if(!croc_isBool(t, -1))
@@ -1306,45 +1371,111 @@ DListSep()
 
 			croc_popTop(t);
 		}
-
-		croc_pushInt(t, count);
-		return 1;
 	}
-DEndList()
-
-DBeginList(_opApply)
-	nullptr,
-	"iterator", 1, [](CrocThread* t) -> word_t
+	else
 	{
-		croc_ex_checkParam(t, 0, CrocType_Array);
-		auto index = croc_ex_checkIntParam(t, 1) + 1;
+		for(auto &val: arr)
+		{
+			push(t_, val.value);
+			push(t_, searched);
 
-		if(index >= croc_len(t, 0))
-			return 0;
+			if(croc_equals(t, -2, -1))
+				count++;
 
-		croc_pushInt(t, index);
-		croc_dupTop(t);
-		croc_idx(t, 0);
-		return 2;
+			croc_pop(t, 2);
+		}
 	}
 
-DListSep()
-	nullptr,
-	"iteratorReverse", 1, [](CrocThread* t) -> word_t
+	croc_pushInt(t, count);
+	return 1;
+}
+
+const _StdlibRegisterInfo _countIf_info =
+{
+	Docstr(DFunc("countIf") DParam("pred", "function")
+	R"(Very similar to \link{count}, but more general. This version simply counts the number of items for which
+	\tt{pred} returns true.
+
+	\returns that count.
+
+	\throws[TypeError] if \tt{pred} returns anything other than a bool.)"),
+
+	"countIf", 1
+};
+
+word_t _countIf(CrocThread* t)
+{
+	auto arr = checkArrayParam(t, 0)->toDArray();
+	croc_ex_checkParam(t, 1, CrocType_Function);
+	uword count = 0;
+	auto t_ = Thread::from(t);
+
+	for(auto &val: arr)
 	{
-		croc_ex_checkParam(t, 0, CrocType_Array);
-		auto index = croc_ex_checkIntParam(t, 1) - 1;
+		auto reg = croc_dup(t, 1);
+		croc_pushNull(t);
+		push(t_, val.value);
+		croc_call(t, reg, 1);
 
-		if(index < 0)
-			return 0;
+		if(!croc_isBool(t, -1))
+		{
+			croc_pushTypeString(t, -1);
+			croc_eh_throwStd(t, "TypeError", "count predicate expected to return 'bool', not '%s'",
+				croc_getString(t, -1));
+		}
 
-		croc_pushInt(t, index);
-		croc_dupTop(t);
-		croc_idx(t, 0);
-		return 2;
+		if(croc_getBool(t, -1))
+			count++;
+
+		croc_popTop(t);
 	}
 
-DListSep()
+	croc_pushInt(t, count);
+	return 1;
+}
+
+const _StdlibRegisterInfo _iterator_info =
+{
+	nullptr,
+	"iterator", 1
+};
+
+word_t _iterator(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Array);
+	auto index = croc_ex_checkIntParam(t, 1) + 1;
+
+	if(index >= croc_len(t, 0))
+		return 0;
+
+	croc_pushInt(t, index);
+	croc_dupTop(t);
+	croc_idx(t, 0);
+	return 2;
+}
+
+const _StdlibRegisterInfo _iteratorReverse_info =
+{
+	nullptr,
+	"iteratorReverse", 1
+};
+
+word_t _iteratorReverse(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Array);
+	auto index = croc_ex_checkIntParam(t, 1) - 1;
+
+	if(index < 0)
+		return 0;
+
+	croc_pushInt(t, index);
+	croc_dupTop(t);
+	croc_idx(t, 0);
+	return 2;
+}
+
+const _StdlibRegisterInfo _opApply_info =
+{
 	Docstr(DFunc("opApply") DParamD("mode", "string", "null")
 	R"(This allows you to iterate over arrays using \tt{foreach} loops.
 
@@ -1359,28 +1490,30 @@ foreach(i, v; a, "reverse")
 	As the second example shows, passing in the string "reverse" as the second parameter will cause the iteration to run
 	in reverse.)"),
 
-	"opApply", 1, [](CrocThread* t) -> word_t
+	"opApply", 1
+};
+
+word_t _opApply(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Array);
+
+	if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("reverse"))
 	{
-		croc_ex_checkParam(t, 0, CrocType_Array);
-
-		if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("reverse"))
-		{
-			croc_pushUpval(t, 1);
-			croc_dup(t, 0);
-			croc_pushLen(t, 0);
-		}
-		else
-		{
-			croc_pushUpval(t, 0);
-			croc_dup(t, 0);
-			croc_pushInt(t, -1);
-		}
-
-		return 3;
+		croc_pushUpval(t, 1);
+		croc_dup(t, 0);
+		croc_pushLen(t, 0);
 	}
-DEndList()
+	else
+	{
+		croc_pushUpval(t, 0);
+		croc_dup(t, 0);
+		croc_pushInt(t, -1);
+	}
 
-const StdlibRegister _flatten =
+	return 3;
+}
+
+const _StdlibRegisterInfo _flatten_info =
 {
 	Docstr(DFunc("flatten")
 	R"(Flattens a multi-dimensional array into a single-dimensional array.
@@ -1390,89 +1523,142 @@ const StdlibRegister _flatten =
 
 	\throws[ValueError] if any array is directly or indirectly circularly referenced.)"),
 
-	"flatten", 0, [](CrocThread* t) -> word_t
-	{
-		croc_ex_checkParam(t, 0, CrocType_Array);
-		auto flattening = croc_pushUpval(t, 0);
-		auto ret = croc_array_new(t, 0);
-
-		std::function<void(word)> flatten = [&](word arr)
-		{
-			auto a = croc_absIndex(t, arr);
-
-			if(croc_in(t, a, flattening))
-			{
-				croc_table_clear(t, flattening);
-				croc_eh_throwStd(t, "ValueError", "Attempting to flatten a self-referencing array");
-			}
-
-			croc_dup(t, a);
-			croc_pushBool(t, true);
-			croc_idxa(t, flattening);
-			auto t_ = Thread::from(t);
-
-			for(auto &val: getArray(t_, a)->toDArray())
-			{
-				if(val.value.type == CrocType_Array)
-					flatten(push(t_, Value::from(val.value.mArray)));
-				else
-				{
-					push(t_, val.value);
-					croc_cateq(t, ret, 1);
-				}
-			}
-
-			croc_dup(t, a);
-			croc_pushNull(t);
-			croc_idxa(t, flattening);
-		};
-
-		croc_table_clear(t, flattening);
-		flatten(0);
-		croc_dup(t, ret);
-		return 1;
-	}
+	"flatten", 0
 };
 
-	word loader(CrocThread* t)
+word_t _flatten(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Array);
+	auto flattening = croc_pushUpval(t, 0);
+	auto ret = croc_array_new(t, 0);
+
+	std::function<void(word)> flatten = [&](word arr)
 	{
-		registerGlobals(t, _globalFuncs);
+		auto a = croc_absIndex(t, arr);
 
-		croc_namespace_new(t, "array");
-			registerFields(t, _methodFuncs);
-			registerFieldUV(t, _opApply);
+		if(croc_in(t, a, flattening))
+		{
+			croc_table_clear(t, flattening);
+			croc_eh_throwStd(t, "ValueError", "Attempting to flatten a self-referencing array");
+		}
 
-				croc_table_new(t, 0);
-			registerField(t, _flatten, 1);
-		croc_vm_setTypeMT(t, CrocType_Array);
-		return 0;
-	}
-	}
+		croc_dup(t, a);
+		croc_pushBool(t, true);
+		croc_idxa(t, flattening);
+		auto t_ = Thread::from(t);
 
-	void initArrayLib(CrocThread* t)
-	{
-		croc_ex_makeModule(t, "array", &loader);
-		croc_ex_importNS(t, "array");
+		for(auto &val: getArray(t_, a)->toDArray())
+		{
+			if(val.value.type == CrocType_Array)
+				flatten(push(t_, Value::from(val.value.mArray)));
+			else
+			{
+				push(t_, val.value);
+				croc_cateq(t, ret, 1);
+			}
+		}
+
+		croc_dup(t, a);
+		croc_pushNull(t);
+		croc_idxa(t, flattening);
+	};
+
+	croc_table_clear(t, flattening);
+	flatten(0);
+	croc_dup(t, ret);
+	return 1;
+}
+
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_new),
+	_DListItem(_new2D),
+	_DListItem(_new3D),
+	_DListItem(_range),
+	_DListEnd
+};
+
+const _StdlibRegister _methodFuncs[] =
+{
+	_DListItem(_opEquals),
+	_DListItem(_sort),
+	_DListItem(_reverse),
+	_DListItem(_dup),
+	_DListItem(_expand),
+	_DListItem(_toString),
+	_DListItem(_apply),
+	_DListItem(_map),
+	_DListItem(_reduce),
+	_DListItem(_rreduce),
+	_DListItem(_filter),
+	_DListItem(_find),
+	_DListItem(_findIf),
+	_DListItem(_bsearch),
+	_DListItem(_pop),
+	_DListItem(_insert),
+	_DListItem(_swap),
+	_DListItem(_set),
+	_DListItem(_min),
+	_DListItem(_max),
+	_DListItem(_extreme),
+	_DListItem(_any),
+	_DListItem(_all),
+	_DListItem(_fill),
+	_DListItem(_append),
+	_DListItem(_count),
+	_DListItem(_countIf),
+	_DListEnd
+};
+
+const _StdlibRegister _opApplyFunc[] =
+{
+	_DListItem(_iterator),
+	_DListItem(_iteratorReverse),
+	_DListItem(_opApply),
+	_DListEnd
+};
+
+const _StdlibRegister _flattenFunc = _DListItem(_flatten);
+
+word loader(CrocThread* t)
+{
+	_registerGlobals(t, _globalFuncs);
+
+	croc_namespace_new(t, "array");
+		_registerFields(t, _methodFuncs);
+		_registerFieldUV(t, _opApplyFunc);
+
+			croc_table_new(t, 0);
+		_registerField(t, _flattenFunc, 1);
+	croc_vm_setTypeMT(t, CrocType_Array);
+	return 0;
+}
+} // end anon namespace
+
+void initArrayLib(CrocThread* t)
+{
+	croc_ex_makeModule(t, "array", &loader);
+	croc_ex_importNS(t, "array");
 #ifdef CROC_BUILTIN_DOCS
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
-		croc_ex_doc_push(&doc,
-		DModule("array")
-		R"(The array library provides functionality for creating and manipulating arrays.)");
-			docFields(&doc, _globalFuncs);
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_ex_doc_push(&doc,
+	DModule("array")
+	R"(The array library provides functionality for creating and manipulating arrays.)");
+		_docFields(&doc, _globalFuncs);
 
-			croc_vm_pushTypeMT(t, CrocType_Array);
-				croc_ex_doc_push(&doc,
-				DNs("array")
-				R"(This is the method namespace for array objects.)");
-				docFields(&doc, _methodFuncs);
-				docFieldUV(&doc, _opApply);
-				docField(&doc, _flatten);
-				croc_ex_doc_pop(&doc, -1);
-			croc_popTop(t);
-		croc_ex_doc_pop(&doc, -1);
-		croc_ex_doc_finish(&doc);
-#endif
+		croc_vm_pushTypeMT(t, CrocType_Array);
+			croc_ex_doc_push(&doc,
+			DNs("array")
+			R"(This is the method namespace for array objects.)");
+			_docFields(&doc, _methodFuncs);
+			_docFieldUV(&doc, _opApplyFunc);
+			_docField(&doc, _flattenFunc);
+			croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
-	}
+	croc_ex_doc_pop(&doc, -1);
+	croc_ex_doc_finish(&doc);
+#endif
+	croc_popTop(t);
+}
 }

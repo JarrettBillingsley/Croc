@@ -25,7 +25,7 @@ namespace croc
 #define DListSep() },{
 #define DEndList() },{nullptr, nullptr, 0, nullptr}};
 
-#define _DListItem(name) {name##_info, &name},
+#define _DListItem(name) {name##_info, &name}
 #define _DListEnd {{nullptr, nullptr, 0}, nullptr}
 
 	constexpr const char* Docstr(const char* s)

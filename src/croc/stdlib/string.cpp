@@ -918,29 +918,29 @@ word_t _opApply(CrocThread* t)
 
 const _StdlibRegister _methodFuncs[] =
 {
-	_DListItem(_format)
-	_DListItem(_join)
-	_DListItem(_vjoin)
-	_DListItem(_toInt)
-	_DListItem(_toFloat)
-	_DListItem(_ord)
-	_DListItem(_find)
-	_DListItem(_rfind)
-	_DListItem(_repeat)
-	_DListItem(_reverse)
-	_DListItem(_split)
-	_DListItem(_vsplit)
-	_DListItem(_splitWS)
-	_DListItem(_vsplitWS)
-	_DListItem(_splitLines)
-	_DListItem(_vsplitLines)
-	_DListItem(_strip)
-	_DListItem(_lstrip)
-	_DListItem(_rstrip)
-	_DListItem(_replace)
-	_DListItem(_startsWith)
-	_DListItem(_endsWith)
-	_DListItem(_opApply)
+	_DListItem(_format),
+	_DListItem(_join),
+	_DListItem(_vjoin),
+	_DListItem(_toInt),
+	_DListItem(_toFloat),
+	_DListItem(_ord),
+	_DListItem(_find),
+	_DListItem(_rfind),
+	_DListItem(_repeat),
+	_DListItem(_reverse),
+	_DListItem(_split),
+	_DListItem(_vsplit),
+	_DListItem(_splitWS),
+	_DListItem(_vsplitWS),
+	_DListItem(_splitLines),
+	_DListItem(_vsplitLines),
+	_DListItem(_strip),
+	_DListItem(_lstrip),
+	_DListItem(_rstrip),
+	_DListItem(_replace),
+	_DListItem(_startsWith),
+	_DListItem(_endsWith),
+	_DListItem(_opApply),
 	_DListEnd
 };
 
