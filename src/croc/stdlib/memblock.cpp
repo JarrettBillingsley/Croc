@@ -12,9 +12,12 @@
 
 namespace croc
 {
-	namespace
-	{
-DBeginList(_globalFuncs)
+namespace
+{
+// =====================================================================================================================
+// Global functions
+const _StdlibRegisterInfo _new_info =
+{
 	Docstr(DFunc("new") DParam("size", "int") DParamD("fill", "int", "0")
 	R"(Creates a new memblock.
 
@@ -24,25 +27,29 @@ DBeginList(_globalFuncs)
 
 	\throws[RangeError] if \tt{size} is invalid (negative or too large to be represented).)"),
 
-	"new", 2, [](CrocThread* t) -> word_t
-	{
-		auto size = croc_ex_checkIntParam(t, 1);
+	"new", 2
+};
 
-		if(size < 0 || cast(uword)size > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Invalid size (%" CROC_INTEGER_FORMAT ")", size);
+word_t _new(CrocThread* t)
+{
+	auto size = croc_ex_checkIntParam(t, 1);
 
-		bool haveFill = croc_isValidIndex(t, 2);
-		auto fill = haveFill ? croc_ex_checkIntParam(t, 2) : 0;
+	if(size < 0 || cast(uword)size > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Invalid size (%" CROC_INTEGER_FORMAT ")", size);
 
-		croc_memblock_new(t, cast(uword)size);
+	bool haveFill = croc_isValidIndex(t, 2);
+	auto fill = haveFill ? croc_ex_checkIntParam(t, 2) : 0;
 
-		if(haveFill)
-			getMemblock(Thread::from(t), -1)->data.fill(cast(uint8_t)fill);
+	croc_memblock_new(t, cast(uword)size);
 
-		return 1;
-	}
+	if(haveFill)
+		getMemblock(Thread::from(t), -1)->data.fill(cast(uint8_t)fill);
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _fromArray_info =
+{
 	Docstr(DFunc("fromArray") DParam("arr", "array")
 	R"(Creates a new memblock using the contents of the array as the data.
 
@@ -54,103 +61,41 @@ DListSep()
 
 	\throws[TypeError] if \tt{arr} has any non-integer elements.)"),
 
-	"fromArray", 1, [](CrocThread* t) -> word_t	{
-		croc_ex_checkParam(t, 1, CrocType_Array);
-		auto arr = getArray(Thread::from(t), 1)->toDArray();
+	"fromArray", 1
+};
 
-		croc_memblock_new(t, arr.length);
-		auto data = getMemblock(Thread::from(t), -1)->data;
+word_t _fromArray(CrocThread* t)
+{
+	croc_ex_checkParam(t, 1, CrocType_Array);
+	auto arr = getArray(Thread::from(t), 1)->toDArray();
 
-		uword i = 0;
-		for(auto &slot: arr)
-		{
-			if(slot.value.type != CrocType_Int)
-				croc_eh_throwStd(t, "TypeError", "Array must be all integers");
+	croc_memblock_new(t, arr.length);
+	auto data = getMemblock(Thread::from(t), -1)->data;
 
-			data[i++] = cast(uint8_t)slot.value.mInt;
-		}
-
-		return 1;
-	}
-DEndList()
-
-	template<bool reverse>
-	word_t _commonFindByte(CrocThread* t)
+	uword i = 0;
+	for(auto &slot: arr)
 	{
-		auto src = checkMemblockParam(t, 0)->data;
-		auto item = croc_ex_checkIntParam(t, 1);
+		if(slot.value.type != CrocType_Int)
+			croc_eh_throwStd(t, "TypeError", "Array must be all integers");
 
-		if(item < 0 || item > 255)
-			croc_eh_throwStd(t, "RangeError", "Invalid search value: %" CROC_INTEGER_FORMAT, item);
-
-		auto start = croc_ex_optIndexParam(t, 2, src.length, "start", reverse ? (src.length - 1) : 0);
-
-		if(reverse)
-			croc_pushInt(t, arrFindElemRev(src, cast(uint8_t)item, start));
-		else
-			croc_pushInt(t, arrFindElem(src, cast(uint8_t)item, start));
-
-		return 1;
+		data[i++] = cast(uint8_t)slot.value.mInt;
 	}
 
-	template<bool reverse>
-	word_t _commonFind(CrocThread* t)
-	{
-		auto src = checkMemblockParam(t, 0)->data;
-		auto pat = checkMemblockParam(t, 1)->data;
-		auto start = croc_ex_optIndexParam(t, 2, src.length, "start", reverse ? (src.length - 1) : 0);
+	return 1;
+}
 
-		if(reverse)
-			croc_pushInt(t, arrFindSubRev(src, pat, start));
-		else
-			croc_pushInt(t, arrFindSub(src, pat, start));
+const _StdlibRegister _globalFuncs[] =
+{
+	_DListItem(_new),
+	_DListItem(_fromArray),
+	_DListEnd
+};
 
-		return 1;
-	}
+// =====================================================================================================================
+// Methods
 
-	template<typename T>
-	word_t _rawRead(CrocThread* t)
-	{
-		auto data = checkMemblockParam(t, 0)->data;
-		word maxIdx = (data.length < sizeof(T)) ? -1 : (data.length - sizeof(T));
-		auto idx = croc_ex_checkIntParam(t, 1);
-
-		if(idx < 0)
-			idx += data.length;
-
-		if(idx < 0 || idx > maxIdx)
-			croc_eh_throwStd(t, "BoundsError", "Invalid index '%" CROC_INTEGER_FORMAT "'", idx);
-
-		if(std::is_integral<T>::value)
-			croc_pushInt(t, cast(crocint)*(cast(T*)(data.ptr + idx)));
-		else
-			croc_pushFloat(t, cast(crocfloat)*(cast(T*)(data.ptr + idx)));
-
-		return 1;
-	}
-
-	template<typename T>
-	word_t _rawWrite(CrocThread* t)
-	{
-		auto data = checkMemblockParam(t, 0)->data;
-		word maxIdx = (data.length < sizeof(T)) ? -1 : (data.length - sizeof(T));
-		auto idx = croc_ex_checkIntParam(t, 1);
-
-		if(idx < 0)
-			idx += data.length;
-
-		if(idx < 0 || idx > maxIdx)
-			croc_eh_throwStd(t, "BoundsError", "Invalid index '%" CROC_INTEGER_FORMAT "'", idx);
-
-		if(std::is_integral<T>::value)
-			*(cast(T*)(data.ptr + idx)) = cast(T)croc_ex_checkIntParam(t, 2);
-		else
-			*(cast(T*)(data.ptr + idx)) = cast(T)croc_ex_checkNumParam(t, 2);
-
-		return 0;
-	}
-
-DBeginList(_methodFuncs)
+const _StdlibRegisterInfo _toString_info =
+{
 	Docstr(DFunc("toString")
 	R"(\returns a string representation of this memblock in the form \tt{"memblock[contents]"}.
 
@@ -158,91 +103,132 @@ DBeginList(_methodFuncs)
 
 	If the memblock is more than 128 bytes, the contents will be truncated with an ellipsis.)"),
 
-	"toString", 0, [](CrocThread* t) -> word_t
+	"toString", 0
+};
+
+word_t _toString(CrocThread* t)
+{
+	auto data = checkMemblockParam(t, 0)->data;
+
+	CrocStrBuffer b;
+	croc_ex_buffer_init(t, &b);
+	croc_ex_buffer_addString(&b, "memblock[");
+
+	bool first = true;
+
+	for(auto val: (data.length > 128 ? data.slice(0, 128) : data))
 	{
-		auto data = checkMemblockParam(t, 0)->data;
+		if(first)
+			first = false;
+		else
+			croc_ex_buffer_addString(&b, ", ");
 
-		CrocStrBuffer b;
-		croc_ex_buffer_init(t, &b);
-		croc_ex_buffer_addString(&b, "memblock[");
-
-		bool first = true;
-
-		for(auto val: (data.length > 128 ? data.slice(0, 128) : data))
-		{
-			if(first)
-				first = false;
-			else
-				croc_ex_buffer_addString(&b, ", ");
-
-			croc_pushFormat(t, "%u", val);
-			croc_ex_buffer_addTop(&b);
-		}
-
-		if(data.length > 128)
-			croc_ex_buffer_addString(&b, ", ...");
-
-		croc_ex_buffer_addChar(&b, ']');
-		croc_ex_buffer_finish(&b);
-		return 1;
+		croc_pushFormat(t, "%u", val);
+		croc_ex_buffer_addTop(&b);
 	}
 
-DListSep()
+	if(data.length > 128)
+		croc_ex_buffer_addString(&b, ", ...");
+
+	croc_ex_buffer_addChar(&b, ']');
+	croc_ex_buffer_finish(&b);
+	return 1;
+}
+
+const _StdlibRegisterInfo _dup_info =
+{
 	Docstr(DFunc("dup")
 	R"(\returns a duplicate of this memblock.
 
 	The new memblock will have the same length and this memblock's data will be copied into it. The new memblock will
 	own its data, regardless of whether or not this memblock does.)"),
 
-	"dup", 0, [](CrocThread* t) -> word_t
-	{
-		auto mb = checkMemblockParam(t, 0);
-		croc_memblock_new(t, mb->data.length);
-		getMemblock(Thread::from(t), -1)->data.slicea(mb->data);
-		return 1;
-	}
+	"dup", 0
+};
 
-DListSep()
+word_t _dup(CrocThread* t)
+{
+	auto mb = checkMemblockParam(t, 0);
+	croc_memblock_new(t, mb->data.length);
+	getMemblock(Thread::from(t), -1)->data.slicea(mb->data);
+	return 1;
+}
+
+const _StdlibRegisterInfo _ownData_info =
+{
 	Docstr(DFunc("ownData")
 	R"(\returns a bool indicating whether or not this memblock owns its data. If true, it can be resized freely.)"),
 
-	"ownData", 0, [](CrocThread* t) -> word_t
-	{
-		croc_pushBool(t, checkMemblockParam(t, 0)->ownData);
-		return 1;
-	}
+	"ownData", 0
+};
 
-DListSep()
+word_t _ownData(CrocThread* t)
+{
+	croc_pushBool(t, checkMemblockParam(t, 0)->ownData);
+	return 1;
+}
+
+const _StdlibRegisterInfo _fill_info =
+{
 	Docstr(DFunc("fill") DParam("val", "int")
 	R"(Fills every byte of this memblock with the given value (wrapped to the range of an unsigned byte).
 
 	\param[val] is the value to fill the memblock with.)"),
 
-	"fill", 1, [](CrocThread* t) -> word_t
-	{
-		auto mb = checkMemblockParam(t, 0);
-		mb->data.fill(cast(uint8_t)croc_ex_checkIntParam(t, 1));
-		return 0;
-	}
+	"fill", 1
+};
 
-DListSep()
+word_t _fill(CrocThread* t)
+{
+	auto mb = checkMemblockParam(t, 0);
+	mb->data.fill(cast(uint8_t)croc_ex_checkIntParam(t, 1));
+	return 0;
+}
+
+const _StdlibRegisterInfo _fillSlice_info =
+{
 	Docstr(DFunc("fillSlice") DParamD("lo", "int", "0") DParamD("hi", "int", "#this") DParam("val", "int")
 	R"(Fills a slice of this memblock with the given value (wrapped to the range of an unsigned byte). The slice indices
 	work exactly like anywhere else.
 
 	\param[val] is the value to fill the slice with.)"),
 
-	"fillSlice", 3, [](CrocThread* t) -> word_t
-	{
-		auto data = checkMemblockParam(t, 0)->data;
-		uword_t lo, hi;
-		lo = croc_ex_checkSliceParams(t, 1, data.length, "memblock", &hi);
-		auto val = cast(uint8_t)croc_ex_checkIntParam(t, 3);
-		data.slice(cast(uword)lo, cast(uword)hi).fill(val);
-		return 0;
-	}
+	"fillSlice", 3
+};
 
-DListSep()
+word_t _fillSlice(CrocThread* t)
+{
+	auto data = checkMemblockParam(t, 0)->data;
+	uword_t lo, hi;
+	lo = croc_ex_checkSliceParams(t, 1, data.length, "memblock", &hi);
+	auto val = cast(uint8_t)croc_ex_checkIntParam(t, 3);
+	data.slice(cast(uword)lo, cast(uword)hi).fill(val);
+	return 0;
+}
+
+template<typename T>
+word_t _rawRead(CrocThread* t)
+{
+	auto data = checkMemblockParam(t, 0)->data;
+	word maxIdx = (data.length < sizeof(T)) ? -1 : (data.length - sizeof(T));
+	auto idx = croc_ex_checkIntParam(t, 1);
+
+	if(idx < 0)
+		idx += data.length;
+
+	if(idx < 0 || idx > maxIdx)
+		croc_eh_throwStd(t, "BoundsError", "Invalid index '%" CROC_INTEGER_FORMAT "'", idx);
+
+	if(std::is_integral<T>::value)
+		croc_pushInt(t, cast(crocint)*(cast(T*)(data.ptr + idx)));
+	else
+		croc_pushFloat(t, cast(crocfloat)*(cast(T*)(data.ptr + idx)));
+
+	return 1;
+}
+
+const _StdlibRegisterInfo _readInt8_info =
+{
 	Docstr(DFunc("readInt8") DParam("offs", "int")
 	R"(These functions all read a numerical value of the given type from the byte offset \tt{offs}.
 
@@ -262,36 +248,106 @@ DListSep()
 	\throws[BoundsError] if \tt{offs < 0 || offs >= #this - (size of value)}.
 
 	\see \link{Vector} for a typed numerical array type which may suit your needs better than raw memblock access.)"),
-	"readInt8", 1, &_rawRead<int8_t>
-DListSep()
-	Docstr(DFunc("readInt16") DParam("offs", "int") R"(ditto)"),
-	"readInt16", 1, &_rawRead<int16_t>
-DListSep()
-	Docstr(DFunc("readInt32") DParam("offs", "int") R"(ditto)"),
-	"readInt32", 1, &_rawRead<int32_t>
-DListSep()
-	Docstr(DFunc("readInt64") DParam("offs", "int") R"(ditto)"),
-	"readInt64", 1, &_rawRead<int64_t>
-DListSep()
-	Docstr(DFunc("readUInt8") DParam("offs", "int") R"(ditto)"),
-	"readUInt8", 1, &_rawRead<uint8_t>
-DListSep()
-	Docstr(DFunc("readUInt16") DParam("offs", "int") R"(ditto)"),
-	"readUInt16", 1, &_rawRead<uint16_t>
-DListSep()
-	Docstr(DFunc("readUInt32") DParam("offs", "int") R"(ditto)"),
-	"readUInt32", 1, &_rawRead<uint32_t>
-DListSep()
-	Docstr(DFunc("readUInt64") DParam("offs", "int") R"(ditto)"),
-	"readUInt64", 1, &_rawRead<uint64_t>
-DListSep()
-	Docstr(DFunc("readFloat32") DParam("offs", "int") R"(ditto)"),
-	"readFloat32", 1, &_rawRead<float>
-DListSep()
-	Docstr(DFunc("readFloat64") DParam("offs", "int") R"(ditto)"),
-	"readFloat64", 1, &_rawRead<double>
+	"readInt8", 1
+};
 
-DListSep()
+#define _readInt8 _rawRead<int8_t>
+
+const _StdlibRegisterInfo _readInt16_info =
+{
+	Docstr(DFunc("readInt16") DParam("offs", "int") R"(ditto)"),
+	"readInt16", 1
+};
+
+#define _readInt16 _rawRead<int16_t>
+
+const _StdlibRegisterInfo _readInt32_info =
+{
+	Docstr(DFunc("readInt32") DParam("offs", "int") R"(ditto)"),
+	"readInt32", 1
+};
+
+#define _readInt32 _rawRead<int32_t>
+
+const _StdlibRegisterInfo _readInt64_info =
+{
+	Docstr(DFunc("readInt64") DParam("offs", "int") R"(ditto)"),
+	"readInt64", 1
+};
+
+#define _readInt64 _rawRead<int64_t>
+
+const _StdlibRegisterInfo _readUInt8_info =
+{
+	Docstr(DFunc("readUInt8") DParam("offs", "int") R"(ditto)"),
+	"readUInt8", 1
+};
+
+#define _readUInt8 _rawRead<uint8_t>
+
+const _StdlibRegisterInfo _readUInt16_info =
+{
+	Docstr(DFunc("readUInt16") DParam("offs", "int") R"(ditto)"),
+	"readUInt16", 1
+};
+
+#define _readUInt16 _rawRead<uint16_t>
+
+const _StdlibRegisterInfo _readUInt32_info =
+{
+	Docstr(DFunc("readUInt32") DParam("offs", "int") R"(ditto)"),
+	"readUInt32", 1
+};
+
+#define _readUInt32 _rawRead<uint32_t>
+
+const _StdlibRegisterInfo _readUInt64_info =
+{
+	Docstr(DFunc("readUInt64") DParam("offs", "int") R"(ditto)"),
+	"readUInt64", 1
+};
+
+#define _readUInt64 _rawRead<uint64_t>
+
+const _StdlibRegisterInfo _readFloat32_info =
+{
+	Docstr(DFunc("readFloat32") DParam("offs", "int") R"(ditto)"),
+	"readFloat32", 1
+};
+
+#define _readFloat32 _rawRead<float>
+
+const _StdlibRegisterInfo _readFloat64_info =
+{
+	Docstr(DFunc("readFloat64") DParam("offs", "int") R"(ditto)"),
+	"readFloat64", 1
+};
+
+#define _readFloat64 _rawRead<double>
+
+template<typename T>
+word_t _rawWrite(CrocThread* t)
+{
+	auto data = checkMemblockParam(t, 0)->data;
+	word maxIdx = (data.length < sizeof(T)) ? -1 : (data.length - sizeof(T));
+	auto idx = croc_ex_checkIntParam(t, 1);
+
+	if(idx < 0)
+		idx += data.length;
+
+	if(idx < 0 || idx > maxIdx)
+		croc_eh_throwStd(t, "BoundsError", "Invalid index '%" CROC_INTEGER_FORMAT "'", idx);
+
+	if(std::is_integral<T>::value)
+		*(cast(T*)(data.ptr + idx)) = cast(T)croc_ex_checkIntParam(t, 2);
+	else
+		*(cast(T*)(data.ptr + idx)) = cast(T)croc_ex_checkNumParam(t, 2);
+
+	return 0;
+}
+
+const _StdlibRegisterInfo _writeInt8_info =
+{
 	Docstr(DFunc("writeInt8") DParam("offs", "int") DParam("val", "int")
 	R"(These functions all write the numerical value \tt{val} of the given type to the byte offset \tt{offs}.
 
@@ -309,36 +365,104 @@ DListSep()
 	\throws[BoundsError] if \tt{offs < 0 || offs >= #this - (size of value)}.
 
 	\see \link{Vector} for a typed numerical array type which may suit your needs better than raw memblock access.)"),
-	"writeInt8", 2, &_rawWrite<int8_t>
-DListSep()
-	Docstr(DFunc("writeInt16") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
-	"writeInt16", 2, &_rawWrite<int16_t>
-DListSep()
-	Docstr(DFunc("writeInt32") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
-	"writeInt32", 2, &_rawWrite<int32_t>
-DListSep()
-	Docstr(DFunc("writeInt64") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
-	"writeInt64", 2, &_rawWrite<int64_t>
-DListSep()
-	Docstr(DFunc("writeUInt8") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
-	"writeUInt8", 2, &_rawWrite<uint8_t>
-DListSep()
-	Docstr(DFunc("writeUInt16") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
-	"writeUInt16", 2, &_rawWrite<uint16_t>
-DListSep()
-	Docstr(DFunc("writeUInt32") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
-	"writeUInt32", 2, &_rawWrite<uint32_t>
-DListSep()
-	Docstr(DFunc("writeUInt64") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
-	"writeUInt64", 2, &_rawWrite<uint64_t>
-DListSep()
-	Docstr(DFunc("writeFloat32") DParam("offs", "int") DParam("val", "int|float") R"(ditto)"),
-	"writeFloat32", 2, &_rawWrite<float>
-DListSep()
-	Docstr(DFunc("writeFloat64") DParam("offs", "int") DParam("val", "int|float") R"(ditto)"),
-	"writeFloat64", 2, &_rawWrite<double>
+	"writeInt8", 2
+};
 
-DListSep()
+#define _writeInt8 _rawWrite<int8_t>
+
+const _StdlibRegisterInfo _writeInt16_info =
+{
+	Docstr(DFunc("writeInt16") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
+	"writeInt16", 2
+};
+
+#define _writeInt16 _rawWrite<int16_t>
+
+const _StdlibRegisterInfo _writeInt32_info =
+{
+	Docstr(DFunc("writeInt32") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
+	"writeInt32", 2
+};
+
+#define _writeInt32 _rawWrite<int32_t>
+
+const _StdlibRegisterInfo _writeInt64_info =
+{
+	Docstr(DFunc("writeInt64") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
+	"writeInt64", 2
+};
+
+#define _writeInt64 _rawWrite<int64_t>
+
+const _StdlibRegisterInfo _writeUInt8_info =
+{
+	Docstr(DFunc("writeUInt8") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
+	"writeUInt8", 2
+};
+
+#define _writeUInt8 _rawWrite<uint8_t>
+
+const _StdlibRegisterInfo _writeUInt16_info =
+{
+	Docstr(DFunc("writeUInt16") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
+	"writeUInt16", 2
+};
+
+#define _writeUInt16 _rawWrite<uint16_t>
+
+const _StdlibRegisterInfo _writeUInt32_info =
+{
+	Docstr(DFunc("writeUInt32") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
+	"writeUInt32", 2
+};
+
+#define _writeUInt32 _rawWrite<uint32_t>
+
+const _StdlibRegisterInfo _writeUInt64_info =
+{
+	Docstr(DFunc("writeUInt64") DParam("offs", "int") DParam("val", "int") R"(ditto)"),
+	"writeUInt64", 2
+};
+
+#define _writeUInt64 _rawWrite<uint64_t>
+
+const _StdlibRegisterInfo _writeFloat32_info =
+{
+	Docstr(DFunc("writeFloat32") DParam("offs", "int") DParam("val", "int|float") R"(ditto)"),
+	"writeFloat32", 2
+};
+
+#define _writeFloat32 _rawWrite<float>
+
+const _StdlibRegisterInfo _writeFloat64_info =
+{
+	Docstr(DFunc("writeFloat64") DParam("offs", "int") DParam("val", "int|float") R"(ditto)"),
+	"writeFloat64", 2
+};
+
+#define _writeFloat64 _rawWrite<double>
+
+template<bool reverse>
+word_t _commonFindByte(CrocThread* t)
+{
+	auto src = checkMemblockParam(t, 0)->data;
+	auto item = croc_ex_checkIntParam(t, 1);
+
+	if(item < 0 || item > 255)
+		croc_eh_throwStd(t, "RangeError", "Invalid search value: %" CROC_INTEGER_FORMAT, item);
+
+	auto start = croc_ex_optIndexParam(t, 2, src.length, "start", reverse ? (src.length - 1) : 0);
+
+	if(reverse)
+		croc_pushInt(t, arrFindElemRev(src, cast(uint8_t)item, start));
+	else
+		croc_pushInt(t, arrFindElem(src, cast(uint8_t)item, start));
+
+	return 1;
+}
+
+const _StdlibRegisterInfo _findByte_info =
+{
 	Docstr(DFunc("findByte") DParam("val", "int") DParamD("start", "int", "0")
 	R"(Find a byte equal to \tt{val} in this memblock starting at byte offset \tt{start} and going right.
 
@@ -349,9 +473,13 @@ DListSep()
 
 	\throws[RangeError] if \tt{val < 0 || val > 255}.
 	\throws[BoundsError] if \tt{start} is invalid.)"),
-	"findByte", 2, &_commonFindByte<false>
+	"findByte", 2
+};
 
-DListSep()
+#define _findByte _commonFindByte<false>
+
+const _StdlibRegisterInfo _rfindByte_info =
+{
 	Docstr(DFunc("rfindByte") DParam("val", "int") DParamD("start", "int", "#this - 1")
 	R"(Find a byte equal to \tt{val} in this memblock starting at byte offset \tt{start} and going left.
 
@@ -362,19 +490,46 @@ DListSep()
 
 	\throws[RangeError] if \tt{val < 0 || val > 255}.
 	\throws[BoundsError] if \tt{start} is invalid.)"),
-	"rfindByte", 2, &_commonFindByte<true>
+	"rfindByte", 2
+};
 
-DListSep()
+#define _rfindByte _commonFindByte<true>
+
+template<bool reverse>
+word_t _commonFindBytes(CrocThread* t)
+{
+	auto src = checkMemblockParam(t, 0)->data;
+	auto pat = checkMemblockParam(t, 1)->data;
+	auto start = croc_ex_optIndexParam(t, 2, src.length, "start", reverse ? (src.length - 1) : 0);
+
+	if(reverse)
+		croc_pushInt(t, arrFindSubRev(src, pat, start));
+	else
+		croc_pushInt(t, arrFindSub(src, pat, start));
+
+	return 1;
+}
+
+const _StdlibRegisterInfo _findBytes_info =
+{
 	Docstr(DFunc("findBytes") DParam("sub", "memblock") DParamD("start", "int", "0")
 	R"(Same as \link{findByte}, except searches for a sequence of bytes identical to the memblock \tt{sub}.)"),
-	"findBytes", 2, &_commonFind<false>
+	"findBytes", 2
+};
 
-DListSep()
+#define _findBytes _commonFindBytes<false>
+
+const _StdlibRegisterInfo _rfindBytes_info =
+{
 	Docstr(DFunc("rfindBytes")
 	R"(Same as \link{rfindByte}, except searches for a sequence of bytes identical to the memblock \tt{sub}.)"),
-	"rfindBytes", 2, &_commonFind<true>
+	"rfindBytes", 2
+};
 
-DListSep()
+#define _rfindBytes _commonFindBytes<true>
+
+const _StdlibRegisterInfo _copy_info =
+{
 	Docstr(DFunc("copy") DParam("dstOffs", "int") DParam("src", "memblock") DParam("srcOffs", "int")
 		DParam("size", "int")
 	R"(Copies a block of memory from one memblock to another, or within the same memblock. Also handles overlapping
@@ -390,43 +545,47 @@ DListSep()
 	\throws[BoundsError] if \tt{dstOffs} or \tt{srcOffs} are invalid indices into their respective memblocks, or if
 		either the source or destination ranges extend past the ends of their respective memblocks.)"),
 
-	"copy", 4, [](CrocThread* t) -> word_t
-	{
-		auto dst = checkMemblockParam(t, 0)->data;
-		auto dstOffs = croc_ex_checkIntParam(t, 1);
-		auto src = checkMemblockParam(t, 2)->data;
-		auto srcOffs = croc_ex_checkIntParam(t, 3);
-		auto size = croc_ex_checkIntParam(t, 4);
+	"copy", 4
+};
 
-		if(size < 0 || cast(uword)size > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Invalid size: %" CROC_INTEGER_FORMAT, size);
-		else if(dstOffs < 0 || cast(uword)dstOffs > dst.length)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid destination offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
-				dstOffs, dst.length);
-		else if(srcOffs < 0 || cast(uword)srcOffs > src.length)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid source offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
-				srcOffs, src.length);
-		else if(cast(uword)(dstOffs + size) > dst.length)
-			croc_eh_throwStd(t, "BoundsError", "Copy size exceeds size of destination memblock");
-		else if(cast(uword)(srcOffs + size) > src.length)
-			croc_eh_throwStd(t, "BoundsError", "Copy size exceeds size of source memblock");
+word_t _copy(CrocThread* t)
+{
+	auto dst = checkMemblockParam(t, 0)->data;
+	auto dstOffs = croc_ex_checkIntParam(t, 1);
+	auto src = checkMemblockParam(t, 2)->data;
+	auto srcOffs = croc_ex_checkIntParam(t, 3);
+	auto size = croc_ex_checkIntParam(t, 4);
 
-		auto srcPtr = src.ptr + srcOffs;
-		auto dstPtr = dst.ptr + dstOffs;
-		auto dist = dstPtr - srcPtr;
-		if(dist < 0) dist = -dist;
+	if(size < 0 || cast(uword)size > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Invalid size: %" CROC_INTEGER_FORMAT, size);
+	else if(dstOffs < 0 || cast(uword)dstOffs > dst.length)
+		croc_eh_throwStd(t, "BoundsError",
+			"Invalid destination offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
+			dstOffs, dst.length);
+	else if(srcOffs < 0 || cast(uword)srcOffs > src.length)
+		croc_eh_throwStd(t, "BoundsError",
+			"Invalid source offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
+			srcOffs, src.length);
+	else if(cast(uword)(dstOffs + size) > dst.length)
+		croc_eh_throwStd(t, "BoundsError", "Copy size exceeds size of destination memblock");
+	else if(cast(uword)(srcOffs + size) > src.length)
+		croc_eh_throwStd(t, "BoundsError", "Copy size exceeds size of source memblock");
 
-		if(dist < size)
-			memmove(dstPtr, srcPtr, cast(uword)size);
-		else
-			memcpy(dstPtr, srcPtr, cast(uword)size);
+	auto srcPtr = src.ptr + srcOffs;
+	auto dstPtr = dst.ptr + dstOffs;
+	auto dist = dstPtr - srcPtr;
+	if(dist < 0) dist = -dist;
 
-		return 0;
-	}
+	if(dist < size)
+		memmove(dstPtr, srcPtr, cast(uword)size);
+	else
+		memcpy(dstPtr, srcPtr, cast(uword)size);
 
-DListSep()
+	return 0;
+}
+
+const _StdlibRegisterInfo _compare_info =
+{
 	Docstr(DFunc("compare") DParam("lhsOffs", "int") DParam("rhs", "memblock") DParam("rhsOffs", "int")
 		DParam("size", "int")
 	R"(Compares slices of two memblocks (or two slices into the same memblock) lexicographically and returns a
@@ -444,89 +603,105 @@ DListSep()
 	\throws[BoundsError] if \tt{lhsOffs} or \tt{rhsOffs} are invalid indices into their respective memblocks, or if
 		either the lhs or rhs ranges extend past the ends of their respective memblocks.)"),
 
-	"compare", 4, [](CrocThread* t) -> word_t
-	{
-		auto lhs = checkMemblockParam(t, 0)->data;
-		auto lhsOffs = croc_ex_checkIntParam(t, 1);
-		auto rhs = checkMemblockParam(t, 2)->data;
-		auto rhsOffs = croc_ex_checkIntParam(t, 3);
-		auto size = croc_ex_checkIntParam(t, 4);
+	"compare", 4
+};
 
-		if(size < 0 || cast(uword)size > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Invalid size: %" CROC_INTEGER_FORMAT, size);
-		else if(lhsOffs < 0 || cast(uword)lhsOffs > lhs.length)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid lhs offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
-				lhsOffs, lhs.length);
-		else if(rhsOffs < 0 || cast(uword)rhsOffs > rhs.length)
-			croc_eh_throwStd(t, "BoundsError",
-				"Invalid rhs offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
-				rhsOffs, rhs.length);
-		else if(cast(uword)(lhsOffs + size) > lhs.length)
-			croc_eh_throwStd(t, "BoundsError", "Size exceeds size of lhs memblock");
-		else if(cast(uword)(rhsOffs + size) > rhs.length)
-			croc_eh_throwStd(t, "BoundsError", "Size exceeds size of rhs memblock");
+word_t _compare(CrocThread* t)
+{
+	auto lhs = checkMemblockParam(t, 0)->data;
+	auto lhsOffs = croc_ex_checkIntParam(t, 1);
+	auto rhs = checkMemblockParam(t, 2)->data;
+	auto rhsOffs = croc_ex_checkIntParam(t, 3);
+	auto size = croc_ex_checkIntParam(t, 4);
 
-		croc_pushInt(t, lhs.slice(lhsOffs, lhsOffs + size).cmp(rhs.slice(rhsOffs, rhsOffs + size)));
-		return 1;
-	}
+	if(size < 0 || cast(uword)size > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Invalid size: %" CROC_INTEGER_FORMAT, size);
+	else if(lhsOffs < 0 || cast(uword)lhsOffs > lhs.length)
+		croc_eh_throwStd(t, "BoundsError",
+			"Invalid lhs offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
+			lhsOffs, lhs.length);
+	else if(rhsOffs < 0 || cast(uword)rhsOffs > rhs.length)
+		croc_eh_throwStd(t, "BoundsError",
+			"Invalid rhs offset %" CROC_INTEGER_FORMAT " (memblock length: %" CROC_SIZE_T_FORMAT ")",
+			rhsOffs, rhs.length);
+	else if(cast(uword)(lhsOffs + size) > lhs.length)
+		croc_eh_throwStd(t, "BoundsError", "Size exceeds size of lhs memblock");
+	else if(cast(uword)(rhsOffs + size) > rhs.length)
+		croc_eh_throwStd(t, "BoundsError", "Size exceeds size of rhs memblock");
 
-DListSep()
+	croc_pushInt(t, lhs.slice(lhsOffs, lhsOffs + size).cmp(rhs.slice(rhsOffs, rhsOffs + size)));
+	return 1;
+}
+
+const _StdlibRegisterInfo _opEquals_info =
+{
 	Docstr(DFunc("opEquals") DParam("other", "memblock")
 	R"(Compares two memblocks for exact data equality.
 
 	\returns \tt{true} if both memblocks are the same length and contain the exact same data. Returns \tt{false}
 	otherwise.)"),
 
-	"opEquals", 1, [](CrocThread* t) -> word_t
-	{
-		auto mb = checkMemblockParam(t, 0);
-		auto other = checkMemblockParam(t, 1);
+	"opEquals", 1
+};
 
-		if(croc_is(t, 0, 1))
-			croc_pushBool(t, true);
-		else
-			croc_pushBool(t, mb->data == other->data);
+word_t _opEquals(CrocThread* t)
+{
+	auto mb = checkMemblockParam(t, 0);
+	auto other = checkMemblockParam(t, 1);
 
-		return 1;
-	}
+	if(croc_is(t, 0, 1))
+		croc_pushBool(t, true);
+	else
+		croc_pushBool(t, mb->data == other->data);
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _opCmp_info =
+{
 	Docstr(DFunc("opCmp") DParam("other", "memblock")
 	R"(Compares the contents of two memblocks lexicographically.
 
 	\returns a negative integer if \tt{this} compares before \tt{other}, a positive integer if \tt{this} compares after
 	\tt{other}, and 0 if \tt{this} and \tt{other} have identical contents.)"),
 
-	"opCmp", 1, [](CrocThread* t) -> word_t
-	{
-		auto mb = checkMemblockParam(t, 0);
-		auto other = checkMemblockParam(t, 1);
+	"opCmp", 1
+};
 
-		if(croc_is(t, 0, 1))
-			croc_pushInt(t, 0);
-		else
-			croc_pushInt(t, mb->data.cmp(other->data));
+word_t _opCmp(CrocThread* t)
+{
+	auto mb = checkMemblockParam(t, 0);
+	auto other = checkMemblockParam(t, 1);
 
-		return 1;
-	}
+	if(croc_is(t, 0, 1))
+		croc_pushInt(t, 0);
+	else
+		croc_pushInt(t, mb->data.cmp(other->data));
 
-DListSep()
+	return 1;
+}
+
+const _StdlibRegisterInfo _opCat_info =
+{
 	Docstr(DFunc("opCat") DParam("other", "memblock")
 	R"(Concatenates two memblocks, returning a new memblock whose contents are a concatenation of the two sources.
 
 	\param[other] the second memblock in the concatenation.
 	\returns a new memblock whose contents are a concatenation of \tt{this} followed by \tt{other}.)"),
 
-	"opCat", 1, [](CrocThread* t) -> word_t
-	{
-		auto mb = checkMemblockParam(t, 0);
-		auto other = checkMemblockParam(t, 1);
-		push(Thread::from(t), Value::from(mb->cat(Thread::from(t)->vm->mem, other)));
-		return 1;
-	}
+	"opCat", 1
+};
 
-DListSep()
+word_t _opCat(CrocThread* t)
+{
+	auto mb = checkMemblockParam(t, 0);
+	auto other = checkMemblockParam(t, 1);
+	push(Thread::from(t), Value::from(mb->cat(Thread::from(t)->vm->mem, other)));
+	return 1;
+}
+
+const _StdlibRegisterInfo _opCatAssign_info =
+{
 	Docstr(DFunc("opCatAssign") DVararg
 	R"(Appends memblocks to the end of this memblock, resizing this memblock to hold all the contents and copying the
 	contents from the source memblocks.
@@ -535,82 +710,131 @@ DListSep()
 	\throws[ValueError] if \tt{this} does not own its data (and therefore cannot be resized).
 	\throws[RangeError] if the total length of \tt{this} after appending would be too large to be represented.)"),
 
-	"opCatAssign", -1, [](CrocThread* t) -> word_t
+	"opCatAssign", -1
+};
+
+word_t _opCatAssign(CrocThread* t)
+{
+	auto mb = checkMemblockParam(t, 0);
+	auto data = mb->data;
+
+	if(!mb->ownData)
+		croc_eh_throwStd(t, "ValueError", "Attempting to append to a memblock which does not own its data");
+
+	croc_ex_checkAnyParam(t, 1);
+	auto numParams = croc_getStackSize(t) - 1;
+	uint64_t totalLen = data.length;
+
+	for(uword i = 1; i <= numParams; i++)
+		totalLen += checkMemblockParam(t, i)->data.length;
+
+	if(totalLen > std::numeric_limits<uword>::max())
+		croc_eh_throwStd(t, "RangeError", "Invalid size (%" CROC_UINTEGER_FORMAT ")", totalLen);
+
+	auto oldLen = data.length;
+	auto t_ = Thread::from(t);
+	mb->resize(t_->vm->mem, cast(uword)totalLen);
+	uword j = oldLen;
+
+	for(uword i = 1; i <= numParams; i++)
 	{
-		auto mb = checkMemblockParam(t, 0);
-		auto data = mb->data;
-
-		if(!mb->ownData)
-			croc_eh_throwStd(t, "ValueError", "Attempting to append to a memblock which does not own its data");
-
-		croc_ex_checkAnyParam(t, 1);
-		auto numParams = croc_getStackSize(t) - 1;
-		uint64_t totalLen = data.length;
-
-		for(uword i = 1; i <= numParams; i++)
-			totalLen += checkMemblockParam(t, i)->data.length;
-
-		if(totalLen > std::numeric_limits<uword>::max())
-			croc_eh_throwStd(t, "RangeError", "Invalid size (%" CROC_UINTEGER_FORMAT ")", totalLen);
-
-		auto oldLen = data.length;
-		auto t_ = Thread::from(t);
-		mb->resize(t_->vm->mem, cast(uword)totalLen);
-		uword j = oldLen;
-
-		for(uword i = 1; i <= numParams; i++)
+		if(croc_is(t, 0, i))
 		{
-			if(croc_is(t, 0, i))
-			{
-				// special case for when we're appending a memblock to itself; use the old length
-				memcpy(&data[j], data.ptr, oldLen);
-				j += oldLen;
-			}
-			else
-			{
-				auto other = getMemblock(t_, i)->data;
-				memcpy(&data[j], other.ptr, other.length);
-				j += other.length;
-			}
+			// special case for when we're appending a memblock to itself; use the old length
+			memcpy(&data[j], data.ptr, oldLen);
+			j += oldLen;
 		}
+		else
+		{
+			auto other = getMemblock(t_, i)->data;
+			memcpy(&data[j], other.ptr, other.length);
+			j += other.length;
+		}
+	}
 
+	return 0;
+}
+
+const _StdlibRegister _methodFuncs[] =
+{
+	_DListItem(_toString),
+	_DListItem(_dup),
+	_DListItem(_ownData),
+	_DListItem(_fill),
+	_DListItem(_fillSlice),
+	_DListItem(_readInt8),
+	_DListItem(_readInt16),
+	_DListItem(_readInt32),
+	_DListItem(_readInt64),
+	_DListItem(_readUInt8),
+	_DListItem(_readUInt16),
+	_DListItem(_readUInt32),
+	_DListItem(_readUInt64),
+	_DListItem(_readFloat32),
+	_DListItem(_readFloat64),
+	_DListItem(_writeInt8),
+	_DListItem(_writeInt16),
+	_DListItem(_writeInt32),
+	_DListItem(_writeInt64),
+	_DListItem(_writeUInt8),
+	_DListItem(_writeUInt16),
+	_DListItem(_writeUInt32),
+	_DListItem(_writeUInt64),
+	_DListItem(_writeFloat32),
+	_DListItem(_writeFloat64),
+	_DListItem(_findByte),
+	_DListItem(_rfindByte),
+	_DListItem(_findBytes),
+	_DListItem(_rfindBytes),
+	_DListItem(_copy),
+	_DListItem(_compare),
+	_DListItem(_opEquals),
+	_DListItem(_opCmp),
+	_DListItem(_opCat),
+	_DListItem(_opCatAssign),
+	_DListEnd
+};
+
+const _StdlibRegisterInfo _iterator_info =
+{
+	nullptr,
+	"iterator", 1
+};
+
+word_t _iterator(CrocThread* t)
+{
+	auto mb = checkMemblockParam(t, 0);
+	auto index = croc_ex_checkIntParam(t, 1) + 1;
+
+	if(cast(uword)index >= mb->data.length)
 		return 0;
-	}
-DEndList()
 
-DBeginList(_opApply)
+	croc_pushInt(t, index);
+	croc_pushInt(t, mb->data[cast(uword)index]);
+	return 2;
+}
+
+const _StdlibRegisterInfo _iteratorReverse_info =
+{
 	nullptr,
+	"iteratorReverse", 1
+};
 
-	"iterator", 1, [](CrocThread* t) -> word_t
-	{
-		auto mb = checkMemblockParam(t, 0);
-		auto index = croc_ex_checkIntParam(t, 1) + 1;
+word_t _iteratorReverse(CrocThread* t)
+{
+	auto mb = checkMemblockParam(t, 0);
+	auto index = croc_ex_checkIntParam(t, 1) - 1;
 
-		if(cast(uword)index >= mb->data.length)
-			return 0;
+	if(index < 0)
+		return 0;
 
-		croc_pushInt(t, index);
-		croc_pushInt(t, mb->data[cast(uword)index]);
-		return 2;
-	}
+	croc_pushInt(t, index);
+	croc_pushInt(t, mb->data[cast(uword)index]);
+	return 2;
+}
 
-DListSep()
-	nullptr,
-
-	"iteratorReverse", 1, [](CrocThread* t) -> word_t
-	{
-		auto mb = checkMemblockParam(t, 0);
-		auto index = croc_ex_checkIntParam(t, 1) - 1;
-
-		if(index < 0)
-			return 0;
-
-		croc_pushInt(t, index);
-		croc_pushInt(t, mb->data[cast(uword)index]);
-		return 2;
-	}
-
-DListSep()
+const _StdlibRegisterInfo _opApply_info =
+{
 	Docstr(DFunc("opApply") DParamD("mode", "string", "null")
 	R"(Allows you to iterate over the contents of a memblock with \tt{foreach} loops.
 
@@ -629,64 +853,77 @@ foreach(val; m, "reverse")
 	\param[mode] is the iteration mode. Defaults to null, which means forwards; if passed "reverse", iterates
 	backwards.)"),
 
-	"opApply", 1, [](CrocThread* t) -> word_t
+	"opApply", 1
+};
+
+word_t _opApply(CrocThread* t)
+{
+	auto mb = checkMemblockParam(t, 0);
+
+	if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("reverse"))
 	{
-		auto mb = checkMemblockParam(t, 0);
-
-		if(croc_ex_optParam(t, 1, CrocType_String) && getCrocstr(t, 1) == ATODA("reverse"))
-		{
-			croc_pushUpval(t, 1);
-			croc_dup(t, 0);
-			croc_pushInt(t, mb->data.length);
-		}
-		else
-		{
-			croc_pushUpval(t, 0);
-			croc_dup(t, 0);
-			croc_pushInt(t, -1);
-		}
-
-		return 3;
+		croc_pushUpval(t, 1);
+		croc_dup(t, 0);
+		croc_pushInt(t, mb->data.length);
 	}
-DEndList()
-
-	word loader(CrocThread* t)
+	else
 	{
-		registerGlobals(t, _globalFuncs);
-
-		croc_namespace_new(t, "memblock");
-			registerFields(t, _methodFuncs);
-			registerFieldUV(t, _opApply);
-			croc_field(t, -1, "opCatAssign"); croc_fielda(t, -2, "append");
-		croc_vm_setTypeMT(t, CrocType_Memblock);
-		return 0;
-	}
+		croc_pushUpval(t, 0);
+		croc_dup(t, 0);
+		croc_pushInt(t, -1);
 	}
 
-	void initMemblockLib(CrocThread* t)
-	{
-		croc_ex_makeModule(t, "memblock", &loader);
-		croc_ex_importNS(t, "memblock");
+	return 3;
+}
+
+const _StdlibRegister _opApplyFunc[] =
+{
+	_DListItem(_iterator),
+	_DListItem(_iteratorReverse),
+	_DListItem(_opApply),
+	_DListEnd
+};
+
+// =====================================================================================================================
+// Loader
+
+word loader(CrocThread* t)
+{
+	_registerGlobals(t, _globalFuncs);
+
+	croc_namespace_new(t, "memblock");
+		_registerFields(t, _methodFuncs);
+		_registerFieldUV(t, _opApplyFunc);
+		croc_field(t, -1, "opCatAssign"); croc_fielda(t, -2, "append");
+	croc_vm_setTypeMT(t, CrocType_Memblock);
+	return 0;
+}
+}
+
+void initMemblockLib(CrocThread* t)
+{
+	croc_ex_makeModule(t, "memblock", &loader);
+	croc_ex_importNS(t, "memblock");
 #ifdef CROC_BUILTIN_DOCS
-		CrocDoc doc;
-		croc_ex_doc_init(t, &doc, __FILE__);
-		croc_ex_doc_push(&doc,
-		DModule("memblock")
-		R"(The memblock library provides built-in methods for the \tt{memblock} type, as well as the only means to
-		actually create memblocks.)");
-			docFields(&doc, _globalFuncs);
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_ex_doc_push(&doc,
+	DModule("memblock")
+	R"(The memblock library provides built-in methods for the \tt{memblock} type, as well as the only means to
+	actually create memblocks.)");
+		_docFields(&doc, _globalFuncs);
 
-			croc_vm_pushTypeMT(t, CrocType_Memblock);
-				croc_ex_doc_push(&doc,
-				DNs("memblock")
-				R"(This is the method namespace for memblock objects.)");
-				docFields(&doc, _methodFuncs);
-				docFieldUV(&doc, _opApply);
-				croc_ex_doc_pop(&doc, -1);
-			croc_popTop(t);
-		croc_ex_doc_pop(&doc, -1);
-		croc_ex_doc_finish(&doc);
-#endif
+		croc_vm_pushTypeMT(t, CrocType_Memblock);
+			croc_ex_doc_push(&doc,
+			DNs("memblock")
+			R"(This is the method namespace for memblock objects.)");
+			_docFields(&doc, _methodFuncs);
+			_docFieldUV(&doc, _opApplyFunc);
+			croc_ex_doc_pop(&doc, -1);
 		croc_popTop(t);
-	}
+	croc_ex_doc_pop(&doc, -1);
+	croc_ex_doc_finish(&doc);
+#endif
+	croc_popTop(t);
+}
 }
