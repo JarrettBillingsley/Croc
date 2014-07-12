@@ -727,6 +727,111 @@ word_t _vsplitLines(CrocThread* t)
 	return num;
 }
 
+const StdlibRegisterInfo _partition_info =
+{
+	Docstr(DFunc("partition") DParam("splitter", "string")
+	R"(Given a splitter, splits this string into three pieces: the part before the splitter, the splitter, and the part
+	after the splitter. Returns those pieces as multiple values.
+
+	If this string has a length of 0, returns three empty strings instead.
+
+	If the splitter isn't found in the string, the first piece returned will be this string, and the second and third
+	pieces will be empty strings.
+
+	The second piece is returned so you can tell whether or not the splitter was found.
+
+	You can use this method to split a string into pieces in a loop more efficiently than using \link{find}, since
+	multiple uses of that with increasing start indices will give you a quadratic-time loop. Of course if you need all
+	the pieces at once, using \link{split} or one of its siblings is better.
+
+	\param[splitter] is the string that will be used to partition this string. Cannot be empty.
+	\returns three values as described above.)"),
+
+	"partition", 1
+};
+
+word_t _partition(CrocThread* t)
+{
+	auto src = checkCrocstrParam(t, 0);
+	auto splitter = checkCrocstrParam(t, 1);
+
+	if(splitter.length == 0)
+		croc_eh_throwStd(t, "ValueError", "Splitter cannot be empty");
+
+	if(src.length == 0)
+	{
+		croc_dup(t, 0);
+		croc_dupTop(t);
+		croc_dupTop(t);
+	}
+	else
+	{
+		auto pos = strLocate(src, splitter);
+
+		if(pos == src.length)
+		{
+			croc_dup(t, 0);
+			croc_pushString(t, "");
+			croc_dupTop(t);
+		}
+		else
+		{
+			pushCrocstr(t, src.slice(0, pos));
+			croc_dup(t, 1);
+			pushCrocstr(t, src.sliceToEnd(pos + splitter.length));
+		}
+	}
+
+	return 3;
+}
+
+const StdlibRegisterInfo _rpartition_info =
+{
+	Docstr(DFunc("rpartition") DParam("splitter", "string")
+	R"(Works almost exactly like \link{partition}, except it splits on the \em{last} occurrence of \tt{splitter}, rather
+	than the first.
+
+	In the case that \tt{splitter} is not found, the \em{first} two pieces returned will be empty, and the third will be
+	this string.)"),
+
+	"rpartition", 1
+};
+
+word_t _rpartition(CrocThread* t)
+{
+	auto src = checkCrocstrParam(t, 0);
+	auto splitter = checkCrocstrParam(t, 1);
+
+	if(splitter.length == 0)
+		croc_eh_throwStd(t, "ValueError", "Splitter cannot be empty");
+
+	if(src.length == 0)
+	{
+		croc_dup(t, 0);
+		croc_dupTop(t);
+		croc_dupTop(t);
+	}
+	else
+	{
+		auto pos = strRLocate(src, splitter);
+
+		if(pos == src.length)
+		{
+			croc_pushString(t, "");
+			croc_dupTop(t);
+			croc_dup(t, 0);
+		}
+		else
+		{
+			pushCrocstr(t, src.slice(0, pos));
+			croc_dup(t, 1);
+			pushCrocstr(t, src.sliceToEnd(pos + splitter.length));
+		}
+	}
+
+	return 3;
+}
+
 const StdlibRegisterInfo _strip_info =
 {
 	Docstr(DFunc("strip")
@@ -934,6 +1039,8 @@ const StdlibRegister _methodFuncs[] =
 	_DListItem(_vsplitWS),
 	_DListItem(_splitLines),
 	_DListItem(_vsplitLines),
+	_DListItem(_partition),
+	_DListItem(_rpartition),
 	_DListItem(_strip),
 	_DListItem(_lstrip),
 	_DListItem(_rstrip),
