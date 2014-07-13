@@ -673,7 +673,7 @@ void docMiscLib(CrocThread* t)
 
 	docMiscLib_Vector(t, &doc);
 
-	croc_pushGlobal(t, "_G");
+	croc_vm_pushGlobals(t);
 	croc_ex_doc_pop(&doc, -1);
 	croc_popTop(t);
 	croc_ex_doc_finish(&doc);

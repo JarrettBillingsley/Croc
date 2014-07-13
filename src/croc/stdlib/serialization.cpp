@@ -1206,7 +1206,7 @@ void initSerializationLib(CrocThread* t)
 
 	croc_ex_importFromString(t, "serialization", serialization_croc_text, "serialization.croc");
 
-	croc_pushGlobal(t, "_G");
+	croc_vm_pushGlobals(t);
 	croc_pushString(t, "_serializationtmp");
 	croc_removeKey(t, -2);
 	croc_popTop(t);

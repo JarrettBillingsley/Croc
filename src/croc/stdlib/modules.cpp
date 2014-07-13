@@ -101,7 +101,7 @@ void initModule(CrocThread* t, crocstr name, word reg)
 			cast(int)name.length, name.ptr);
 
 	// Make the namespace
-	auto ns = croc_pushGlobal(t, "_G");
+	auto ns = croc_vm_pushGlobals(t);
 	word firstParent, firstChild;
 	crocstr childName;
 	bool foundSplit = false;

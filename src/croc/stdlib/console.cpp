@@ -33,7 +33,7 @@ namespace croc
 
 		croc_ex_importFromString(t, "console", console_croc_text, "console.croc");
 
-		croc_pushGlobal(t, "_G");
+		croc_vm_pushGlobals(t);
 		croc_pushString(t, "_consoletmp");
 		croc_removeKey(t, -2);
 		croc_popTop(t);

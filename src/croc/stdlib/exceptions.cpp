@@ -124,7 +124,7 @@ struct ExDesc
 
 void registerStdEx(CrocThread* t, Thread* t_)
 {
-	auto _G = croc_pushGlobal(t, "_G");
+	auto _G = croc_vm_pushGlobals(t);
 	auto Throwable = croc_pushGlobal(t, "Throwable");
 
 	for(auto d = _exDescs; d->name != nullptr; d++)

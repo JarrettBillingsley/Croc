@@ -659,7 +659,7 @@ int main(int argc, char** argv)
 		croc_pushNull(t);
 		croc_call(t, -2, 1);
 
-		croc_pushGlobal(t, "_G");
+		croc_vm_pushGlobals(t);
 		croc_pushString(t, "_croctmp");
 		croc_removeKey(t, -2);
 		croc_popTop(t);

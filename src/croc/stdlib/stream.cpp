@@ -179,7 +179,7 @@ void initStreamLib(CrocThread* t)
 
 	croc_ex_importFromString(t, "stream", stream_croc_text, "stream.croc");
 
-	croc_pushGlobal(t, "_G");
+	croc_vm_pushGlobals(t);
 	croc_pushString(t, "_streamtmp");
 	croc_removeKey(t, -2);
 	croc_popTop(t);

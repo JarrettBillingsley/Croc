@@ -531,7 +531,7 @@ void initTextLib(CrocThread* t)
 
 	croc_ex_importFromString(t, "text", text_croc_text, "text.croc");
 
-	croc_pushGlobal(t, "_G");
+	croc_vm_pushGlobals(t);
 	croc_pushString(t, "_texttmp");
 	croc_removeKey(t, -2);
 	croc_popTop(t);

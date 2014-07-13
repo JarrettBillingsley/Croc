@@ -47,6 +47,7 @@ CROCAPI uword_t     croc_vm_bytesAllocated     (CrocThread* t);
 CROCAPI word_t      croc_vm_pushTypeMT         (CrocThread* t, CrocType type);
 CROCAPI void        croc_vm_setTypeMT          (CrocThread* t, CrocType type);
 CROCAPI word_t      croc_vm_pushRegistry       (CrocThread* t);
+CROCAPI word_t      croc_vm_pushGlobals        (CrocThread* t);
 /**@}*/
 /*====================================================================================================================*/
 /** @defgroup RawMM Raw memory management

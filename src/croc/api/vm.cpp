@@ -374,4 +374,15 @@ extern "C"
 		auto t = Thread::from(t_);
 		return push(t, Value::from(t->vm->registry));
 	}
+
+	/** Pushes the VM's global namespace onto the given thread's stack.
+
+	This is the same namespace that is accessible through the global \c _G by default, but since script code can
+	reassign that variable, native code can't depend on it always holding a reference to the globals. Using this
+	function will always push the right namespace. */
+	word_t croc_vm_pushGlobals(CrocThread* t_)
+	{
+		auto t = Thread::from(t_);
+		return push(t, Value::from(t->vm->globals));
+	}
 }

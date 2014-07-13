@@ -76,7 +76,7 @@ namespace croc
 
 		croc_ex_importFromString(t, "docs", docs_croc_text, "docs.croc");
 
-		croc_pushGlobal(t, "_G");
+		croc_vm_pushGlobals(t);
 		croc_pushString(t, "_docstmp");
 		croc_removeKey(t, -2);
 		croc_popTop(t);
