@@ -67,6 +67,11 @@ namespace croc
 
 	void lines(cdstring str, std::function<void(cdstring)> dg);
 	void linesBreak(cdstring str, std::function<bool(cdstring)> dg);
+
+	// =================================================================================================================
+	// conversion
+
+	size_t intToString(ustring buf, uint64_t x, size_t radix, bool isUppercase);
 }
 
 #endif

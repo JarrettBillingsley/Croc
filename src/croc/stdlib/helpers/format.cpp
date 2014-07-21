@@ -45,12 +45,10 @@ If no fmt string is given:
 
 namespace croc
 {
-	const crocstr Spaces = ATODA("                                                                ");
-	const uchar* Lowercase = cast(const uchar*)"0123456789abcdefghijklmnopqrstuvwxyz";
-	const uchar* Uppercase = cast(const uchar*)"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
 	namespace
 	{
+		const crocstr Spaces = ATODA("                                                                ");
+
 		void doSpaces(CrocThread* t, uword n)
 		{
 			while(n > Spaces.length)
@@ -149,17 +147,8 @@ namespace croc
 			if(neg)
 				v = -v; // note for -max, this will still give correct output
 
-			auto dest = outbuf.ptr + outbuf.length;
-			auto x = cast(uint64_t)v;
-			auto chars = isUppercase ? Uppercase : Lowercase;
-
-			uword total = 0;
-
-			do
-			{
-				*--dest = chars[cast(uword)(x % radix)];
-				total++;
-			} while(x /= radix);
+			auto total = intToString(outbuf, cast(uint64_t)v, radix, isUppercase);
+			auto dest = outbuf.ptr + outbuf.length - total;
 
 			while(total < width)
 			{

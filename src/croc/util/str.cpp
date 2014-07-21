@@ -642,4 +642,26 @@ namespace croc
 		if(mark <= str.length)
 			dg(str.slice(mark, str.length));
 	}
+
+	// =================================================================================================================
+	// conversion
+
+	const uchar* Lowercase = cast(const uchar*)"0123456789abcdefghijklmnopqrstuvwxyz";
+	const uchar* Uppercase = cast(const uchar*)"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+	size_t intToString(ustring buf, uint64_t x, size_t radix, bool isUppercase)
+	{
+		auto chars = isUppercase ? Uppercase : Lowercase;
+		auto dest = buf.ptr + buf.length;
+
+		size_t total = 0;
+
+		do
+		{
+			*--dest = chars[cast(size_t)(x % radix)];
+			total++;
+		} while(x /= radix);
+
+		return total;
+	}
 }
