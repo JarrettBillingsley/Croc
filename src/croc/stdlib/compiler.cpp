@@ -465,7 +465,7 @@ word_t _runString(CrocThread* t)
 	if(haveEnv)
 		croc_dup(t, 3);
 	else
-		croc_pushCurEnvironment(t);
+		croc_pushEnvironment(t, 1);
 
 	croc_function_newScriptWithEnv(t, -2);
 	croc_pushNull(t);
@@ -506,7 +506,7 @@ word_t _eval(CrocThread* t)
 	if(haveEnv)
 		croc_dup(t, 3);
 	else
-		croc_pushCurEnvironment(t);
+		croc_pushEnvironment(t, 1);
 
 	croc_function_newScriptWithEnv(t, -2);
 	croc_pushNull(t);
