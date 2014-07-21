@@ -2133,7 +2133,7 @@ namespace croc
 			case Token::Colon:                  exp = parseMemberExp(); break;
 
 			default:
-				l.expected("Expression*");
+				l.expected("expression");
 		}
 
 		return parsePostfixExp(exp);
