@@ -71,7 +71,7 @@ function spawnParticle(x, y, dx, dy)
 		freelist[p] = null
 	}
 	else
-		 p = Particle()
+		p = Particle()
 
 	local r, g, b = randColor()
 	p.constructor(toFloat(x), toFloat(y), math.atan2(dx, dy), Speed, r, g, b, Life)

@@ -124,7 +124,7 @@ word_t _asciiEncodeInternal(CrocThread* t)
 				croc_eh_throwStd(t, "UnicodeError", "Character U+%6X cannot be encoded as ASCII", cast(dchar)c);
 			else if(errors == Errors::Ignore)
 				continue;
-  			else // replace
+			else // replace
 				*(dest++) = '?';
 		}
 	}
@@ -223,7 +223,7 @@ word_t _latin1EncodeInternal(CrocThread* t)
 				croc_eh_throwStd(t, "UnicodeError", "Character U+%6X cannot be encoded as ASCII", cast(dchar)c);
 			else if(errors == Errors::Ignore)
 				continue;
-  			else // replace
+			else // replace
 				*(dest++) = '?';
 		}
 	}

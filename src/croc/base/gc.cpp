@@ -322,7 +322,7 @@ namespace croc
 						GCOBJ_SETCOLOR(obj, GCFlags_Black);
 					else if(!GCOBJ_JUSTMOVED(obj))
 					{
-						 // If it just moved out of the nursery, we'll let the nursery phase sweep it up
+						// If it just moved out of the nursery, we'll let the nursery phase sweep it up
 						free(vm, obj);
 					}
 				}

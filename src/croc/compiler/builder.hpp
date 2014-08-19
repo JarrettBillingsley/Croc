@@ -95,8 +95,8 @@ namespace croc
 
 		inline bool isMultRet()
 		{
-			 return type == ExpType::Call || type == ExpType::Yield || type == ExpType::Vararg ||
-			 	type == ExpType::VarargSlice;
+			return type == ExpType::Call || type == ExpType::Yield || type == ExpType::Vararg ||
+				type == ExpType::VarargSlice;
 		}
 
 		inline bool isSource()

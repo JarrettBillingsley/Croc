@@ -118,16 +118,16 @@ namespace croc
 		switch(mTok.type)
 		{
 			case Token::EOF_:
-	        case Token::RBrace:
-		    case Token::RParen:
-		    case Token::RBracket:
-		    	return;
+			case Token::RBrace:
+			case Token::RParen:
+			case Token::RBracket:
+				return;
 
-		    case Token::Semicolon:
-		    	next();
-		    	return;
+			case Token::Semicolon:
+				next();
+				return;
 
-		    default:
+			default:
 				mCompiler.synException(mLoc, "Statement terminator expected, not '%s'", Token::Strings[mTok.type]);
 		}
 	}

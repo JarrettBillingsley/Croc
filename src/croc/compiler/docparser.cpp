@@ -33,7 +33,7 @@ namespace croc
 	X(Row,           "Row command")\
 	X(Cell,          "Cell command")
 
-	 // Token::DefListItem is handled elsewhere
+// Token::DefListItem is handled elsewhere
 #define TEXT_STRUCTURE_LIST(X)\
 	X("blist",    Token::BList)\
 	X("cell",     Token::Cell)\
@@ -965,21 +965,21 @@ private:
 						append(slot);
 						break;
 
-	    			case Token::Code:          commonTextStructure([this](){ readCodeBlock(); }); break;
-	    			case Token::Verbatim:      commonTextStructure([this](){ readVerbatimBlock(); }); break;
-	    			case Token::BList:
-	    			case Token::NList:
-	    			case Token::DList:         commonTextStructure([this](){ readList(); }); break;
-	    			case Token::Table:         commonTextStructure([this](){ readTable(); }); break;
+					case Token::Code:          commonTextStructure([this](){ readCodeBlock(); }); break;
+					case Token::Verbatim:      commonTextStructure([this](){ readVerbatimBlock(); }); break;
+					case Token::BList:
+					case Token::NList:
+					case Token::DList:         commonTextStructure([this](){ readList(); }); break;
+					case Token::Table:         commonTextStructure([this](){ readTable(); }); break;
 
-	    			default:
-	    				if(l.isEOP() || l.tok().isSubStructure())
-	    				{
+					default:
+						if(l.isEOP() || l.tok().isSubStructure())
+						{
 							// if inside a text span, readTextSpan will deal with this, it can give a better error
 							goto _breakOuterLoop;
 						}
 						else
-		    				error("Invalid '%s' in paragraph", l.tok().typeString());
+							error("Invalid '%s' in paragraph", l.tok().typeString());
 				}
 			}
 
