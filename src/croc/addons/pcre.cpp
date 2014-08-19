@@ -18,6 +18,38 @@ void initPcreLib(CrocThread* t)
 namespace
 {
 
+#ifdef CROC_BUILTIN_DOCS
+const char* moduleDocs = DModule("pcre")
+R"(PCREs, or Perl-compatible regular expressions, are the \em{de facto} standard in regular expression text processing.
+This module exposes a regular expression class which wraps the \link[http://www.pcre.org/]{libpcre} library. Not all
+features are supported at this time, but more may be added in the future.
+
+\b{Prerequisites}
+
+This module loads libpcre dynamically when it's first imported. On Windows, this can be \tt{libpcre.dll} or
+\tt{pcre.dll}; on Linux, \tt{libpcre.so.3} or \tt{libpcre.so}; and on OSX \tt{libpcre.dylib}. The shared library is
+loaded from the usual places.
+
+The loaded library must be \b{libpcre version 7.4 or higher, built with UTF-8 support.} Support for Unicode Properites
+isn't necessary, just UTF-8. This library will check that the version of libpcre that was loaded meets these
+requirements after loading it. If the shared library is not suitable, a \link{RuntimeError} will be thrown.
+
+\b{Windows:} building libpcre manually is kind of a pain, and as far as I know the only project that provides binaries
+of libpcre is GnuWin32, but for some reason they haven't built a version of it since 7.0 in 2007. To save you the
+hassle, I've compiled a compatible DLL of 7.4, available
+\link[https://github.com/JarrettBillingsley/Croc/blob/master/libpcre.dll?raw=true]{here}. (\b{Note:} you must have the
+\link[http://www.microsoft.com/downloads/details.aspx?FamilyID=9b2da534-3e03-4391-8a4d-074b9f2bc1bf&displaylang=en]{VC++2008
+redist installed} for this DLL to work. This is a very tiny download and fast install.)
+
+\b{Including this library in the host}
+
+To use this library, the host must have it compiled into it. Compile Croc with the \tt{CROC_PCRE_ADDON} option enabled
+in the CMake configuration. Then, from your host, when setting up the VM use the \tt{croc_vm_loadAddons} or
+\tt{croc_vm_loadAllAvailableAddons} API functions to load this library into the VM. Then from your Croc code, you can
+just \tt{import pcre} to access it.
+)";
+#endif
+
 // =====================================================================================================================
 // A tiny slice of the PCRE 7.4 header, just enough to implement this library without any external dependencies.
 
@@ -92,7 +124,7 @@ void loadPCRESharedLib(CrocThread* t)
 	auto libpcre = oscompat::openLibraryMulti(t, pcrepaths);
 
 	if(libpcre == nullptr)
-		croc_ex_throwNamedException(t, "PcreException", "Cannot find the libpcre shared library");
+		croc_eh_throwStd(t, "OSException", "Cannot find the libpcre shared library");
 
 	oscompat::getProc(t, libpcre, "pcre_compile", pcre_compile);
 	oscompat::getProc(t, libpcre, "pcre_config", pcre_config);
@@ -105,6 +137,11 @@ void loadPCRESharedLib(CrocThread* t)
 
 // =====================================================================================================================
 // Regex class
+
+#if CROC_BUILTIN_DOCS
+const char* RegexDocs = DClass("Regex")
+R"(Wraps a PCRE regex object.)";
+#endif
 
 const char* _Ptrs = "ptrs";
 const char* _Names = "names";
@@ -165,7 +202,7 @@ pcre* compilePattern(CrocThread* t, crocstr pat, word attrs)
 	auto re = pcre_compile(cast(const char*)pat.ptr, attrs, &error, &errorOffset, nullptr);
 
 	if(error != nullptr)
-		croc_ex_throwNamedException(t, "PcreException",
+		croc_eh_throwStd(t, "ValueError",
 			"Error compiling regex at character %d: %s", errorOffset, error);
 
 	return re;
@@ -201,7 +238,7 @@ PcreGroupRange getGroupRange(CrocThread* t, word group)
 	croc_popTop(t);
 
 	if(numGroups == 0)
-		croc_eh_throwStd(t, "ValueError", "No more matches");
+		croc_eh_throwStd(t, "StateError", "No more matches");
 
 	croc_hfield(t, 0, _GroupIdx);
 	auto gi = cast(PcreGroupRange*)croc_memblock_getData(t, -1);
@@ -265,8 +302,22 @@ inline crocstr optCrocstrParam(CrocThread* t, word_t slot, const char* opt)
 
 const StdlibRegisterInfo Regex_constructor_info =
 {
-	Docstr(DFunc("constructor")
-	R"()"),
+	Docstr(DFunc("constructor") DParam("pattern", "string") DParamD("attrs", "string", "''")
+	R"(Compiles a regular expression.
+
+	\param[pattern] is the regular expression to be compiled. See the PCRE documentation for the syntax.
+	\param[attrs] is a string containing attributes with which to compile this regex. It can contain any of the
+	following characters, in any order:
+
+	\dlist
+		\li{\tt{'i'}} Case-insensitive. Any literal characters or character classes will match either case.
+		\li{\tt{'s'}} The dot pattern will match all characters including newlines (which it normally doesn't).
+		\li{\tt{'m'}} Multiline. Normally the \tt{^} and \tt{$} patterns will match the beginning and end of the string.
+			With this modifier, they will match the beginning and end of each line in the subject string.
+	\endlist
+
+	\throws[StateError] if you attempt to call this constructor on an already-initialized object.
+	\throws[ValueError] if the \tt{pattern} could not be compiled.)"),
 
 	"constructor", 2
 };
@@ -288,7 +339,7 @@ word_t Regex_constructor(CrocThread* t)
 	if(error != nullptr)
 	{
 		(*pcre_free)(re);
-		croc_ex_throwNamedException(t, "PcreException", "Error studying regex: %s", error);
+		croc_eh_throwStd(t, "ValueError", "Error compiling regex: %s", error);
 	}
 
 	croc_memblock_new(t, sizeof(PtrStruct));
@@ -312,7 +363,7 @@ word_t Regex_constructor(CrocThread* t)
 const StdlibRegisterInfo Regex_finalizer_info =
 {
 	Docstr(DFunc("finalizer")
-	R"()"),
+	R"(Cleans up the underlying C PCRE objects.)"),
 
 	"finalizer", 0
 };
@@ -344,7 +395,8 @@ word_t Regex_finalizer(CrocThread* t)
 const StdlibRegisterInfo Regex_numGroups_info =
 {
 	Docstr(DFunc("numGroups")
-	R"()"),
+	R"(\returns the number of matched subgroups. This will be 0 if \link{test} returned \tt{false}, or a number greater
+	than 0 otherwise.)"),
 
 	"numGroups", 0
 };
@@ -359,7 +411,11 @@ word_t Regex_numGroups(CrocThread* t)
 const StdlibRegisterInfo Regex_groupNames_info =
 {
 	Docstr(DFunc("groupNames")
-	R"()"),
+	R"x(\returns an array of strings of named groups.
+
+	Named groups are created with the \tt{"(?P<name>pattern)"} regex syntax. So, if you compiled something like
+	\tt{@"(?P<lname>\\w+), (?P<fname>\\w+)"}, this function would return an array containing the strings \tt{"lname"}
+	and \tt{"fname"} (though not in any particular order).)x"),
 
 	"groupNames", 0
 };
@@ -378,8 +434,14 @@ word_t Regex_groupNames(CrocThread* t)
 
 const StdlibRegisterInfo Regex_test_info =
 {
-	Docstr(DFunc("test")
-	R"()"),
+	Docstr(DFunc("test") DParamD("subject", "string", "null")
+	R"(The workhorse of the regex engine, this gets the next match of the regex within the current subject string.
+
+	\param[subject] is the optional new subject string. If you don't pass one, this will continue testing on the current
+		subject string. If you do, it's the same as doing \tt{re.search(subject).test()}.
+
+	\returns \tt{true} if a new match was found in the subject string. In this case it updates all the matches which can
+		be retrieved using various other methods. Returns \tt{false} if no more matches were found.)"),
 
 	"test", 1
 };
@@ -432,7 +494,7 @@ word_t Regex_test(CrocThread* t)
 		croc_pushBool(t, false);
 	}
 	else if(numGroups < 0)
-		croc_ex_throwNamedException(t, "PcreException", "PCRE Error matching against string (code %d)", numGroups);
+		croc_eh_throwStd(t, "RuntimeError", "PCRE Error matching against string (code %d)", numGroups);
 	else
 	{
 		croc_pushInt(t, numGroups);      croc_hfielda(t, 0, _NumGroups);
@@ -445,8 +507,11 @@ word_t Regex_test(CrocThread* t)
 
 const StdlibRegisterInfo Regex_search_info =
 {
-	Docstr(DFunc("search")
-	R"()"),
+	Docstr(DFunc("search") DParam("subject", "string")
+	R"(Sets the subject string and resets all match groups, but does not start looking for matches. You'll have to use
+	\link{test} or iterate over the matches with a \tt{foreach} loop.
+
+	\returns this regex object, to make it easier to use as the container in a \tt{foreach} loop.)"),
 
 	"search", 1
 };
@@ -462,8 +527,18 @@ word_t Regex_search(CrocThread* t)
 
 const StdlibRegisterInfo Regex_match_info =
 {
-	Docstr(DFunc("match")
-	R"()"),
+	Docstr(DFunc("match") DParamD("idx", "int|string", "0")
+	R"(Gets the most recent match of the regex and its subgroups within the subject string.
+
+	\param[idx] can be the integer index of a subgroup, where index 0 is the entire regex and 1, 2, etc. are the
+	subgroups in order of where they appear in the regex. Alternatively, if you've named subgroups, you can get them by
+	name; only names returned from \link{groupNames} are valid.
+
+	\returns the slice of the subject string which was matched by the given regex group.
+
+	\throws[StateError] if there are no more matches (\link{test} returned \tt{false}).
+	\throws[RangeError] if the given integral subgroup index is invalid.
+	\throws[NameError] if the given string subgroup name is invalid.)"),
 
 	"match", 1
 };
@@ -481,8 +556,10 @@ word_t Regex_match(CrocThread* t)
 
 const StdlibRegisterInfo Regex_pre_info =
 {
-	Docstr(DFunc("pre")
-	R"()"),
+	Docstr(DFunc("pre") DParamD("idx", "int|string", "0")
+	R"(Gets the slice of the subject string that comes before the given subgroup match.
+
+	\param[idx] works just like in \link{match}.)"),
 
 	"pre", 1
 };
@@ -500,8 +577,10 @@ word_t Regex_pre(CrocThread* t)
 
 const StdlibRegisterInfo Regex_post_info =
 {
-	Docstr(DFunc("post")
-	R"()"),
+	Docstr(DFunc("post") DParamD("idx", "int|string", "0")
+	R"(Gets the slice of the subject string that comes after the given subgroup match.
+
+	\param[idx] works just like in \link{match}.)"),
 
 	"post", 1
 };
@@ -519,8 +598,13 @@ word_t Regex_post(CrocThread* t)
 
 const StdlibRegisterInfo Regex_preMatchPost_info =
 {
-	Docstr(DFunc("preMatchPost")
-	R"()"),
+	Docstr(DFunc("preMatchPost") DParamD("idx", "int|string", "0")
+	R"(Gets three pieces of the string: the part that comes before the given subgroup match, the match itself, and the
+	part that comes after. This is slightly more efficient than calling \link{pre}, \link{match}, and \link{post}
+	separately if you need two or all three parts.
+
+	\param[idx] works just like in \link{match}.
+	\returns the pre, match, and post strings in that order.)"),
 
 	"preMatchPost", 1
 };
@@ -540,8 +624,10 @@ word_t Regex_preMatchPost(CrocThread* t)
 
 const StdlibRegisterInfo Regex_matchBegin_info =
 {
-	Docstr(DFunc("matchBegin")
-	R"()"),
+	Docstr(DFunc("matchBegin") DParamD("idx", "int|string", "0")
+	R"(Gets the character index into the subject string where the given subgroup match begins.
+
+	\param[idx] works just like in \link{match}.)"),
 
 	"matchBegin", 1
 };
@@ -551,14 +637,18 @@ word_t Regex_matchBegin(CrocThread* t)
 	auto numParams = croc_getStackSize(t) - 1;
 	getThis(t);
 	auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
-	croc_pushInt(t, range.lo);
+	croc_hfield(t, 0, _Subject);
+	auto subject = getCrocstr(t, -1);
+	croc_pushInt(t, utf8ByteIdxToCP(subject, range.lo));
 	return 1;
 }
 
 const StdlibRegisterInfo Regex_matchEnd_info =
 {
-	Docstr(DFunc("matchEnd")
-	R"()"),
+	Docstr(DFunc("matchEnd") DParamD("idx", "int|string", "0")
+	R"(Gets the character index into the subject string where the given subgroup match ends.
+
+	\param[idx] works just like in \link{match}.)"),
 
 	"matchEnd", 1
 };
@@ -568,14 +658,19 @@ word_t Regex_matchEnd(CrocThread* t)
 	auto numParams = croc_getStackSize(t) - 1;
 	getThis(t);
 	auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
-	croc_pushInt(t, range.hi);
+	croc_hfield(t, 0, _Subject);
+	auto subject = getCrocstr(t, -1);
+	croc_pushInt(t, utf8ByteIdxToCP(subject, range.hi));
 	return 1;
 }
 
 const StdlibRegisterInfo Regex_matchBeginEnd_info =
 {
-	Docstr(DFunc("matchBeginEnd")
-	R"()"),
+	Docstr(DFunc("matchBeginEnd") DParamD("idx", "int|string", "0")
+	R"(Gets the character indices into the subject string where the given subgroup match begins and ends.
+
+	\param[idx] works just like in \link{match}.
+	\returns the begin and end indices in that order.)"),
 
 	"matchBeginEnd", 1
 };
@@ -585,15 +680,23 @@ word_t Regex_matchBeginEnd(CrocThread* t)
 	auto numParams = croc_getStackSize(t) - 1;
 	getThis(t);
 	auto range = getGroupRange(t, numParams == 0 ? -1 : 1);
-	croc_pushInt(t, range.lo);
-	croc_pushInt(t, range.hi);
+	croc_hfield(t, 0, _Subject);
+	auto subject = getCrocstr(t, -1);
+	croc_pushInt(t, utf8ByteIdxToCP(subject, range.lo));
+	croc_pushInt(t, utf8ByteIdxToCP(subject, range.hi));
 	return 2;
 }
 
 const StdlibRegisterInfo Regex_find_info =
 {
-	Docstr(DFunc("find")
-	R"()"),
+	Docstr(DFunc("find") DParam("subject", "string")
+	R"(Searches for the first match of this regex in the given subject string.
+
+	This is basically the same as \tt{re.search(subject).test() ? re.matchBegin() : #subject}.
+
+	\param[subject] will be set as the new subject string.
+	\returns the index into the subject string where the first match of this regex was found, or \tt{#subject} if
+	not.)"),
 
 	"find", 1
 };
@@ -626,8 +729,11 @@ word_t Regex_find(CrocThread* t)
 
 const StdlibRegisterInfo Regex_split_info =
 {
-	Docstr(DFunc("split")
-	R"()"),
+	Docstr(DFunc("split") DParam("subject", "string")
+	R"(Splits \tt{subject} into an array of pieces, using entire matches of this regex as the delimiters.
+
+	\param[subject] will be set as the new subject string.
+	\returns the array of split-up components. This will have only one element if the regex did not match.)"),
 
 	"split", 1
 };
@@ -665,8 +771,18 @@ word_t Regex_split(CrocThread* t)
 
 const StdlibRegisterInfo Regex_replace_info =
 {
-	Docstr(DFunc("replace")
-	R"()"),
+	Docstr(DFunc("replace") DParam("subject", "string") DParam("repl", "string|function")
+	R"(Perform a search-and-replace on \tt{subject} using this regex as the search term.
+
+	\param[subject] will be set as the new subject string.
+	\param[repl] can be a string, in which case any matches of this regex will be replaced with \tt{repl} verbatim.
+
+	\tt{repl} can also be a function. In this case, it should take a single parameter which will be this regex object
+	(through which it can access the match), and should return a single string to be used as the replacement.
+
+	\returns a new string with all occurrences of this regex replaced with \tt{repl}.
+
+	\throws[TypeError] if \tt{repl} is a function and it returns anything other than a string.)"),
 
 	"replace", 2
 };
@@ -741,9 +857,7 @@ word_t Regex_replace(CrocThread* t)
 
 const StdlibRegisterInfo Regex_iterator_info =
 {
-	Docstr(DFunc("iterator")
-	R"()"),
-
+	nullptr,
 	"iterator", 1
 };
 
@@ -767,7 +881,39 @@ word_t Regex_iterator(CrocThread* t)
 const StdlibRegisterInfo Regex_opApply_info =
 {
 	Docstr(DFunc("opApply")
-	R"()"),
+	R"x(This allows you to iterate over all the matches of this regex in the subject string with a \tt{foreach} loop. To
+	set the subject string, you can use \link{search}, which conveniently returns this regex object.
+
+	In the loop, there will be two indices: the first being the 0-based index of the match (that is, the number of times
+	this regex has matched in the subject string), and the second being this regex object itself. For example:
+
+\code
+local re = pcre.Regex$ @"(\w+)\s?=\s?(\w+)"
+local subject =
+"foo = bar
+baz= quux"
+
+foreach(i, m; re.search(subject))
+	writefln$ "{}: key = '{}', value = '{}'", i, m.match(1), m.match(2)
+\endcode
+
+	This will print out:
+
+\verbatim
+0: key = 'foo', value = 'bar'
+1: key = 'baz', value = 'quux'
+\endverbatim
+
+	Note that \tt{opApply} is just defined in terms of \link{test}. You can also iterate through all matches by doing
+	something like this:
+
+\code
+re.search(subject)
+for(local i = 0; re.test(); i++)
+	writefln$ "{}: key = '{}', value = '{}'", i, re.match(1), re.match(2)
+\endcode
+
+	Given the same regex and subject string, this will print out the same thing as the previous example.)x"),
 
 	"opApply", 1
 };
@@ -781,8 +927,15 @@ word_t Regex_opApply(CrocThread* t)
 	return 3;
 }
 
-// =====================================================================================================================
-// Regex loader
+const StdlibRegisterInfo Regex_opIndex_info =
+{
+	Docstr(DFunc("opIndex") DParamD("idx", "int|string", "0")
+	R"(An alias for \link{match}, so \tt{re[4]} is the same as \tt{re.match(4)}, and \tt{re['lname']} is the same as
+	\tt{re.match('lname')}. You can't write \tt{re[]} for the whole match, though, since that's a full-slice, not
+	indexing.)"),
+
+	"opIndex", 1
+};
 
 const StdlibRegister Regex_methodFuncs[] =
 {
@@ -812,8 +965,35 @@ const StdlibRegister Regex_opApplyFunc[] =
 	_DListEnd
 };
 
-void initRegexClass(CrocThread* t)
+// =====================================================================================================================
+// Loader
+
+word loader(CrocThread* t)
 {
+	loadPCRESharedLib(t);
+
+	// Check that we have an appropriate libpcre, first..
+	{
+		auto vers = atoda(pcre_version());
+		vers = vers.slice(0, strLocateChar(vers, ' '));
+		auto dotPos = strLocateChar(vers, '.');
+
+		auto major = strtol(cast(const char*)vers.ptr, nullptr, 10);
+		auto minor = strtol(cast(const char*)vers.ptr + dotPos + 1, nullptr, 10);
+
+		if(minor < 4 || major < 7)
+		{
+			croc_eh_throwStd(t, "RuntimeError", "Your PCRE library is only version %.*s. You need 7.4 or higher.",
+				cast(int)vers.length, vers.ptr);
+		}
+
+		int haveUtf8;
+		pcre_config(PCRE_CONFIG_UTF8, &haveUtf8);
+
+		if(!haveUtf8)
+			croc_eh_throwStd(t, "RuntimeError", "Your PCRE library was not built with UTF-8 support.");
+	}
+
 	croc_class_new(t, "Regex", 0);
 		croc_pushNull(t);   croc_class_addHField(t, -2, _Ptrs);      // memblock
 		croc_pushNull(t);   croc_class_addHField(t, -2, _Names);     // table
@@ -828,60 +1008,24 @@ void initRegexClass(CrocThread* t)
 		croc_field(t, -1, "match");
 		croc_class_addMethod(t, -2, "opIndex");
 	croc_newGlobal(t, "Regex");
-}
 
-// =====================================================================================================================
-// Loader
+#ifdef CROC_BUILTIN_DOCS
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	croc_dup(t, 0);
+	croc_ex_doc_push(&doc, moduleDocs);
+		croc_field(t, -1, "Regex");
+			croc_ex_doc_push(&doc, RegexDocs);
+			docFields(&doc, Regex_methodFuncs);
+			docFieldUV(&doc, Regex_opApplyFunc);
 
-word loader(CrocThread* t)
-{
-	croc_pushGlobal(t, "Throwable");
-	croc_class_new(t, "PcreException", 1);
-	croc_newGlobal(t, "PcreException");
-
-	loadPCRESharedLib(t);
-
-	// Check that we have an appropriate libpcre, first..
-	{
-		auto vers = atoda(pcre_version());
-		vers = vers.slice(0, strLocateChar(vers, ' '));
-		auto dotPos = strLocateChar(vers, '.');
-
-		auto major = strtol(cast(const char*)vers.ptr, nullptr, 10);
-		auto minor = strtol(cast(const char*)vers.ptr + dotPos + 1, nullptr, 10);
-
-		if(minor < 4 || major < 7)
-		{
-			croc_ex_throwNamedException(t, "PcreException", "Your PCRE library is only version %.*s. You need 7.4 or higher.",
-				cast(int)vers.length, vers.ptr);
-		}
-
-		int haveUtf8;
-		pcre_config(PCRE_CONFIG_UTF8, &haveUtf8);
-
-		if(!haveUtf8)
-			croc_ex_throwNamedException(t, "PcreException", "Your PCRE library was not built with UTF-8 support.");
-	}
-
-	initRegexClass(t);
-
-	croc_pushString(t, R"x(\w+([\-+.]\w+)*@\w+([\-.]\w+)*\.\w+([\-.]\w+)*)x");
-	croc_newGlobal(t, "email");
-
-	croc_pushString(t,
-		R"x((([h|H][t|T]|[f|F])[t|T][p|P]([s|S]?)\:\/\/|~/|/)?([\w]+:\w+@)?(([a-zA-Z]{1}([\w\-]+\.)+([\w]{2)x"
-		R"x(,5}))(:[\d]{1,5})?)?((/?\w+/)+|/?)(\w+\.[\w]{3,4})?([,]\w+)*((\?\w+=\w+)?(&\w+=\w+)*([,]\w*)*)?)x");
-	croc_newGlobal(t, "url");
-
-	croc_pushString(t, R"x(^[a-zA-Z_]+$)x");                        croc_newGlobal(t, "alpha");
-	croc_pushString(t, R"x(^\s+$)x");                               croc_newGlobal(t, "space");
-	croc_pushString(t, R"x(^\d+$)x");                               croc_newGlobal(t, "digit");
-	croc_pushString(t, R"x(^[0-9A-Fa-f]+$)x");                      croc_newGlobal(t, "hexdigit");
-	croc_pushString(t, R"x(^[0-7]+$)x");                            croc_newGlobal(t, "octdigit");
-	croc_pushString(t, R"x(^[\(\)\[\]\.,;=<>\+\-\*/&\^]+$)x");      croc_newGlobal(t, "symbol");
-
-	croc_pushString(t, R"x(^((1-)?\d{3}-)?\d{3}-\d{4}$)x");         croc_newGlobal(t, "usPhone");
-	croc_pushString(t, R"x(^\d{5}$)x");                             croc_newGlobal(t, "usZip");
+			docField(&doc, {Regex_opIndex_info, nullptr});
+			croc_ex_doc_pop(&doc, -1);
+		croc_popTop(t);
+	croc_ex_doc_pop(&doc, -1);
+	croc_ex_doc_finish(&doc);
+	croc_popTop(t);
+#endif
 
 	return 0;
 }
