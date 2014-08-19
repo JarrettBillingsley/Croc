@@ -41,6 +41,9 @@ namespace croc
 		Current = FILE_CURRENT,
 		End = FILE_END
 	};
+
+	typedef HMODULE LibraryHandle;
+	typedef FARPROC LibraryProc;
 #else
 	typedef int FileHandle;
 	const FileHandle InvalidHandle = -1;
@@ -66,7 +69,17 @@ namespace croc
 		Current = SEEK_CUR,
 		End = SEEK_END
 	};
+
+	typedef void* LibraryHandle;
+	typedef void* LibraryProc;
 #endif
+
+	template<typename T>
+	union LibraryProcPun
+	{
+		LibraryProc lp;
+		T fp;
+	};
 
 	static_assert(sizeof(FileHandle) <= sizeof(void*), "Can't fit file handle into a nativeobj");
 
@@ -152,6 +165,32 @@ namespace croc
 	ProcessHandle openProcess(CrocThread* t, crocstr cmd, FileAccess access);
 	FileHandle getProcessStream(CrocThread* t, ProcessHandle p);
 	int closeProcess(CrocThread* t, ProcessHandle p);
+
+	// Shared libraries
+	LibraryHandle openLibrary(CrocThread* t, const char* name);
+	LibraryHandle openLibraryMulti(CrocThread* t, const char** names);
+	void closeLibrary(CrocThread* t, LibraryHandle lib);
+
+#ifdef _WIN32
+	template<typename T>
+	void getProc(CrocThread* t, LibraryHandle lib, const char* name, T& proc)
+	{
+		LibraryProcPun<T> pun;
+
+		if((pun.lp = GetProcAddress(lib, name)))
+			proc = pun.fp;
+		else
+		{
+			pushSystemErrorMsg(t);
+			croc_pushFormat(t, "Could not get procedure '%s': ", name);
+			croc_swapTop(t);
+			croc_cat(t, 2);
+			throwOSEx(t);
+		}
+	}
+#else
+
+#endif
 	}
 }
 

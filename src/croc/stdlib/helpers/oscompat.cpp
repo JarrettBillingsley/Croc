@@ -861,6 +861,26 @@ namespace croc
 		return 0; // dummy
 	}
 
+	// =================================================================================================================
+	// Shared libraries
+	LibraryHandle openLibrary(CrocThread* t, const char* name)
+	{
+		if(auto ret = LoadLibrary(name))
+			return ret;
+
+		pushSystemErrorMsg(t);
+		return nullptr;
+	}
+
+	void closeLibrary(CrocThread* t, LibraryHandle lib)
+	{
+		if(!FreeLibrary(lib))
+		{
+			pushSystemErrorMsg(t);
+			throwOSEx(t);
+		}
+	}
+
 #else
 	namespace
 	{
@@ -1501,6 +1521,43 @@ namespace croc
 		throwOSEx(t);
 		return 0; // dummy
 	}
+
 #endif
+
+	// =================================================================================================================
+	// Platform-independent
+	LibraryHandle openLibraryMulti(CrocThread* t, const char** names)
+	{
+		auto size = croc_getStackSize(t);
+
+		for( ; names[0] != nullptr; names++)
+		{
+			if(auto ret = openLibrary(t, names[0]))
+			{
+				size = croc_getStackSize(t) - size;
+
+				if(size > 0)
+					croc_pop(t, size);
+
+				return ret;
+			}
+
+			if(croc_getStackSize(t) - size > 1)
+			{
+				croc_pushString(t, "\n");
+				croc_swapTop(t);
+			}
+		}
+
+		size = croc_getStackSize(t) - size;
+
+		if(size > 0)
+			croc_cat(t, size);
+		else
+			croc_pushString(t, "No names passed to openLibraryMulti");
+
+		return nullptr;
+	}
+
 	}
 }
