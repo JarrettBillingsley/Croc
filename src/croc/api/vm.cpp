@@ -5,6 +5,7 @@
 #include "croc/api.h"
 #include "croc/types/base.hpp"
 #include "croc/base/gc.hpp"
+#include "croc/addons/all.hpp"
 #include "croc/api/apichecks.hpp"
 #include "croc/internal/eh.hpp"
 #include "croc/internal/gc.hpp"
@@ -260,8 +261,7 @@ extern "C"
 		enum. */
 	void croc_vm_loadAddons(CrocThread* t, CrocAddons libs)
 	{
-		(void)t;
-		if(libs & CrocAddons_Pcre)  {} //PcreLib.init(t);
+		if(libs & CrocAddons_Pcre)  initPcreLib(t);
 		if(libs & CrocAddons_Sdl)   {} //initSdlLib(t);
 		if(libs & CrocAddons_Devil) {} //DevilLib.init(t);
 		if(libs & CrocAddons_Gl)    {} //GlLib.init(t);
@@ -278,7 +278,7 @@ extern "C"
 		(void)t;
 		(void)exclude;
 #ifdef CROC_PCRE_ADDON
-		if(!(exclude & CrocAddons_Pcre))  {} //PcreLib.init(t);
+		if(!(exclude & CrocAddons_Pcre))  initPcreLib(t);
 #endif
 #ifdef CROC_SDL_ADDON
 		if(!(exclude & CrocAddons_Sdl))   {} //initSdlLib(t);

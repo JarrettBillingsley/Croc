@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 2.8)
 
+set(CROC_ALL_ADDONS "false" CACHE BOOL "Enable this to compile in all addons.")
+
+set(CROC_DEVIL_ADDON "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the DevIL addon.")
+set(CROC_GL_ADDON    "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the OpenGL addon.")
+set(CROC_NET_ADDON   "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the net addon.")
+set(CROC_PCRE_ADDON  "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the libPCRE addon.")
+set(CROC_SDL_ADDON   "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the SDL addon.")
+
 set(croc_SRC
+	croc/addons/all.hpp
+	croc/addons/pcre.cpp
 	croc/api/apichecks.hpp
 	croc/api/array.cpp
 	croc/api/basic.cpp
@@ -231,8 +241,27 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pedantic-ms-format")
 	endif()
 
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DCROC_STOMP_MEMORY=1 -DCROC_LEAK_DETECTOR=1")
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-rtti -O3")
+	set(CROC_ADDON_FLAGS "")
+
+	# This should proooooobably be done using a CMake-generated config header
+	if(CROC_DEVIL_ADDON)
+		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_DEVIL_ADDON")
+	endif()
+	if(CROC_GL_ADDON)
+		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_GL_ADDON")
+	endif()
+	if(CROC_NET_ADDON)
+		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_NET_ADDON")
+	endif()
+	if(CROC_PCRE_ADDON)
+		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_PCRE_ADDON")
+	endif()
+	if(CROC_SDL_ADDON)
+		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_SDL_ADDON")
+	endif()
+
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DCROC_STOMP_MEMORY=1 -DCROC_LEAK_DETECTOR=1 ${CROC_ADDON_FLAGS}")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-rtti -O3 ${CROC_ADDON_FLAGS}")
 elseif(MSVC)
 	message(FATAL_ERROR "VC not supported yet")
 else()
