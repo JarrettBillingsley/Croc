@@ -981,7 +981,7 @@ word loader(CrocThread* t)
 		auto major = strtol(cast(const char*)vers.ptr, nullptr, 10);
 		auto minor = strtol(cast(const char*)vers.ptr + dotPos + 1, nullptr, 10);
 
-		if(minor < 4 || major < 7)
+		if(major < 7 || (major == 7 && minor < 4))
 		{
 			croc_eh_throwStd(t, "RuntimeError", "Your PCRE library is only version %.*s. You need 7.4 or higher.",
 				cast(int)vers.length, vers.ptr);
