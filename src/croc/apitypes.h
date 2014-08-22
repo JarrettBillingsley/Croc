@@ -162,12 +162,11 @@ typedef enum CrocAddons
 {
 	CrocAddons_None =  0,  /**< No addon libs. */
 	CrocAddons_Pcre =  1,  /**< The \c pcre lib. */
-	CrocAddons_Sdl =   2,  /**< The \c sdl lib. */
 	CrocAddons_Devil = 4,  /**< The \c devil lib. */
-	CrocAddons_Gl =    8,  /**< The \c gl lib. */
-	CrocAddons_Net =   16, /**< The \c net lib. */
-	CrocAddons_Safe = CrocAddons_Pcre | CrocAddons_Sdl, /**< The safe addons. */
-	CrocAddons_Unsafe = CrocAddons_Devil | CrocAddons_Gl | CrocAddons_Net, /**< The unsafe addons. */
+	CrocAddons_Net =   8, /**< The \c net lib. */
+	CrocAddons_Glfw =  16, /**< The \c glfw lib. */
+	CrocAddons_Safe = CrocAddons_Pcre, /**< The safe addons. */
+	CrocAddons_Unsafe = CrocAddons_Devil | CrocAddons_Net | CrocAddons_Glfw, /**< The unsafe addons. */
 	CrocAddons_All = CrocAddons_Safe | CrocAddons_Unsafe /**< All addons, safe or not. */
 } CrocAddons;
 

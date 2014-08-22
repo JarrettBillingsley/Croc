@@ -1,11 +1,57 @@
 module samples.simple
 
+/*
+import glfw
+
+object.addMethod(glfw.Window, "center", function center(monitor)
+{
+	local mode = monitor.getVideoMode()
+	local w, h = :getSize()
+	:setPos(mode.width / 2 - w / 2, mode.height / 2 - h / 2)
+})
+
 function main()
 {
+	if(not glfw.init())
+		return
 
+	scope(exit) glfw.terminate()
+
+	local window = glfw.createWindow(800, 600, "Asses", null, null)
+	window.center(glfw.getPrimaryMonitor())
+	window.show()
+	window.enableEvents(glfw.Event_Key, glfw.Event_WindowRefresh)
+	glfw.makeContextCurrent(window)
+
+	local maj, min = glfw.loadOpenGL()
+	writefln("OpenGL version {}.{}", maj, min)
+
+	while(not window.shouldClose())
+	{
+		local type, wm, a, b, c, d = glfw.waitEvents()
+
+		switch(type)
+		{
+			case glfw.Event_Key:
+				writefln("key: '{}' scancode: {} action: {} mods: {}", a, b, c, d)
+
+				if(a == glfw.KEY_ESCAPE and c == glfw.PRESS)
+					window.setShouldClose(true)
+				break
+
+			case glfw.Event_WindowRefresh:
+				writeln("BOOP")
+				window.swapBuffers()
+				break
+
+			default:
+				break
+		}
+	}
+
+	window.destroy()
 }
 
-/*
 local NOINIT = {}
 
 function autofield(name: string, type: string, init: any = NOINIT) =

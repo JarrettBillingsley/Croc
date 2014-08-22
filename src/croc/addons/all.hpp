@@ -4,10 +4,9 @@
 namespace croc
 {
 	void initDevilLib(CrocThread* t);
-	void initGlLib(CrocThread* t);
+	void initGlfwLib(CrocThread* t);
 	void initNetLib(CrocThread* t);
 	void initPcreLib(CrocThread* t);
-	void initSdlLib(CrocThread* t);
 }
 
 #endif

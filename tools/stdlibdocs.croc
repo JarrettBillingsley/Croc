@@ -46,10 +46,9 @@ local StdlibLookup =
 	time          = "StdLib/TimeLib"
 
 	devil         = "Addons/DevilLib"
-	gl            = "Addons/GlLib"
+	glfw          = "Addons/GlfwLib"
 	net           = "Addons/NetLib"
 	pcre          = "Addons/PcreLib"
-	sdl           = "Addons/SdlLib"
 }
 
 local StdExceptions =

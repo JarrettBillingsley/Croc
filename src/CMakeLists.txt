@@ -3,13 +3,14 @@ cmake_minimum_required(VERSION 2.8)
 set(CROC_ALL_ADDONS "false" CACHE BOOL "Enable this to compile in all addons.")
 
 set(CROC_DEVIL_ADDON "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the DevIL addon.")
-set(CROC_GL_ADDON    "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the OpenGL addon.")
+set(CROC_GLFW_ADDON  "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the GLFW addon.")
 set(CROC_NET_ADDON   "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the net addon.")
 set(CROC_PCRE_ADDON  "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the libPCRE addon.")
-set(CROC_SDL_ADDON   "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the SDL addon.")
 
 set(croc_SRC
 	croc/addons/all.hpp
+	croc/addons/glfw.cpp
+	croc/addons/glfw.hpp
 	croc/addons/pcre.cpp
 	croc/api/apichecks.hpp
 	croc/api/array.cpp
@@ -164,6 +165,14 @@ set(croc_SRC
 	croc/util/utf.hpp
 )
 
+if(CROC_GLFW_ADDON)
+	set(croc_SRC ${croc_SRC}
+		croc/ext/glad.cpp
+		croc/ext/glad/glad.hpp
+		croc/ext/KHR/khrplatform.hpp
+	)
+endif()
+
 set(croc_CROCSRC
 	croc/stdlib/console.croc
 	croc/stdlib/docs.croc
@@ -247,17 +256,14 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 	if(CROC_DEVIL_ADDON)
 		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_DEVIL_ADDON")
 	endif()
-	if(CROC_GL_ADDON)
-		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_GL_ADDON")
+	if(CROC_GLFW_ADDON)
+		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_GLFW_ADDON")
 	endif()
 	if(CROC_NET_ADDON)
 		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_NET_ADDON")
 	endif()
 	if(CROC_PCRE_ADDON)
 		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_PCRE_ADDON")
-	endif()
-	if(CROC_SDL_ADDON)
-		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_SDL_ADDON")
 	endif()
 
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DCROC_STOMP_MEMORY=1 -DCROC_LEAK_DETECTOR=1 ${CROC_ADDON_FLAGS}")
