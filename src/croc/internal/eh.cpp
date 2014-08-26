@@ -99,14 +99,18 @@ namespace croc
 		auto ehCheck = t->vm->ehIndex;
 #endif
 		pushNativeEHFrame(t, slot, buf);
+		auto ehStatus = setjmp(buf);
 
-		if(setjmp(buf) == 0)
+		if(ehStatus == EHStatus_Okay)
 		{
 			dg();
 			ret = false;
 		}
 		else
+		{
+			assert(ehStatus == EHStatus_NativeFrame);
 			ret = true;
+		}
 
 		popNativeEHFrame(t);
 		assert(t->vm->ehIndex == ehCheck);
@@ -233,7 +237,7 @@ namespace croc
 			else
 			{
 				destAR = jumpFrame->actRecord;
-				slot = jumpFrame -> slot;
+				slot = jumpFrame->slot;
 			}
 
 			popARTo(t, destAR + 1);
@@ -256,7 +260,7 @@ namespace croc
 			else
 				t->stackIndex = slot + 1;
 
-			longjmp(*jumpFrame->jbuf, 1);
+			longjmp(*jumpFrame->jbuf, isScript ? EHStatus_ScriptFrame : EHStatus_NativeFrame);
 		}
 	}
 

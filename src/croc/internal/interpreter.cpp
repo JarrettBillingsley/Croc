@@ -315,7 +315,8 @@ namespace croc
 		auto savedNativeDepth = t->nativeCallDepth; // doesn't need to be volatile since it never changes value
 
 	_exceptionRetry:
-		if(setjmp(buf) == 0)
+		auto ehStatus = setjmp(buf);
+		if(ehStatus == EHStatus_Okay)
 		{
 		t->state = CrocThreadState_Running;
 		t->vm->curThread = t;
@@ -1265,15 +1266,15 @@ namespace croc
 		{
 			assert(t->vm->curThread == t);
 			t->nativeCallDepth = savedNativeDepth;
-			auto frame = t->currentEH;
 
-			if(frame && frame->actRecord + 1 == t->arIndex)
+			if(ehStatus == EHStatus_ScriptFrame)
 			{
 				popScriptEHFrame(t);
 				goto _exceptionRetry;
 			}
 			else
 			{
+				assert(ehStatus == EHStatus_NativeFrame);
 				popNativeEHFrame(t);
 				throwImpl(t, t->stack[t->stackIndex - 1], true);
 			}

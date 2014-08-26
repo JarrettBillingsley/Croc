@@ -650,6 +650,13 @@ namespace croc
 		jmp_buf* jbuf;
 	};
 
+	enum EHStatus
+	{
+		EHStatus_Okay = 0,
+		EHStatus_ScriptFrame = 1,
+		EHStatus_NativeFrame = 2
+	};
+
 	struct VM
 	{
 		Memory mem;
