@@ -2380,7 +2380,8 @@ namespace croc
 #ifdef SHOWME
 	void FuncBuilder::showMe()
 	{
-		printf("Function at %s(%u:%u) (guessed name: %s)\n", mLocation.file, mLocation.line, mLocation.col, mName);
+		printf("Function at %.*s(%u:%u) (guessed name: %.*s)\n", cast(int)mLocation.file.length, mLocation.file.ptr,
+			mLocation.line, mLocation.col, cast(int)mName.length, mName.ptr);
 		printf("Num params: %u Vararg: %u Stack size: %u\n", mNumParams, mIsVararg, mStackSize);
 
 		uword i = 0;
@@ -2392,28 +2393,30 @@ namespace croc
 			printf("\tInner Func %u: %s\n", i++, s->name->toCString());
 
 		i = 0;
-		for(auto &t: mSwitchTables)
+		for(auto &tab: mSwitchTables)
 		{
 			printf("\tSwitch Table %u\n", i++);
 
-			for(auto node: t.offsets)
+			for(auto node: tab.offsets)
 			{
 				push(t, node->key);
 				croc_pushToString(*t, -1);
-				printf("\t\t%s => %d\n", croc_getString(*t, -1), v);
+				printf("\t\t%s => %d\n", croc_getString(*t, -1), node->value);
 				croc_pop(*t, 2);
 			}
 
-			printf("\t\tDefault: %d\n", t.defaultOffset);
+			printf("\t\tDefault: %d\n", tab.defaultOffset);
 		}
 
 		for(auto &v: mLocVars)
-			printf("\tLocal %s (at %s(%u:%u), reg %u, PC %u-%u)\n", v.name, v.location.file, v.location.line,
-				v.location.col, v.reg, v.pcStart, v.pcEnd);
+			printf("\tLocal %.*s (at %.*s(%u:%u), reg %u, PC %u-%u)\n", cast(int)v.name.length, v.name.ptr,
+				cast(int)v.location.file.length, v.location.file.ptr, v.location.line, v.location.col, v.reg,
+				v.pcStart, v.pcEnd);
 
 		i = 0;
 		for(auto &u: mUpvals)
-			printf("\tUpvalue %u: %s : %u (%s)\n", i++, u.name, u.index, u.isUpvalue ? "upval" : "local");
+			printf("\tUpvalue %u: %.*s : %u (%s)\n", i++, cast(int)u.name.length, u.name.ptr, u.index,
+				u.isUpvalue ? "upval" : "local");
 
 		i = 0;
 		for(auto &c: mConstants)
@@ -2431,15 +2434,16 @@ namespace croc
 			i++;
 		}
 
-		auto pc = mCode.ptr;
-		auto end = pc + mCode.length();
+		auto code = mCode.toArrayView();
+		auto pc = code.ptr;
+		auto end = pc + code.length;
 		uword insOffset = 0;
 
 		while(pc < end)
-			disasm(pc, insOffset, lineInfo.toArrayView());
+			disasm(pc, insOffset, mLineInfo.toArrayView());
 	}
 
-	void disasm(Instruction*& pc, uword& insOffset, DArray<uint32_t> lineInfo)
+	void FuncBuilder::disasm(Instruction*& pc, uword& insOffset, DArray<uint32_t> lineInfo)
 	{
 		auto nextIns = [&]()
 		{

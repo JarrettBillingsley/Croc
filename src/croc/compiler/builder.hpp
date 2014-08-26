@@ -469,6 +469,7 @@ namespace croc
 		int getImm(uword index);
 		Funcdef* toFuncDef();
 		void showMe();
+		void disasm(Instruction*& pc, uword& insOffset, DArray<uint32_t> lineInfo);
 	};
 }
 
