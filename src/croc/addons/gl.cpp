@@ -1116,6 +1116,96 @@ void loadGL1_0(CrocThread* t)
 	croc_ex_registerGlobals(t, _gl1_0);
 }
 
+template<void(* APIENTRYP Fun)(GLsizei, GLuint*)>
+struct wrapGen
+{
+	static word_t func(CrocThread* t)
+	{
+		auto num = croc_ex_checkIntParam(t, 1);
+		auto haveArr = croc_ex_optParam(t, 2, CrocType_Array);
+
+		if(num < 1 || (!haveArr && num > 20) || (haveArr && num > 1024))
+			croc_eh_throwStd(t, "RangeError", "Invalid number of names to generate");
+
+		GLuint names[1024];
+		(*Fun)(cast(GLsizei)num, names);
+
+		if(haveArr)
+		{
+			croc_lenai(t, 2, num);
+
+			for(word i = 0; i < num; i++)
+			{
+				croc_pushInt(t, names[i]);
+				croc_idxai(t, 2, i);
+			}
+
+			croc_dup(t, 2);
+			return 1;
+		}
+		else
+		{
+			for(word i = 0; i < num; i++)
+				croc_pushInt(t, names[i]);
+
+			return num;
+		}
+	}
+};
+
+#define WRAPGEN(FUNC) {#FUNC, 2, &wrapGen<&FUNC>::func}
+
+template<void(* APIENTRYP Fun)(GLsizei, const GLuint*)>
+struct wrapDelete
+{
+	static word_t func(CrocThread* t)
+	{
+		croc_ex_checkAnyParam(t, 1);
+		auto numParams = croc_getStackSize(t) - 1;
+		GLsizei num;
+		GLuint names[1024];
+
+		if(croc_isArray(t, 1))
+		{
+			if(numParams > 1)
+				croc_eh_throwStd(t, "ParamError", "Expected at most 1 parameter, but was given %d", numParams);
+
+			auto len = croc_len(t, 1);
+
+			if(len > 1024)
+				croc_eh_throwStd(t, "ValueError", "Array too long (> 1024 elements)");
+
+			for(word i = 0; i < len; i++)
+			{
+				croc_idxi(t, 1, i);
+
+				if(!croc_isInt(t, -1))
+					croc_eh_throwStd(t, "TypeError", "Array element %d is not an integer", i);
+
+				names[i] = croc_getInt(t, -1);
+				croc_popTop(t);
+			}
+
+			num = cast(GLsizei)len;
+		}
+		else
+		{
+			if(numParams > 1024)
+				croc_eh_throwStd(t, "ParamError", "Expected at most 1024 parameters, but was given %d", numParams);
+
+			for(word i = 1; i <= numParams; i++)
+				names[i] = croc_ex_checkIntParam(t, i);
+
+			num = cast(GLsizei)numParams;
+		}
+
+		(*Fun)(num, names);
+		return 0;
+	}
+};
+
+#define WRAPDELETE(FUNC) {#FUNC, -1, &wrapDelete<&FUNC>::func}
+
 const CrocRegisterFunc _gl1_1[] =
 {
 	WRAP(glDrawArrays),
@@ -1128,8 +1218,8 @@ const CrocRegisterFunc _gl1_1[] =
 	WRAP(glTexSubImage1D),
 	WRAP(glTexSubImage2D),
 	WRAP(glBindTexture),
-	WRAP(glDeleteTextures),
-	WRAP(glGenTextures),
+	WRAPDELETE(glDeleteTextures),
+	WRAPGEN(glGenTextures),
 	WRAP(glIsTexture),
 	{nullptr, 0, nullptr}
 };
@@ -1197,8 +1287,8 @@ void loadGL1_4(CrocThread* t)
 
 const CrocRegisterFunc _gl1_5[] =
 {
-	WRAP(glGenQueries),
-	WRAP(glDeleteQueries),
+	WRAPGEN(glGenQueries),
+	WRAPDELETE(glDeleteQueries),
 	WRAP(glIsQuery),
 	WRAP(glBeginQuery),
 	WRAP(glEndQuery),
@@ -1206,8 +1296,8 @@ const CrocRegisterFunc _gl1_5[] =
 	WRAP(glGetQueryObjectiv),
 	WRAP(glGetQueryObjectuiv),
 	WRAP(glBindBuffer),
-	WRAP(glDeleteBuffers),
-	WRAP(glGenBuffers),
+	WRAPDELETE(glDeleteBuffers),
+	WRAPGEN(glGenBuffers),
 	WRAP(glIsBuffer),
 	WRAP(glBufferData),
 	WRAP(glBufferSubData),
@@ -1430,14 +1520,14 @@ const CrocRegisterFunc _gl3_0[] =
 	{"glGetStringi", 2, &crocglGetStringi},
 	WRAP(glIsRenderbuffer),
 	WRAP(glBindRenderbuffer),
-	WRAP(glDeleteRenderbuffers),
-	WRAP(glGenRenderbuffers),
+	WRAPDELETE(glDeleteRenderbuffers),
+	WRAPGEN(glGenRenderbuffers),
 	WRAP(glRenderbufferStorage),
 	WRAP(glGetRenderbufferParameteriv),
 	WRAP(glIsFramebuffer),
 	WRAP(glBindFramebuffer),
-	WRAP(glDeleteFramebuffers),
-	WRAP(glGenFramebuffers),
+	WRAPDELETE(glDeleteFramebuffers),
+	WRAPGEN(glGenFramebuffers),
 	WRAP(glCheckFramebufferStatus),
 	WRAP(glFramebufferTexture1D),
 	WRAP(glFramebufferTexture2D),
@@ -1451,8 +1541,8 @@ const CrocRegisterFunc _gl3_0[] =
 	// WRAP(glMapBufferRange),
 	WRAP(glFlushMappedBufferRange),
 	WRAP(glBindVertexArray),
-	WRAP(glDeleteVertexArrays),
-	WRAP(glGenVertexArrays),
+	WRAPDELETE(glDeleteVertexArrays),
+	WRAPGEN(glGenVertexArrays),
 	WRAP(glIsVertexArray),
 	{nullptr, 0, nullptr}
 };
@@ -1581,8 +1671,8 @@ const CrocRegisterFunc _gl3_3[] =
 {
 	WRAP(glBindFragDataLocationIndexed),
 	WRAP(glGetFragDataIndex),
-	WRAP(glGenSamplers),
-	WRAP(glDeleteSamplers),
+	WRAPGEN(glGenSamplers),
+	WRAPDELETE(glDeleteSamplers),
 	WRAP(glIsSampler),
 	WRAP(glBindSampler),
 	WRAP(glSamplerParameteri),
@@ -1684,8 +1774,8 @@ const CrocRegisterFunc _gl4_0[] =
 	WRAP(glPatchParameteri),
 	WRAP(glPatchParameterfv),
 	WRAP(glBindTransformFeedback),
-	WRAP(glDeleteTransformFeedbacks),
-	WRAP(glGenTransformFeedbacks),
+	WRAPDELETE(glDeleteTransformFeedbacks),
+	WRAPGEN(glGenTransformFeedbacks),
 	WRAP(glIsTransformFeedback),
 	WRAP(glPauseTransformFeedback),
 	WRAP(glResumeTransformFeedback),
@@ -1725,8 +1815,8 @@ const CrocRegisterFunc _gl4_1[] =
 	WRAP(glActiveShaderProgram),
 	{"glCreateShaderProgramv", 2, &crocglCreateShaderProgramv},
 	WRAP(glBindProgramPipeline),
-	WRAP(glDeleteProgramPipelines),
-	WRAP(glGenProgramPipelines),
+	WRAPDELETE(glDeleteProgramPipelines),
+	WRAPGEN(glGenProgramPipelines),
 	WRAP(glIsProgramPipeline),
 	WRAP(glGetProgramPipelineiv),
 	WRAP(glProgramUniform1i),
@@ -2106,6 +2196,14 @@ void load_AMD_occlusion_query_event(CrocThread* t)
 	croc_ex_registerGlobals(t, _AMD_occlusion_query_event);
 }
 
+// stupid shim because glDeletePerfMonitorsAMD doesn't use a const GLuint* like EVERY OTHER glDelete* function
+void APIENTRY glDeletePerfMonitorsAMD_shim(GLsizei num, const GLuint* names)
+{
+	glDeletePerfMonitorsAMD(num, cast(GLuint*)names);
+}
+
+void (APIENTRYP glDeletePerfMonitorsAMD_ptr)(GLsizei, const GLuint*) = &glDeletePerfMonitorsAMD_shim;
+
 const CrocRegisterFunc _AMD_performance_monitor[] =
 {
 	WRAP(glGetPerfMonitorGroupsAMD),
@@ -2113,8 +2211,8 @@ const CrocRegisterFunc _AMD_performance_monitor[] =
 	WRAP(glGetPerfMonitorGroupStringAMD),
 	WRAP(glGetPerfMonitorCounterStringAMD),
 	WRAP(glGetPerfMonitorCounterInfoAMD),
-	WRAP(glGenPerfMonitorsAMD),
-	WRAP(glDeletePerfMonitorsAMD),
+	WRAPGEN(glGenPerfMonitorsAMD),
+	{"glDeletePerfMonitorsAMD", -1, &wrapDelete<&glDeletePerfMonitorsAMD_ptr>::func},
 	WRAP(glSelectPerfMonitorCountersAMD),
 	WRAP(glBeginPerfMonitorAMD),
 	WRAP(glEndPerfMonitorAMD),
@@ -2621,8 +2719,8 @@ void load_ARB_sample_shading(CrocThread* t)
 
 const CrocRegisterFunc _ARB_sampler_objects[] =
 {
-	WRAP(glGenSamplers),
-	WRAP(glDeleteSamplers),
+	WRAPGEN(glGenSamplers),
+	WRAPDELETE(glDeleteSamplers),
 	WRAP(glIsSampler),
 	WRAP(glBindSampler),
 	WRAP(glSamplerParameteri),
@@ -2650,8 +2748,8 @@ const CrocRegisterFunc _ARB_separate_shader_objects[] =
 	WRAP(glActiveShaderProgram),
 	WRAP(glCreateShaderProgramv),
 	WRAP(glBindProgramPipeline),
-	WRAP(glDeleteProgramPipelines),
-	WRAP(glGenProgramPipelines),
+	WRAPDELETE(glDeleteProgramPipelines),
+	WRAPGEN(glGenProgramPipelines),
 	WRAP(glIsProgramPipeline),
 	WRAP(glGetProgramPipelineiv),
 	WRAP(glProgramUniform1i),
@@ -2914,8 +3012,8 @@ void load_ARB_timer_query(CrocThread* t)
 const CrocRegisterFunc _ARB_transform_feedback2[] =
 {
 	WRAP(glBindTransformFeedback),
-	WRAP(glDeleteTransformFeedbacks),
-	WRAP(glGenTransformFeedbacks),
+	WRAPDELETE(glDeleteTransformFeedbacks),
+	WRAPGEN(glGenTransformFeedbacks),
 	WRAP(glIsTransformFeedback),
 	WRAP(glPauseTransformFeedback),
 	WRAP(glResumeTransformFeedback),
