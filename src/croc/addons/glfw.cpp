@@ -2,6 +2,7 @@
 #include "croc/ext/glad/glad.hpp"
 
 #include "croc/addons/glfw.hpp"
+#include "croc/addons/gl.hpp"
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/helpers/oscompat.hpp"
@@ -634,6 +635,11 @@ word_t _loadOpenGL(CrocThread* t)
 	if(!GLAD_GL_VERSION_1_0)
 		croc_eh_throwStd(t, "OSException", "Could not load OpenGL");
 
+	if(!GLAD_GL_VERSION_3_0)
+		croc_eh_throwStd(t, "OSException", "OpenGL 3.0+ support needed; this computer only has OpenGL %d.%d",
+			GLVersion.major, GLVersion.minor);
+
+	loadOpenGL(t);
 	return 0;
 }
 

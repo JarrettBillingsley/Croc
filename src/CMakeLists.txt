@@ -167,6 +167,8 @@ set(croc_SRC
 
 if(CROC_GLFW_ADDON)
 	set(croc_SRC ${croc_SRC}
+		croc/addons/gl.cpp
+		croc/addons/gl.hpp
 		croc/ext/glad.cpp
 		croc/ext/glad/glad.hpp
 		croc/ext/KHR/khrplatform.hpp
