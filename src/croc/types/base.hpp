@@ -215,6 +215,7 @@ namespace croc
 
 		static String* create(VM* vm, crocstr data);
 		static String* createUnverified(VM* vm, crocstr data, uword cpLen);
+		static String* tryCreate(VM* vm, crocstr data);
 		static void free(VM* vm, String* s);
 		crocint compare(String* other);
 		bool contains(crocstr sub);

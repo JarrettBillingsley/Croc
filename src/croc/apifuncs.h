@@ -224,26 +224,28 @@ CROCAPI word_t      croc_superOf      (CrocThread* t, word_t slot);
 @ingroup API
 Pushing and getting the Croc value types. */
 /**@{*/
-CROCAPI word_t      croc_pushNull      (CrocThread* t);
-CROCAPI word_t      croc_pushBool      (CrocThread* t, int v);
-CROCAPI word_t      croc_pushInt       (CrocThread* t, crocint_t v);
-CROCAPI word_t      croc_pushFloat     (CrocThread* t, crocfloat_t v);
-CROCAPI word_t      croc_pushString    (CrocThread* t, const char* v);
-CROCAPI word_t      croc_pushStringn   (CrocThread* t, const char* v, uword_t len);
-CROCAPI word_t      croc_pushChar      (CrocThread* t, crocchar_t c);
-CROCAPI word_t      croc_pushFormat    (CrocThread* t, const char* fmt, ...) CROCPRINT(2, 3);
-CROCAPI word_t      croc_vpushFormat   (CrocThread* t, const char* fmt, va_list args);
-CROCAPI word_t      croc_pushNativeobj (CrocThread* t, void* o);
-CROCAPI word_t      croc_pushThread    (CrocThread* t, CrocThread* o);
-CROCAPI int         croc_getBool       (CrocThread* t, word_t slot);
-CROCAPI crocint_t   croc_getInt        (CrocThread* t, word_t slot);
-CROCAPI crocfloat_t croc_getFloat      (CrocThread* t, word_t slot);
-CROCAPI crocfloat_t croc_getNum        (CrocThread* t, word_t slot);
-CROCAPI crocchar_t  croc_getChar       (CrocThread* t, word_t slot);
-CROCAPI const char* croc_getString     (CrocThread* t, word_t slot);
-CROCAPI const char* croc_getStringn    (CrocThread* t, word_t slot, uword_t* len);
-CROCAPI void*       croc_getNativeobj  (CrocThread* t, word_t slot);
-CROCAPI CrocThread* croc_getThread     (CrocThread* t, word_t slot);
+CROCAPI word_t      croc_pushNull       (CrocThread* t);
+CROCAPI word_t      croc_pushBool       (CrocThread* t, int v);
+CROCAPI word_t      croc_pushInt        (CrocThread* t, crocint_t v);
+CROCAPI word_t      croc_pushFloat      (CrocThread* t, crocfloat_t v);
+CROCAPI word_t      croc_pushString     (CrocThread* t, const char* v);
+CROCAPI word_t      croc_pushStringn    (CrocThread* t, const char* v, uword_t len);
+CROCAPI int         croc_tryPushString  (CrocThread* t, const char* v);
+CROCAPI int         croc_tryPushStringn (CrocThread* t, const char* v, uword_t len);
+CROCAPI word_t      croc_pushChar       (CrocThread* t, crocchar_t c);
+CROCAPI word_t      croc_pushFormat     (CrocThread* t, const char* fmt, ...) CROCPRINT(2, 3);
+CROCAPI word_t      croc_vpushFormat    (CrocThread* t, const char* fmt, va_list args);
+CROCAPI word_t      croc_pushNativeobj  (CrocThread* t, void* o);
+CROCAPI word_t      croc_pushThread     (CrocThread* t, CrocThread* o);
+CROCAPI int         croc_getBool        (CrocThread* t, word_t slot);
+CROCAPI crocint_t   croc_getInt         (CrocThread* t, word_t slot);
+CROCAPI crocfloat_t croc_getFloat       (CrocThread* t, word_t slot);
+CROCAPI crocfloat_t croc_getNum         (CrocThread* t, word_t slot);
+CROCAPI crocchar_t  croc_getChar        (CrocThread* t, word_t slot);
+CROCAPI const char* croc_getString      (CrocThread* t, word_t slot);
+CROCAPI const char* croc_getStringn     (CrocThread* t, word_t slot, uword_t* len);
+CROCAPI void*       croc_getNativeobj   (CrocThread* t, word_t slot);
+CROCAPI CrocThread* croc_getThread      (CrocThread* t, word_t slot);
 /**@}*/
 /*====================================================================================================================*/
 /** @defgroup Weakrefs Weakrefs

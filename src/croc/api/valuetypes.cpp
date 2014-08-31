@@ -44,6 +44,44 @@ extern "C"
 		return push(t, Value::from(String::create(t->vm, crocstr::n(cast(const unsigned char*)v, len))));
 	}
 
+	/** Similar to \ref croc_pushString, but instead of throwing an exception for invalid text encoding, returns a
+	boolean value indicating whether or not pushing was successful.
+
+	This way you can deallocate buffers if the string is not valid and throw your own exception (or handle it however).
+
+	\returns nonzero if the string was successfully pushed, or 0 if it failed (in which case the stack is unchanged). */
+	int croc_tryPushString(CrocThread* t_, const char* v)
+	{
+		auto t = Thread::from(t_);
+
+		if(auto s = String::tryCreate(t->vm, atoda(v)))
+		{
+			push(t, Value::from(s));
+			return true;
+		}
+
+		return false;
+	}
+
+	/** Just like \ref croc_tryPushString, but you give the length of the string instead of having it determined with
+	\c strlen.
+
+	\param v is a pointer to the string.
+	\param len is the length of the string data <em>in bytes</em>.
+	\returns nonzero if the string was successfully pushed, or 0 if it failed (in which case the stack is unchanged). */
+	int croc_tryPushStringn(CrocThread* t_, const char* v, uword_t len)
+	{
+		auto t = Thread::from(t_);
+
+		if(auto s = String::tryCreate(t->vm, crocstr::n(cast(const unsigned char*)v, len)))
+		{
+			push(t, Value::from(s));
+			return true;
+		}
+
+		return false;
+	}
+
 	/** Pushes a one-codepoint-long string which contains the given codepoint \c c.
 
 	\returns the stack index of the pushed value. */
