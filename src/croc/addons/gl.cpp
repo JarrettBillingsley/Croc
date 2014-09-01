@@ -4387,8 +4387,19 @@ void loadExtFlags(CrocThread* t)
 	croc_newGlobal(t, "ext");
 }
 
-void loadOpenGL(CrocThread* t)
+word_t _version(CrocThread* t)
 {
+	croc_pushInt(t, GLVersion.major);
+	croc_pushInt(t, GLVersion.minor);
+	return 2;
+}
+
+const CrocRegisterFunc _version_info = {"version", 0, &_version};
+
+word_t loader(CrocThread* t)
+{
+	croc_ex_registerGlobal(t, _version_info);
+
 	loadConstants(t);
 
 	loadGL1_0(t);
@@ -4491,6 +4502,25 @@ void loadOpenGL(CrocThread* t)
 	load_ARB_vertex_type_2_10_10_10_rev(t);
 	load_ARB_viewport_array(t);
 	load_KHR_debug(t);
+
+	return 0;
 }
 
+void loadOpenGL(CrocThread* t, GLADloadproc loadproc)
+{
+	if(GLAD_GL_VERSION_1_0)
+		return;
+
+	gladLoadGLLoader(loadproc);
+
+	if(!GLAD_GL_VERSION_1_0)
+		croc_eh_throwStd(t, "OSException", "Could not load OpenGL");
+
+	if(!GLAD_GL_VERSION_3_0)
+		croc_eh_throwStd(t, "OSException", "OpenGL 3.0+ support needed; this computer only has OpenGL %d.%d",
+			GLVersion.major, GLVersion.minor);
+
+	croc_ex_makeModule(t, "gl", &loader);
+	croc_ex_import(t, "gl");
+}
 }

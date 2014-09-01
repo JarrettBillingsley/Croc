@@ -626,20 +626,7 @@ const StdlibRegisterInfo _loadOpenGL_info =
 word_t _loadOpenGL(CrocThread* t)
 {
 	checkVM(t);
-
-	if(GLAD_GL_VERSION_1_0)
-		return 0;
-
-	gladLoadGLLoader(glfwGetProcAddress);
-
-	if(!GLAD_GL_VERSION_1_0)
-		croc_eh_throwStd(t, "OSException", "Could not load OpenGL");
-
-	if(!GLAD_GL_VERSION_3_0)
-		croc_eh_throwStd(t, "OSException", "OpenGL 3.0+ support needed; this computer only has OpenGL %d.%d",
-			GLVersion.major, GLVersion.minor);
-
-	loadOpenGL(t);
+	loadOpenGL(t, glfwGetProcAddress);
 	return 0;
 }
 
