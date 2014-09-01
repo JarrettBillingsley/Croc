@@ -95,10 +95,10 @@ GLFWcursorposfun (*glfwSetCursorPosCallback)(GLFWwindow* window, GLFWcursorposfu
 GLFWcursorenterfun (*glfwSetCursorEnterCallback)(GLFWwindow* window, GLFWcursorenterfun cbfun);
 GLFWscrollfun (*glfwSetScrollCallback)(GLFWwindow* window, GLFWscrollfun cbfun);
 GLFWglproc (*glfwGetProcAddress)(const char* procname);
+double (*glfwGetTime)(void);
+void (*glfwSetTime)(double time);
 
 // Not wrapped
-// double (*glfwGetTime)(void);
-// void (*glfwSetTime)(double time);
 // void (*glfwSetWindowUserPointer)(GLFWwindow* window, void* pointer);
 // void* (*glfwGetWindowUserPointer)(GLFWwindow* window);
 // glfwGetProcAddress, at least not publicly
@@ -203,6 +203,8 @@ void loadSharedLib(CrocThread* t)
 	oscompat::getProc(t, glfw, "glfwSetCursorPosCallback", glfwSetCursorPosCallback);
 	oscompat::getProc(t, glfw, "glfwSetCursorEnterCallback", glfwSetCursorEnterCallback);
 	oscompat::getProc(t, glfw, "glfwSetScrollCallback", glfwSetScrollCallback);
+	oscompat::getProc(t, glfw, "glfwGetTime", glfwGetTime);
+	oscompat::getProc(t, glfw, "glfwSetTime", glfwSetTime);
 }
 
 // =====================================================================================================================
@@ -959,6 +961,34 @@ word_t _setMonitorEventsEnabled(CrocThread* t)
 	return 0;
 }
 
+const StdlibRegisterInfo _getTime_info =
+{
+	Docstr(DFunc("getTime")
+	R"()"),
+
+	"getTime", 0
+};
+
+word_t _getTime(CrocThread* t)
+{
+	croc_pushFloat(t, glfwGetTime());
+	return 1;
+}
+
+const StdlibRegisterInfo _setTime_info =
+{
+	Docstr(DFunc("setTime")
+	R"()"),
+
+	"setTime", 1
+};
+
+word_t _setTime(CrocThread* t)
+{
+	glfwSetTime(croc_ex_checkNumParam(t, 1));
+	return 0;
+}
+
 const StdlibRegister _globalFuncs[] =
 {
 	_DListItem(_init),
@@ -982,6 +1012,8 @@ const StdlibRegister _globalFuncs[] =
 	_DListItem(_swapInterval),
 	_DListItem(_extensionSupported),
 	_DListItem(_setMonitorEventsEnabled),
+	_DListItem(_getTime),
+	_DListItem(_setTime),
 	_DListEnd
 };
 
