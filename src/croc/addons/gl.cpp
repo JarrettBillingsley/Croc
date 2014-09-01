@@ -14,63 +14,35 @@
 Problematic APIs
 ----------------
 
-// Take arrays of strings
-void   glTransformFeedbackVaryings(GLuint, GLsizei, const GLchar**, GLenum); // param 2 is count of zstr-array param 3
+Following are wrapped, but don't present the nicest API, or can't be used properly:
+	// Take output string buffers
+	GLuint glGetDebugMessageLog(GLuint, GLsizei, GLenum*, GLenum*, GLuint*, GLenum*, GLsizei*, GLchar*);
 
-void   glCompileShaderIncludeARB(GLuint, GLsizei, const GLchar**, const GLint*); // param 2 is count of array params 3 and 4... and param 4 is array of lengths of strings in param 3!
+	GLuint glGetDebugMessageLogARB(GLuint, GLsizei, GLenum*, GLenum*, GLuint*, GLenum*, GLsizei*, GLchar*);
+	void   glGetPerfMonitorCounterStringAMD(GLuint, GLuint, GLsizei, GLsizei*, GLchar*);
+	void   glGetPerfMonitorGroupStringAMD(GLuint, GLsizei, GLsizei*, GLchar*);
 
-// Take output string buffers
-void   glGetActiveAttrib(GLuint, GLuint, GLsizei, GLsizei*, GLint*, GLenum*, GLchar*);
-void   glGetActiveSubroutineName(GLuint, GLenum, GLuint, GLsizei, GLsizei*, GLchar*);
-void   glGetActiveSubroutineUniformName(GLuint, GLenum, GLuint, GLsizei, GLsizei*, GLchar*);
-void   glGetActiveUniform(GLuint, GLuint, GLsizei, GLsizei*, GLint*, GLenum*, GLchar*);
-void   glGetActiveUniformBlockName(GLuint, GLuint, GLsizei, GLsizei*, GLchar*);
-void   glGetActiveUniformName(GLuint, GLuint, GLsizei, GLsizei*, GLchar*);
-GLuint glGetDebugMessageLog(GLuint, GLsizei, GLenum*, GLenum*, GLuint*, GLenum*, GLsizei*, GLchar*);
-void   glGetObjectLabel(GLenum, GLuint, GLsizei, GLsizei*, GLchar*);
-void   glGetObjectPtrLabel(const void*, GLsizei, GLsizei*, GLchar*);
-void   glGetProgramInfoLog(GLuint, GLsizei, GLsizei*, GLchar*);
-void   glGetProgramPipelineInfoLog(GLuint, GLsizei, GLsizei*, GLchar*);
-void   glGetProgramResourceName(GLuint, GLenum, GLuint, GLsizei, GLsizei*, GLchar*);
-void   glGetShaderInfoLog(GLuint, GLsizei, GLsizei*, GLchar*);
-void   glGetShaderSource(GLuint, GLsizei, GLsizei*, GLchar*);
-void   glGetTransformFeedbackVarying(GLuint, GLuint, GLsizei, GLsizei*, GLsizei*, GLenum*, GLchar*);
+	// Take arrays of pointers
+	void glGetPointeri_vEXT(GLenum, GLuint, void**);
+	void glGetPointerIndexedvEXT(GLenum, GLuint, void**);
+	void glGetVertexArrayPointeri_vEXT(GLuint, GLuint, GLenum, void**);
+	void glGetVertexArrayPointervEXT(GLuint, GLenum, void**);
 
-GLuint glGetDebugMessageLogARB(GLuint, GLsizei, GLenum*, GLenum*, GLuint*, GLenum*, GLsizei*, GLchar*);
-void   glGetNamedStringARB(GLint, const GLchar*, GLsizei, GLint*, GLchar*);
-void   glGetPerfMonitorCounterStringAMD(GLuint, GLuint, GLsizei, GLsizei*, GLchar*);
-void   glGetPerfMonitorGroupStringAMD(GLuint, GLsizei, GLsizei*, GLchar*);
+Following are not wrapped at all:
+	// Redundant?
+	void glMultiDrawElements(GLenum, const GLsizei*, GLenum, const void**, GLsizei);
+	void glMultiDrawElementsBaseVertex(GLenum, const GLsizei*, GLenum, const void**, GLsizei, const GLint*);
 
-// Take arrays of pointers
-void glGetBufferPointerv(GLenum, GLenum, void**);
-void glGetNamedBufferPointerv(GLuint, GLenum, void**);
-void glGetVertexAttribPointerv(GLuint, GLenum, void**);
-void glMultiDrawElements(GLenum, const GLsizei*, GLenum, const void**, GLsizei);
-void glMultiDrawElementsBaseVertex(GLenum, const GLsizei*, GLenum, const void**, GLsizei, const GLint*);
+	// Return GLsync
+	GLsync glFenceSync(GLenum, GLbitfield);
+	GLsync glCreateSyncFromCLeventARB(struct _cl_context*, struct _cl_event*, GLbitfield);
 
-void glGetPointerv(GLenum, void**);
-void glGetNamedBufferPointervEXT(GLuint, GLenum, void**);
-void glGetPointeri_vEXT(GLenum, GLuint, void**);
-void glGetPointerIndexedvEXT(GLenum, GLuint, void**);
-void glGetVertexArrayPointeri_vEXT(GLuint, GLuint, GLenum, void**);
-void glGetVertexArrayPointervEXT(GLuint, GLenum, void**);
-
-// Take function pointers
-void glDebugMessageCallback(GLDEBUGPROC, const void*);
-
-void glDebugMessageCallbackARB(GLDEBUGPROCARB, const void*);
-
-// Return pointers
-GLsync glFenceSync(GLenum, GLbitfield);
-void*  glMapBuffer(GLenum, GLenum);
-void*  glMapBufferRange(GLenum, GLintptr, GLsizeiptr, GLbitfield);
-void*  glMapNamedBuffer(GLuint, GLenum);
-void*  glMapNamedBufferRange(GLuint, GLintptr, GLsizei, GLbitfield);
-
-GLsync glCreateSyncFromCLeventARB(struct _cl_context*, struct _cl_event*, GLbitfield);
-void* glMapNamedBufferEXT(GLuint, GLenum);
-void* glMapNamedBufferRangeEXT(GLuint, GLintptr, GLsizei, GLbitfield);
-void* glMapTexture2DINTEL(GLuint, GLint, GLbitfield, GLint*, GLenum*);
+	// Return pointers whose size cannot necessarily be determined
+	void glGetPointerv(GLenum, void**);
+	void glGetBufferPointerv(GLenum, GLenum, void**);
+	void glGetNamedBufferPointerv(GLuint, GLenum, void**);
+	void glGetNamedBufferPointervEXT(GLuint, GLenum, void**);
+	void* glMapTexture2DINTEL(GLuint, GLint, GLbitfield, GLint*, GLenum*);
 */
 
 namespace croc
@@ -1285,6 +1257,31 @@ void loadGL1_4(CrocThread* t)
 	croc_ex_registerGlobals(t, _gl1_4);
 }
 
+word_t crocglMapBuffer(CrocThread* t)
+{
+	auto target = cast(GLenum)croc_ex_checkIntParam(t, 1);
+	auto access = cast(GLenum)croc_ex_checkIntParam(t, 2);
+	auto haveMemblock = croc_ex_optParam(t, 3, CrocType_Memblock);
+
+	GLint size;
+	glGetBufferParameteriv(target, GL_BUFFER_SIZE, &size);
+
+	if(auto ptr = glMapBuffer(target, access))
+	{
+		if(haveMemblock)
+		{
+			croc_memblock_reviewNativeArray(t, 3, ptr, size);
+			croc_dup(t, 3);
+		}
+		else
+			croc_memblock_viewNativeArray(t, ptr, size);
+	}
+	else
+		croc_pushNull(t);
+
+	return 1;
+}
+
 const CrocRegisterFunc _gl1_5[] =
 {
 	WRAPGEN(glGenQueries),
@@ -1302,7 +1299,7 @@ const CrocRegisterFunc _gl1_5[] =
 	WRAP(glBufferData),
 	WRAP(glBufferSubData),
 	WRAP(glGetBufferSubData),
-	// WRAP(glMapBuffer),
+	{"glMapBuffer", 3, &crocglMapBuffer},
 	WRAP(glUnmapBuffer),
 	WRAP(glGetBufferParameteriv),
 	// WRAP(glGetBufferPointerv),
@@ -1329,6 +1326,122 @@ word_t crocglShaderSource(CrocThread* t)
 	return 0;
 }
 
+word_t crocglGetVertexAttribPointerv(CrocThread* t)
+{
+	auto index = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto name = cast(GLenum)croc_ex_checkIntParam(t, 2);
+	GLvoid* ptr;
+	glGetVertexAttribPointerv(index, name, &ptr);
+	croc_pushInt(t, cast(crocint)ptr);
+	return 1;
+}
+
+word_t crocglGetActiveAttrib(CrocThread* t)
+{
+	auto program = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto index = cast(GLuint)croc_ex_checkIntParam(t, 2);
+	GLchar buf[512];
+	GLsizei length;
+	GLint size;
+	GLenum type;
+
+	glGetActiveAttrib(program, index, sizeof(buf) / sizeof(GLchar), &length, &size, &type, buf);
+
+	if(length == 0)
+		return 0;
+
+	croc_pushInt(t, type);
+	croc_pushInt(t, size);
+	croc_pushStringn(t, buf, length);
+	return 3;
+}
+
+word_t crocglGetActiveUniform(CrocThread* t)
+{
+	auto program = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto index = cast(GLuint)croc_ex_checkIntParam(t, 2);
+	GLchar buf[512];
+	GLsizei length;
+	GLint size;
+	GLenum type;
+
+	glGetActiveUniform(program, index, sizeof(buf) / sizeof(GLchar), &length, &size, &type, buf);
+
+	if(length == 0)
+		return 0;
+
+	croc_pushInt(t, type);
+	croc_pushInt(t, size);
+	croc_pushStringn(t, buf, length);
+	return 3;
+}
+
+word_t crocglGetProgramInfoLog(CrocThread* t)
+{
+	auto program = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	GLint length = -1;
+	glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetProgramInfoLog(program, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
+word_t crocglGetShaderInfoLog(CrocThread* t)
+{
+	auto shader = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	GLint length = -1;
+	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetShaderInfoLog(shader, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
+word_t crocglGetShaderSource(CrocThread* t)
+{
+	auto shader = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	GLint length = -1;
+	glGetShaderiv(shader, GL_SHADER_SOURCE_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetShaderSource(shader, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
 const CrocRegisterFunc _gl2_0[] =
 {
 	WRAP(glBlendEquationSeparate),
@@ -1346,22 +1459,22 @@ const CrocRegisterFunc _gl2_0[] =
 	WRAP(glDetachShader),
 	WRAP(glDisableVertexAttribArray),
 	WRAP(glEnableVertexAttribArray),
-	// WRAP(glGetActiveAttrib),
-	// WRAP(glGetActiveUniform),
+	{"glGetActiveAttrib", 2, crocglGetActiveAttrib},
+	{"glGetActiveUniform", 2, crocglGetActiveUniform},
 	WRAP(glGetAttachedShaders),
 	WRAP(glGetAttribLocation),
 	WRAP(glGetProgramiv),
-	// WRAP(glGetProgramInfoLog),
+	{"glGetProgramInfoLog", 1, crocglGetProgramInfoLog},
 	WRAP(glGetShaderiv),
-	WRAP(glGetShaderInfoLog),
-	// WRAP(glGetShaderSource),
+	{"glGetShaderInfoLog", 1, crocglGetShaderInfoLog},
+	{"glGetShaderSource", 1, crocglGetShaderSource},
 	WRAP(glGetUniformLocation),
 	WRAP(glGetUniformfv),
 	WRAP(glGetUniformiv),
 	WRAP(glGetVertexAttribdv),
 	WRAP(glGetVertexAttribfv),
 	WRAP(glGetVertexAttribiv),
-	// WRAP(glGetVertexAttribPointerv),
+	{"glGetVertexAttribPointerv", 2, &crocglGetVertexAttribPointerv},
 	WRAP(glIsProgram),
 	WRAP(glIsShader),
 	WRAP(glLinkProgram),
@@ -1458,6 +1571,103 @@ word_t crocglGetStringi(CrocThread* t)
 	return 1;
 }
 
+word_t crocglMapBufferRange(CrocThread* t)
+{
+	auto target = cast(GLenum)croc_ex_checkIntParam(t, 1);
+	auto offset = cast(GLintptr)croc_ex_checkIntParam(t, 2);
+	auto length = cast(GLsizeiptr)croc_ex_checkIntParam(t, 3);
+	auto access = cast(GLenum)croc_ex_checkIntParam(t, 4);
+	auto haveMemblock = croc_ex_optParam(t, 5, CrocType_Memblock);
+
+	if(auto ptr = glMapBufferRange(target, offset, length, access))
+	{
+		if(haveMemblock)
+		{
+			croc_memblock_reviewNativeArray(t, 5, ptr, length);
+			croc_dup(t, 5);
+		}
+		else
+			croc_memblock_viewNativeArray(t, ptr, length);
+	}
+	else
+		croc_pushNull(t);
+
+	return 1;
+}
+
+word_t crocglTransformFeedbackVaryings(CrocThread* t)
+{
+	auto program = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	croc_ex_checkParam(t, 2, CrocType_Array);
+	auto mode = cast(GLenum)croc_ex_checkIntParam(t, 3);
+	auto varyingsLen = croc_len(t, 2);
+
+	for(word i = 0; i < varyingsLen; i++)
+	{
+		croc_idxi(t, 2, i);
+
+		if(!croc_isString(t, -1))
+			croc_eh_throwStd(t, "TypeError", "Array element %d is not a string", i);
+
+		croc_popTop(t);
+	}
+
+	const GLchar* varyings_[128];
+	const GLchar** varyings;
+	uword_t varyingsSize;
+
+	if(varyingsLen < 128)
+		varyings = varyings_;
+	else
+	{
+		varyingsSize = varyingsLen * sizeof(GLchar*);
+		varyings = cast(const GLchar**)croc_mem_alloc(t, varyingsSize);
+	}
+
+	for(word i = 0; i < varyingsLen; i++)
+	{
+		croc_idxi(t, 2, i);
+		varyings[i] = croc_getString(t, -1);
+		croc_popTop(t);
+	}
+
+	glTransformFeedbackVaryings(program, varyingsLen, varyings, mode);
+
+	if(varyings != varyings_)
+		croc_mem_free(t, cast(void**)&varyings, &varyingsSize);
+
+	return 0;
+}
+
+word_t crocglGetTransformFeedbackVarying(CrocThread* t)
+{
+	auto program = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto index = cast(GLuint)croc_ex_checkIntParam(t, 2);
+
+	GLint length = -1;
+	glGetProgramiv(program, GL_TRANSFORM_FEEDBACK_VARYING_MAX_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	GLint varyingSize;
+	GLenum type;
+	glGetTransformFeedbackVarying(program, index, length, &realLength, &varyingSize, &type, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	croc_pushInt(t, type);
+	croc_pushInt(t, varyingSize);
+	croc_moveToTop(t, -3);
+	return 3;
+}
+
 const CrocRegisterFunc _gl3_0[] =
 {
 	WRAP(glColorMaski),
@@ -1470,8 +1680,8 @@ const CrocRegisterFunc _gl3_0[] =
 	WRAP(glEndTransformFeedback),
 	WRAP(glBindBufferRange),
 	WRAP(glBindBufferBase),
-	// WRAP(glTransformFeedbackVaryings),
-	// WRAP(glGetTransformFeedbackVarying),
+	{"glTransformFeedbackVaryings", 3, &crocglTransformFeedbackVaryings},
+	{"glGetTransformFeedbackVarying", 2, &crocglGetTransformFeedbackVarying},
 	WRAP(glClampColor),
 	WRAP(glBeginConditionalRender),
 	WRAP(glEndConditionalRender),
@@ -1538,7 +1748,7 @@ const CrocRegisterFunc _gl3_0[] =
 	WRAP(glBlitFramebuffer),
 	WRAP(glRenderbufferStorageMultisample),
 	WRAP(glFramebufferTextureLayer),
-	// WRAP(glMapBufferRange),
+	{"glMapBufferRange", 5, &crocglMapBufferRange},
 	WRAP(glFlushMappedBufferRange),
 	WRAP(glBindVertexArray),
 	WRAPDELETE(glDeleteVertexArrays),
@@ -1614,6 +1824,54 @@ word_t crocglGetUniformIndices(CrocThread* t)
 	return 0;
 }
 
+word_t crocglGetActiveUniformName(CrocThread* t)
+{
+	auto program = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto index = cast(GLuint)croc_ex_checkIntParam(t, 2);
+
+	GLint length = -1;
+	glGetProgramiv(program, GL_ACTIVE_UNIFORM_MAX_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetActiveUniformName(program, index, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
+word_t crocglGetActiveUniformBlockName(CrocThread* t)
+{
+	auto program = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto index = cast(GLuint)croc_ex_checkIntParam(t, 2);
+
+	GLint length = -1;
+	glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetActiveUniformBlockName(program, index, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
 const CrocRegisterFunc _gl3_1[] =
 {
 	WRAP(glDrawArraysInstanced),
@@ -1623,10 +1881,10 @@ const CrocRegisterFunc _gl3_1[] =
 	WRAP(glCopyBufferSubData),
 	{"glGetUniformIndices", 3, &crocglGetUniformIndices},
 	WRAP(glGetActiveUniformsiv),
-	// WRAP(glGetActiveUniformName),
+	{"glGetActiveUniformName", 2, &crocglGetActiveUniformName},
 	WRAP(glGetUniformBlockIndex),
 	WRAP(glGetActiveUniformBlockiv),
-	// WRAP(glGetActiveUniformBlockName),
+	{"glGetActiveUniformBlockName", 2, &crocglGetActiveUniformBlockName},
 	WRAP(glUniformBlockBinding),
 	{nullptr, 0, nullptr}
 };
@@ -1736,6 +1994,56 @@ void loadGL3_3(CrocThread* t)
 	croc_ex_registerGlobals(t, _gl3_3);
 }
 
+word_t crocglGetActiveSubroutineUniformName(CrocThread* t)
+{
+	auto program = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto shaderType = cast(GLenum)croc_ex_checkIntParam(t, 2);
+	auto index = cast(GLuint)croc_ex_checkIntParam(t, 3);
+
+	GLint length = -1;
+	glGetProgramStageiv(program, shaderType, GL_ACTIVE_SUBROUTINE_UNIFORM_MAX_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetActiveSubroutineUniformName(program, shaderType, index, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
+word_t crocglGetActiveSubroutineName(CrocThread* t)
+{
+	auto program = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto shaderType = cast(GLenum)croc_ex_checkIntParam(t, 2);
+	auto index = cast(GLuint)croc_ex_checkIntParam(t, 3);
+
+	GLint length = -1;
+	glGetProgramStageiv(program, shaderType, GL_ACTIVE_SUBROUTINE_MAX_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetActiveSubroutineName(program, shaderType, index, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
 const CrocRegisterFunc _gl4_0[] =
 {
 	WRAP(glMinSampleShading),
@@ -1766,8 +2074,8 @@ const CrocRegisterFunc _gl4_0[] =
 	WRAP(glGetSubroutineUniformLocation),
 	WRAP(glGetSubroutineIndex),
 	WRAP(glGetActiveSubroutineUniformiv),
-	// WRAP(glGetActiveSubroutineUniformName),
-	// WRAP(glGetActiveSubroutineName),
+	{"glGetActiveSubroutineUniformName", 3, &crocglGetActiveSubroutineUniformName},
+	{"glGetActiveSubroutineName", 3, &crocglGetActiveSubroutineName},
 	WRAP(glUniformSubroutinesuiv),
 	WRAP(glGetUniformSubroutineuiv),
 	WRAP(glGetProgramStageiv),
@@ -1798,6 +2106,28 @@ word_t crocglCreateShaderProgramv(CrocThread* t)
 	auto type = cast(GLenum)croc_ex_checkIntParam(t, 1);
 	auto src = cast(const GLchar*)croc_ex_checkStringParam(t, 2);
 	croc_pushInt(t, cast(crocint)glCreateShaderProgramv(type, 1, &src));
+	return 1;
+}
+
+word_t crocglGetProgramPipelineInfoLog(CrocThread* t)
+{
+	auto pipeline = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	GLint length = -1;
+	glGetProgramPipelineiv(pipeline, GL_INFO_LOG_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetProgramPipelineInfoLog(pipeline, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
 	return 1;
 }
 
@@ -1870,7 +2200,7 @@ const CrocRegisterFunc _gl4_1[] =
 	WRAP(glProgramUniformMatrix3x4dv),
 	WRAP(glProgramUniformMatrix4x3dv),
 	WRAP(glValidateProgramPipeline),
-	// WRAP(glGetProgramPipelineInfoLog),
+	{"glGetProgramPipelineInfoLog", 1, &crocglGetProgramPipelineInfoLog},
 	WRAP(glVertexAttribL1d),
 	WRAP(glVertexAttribL2d),
 	WRAP(glVertexAttribL3d),
@@ -1923,6 +2253,113 @@ void loadGL4_2(CrocThread* t)
 	croc_ex_registerGlobals(t, _gl4_2);
 }
 
+word_t crocglGetProgramResourceName(CrocThread* t)
+{
+	auto program = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto programInterface = cast(GLenum)croc_ex_checkIntParam(t, 2);
+	auto index = cast(GLuint)croc_ex_checkIntParam(t, 3);
+
+	GLint length = -1;
+	glGetProgramInterfaceiv(program, programInterface, GL_MAX_NAME_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetProgramResourceName(program, programInterface, index, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
+word_t crocglGetObjectLabel(CrocThread* t)
+{
+	auto identifier = cast(GLenum)croc_ex_checkIntParam(t, 1);
+	auto name = cast(GLuint)croc_ex_checkIntParam(t, 2);
+
+	GLint length = -1;
+	glGetIntegerv(GL_MAX_LABEL_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetObjectLabel(identifier, name, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
+word_t crocglGetObjectPtrLabel(CrocThread* t)
+{
+	auto sync = getGLParam<void*>(t, 1);
+
+	GLint length = -1;
+	glGetIntegerv(GL_MAX_LABEL_LENGTH, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetObjectPtrLabel(sync, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
+void APIENTRY debugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+	const GLchar* message, const void* vm)
+{
+	auto t = croc_vm_getCurrentThread(cast(CrocThread*)vm);
+
+	auto f = croc_ex_pushRegistryVar(t, "gl.DebugCallback");
+	croc_pushNull(t);
+	croc_pushInt(t, source);
+	croc_pushInt(t, type);
+	croc_pushInt(t, id);
+	croc_pushInt(t, severity);
+	croc_pushStringn(t, message, length);
+	croc_tryCall(t, f, 0);
+}
+
+word_t crocglDebugMessageCallback(CrocThread* t)
+{
+	if(croc_ex_optParam(t, 1, CrocType_Function))
+	{
+		croc_vm_pushRegistry(t);
+		croc_dup(t, 1);
+		croc_fielda(t, -2, "gl.DebugCallback");
+		glDebugMessageCallback(&debugMessageCallback, croc_vm_getMainThread(t));
+	}
+	else
+	{
+		croc_vm_pushRegistry(t);
+		croc_pushNull(t);
+		croc_fielda(t, -2, "gl.DebugCallback");
+		glDebugMessageCallback(nullptr, nullptr);
+	}
+
+	return 0;
+}
+
 const CrocRegisterFunc _gl4_3[] =
 {
 	WRAP(glClearBufferData),
@@ -1943,7 +2380,7 @@ const CrocRegisterFunc _gl4_3[] =
 	WRAP(glMultiDrawElementsIndirect),
 	WRAP(glGetProgramInterfaceiv),
 	WRAP(glGetProgramResourceIndex),
-	// WRAP(glGetProgramResourceName),
+	{"glGetProgramResourceName", 3, &crocglGetProgramResourceName},
 	WRAP(glGetProgramResourceiv),
 	WRAP(glGetProgramResourceLocation),
 	WRAP(glGetProgramResourceLocationIndex),
@@ -1960,15 +2397,15 @@ const CrocRegisterFunc _gl4_3[] =
 	WRAP(glVertexBindingDivisor),
 	WRAP(glDebugMessageControl),
 	WRAP(glDebugMessageInsert),
-	// WRAP(glDebugMessageCallback),
+	{"glDebugMessageCallback", 1, &crocglDebugMessageCallback},
 	WRAP(glGetDebugMessageLog),
 	WRAP(glPushDebugGroup),
 	WRAP(glPopDebugGroup),
 	WRAP(glObjectLabel),
-	// WRAP(glGetObjectLabel),
-	WRAP(glObjectPtrLabel),
+	{"glGetObjectLabel", 2, &crocglGetObjectLabel},
+	{"glObjectPtrLabel", 1, &crocglGetObjectPtrLabel},
 	WRAP(glGetObjectPtrLabel),
-	WRAP(glGetPointerv),
+	// WRAP(glGetPointerv),
 	{nullptr, 0, nullptr}
 };
 
@@ -1998,6 +2435,55 @@ void loadGL4_4(CrocThread* t)
 	croc_ex_registerGlobals(t, _gl4_4);
 }
 
+word_t crocglMapNamedBuffer(CrocThread* t)
+{
+	auto name = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto access = cast(GLenum)croc_ex_checkIntParam(t, 2);
+	auto haveMemblock = croc_ex_optParam(t, 3, CrocType_Memblock);
+
+	GLint size;
+	glGetNamedBufferParameteriv(name, GL_BUFFER_SIZE, &size);
+
+	if(auto ptr = glMapNamedBuffer(name, access))
+	{
+		if(haveMemblock)
+		{
+			croc_memblock_reviewNativeArray(t, 3, ptr, size);
+			croc_dup(t, 3);
+		}
+		else
+			croc_memblock_viewNativeArray(t, ptr, size);
+	}
+	else
+		croc_pushNull(t);
+
+	return 1;
+}
+
+word_t crocglMapNamedBufferRange(CrocThread* t)
+{
+	auto name = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto offset = cast(GLintptr)croc_ex_checkIntParam(t, 2);
+	auto length = cast(GLsizeiptr)croc_ex_checkIntParam(t, 3);
+	auto access = cast(GLenum)croc_ex_checkIntParam(t, 4);
+	auto haveMemblock = croc_ex_optParam(t, 5, CrocType_Memblock);
+
+	if(auto ptr = glMapNamedBufferRange(name, offset, length, access))
+	{
+		if(haveMemblock)
+		{
+			croc_memblock_reviewNativeArray(t, 5, ptr, length);
+			croc_dup(t, 5);
+		}
+		else
+			croc_memblock_viewNativeArray(t, ptr, length);
+	}
+	else
+		croc_pushNull(t);
+
+	return 1;
+}
+
 const CrocRegisterFunc _gl4_5[] =
 {
 	WRAP(glClipControl),
@@ -2014,13 +2500,13 @@ const CrocRegisterFunc _gl4_5[] =
 	WRAP(glCopyNamedBufferSubData),
 	WRAP(glClearNamedBufferData),
 	WRAP(glClearNamedBufferSubData),
-	// WRAP(glMapNamedBuffer),
-	// WRAP(glMapNamedBufferRange),
+	{"glMapNamedBuffer", 3, &crocglMapNamedBuffer},
+	{"glMapNamedBufferRange", 5, &crocglMapNamedBufferRange},
 	WRAP(glUnmapNamedBuffer),
 	WRAP(glFlushMappedNamedBufferRange),
 	WRAP(glGetNamedBufferParameteriv),
 	WRAP(glGetNamedBufferParameteri64v),
-	WRAP(glGetNamedBufferPointerv),
+	// WRAP(glGetNamedBufferPointerv),
 	WRAP(glGetNamedBufferSubData),
 	WRAP(glCreateFramebuffers),
 	WRAP(glNamedFramebufferRenderbuffer),
@@ -2404,11 +2890,46 @@ void load_ARB_copy_image(CrocThread* t)
 	croc_ex_registerGlobals(t, _ARB_copy_image);
 }
 
+void APIENTRY debugMessageCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+	const GLchar* message, const void* vm)
+{
+	auto t = croc_vm_getCurrentThread(cast(CrocThread*)vm);
+
+	auto f = croc_ex_pushRegistryVar(t, "gl.DebugCallbackARB");
+	croc_pushNull(t);
+	croc_pushInt(t, source);
+	croc_pushInt(t, type);
+	croc_pushInt(t, id);
+	croc_pushInt(t, severity);
+	croc_pushStringn(t, message, length);
+	croc_tryCall(t, f, 0);
+}
+
+word_t crocglDebugMessageCallbackARB(CrocThread* t)
+{
+	if(croc_ex_optParam(t, 1, CrocType_Function))
+	{
+		croc_vm_pushRegistry(t);
+		croc_dup(t, 1);
+		croc_fielda(t, -2, "gl.DebugCallbackARB");
+		glDebugMessageCallbackARB(&debugMessageCallbackARB, croc_vm_getMainThread(t));
+	}
+	else
+	{
+		croc_vm_pushRegistry(t);
+		croc_pushNull(t);
+		croc_fielda(t, -2, "gl.DebugCallbackARB");
+		glDebugMessageCallbackARB(nullptr, nullptr);
+	}
+
+	return 0;
+}
+
 const CrocRegisterFunc _ARB_debug_output[] =
 {
 	WRAP(glDebugMessageControlARB),
 	WRAP(glDebugMessageInsertARB),
-	// WRAP(glDebugMessageCallbackARB),
+	{"glDebugMessageCallbackARB", 1, &crocglDebugMessageCallbackARB},
 	WRAP(glGetDebugMessageLogARB),
 	{nullptr, 0, nullptr}
 };
@@ -2439,7 +2960,7 @@ const CrocRegisterFunc _ARB_draw_elements_base_vertex[] =
 	WRAP(glDrawElementsBaseVertex),
 	WRAP(glDrawRangeElementsBaseVertex),
 	WRAP(glDrawElementsInstancedBaseVertex),
-	WRAP(glMultiDrawElementsBaseVertex),
+	// WRAP(glMultiDrawElementsBaseVertex),
 	{nullptr, 0, nullptr}
 };
 
@@ -2649,7 +3170,7 @@ const CrocRegisterFunc _ARB_program_interface_query[] =
 {
 	WRAP(glGetProgramInterfaceiv),
 	WRAP(glGetProgramResourceIndex),
-	WRAP(glGetProgramResourceName),
+	{"glGetProgramResourceName", 3, &crocglGetProgramResourceName},
 	WRAP(glGetProgramResourceiv),
 	WRAP(glGetProgramResourceLocation),
 	WRAP(glGetProgramResourceLocationIndex),
@@ -2746,7 +3267,7 @@ const CrocRegisterFunc _ARB_separate_shader_objects[] =
 {
 	WRAP(glUseProgramStages),
 	WRAP(glActiveShaderProgram),
-	WRAP(glCreateShaderProgramv),
+	{"glCreateShaderProgramv", 2, &crocglCreateShaderProgramv},
 	WRAP(glBindProgramPipeline),
 	WRAPDELETE(glDeleteProgramPipelines),
 	WRAPGEN(glGenProgramPipelines),
@@ -2803,7 +3324,7 @@ const CrocRegisterFunc _ARB_separate_shader_objects[] =
 	WRAP(glProgramUniformMatrix3x4dv),
 	WRAP(glProgramUniformMatrix4x3dv),
 	WRAP(glValidateProgramPipeline),
-	WRAP(glGetProgramPipelineInfoLog),
+	{"glGetProgramPipelineInfoLog", 1, &crocglGetProgramPipelineInfoLog},
 	{nullptr, 0, nullptr}
 };
 
@@ -2855,8 +3376,8 @@ const CrocRegisterFunc _ARB_shader_subroutine[] =
 	WRAP(glGetSubroutineUniformLocation),
 	WRAP(glGetSubroutineIndex),
 	WRAP(glGetActiveSubroutineUniformiv),
-	WRAP(glGetActiveSubroutineUniformName),
-	WRAP(glGetActiveSubroutineName),
+	{"glGetActiveSubroutineUniformName", 3, &crocglGetActiveSubroutineUniformName},
+	{"glGetActiveSubroutineName", 3, &crocglGetActiveSubroutineName},
 	WRAP(glUniformSubroutinesuiv),
 	WRAP(glGetUniformSubroutineuiv),
 	WRAP(glGetProgramStageiv),
@@ -2869,13 +3390,79 @@ void load_ARB_shader_subroutine(CrocThread* t)
 	croc_ex_registerGlobals(t, _ARB_shader_subroutine);
 }
 
+word_t crocglCompileShaderIncludeARB(CrocThread* t)
+{
+	auto shader = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	croc_ex_checkParam(t, 2, CrocType_Array);
+	auto pathsLen = croc_len(t, 2);
+
+	for(word i = 0; i < pathsLen; i++)
+	{
+		croc_idxi(t, 2, i);
+
+		if(!croc_isString(t, -1))
+			croc_eh_throwStd(t, "TypeError", "Array element %d is not a string", i);
+
+		croc_popTop(t);
+	}
+
+	const GLchar* paths_[128];
+	const GLchar** paths;
+	uword_t pathsSize;
+
+	if(pathsLen < 128)
+		paths = paths_;
+	else
+	{
+		pathsSize = pathsLen * sizeof(GLchar*);
+		paths = cast(const GLchar**)croc_mem_alloc(t, pathsSize);
+	}
+
+	for(word i = 0; i < pathsLen; i++)
+	{
+		croc_idxi(t, 2, i);
+		paths[i] = croc_getString(t, -1);
+		croc_popTop(t);
+	}
+
+	glCompileShaderIncludeARB(shader, pathsLen, paths, nullptr);
+
+	if(paths != paths_)
+		croc_mem_free(t, cast(void**)&paths, &pathsSize);
+
+	return 0;
+}
+
+word_t crocglGetNamedStringARB(CrocThread* t)
+{
+	auto name = croc_ex_checkStringParam(t, 1);
+
+	GLint length = -1;
+	glGetNamedStringivARB(-1, name, GL_NAMED_STRING_LENGTH_ARB, &length);
+
+	if(length == -1)
+		return 0;
+
+	uword_t size = length * sizeof(GLchar);
+	auto buf = cast(GLchar*)croc_mem_alloc(t, size);
+	GLsizei realLength = 0;
+	glGetNamedStringARB(-1, name, length, &realLength, buf);
+	auto ok = croc_tryPushStringn(t, buf, realLength);
+	croc_mem_free(t, cast(void**)&buf, &size);
+
+	if(!ok)
+		croc_eh_throwStd(t, "UnicodeError", "Invalid UTF-8 sequence");
+
+	return 1;
+}
+
 const CrocRegisterFunc _ARB_shading_language_include[] =
 {
 	WRAP(glNamedStringARB),
 	WRAP(glDeleteNamedStringARB),
-	WRAP(glCompileShaderIncludeARB),
+	{"glCompileShaderIncludeARB", 2, &crocglCompileShaderIncludeARB},
 	WRAP(glIsNamedStringARB),
-	WRAP(glGetNamedStringARB),
+	{"glGetNamedStringARB", 1, &crocglGetNamedStringARB},
 	WRAP(glGetNamedStringivARB),
 	{nullptr, 0, nullptr}
 };
@@ -3029,10 +3616,10 @@ void load_ARB_transform_feedback2(CrocThread* t)
 
 const CrocRegisterFunc _ARB_transform_feedback3[] =
 {
-	/// WRAP(glDrawTransformFeedbackStream),
-	/// WRAP(glBeginQueryIndexed),
-	/// WRAP(glEndQueryIndexed),
-	/// WRAP(glGetQueryIndexediv),
+	WRAP(glDrawTransformFeedbackStream),
+	WRAP(glBeginQueryIndexed),
+	WRAP(glEndQueryIndexed),
+	WRAP(glGetQueryIndexediv),
 	{nullptr, 0, nullptr}
 };
 
@@ -3175,6 +3762,55 @@ void load_EXT_depth_bounds_test(CrocThread* t)
 	croc_ex_registerGlobals(t, _EXT_depth_bounds_test);
 }
 
+word_t crocglMapNamedBufferEXT(CrocThread* t)
+{
+	auto name = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto access = cast(GLenum)croc_ex_checkIntParam(t, 2);
+	auto haveMemblock = croc_ex_optParam(t, 3, CrocType_Memblock);
+
+	GLint size;
+	glGetNamedBufferParameterivEXT(name, GL_BUFFER_SIZE, &size);
+
+	if(auto ptr = glMapNamedBufferEXT(name, access))
+	{
+		if(haveMemblock)
+		{
+			croc_memblock_reviewNativeArray(t, 3, ptr, size);
+			croc_dup(t, 3);
+		}
+		else
+			croc_memblock_viewNativeArray(t, ptr, size);
+	}
+	else
+		croc_pushNull(t);
+
+	return 1;
+}
+
+word_t crocglMapNamedBufferRangeEXT(CrocThread* t)
+{
+	auto name = cast(GLuint)croc_ex_checkIntParam(t, 1);
+	auto offset = cast(GLintptr)croc_ex_checkIntParam(t, 2);
+	auto length = cast(GLsizeiptr)croc_ex_checkIntParam(t, 3);
+	auto access = cast(GLenum)croc_ex_checkIntParam(t, 4);
+	auto haveMemblock = croc_ex_optParam(t, 5, CrocType_Memblock);
+
+	if(auto ptr = glMapNamedBufferRangeEXT(name, offset, length, access))
+	{
+		if(haveMemblock)
+		{
+			croc_memblock_reviewNativeArray(t, 5, ptr, length);
+			croc_dup(t, 5);
+		}
+		else
+			croc_memblock_viewNativeArray(t, ptr, length);
+	}
+	else
+		croc_pushNull(t);
+
+	return 1;
+}
+
 const CrocRegisterFunc _EXT_direct_state_access[] =
 {
 	WRAP(glMatrixLoadfEXT),
@@ -3281,10 +3917,10 @@ const CrocRegisterFunc _EXT_direct_state_access[] =
 	WRAP(glMatrixMultTransposedEXT),
 	WRAP(glNamedBufferDataEXT),
 	WRAP(glNamedBufferSubDataEXT),
-	// WRAP(glMapNamedBufferEXT),
+	{"glMapNamedBufferEXT", 3, &crocglMapNamedBufferEXT},
 	WRAP(glUnmapNamedBufferEXT),
 	WRAP(glGetNamedBufferParameterivEXT),
-	WRAP(glGetNamedBufferPointervEXT),
+	// WRAP(glGetNamedBufferPointervEXT),
 	WRAP(glGetNamedBufferSubDataEXT),
 	WRAP(glProgramUniform1fEXT),
 	WRAP(glProgramUniform2fEXT),
@@ -3393,7 +4029,7 @@ const CrocRegisterFunc _EXT_direct_state_access[] =
 	WRAP(glGetVertexArrayPointervEXT),
 	WRAP(glGetVertexArrayIntegeri_vEXT),
 	WRAP(glGetVertexArrayPointeri_vEXT),
-	// WRAP(glMapNamedBufferRangeEXT),
+	{"glMapNamedBufferRangeEXT", 5, &crocglMapNamedBufferRangeEXT},
 	WRAP(glFlushMappedNamedBufferRangeEXT),
 	WRAP(glNamedBufferStorageEXT),
 	WRAP(glClearNamedBufferDataEXT),
@@ -3471,15 +4107,15 @@ const CrocRegisterFunc _KHR_debug[] =
 {
 	WRAP(glDebugMessageControl),
 	WRAP(glDebugMessageInsert),
-	// WRAP(glDebugMessageCallback),
+	{"glDebugMessageCallback", 1, &crocglDebugMessageCallback},
 	WRAP(glGetDebugMessageLog),
 	WRAP(glPushDebugGroup),
 	WRAP(glPopDebugGroup),
 	WRAP(glObjectLabel),
-	WRAP(glGetObjectLabel),
-	WRAP(glObjectPtrLabel),
+	{"glGetObjectLabel", 2, &crocglGetObjectLabel},
+	{"glObjectPtrLabel", 1, &crocglGetObjectPtrLabel},
 	WRAP(glGetObjectPtrLabel),
-	WRAP(glGetPointerv),
+	// WRAP(glGetPointerv),
 	{nullptr, 0, nullptr}
 };
 
