@@ -83,6 +83,28 @@ class WeakKeyTable : WeakTableBase
 	}
 
 	/**
+	An alternate way of iterating over the table that doesn't incur any allocations. This will call \tt{f} for each
+	key-value pair in the table. You will not get weakref objects for the keys, but rather strong references. Modifying
+	the table during iteration will cause erratic behavior.
+
+	\param[f] is a function that will take two parameters, the key and the value, and can optionally return a true value
+		to stop iteration.
+	*/
+	function each(f: function)
+	{
+		foreach(k, v; :_data)
+		{
+			local k_ = deref(k)
+
+			if(k_ is not null)
+			{
+				if(f(k_, v))
+					break
+			}
+		}
+	}
+
+	/**
 	Gets an array of the keys (dereferenced) of this table.
 	*/
 	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
@@ -158,6 +180,28 @@ class WeakValTable : WeakTableBase
 	}
 
 	/**
+	An alternate way of iterating over the table that doesn't incur any allocations. This will call \tt{f} for each
+	key-value pair in the table. You will not get weakref objects for the values, but rather strong references.
+	Modifying the table during iteration will cause erratic behavior.
+
+	\param[f] is a function that will take two parameters, the key and the value, and can optionally return a true value
+		to stop iteration.
+	*/
+	function each(f: function)
+	{
+		foreach(k, v; :_data)
+		{
+			local v_ = deref(v)
+
+			if(v is not null)
+			{
+				if(f(k, v))
+					break
+			}
+		}
+	}
+
+	/**
 	Gets an array of the keys of this table.
 	*/
 	function keys() = hash.keys(:_data)
@@ -228,6 +272,28 @@ class WeakKeyValTable : WeakTableBase
 		}
 
 		return iterator, this, null
+	}
+
+	/**
+	An alternate way of iterating over the table that doesn't incur any allocations. This will call \tt{f} for each
+	key-value pair in the table. You will not get weakref objects for the keys or values, but rather strong references.
+	Modifying the table during iteration will cause erratic behavior.
+
+	\param[f] is a function that will take two parameters, the key and the value, and can optionally return a true value
+		to stop iteration.
+	*/
+	function each(f: function)
+	{
+		foreach(k, v; :_data)
+		{
+			local k_, v_ = deref(k), deref(v)
+
+			if(k_ is not null and v_ is not null)
+			{
+				if(f(k_, v_))
+					break
+			}
+		}
 	}
 
 	/**
