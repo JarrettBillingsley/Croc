@@ -1,0 +1,589 @@
+module samples.tinyes
+
+import math: min
+
+local function unique(arr: array) =
+	hash.keys({[val] = true foreach val; arr})
+
+local function isUnique(arr: array) =
+	#arr == #unique(arr)
+
+local function findCycles(V, E)
+{
+	local ret = []
+	local curIndex = 0
+	local index = {}
+	local lowlink = {}
+	local S = []
+
+	function tarjan(v)
+	{
+		index[v] = curIndex
+		lowlink[v] = curIndex
+		curIndex++
+		S.append(v)
+
+		if(local others = E[v])
+		{
+			foreach(n, _; others)
+			{
+				if(n not in index)
+				{
+					tarjan(n)
+					lowlink[v] = min(lowlink[v], lowlink[n])
+				}
+				else if(n in S)
+					lowlink[v] = min(lowlink[v], index[n])
+			}
+		}
+
+		if(lowlink[v] == index[v])
+		{
+			local component = []
+
+			do
+			{
+				local n = S.pop()
+				component.append(n)
+			} while(n is not v)
+
+			ret.append(component)
+		}
+	}
+
+	foreach(v, _; V)
+		if(v not in index)
+			tarjan(v)
+
+	hash.clear(index)
+	hash.clear(lowlink)
+	return ret
+}
+
+// =====================================================================================================================
+
+class Component
+{
+	_entity
+
+	this(entity: int)
+		:_entity = entity
+
+	function entity() =
+		:_entity
+}
+
+local MAX_COMPONENTS = math.intSize * 8
+
+local function checkValidComponent(comp)
+{
+	if(comp not in :_componentMasks)
+		throw ValueError("Class {} is not registered as a component", nameOf(comp))
+}
+
+local function makeComponentMap(components)
+{
+	if(#components > MAX_COMPONENTS)
+		throw ValueError("Too many components")
+
+	:_componentMasks = {}
+
+	for(local i, mask = 0, 1; i < #components; i++, mask <<= 1)
+		:_componentMasks[components[i]] = mask
+}
+
+local function makeComponentDeps(dependencies)
+{
+	// Are all components named valid?
+	foreach(comp, deps; dependencies)
+	{
+		if(not isClass(comp))
+			throw TypeError("Not all dependency sources are classes (did you forget to put brackets around the keys?)")
+
+		checkValidComponent(with this, comp)
+
+		foreach(dep; deps)
+			checkValidComponent(with this, dep)
+	}
+
+	// Look for dependency cycles
+	local cycles = findCycles(
+		{[comp] = true foreach comp, _; :_componentMasks},
+		{[comp] = {[dep] = true foreach dep; deps} foreach comp, deps; dependencies}
+	)
+	local badCycle = cycles.findIf(\c -> #c > 1)
+
+	if(badCycle != #cycles)
+	{
+		badCycle = cycles[badCycle]
+		badCycle.append(badCycle[0])
+		badCycle.apply(nameOf)
+		throw ValueError("Cycle in component dependencies ({})".format(" -> ".join(badCycle)))
+	}
+
+	// Build the actual dependency map
+	:_componentDeps = {}
+
+	foreach(comp, _; :_componentMasks)
+	{
+		if(local deps = dependencies[comp])
+			:_componentDeps[comp] = {[dep] = true foreach dep; deps}
+		else
+			:_componentDeps[comp] = {}
+	}
+}
+
+local function makeMask(comps)
+{
+	local ret = 0
+
+	foreach(comp; comps)
+		ret |= :_componentMasks[comp]
+
+	return ret
+}
+
+local function makeJoins(joins)
+{
+	// Validate them
+	foreach(name, comps; joins)
+	{
+		if(not isString(name))
+			throw TypeError("Not all joins have string names")
+
+		if(not isUnique(comps))
+			throw ValueError("Duplicate components in join '{}'".format(name))
+
+		foreach(comp; comps)
+			checkValidComponent(with this, comp)
+	}
+
+	// Make the map from names to masks
+	:_joinMasks = {}
+
+	foreach(comp, mask; :_componentMasks)
+		:_joinMasks[nameOf(comp)] = mask
+
+	foreach(name, comps; joins)
+	{
+		if(name in :_joinMasks)
+			throw NameError("A join named '{}' already exists".format(name))
+
+		:_joinMasks[name] = makeMask(with this, comps)
+	}
+
+	// Make the actual entity lists
+	local masks = unique(hash.values(:_joinMasks))
+	:_entities = {[mask] = {} foreach mask; masks}
+}
+
+local function makeArchetypes(archetypes)
+{
+	// Validate them
+	foreach(name, comps; archetypes)
+	{
+		if(not isString(name))
+			throw TypeError("Not all archetypes have string names")
+
+		if(not isUnique(comps))
+			throw ValueError("Duplicate components in join '{}'".format(name))
+
+		foreach(comp; comps)
+			checkValidComponent(with this, comp)
+	}
+
+	// Make the info map
+	:_archetypes = {}
+
+	foreach(name, comps; archetypes)
+	{
+		if(name in :_archetypes)
+			throw NameError("An archetype named '{}' already exists".format(name))
+
+		local arch = {}
+		arch.mask = makeMask(with this, comps)
+		arch.joins = []
+
+		foreach(_, joinMask; :_joinMasks)
+		{
+			if((joinMask & arch.mask) == joinMask)
+				arch.joins.append(:_entities[joinMask])
+		}
+
+		arch.components = comps.dup()
+		:_archetypes[name] = arch
+	}
+}
+
+local function setupArrays(initialArraySize: int = 32)
+{
+	initialArraySize = (initialArraySize < 32) ? 32 : initialArraySize
+
+	:_numSlots = initialArraySize
+	:_entityMasks = array.new(initialArraySize, 0)
+	:_componentArrays = {}
+
+	foreach(comp, _; :_componentMasks)
+		:_componentArrays[comp] = array.new(initialArraySize)
+
+	:_nextUnused = array.new(initialArraySize)
+
+	for(i: 0 .. initialArraySize)
+		:_nextUnused[i] = i + 1
+
+	:_nextUnused[-1] = -1
+}
+
+local function expandArrays()
+{
+	local oldSize = :_numSlots
+	:_numSlots *= 2
+
+	foreach(comp; :_componentArrays)
+		#comp = :_numSlots
+
+	#:_nextUnused = :_numSlots
+	#:_entityMasks = :_numSlots
+
+	for(i: oldSize .. :_numSlots - 1)
+		:_nextUnused[i] = i + 1
+
+	:_nextUnused[-1] = -1
+}
+
+local USED_SLOT = -2
+
+local function _newEntity()
+{
+	assert(:_freeSlot > USED_SLOT)
+
+	if(:_freeSlot == -1)
+	{
+		:_freeSlot = :_numSlots
+		expandArrays()
+	}
+
+	local ret = :_freeSlot
+	:_freeSlot = :_nextUnused[ret]
+	:_nextUnused[ret] = USED_SLOT
+	:_entityMasks[ret] = 0
+	return ret
+}
+
+local function _freeEntity(id)
+{
+	assert(:_nextUnused[id] == USED_SLOT)
+
+	foreach(comp; :_componentArrays)
+		comp[id] = null
+
+	:_nextUnused[id] = :_freeSlot
+	:_freeSlot = id
+}
+
+class EntitySystem
+{
+	_componentMasks
+	_componentDeps
+	_joinMasks
+	_archetypes
+	_entities
+	_entityMasks
+	_componentArrays
+	_nextUnused
+	_freeSlot = 0
+	_numSlots
+
+	this(info: table)
+	{
+		if(not isUnique(info.components))
+			throw ValueError("Duplicate components in list of valid components")
+
+		makeComponentMap(with this, info.components)
+		makeComponentDeps(with this, info.dependencies)
+		makeJoins(with this, info.joins)
+		makeArchetypes(with this, info.archetypes)
+		setupArrays(with this, info.initialArraySize)
+	}
+
+	function newEntityArchetype(name: string)
+	{
+		local arch = :_archetypes[name]
+
+		if(arch is null)
+			throw NameError("No archetype named '{}' exists".format(name))
+
+		local obj = _newEntity(with this)
+		:_entityMasks[obj] = arch.mask
+
+		foreach(comp; arch.components)
+			:_componentArrays[comp][obj] = comp(obj)
+
+		foreach(join; arch.joins)
+			join[obj] = true
+
+		return obj
+	}
+
+	function newEntity(vararg)
+	{
+		local mask = 0
+
+		for(i: 0 .. #vararg)
+		{
+			local compMask = :_componentMasks[vararg[i]]
+
+			if(compMask is null)
+				throw ValueError("Invalid component")
+
+			mask |= compMask
+		}
+
+		local obj = _newEntity(with this)
+		:_entityMasks[obj] = mask
+
+		for(i: 0 .. #vararg)
+			:_componentArrays[vararg[i]][obj] = vararg[i](obj)
+
+		foreach(_, joinMask; :_joinMasks)
+		{
+			if((joinMask & mask) == joinMask)
+				:_entities[joinMask][obj] = true
+		}
+
+		return obj
+	}
+
+	function freeEntity(id: int)
+	{
+		local mask = :_entityMasks[id]
+
+		foreach(_, joinMask; :_joinMasks)
+		{
+			if((joinMask & mask) == joinMask)
+				:_entities[joinMask][id] = null
+		}
+
+		_freeEntity(with this, id)
+	}
+
+	function addComponents(obj: int, vararg)
+	{
+		if(#vararg == 0)
+			throw ParamError("Expected at least one component")
+
+		local addMask = 0
+		local componentArrays = :_componentArrays
+
+		for(i: 0 .. #vararg)
+		{
+			local comp = vararg[i]
+			local compMask = :_componentMasks[comp]
+
+			if(compMask is null)
+				throw ValueError("Invalid component")
+
+			if(componentArrays[comp][obj] is not null)
+				throw ValueError("Object already has a '{}' component".format(nameOf(comp)))
+
+			addMask |= compMask
+		}
+
+		local mask = :_entityMasks[obj] | addMask
+		:_entityMasks[obj] = mask
+
+		for(i: 0 .. #vararg)
+			componentArrays[vararg[i]][obj] = vararg[i](obj)
+
+		foreach(_, joinMask; :_joinMasks)
+		{
+			if((joinMask & mask) == joinMask)
+				:_entities[joinMask][obj] = true
+		}
+	}
+
+	function removeComponents(obj: int, vararg)
+	{
+		if(#vararg == 0)
+			throw ParamError("Expected at least one component")
+
+		local removeMask = 0
+		local componentArrays = :_componentArrays
+
+		for(i: 0 .. #vararg)
+		{
+			local comp = vararg[i]
+			local compMask = :_componentMasks[comp]
+
+			if(compMask is null)
+				throw ValueError("Invalid component")
+
+			if(componentArrays[comp][obj] is null)
+				throw ValueError("Object does not have a '{}' component".format(nameOf(comp)))
+
+			removeMask |= compMask
+		}
+
+		local oldMask = :_entityMasks[obj]
+		local newMask = oldMask & ~removeMask
+		:_entityMasks[obj] = newMask
+
+		for(i: 0 .. #vararg)
+			componentArrays[vararg[i]][obj] = null
+
+		foreach(_, joinMask; :_joinMasks)
+		{
+			if((joinMask & oldMask) == joinMask and (joinMask & newMask) != joinMask)
+				:_entities[joinMask][obj] = null
+		}
+	}
+
+	function optComponent(obj: int, C: class) =
+		:_componentArrays[C][obj]
+
+	function getComponent(obj: int, C: class)
+	{
+		if(local ret = :_componentArrays[C][obj])
+			return ret
+
+		throw ValueError("Object does not have a '{}' component".format(nameOf(comp)))
+	}
+
+	function join(name: string)
+	{
+		local join = :_joinMasks[name]
+
+		if(join is null)
+			throw NameError("No join named '{}' exists".format(name))
+
+		return hash.keys(:_entities[join])
+	}
+}
+
+/*
+Could use it like:
+
+namespace PlayerState
+{
+	Alive = 0
+	Dying = 1
+	Dead = 2
+}
+
+namespace CollisionType
+{
+	Player = 0
+	Asteroid = 1
+	Bullet = 2
+}
+
+namespace SpriteLayer
+{
+	BG = 0
+	Asteroids = 1
+	PlayerAndBullets = 2
+}
+
+class Position : Component
+{
+	x = 0.0
+	y = 0.0
+
+	function set(x, y)
+		:x, :y = x, y
+}
+
+class Velocity : Component
+{
+	x = 0.0
+	y = 0.0
+
+	function set(x, y)
+		:x, :y = x, y
+}
+
+class Rotation : Component
+{
+	angle = 0.0
+}
+
+class Bounds : Component
+{
+	w = 0
+	h = 0
+
+	function set(w, h)
+		:w, :h = w, h
+}
+
+class PlayerLifetime : Component
+{
+	state = PlayerState.Alive
+}
+
+class LifeTimer : Component
+{
+	timer = 0.0
+}
+
+class Controller : Component
+{
+	inputID = 0
+	fireTimer = 0.0
+}
+
+class Sprite : Component
+{
+	img
+	frame = 0
+	layer = 0
+
+	function set(img, frame, layer = 0)
+		:img, :frame, :layer = img, frame, layer
+}
+
+class Collidable : Component
+{
+	type = CollisionType.Player
+}
+
+local game = EntitySystem$
+{
+	components =
+	[
+		Position
+		Velocity
+		Rotation
+		Bounds
+		PlayerLifetime
+		LifeTimer
+		Controller
+		Sprite
+		Collidable
+	]
+
+	dependencies =
+	{
+		[Controller] = [Rotation Velocity],
+		[Sprite] = [Position], // Rotation optional
+		[Collidable] = [Position Bounds],
+	}
+
+	joins =
+	{
+		Controllable = [Controller Position Rotation Velocity]
+		Players = [PlayerLifetime]
+		Movable = [Position Velocity]
+		Drawable = [Sprite Position] // Rotation optional
+		Colliders = [Position Bounds Collidable]
+	}
+
+	archetypes =
+	{
+		Player = [Position Velocity Rotation Bounds PlayerLifetime Controller Sprite Collidable]
+		Asteroid = [Position Velocity Rotation Bounds Sprite Collidable]
+		Star = [Position Sprite]
+		Bullet = [Position Velocity Bounds LifeTimer Sprite Collidable]
+	}
+}
+*/

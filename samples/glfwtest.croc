@@ -1,0 +1,591 @@
+module samples.glfwtest
+
+import glfw
+local gl
+
+local TEMP = memblock.new(8)
+
+class Vao
+{
+	handle
+	nelems
+
+	this(vbo, ebo, attribs: array)
+	{
+		local handle = gl.glGenVertexArrays(1)
+		gl.glBindVertexArray(handle)
+		vbo.bind()
+		ebo.bind()
+
+		foreach(attrib; attribs)
+		{
+			gl.glEnableVertexAttribArray(attrib[0])
+
+			gl.glVertexAttribPointer(
+				attrib[0],
+				attrib[1],
+				attrib[2],
+				attrib[3],
+				attrib[4],
+				attrib[5])
+		}
+
+		:handle = handle
+		:nelems = ebo.numElements()
+		gl.glBindVertexArray(0)
+	}
+
+	function delete()
+	{
+		gl.glDeleteVertexArrays(:handle)
+		:handle = 0
+	}
+
+	function bind()
+		gl.glBindVertexArray(:handle)
+
+	function draw()
+	{
+		:bind()
+		gl.glDrawElements(gl.GL_TRIANGLES, :nelems, gl.GL_UNSIGNED_INT, 0)
+	}
+}
+
+class Vbo
+{
+	handle
+
+	this(vertices: memblock)
+	{
+		local ret = gl.glGenBuffers(1)
+		gl.glBindBuffer(gl.GL_ARRAY_BUFFER, ret)
+		gl.glBufferData(gl.GL_ARRAY_BUFFER, #vertices, vertices, gl.GL_STATIC_DRAW)
+		gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+		:handle = ret
+	}
+
+	function delete()
+	{
+		gl.glDeleteBuffers(:handle)
+		:handle = 0
+	}
+
+	function bind()
+	{
+		gl.glBindBuffer(gl.GL_ARRAY_BUFFER, :handle)
+	}
+}
+
+class Ebo
+{
+	handle
+
+	this(elements: array)
+	{
+		local ret = gl.glGenBuffers(1)
+		gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, ret)
+		local v = Vector.fromArray("u32", elements)
+		local size = #v * v.itemSize()
+		gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, size, v.getMemblock(), gl.GL_STATIC_DRAW)
+		gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, 0)
+		:handle = ret
+	}
+
+	function delete()
+	{
+		gl.glDeleteBuffers(:handle)
+		:handle = 0
+	}
+
+	function bind()
+	{
+		gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, :handle)
+	}
+
+	function numElements()
+	{
+		:bind()
+		gl.glGetBufferParameteriv(gl.GL_ELEMENT_ARRAY_BUFFER, gl.GL_BUFFER_SIZE, TEMP)
+		return TEMP.readUInt32(0)
+	}
+}
+
+class Mesh
+{
+	vao
+	vbo
+	ebo
+
+	this(vertices: memblock, indices: array, attrs: array)
+	{
+		:vbo = Vbo(vertices)
+		:ebo = Ebo(indices)
+		:vao = Vao(:vbo, :ebo, attrs)
+	}
+
+	function draw()
+	{
+		:vao.draw()
+	}
+
+	function delete()
+	{
+		:vao.delete()
+		:vbo.delete()
+		:ebo.delete()
+	}
+}
+
+function compileShader(source: string, kind: int)
+{
+	local ret = gl.glCreateShader(kind)
+	gl.glShaderSource(ret, source)
+	gl.glCompileShader(ret)
+
+	gl.glGetShaderiv(ret, gl.GL_COMPILE_STATUS, TEMP)
+	local status = TEMP.readUInt32(0)
+
+	if(status == gl.GL_FALSE)
+		writefln("Error compiling shader: {}", gl.glGetShaderInfoLog(ret))
+
+	return ret
+}
+
+class VertShader
+{
+	handle
+
+	this(source: string)
+		:handle = compileShader(source, gl.GL_VERTEX_SHADER)
+
+	function delete()
+	{
+		gl.glDeleteShader(:handle)
+		:handle = 0
+	}
+}
+
+class FragShader
+{
+	handle
+
+	this(source: string)
+		:handle = compileShader(source, gl.GL_FRAGMENT_SHADER)
+
+	function delete()
+	{
+		gl.glDeleteShader(:handle)
+		:handle = 0
+	}
+}
+
+class Program
+{
+	handle
+	vs
+	fs
+
+	this(vs: string, fs: string)
+	{
+		:vs = VertShader(vs)
+		:fs = FragShader(fs)
+		:handle = gl.glCreateProgram()
+
+		gl.glAttachShader(:handle, :vs.handle);
+		gl.glAttachShader(:handle, :fs.handle);
+		gl.glLinkProgram(:handle)
+		gl.glUseProgram(:handle)
+	}
+
+	function delete()
+	{
+		gl.glDeleteProgram(:handle)
+		:handle = 0
+		:vs.delete()
+		:fs.delete()
+	}
+
+	function getUniformLocation(name: string) =
+		gl.glGetUniformLocation(:handle, name)
+
+	function getAttribLocation(name: string) =
+		gl.glGetAttribLocation(:handle, name)
+
+	function bind()
+		gl.glUseProgram(:handle)
+}
+
+local vertexSource =
+@`#version 330 core
+
+in vec4 position;
+
+uniform mat4 model, view, proj;
+
+void main()
+{
+	gl_Position = proj * view * model * position;
+}`
+
+local fragmentSource =
+@`#version 330 core
+
+uniform vec3 color;
+
+layout(location = 0) out vec4 outColor;
+
+void main()
+{
+	outColor = vec4(color, 1.0);
+}`
+
+local fbVertexSource =
+@`#version 330 core
+
+in vec4 position;
+in vec2 texCoord;
+
+out vec2 TexCoord;
+
+void main()
+{
+	TexCoord = texCoord;
+	gl_Position = position;
+}`
+
+local fbFragmentSource =
+@`#version 330 core
+
+uniform sampler2D frameBuffer;
+uniform float blurSizeH;
+uniform float blurSizeV;
+
+in vec2 TexCoord;
+
+layout(location = 0) out vec4 outColor;
+
+const int Samps = 9;
+
+void main()
+{
+	vec4 sum = vec4(0.0);
+
+	for(int x = -((Samps - 1) / 2); x <= ((Samps - 1) / 2); x++)
+	{
+		for(int y = -((Samps - 1) / 2); y <= ((Samps - 1) / 2); y++)
+		{
+			sum += texture(
+				frameBuffer,
+				vec2(TexCoord.x + x * blurSizeH, TexCoord.y + y * blurSizeV)
+			) / float(Samps * Samps);
+		}
+	}
+
+	outColor = sum;
+}`
+
+function makeScreenQuad(xdiv: int, ydiv: int)
+{
+	assert(xdiv >= 1 && ydiv >= 1, "nooope")
+
+	local verts = Vector("f32", 4 * (xdiv + 1) * (ydiv + 1))
+	local i = 0
+
+	for(yi: 0 .. ydiv + 1)
+	{
+		for(xi: 0 .. xdiv + 1)
+		{
+			local x = ((2.0 * xi) / xdiv) - 1
+			local y = 1 - ((2.0 * yi) / ydiv)
+			local u = toFloat(xi) / xdiv
+			local v = 1 - (toFloat(yi) / ydiv)
+
+			verts[i] = x
+			verts[i + 1] = y
+			verts[i + 2] = u
+			verts[i + 3] = v
+			i += 4
+		}
+	}
+
+	local indices = array.new(6 * xdiv * ydiv)
+	local stride = xdiv + 1
+	i = 0
+
+	for(yi: 0 .. ydiv)
+	{
+		for(xi: 0 .. xdiv)
+		{
+			local a = (yi * stride) + xi
+			local b = a + 1
+			local c = b + stride
+			local d = c - 1
+
+			indices[i] = a
+			indices[i + 1] = b
+			indices[i + 2] = c
+			indices[i + 3] = c
+			indices[i + 4] = d
+			indices[i + 5] = a
+			i += 6
+		}
+	}
+
+	return verts.getMemblock(), indices
+}
+
+class FPS
+{
+	time
+	frames = 0
+	fps = 0
+
+	this()
+	{
+		:time = time.microTime()
+	}
+
+	function update()
+	{
+		local t = time.microTime()
+
+		if(t - :time >= 1_000_000)
+		{
+			:fps = :frames
+			:frames = 0
+			:time = t
+			return true
+		}
+		else
+			:frames++
+	}
+}
+
+function cross3(x, y, z, ox, oy, oz)
+{
+	return (y * oz) - (z * oy),
+		(z * ox) - (x * oz),
+		(x * oy) - (y * ox)
+}
+
+function norm3(x, y, z)
+{
+	local mag = math.sqrt(x * x + y * y + z * z)
+	return x / mag, y / mag, z / mag
+}
+
+function sub3(x, y, z, ox, oy, oz)
+{
+	return x - ox, y - oy, z - oz
+}
+
+function dot3(x, y, z, ox, oy, oz)
+{
+	return x * ox + y * oy + z * oz
+}
+
+function lookAt(eyex, eyey, eyez, centerx, centery, centerz, upx, upy, upz)
+{
+	local fx, fy, fz = norm3(sub3(centerx, centery, centerz, eyex, eyey, eyez))
+	local sx, sy, sz = norm3(cross3(fx, fy, fz, upx, upy, upz))
+	local ux, uy, uz = cross3(sx, sy, sz, fx, fy, fz)
+
+	return [
+		sx, ux, -fx, 0,
+		sy, uy, -fy, 0,
+		sz, uz, -fz, 0,
+		-dot3(eyex, eyey, eyez, sx, sy, sz), -dot3(eyex, eyey, eyez, ux, uy, uz), dot3(eyex, eyey, eyez, fx, fy, fz), 1
+	]
+}
+
+function perspective(fov, aspect, near, far)
+{
+	local uh = 1.0 / math.tan(fov / 2.0)
+	local range = near - far
+
+	return [
+		uh / aspect, 0, 0, 0,
+		0, uh, 0, 0,
+		0, 0, -(far + near) / range, (2 * far * near) / range,
+		0, 0, 1, 0
+	]
+}
+
+function ortho(l, t, r, b, n, f)
+{
+	l = toFloat(l)
+	t = toFloat(t)
+	r = toFloat(r)
+	b = toFloat(b)
+	n = toFloat(n)
+	f = toFloat(f)
+
+	return [
+		2 / (r - l), 0, 0, -(r + l) / (r - l),
+		0, 2 / (t - b), 0, -(t + b) / (t - b),
+		0, 0, -2 / (f - n), -(f + n) / (f - n),
+		0, 0, 0, 1
+	]
+}
+
+function rotz(mat, ang)
+{
+	local s = math.sin(ang)
+	local c = math.cos(ang)
+
+	mat[0] = c; mat[1] = -s; mat[2] = 0; mat[3] = 0
+	mat[4] = s; mat[5] = c;  mat[6] = 0; mat[7] = 0
+	mat[8] = 0; mat[9] = 0;  mat[10] = 1; mat[11] = 0
+	mat[12] = 0; mat[13] = 0;  mat[14] = 0; mat[15] = 1
+}
+
+function toF32(arr: array) =
+	Vector.fromArray("f32", arr).getMemblock()
+
+function main()
+{
+	// Set up window
+	if(not glfw.init())
+		return
+
+	scope(exit) glfw.terminate()
+
+	glfw.windowHint(glfw.RESIZABLE, 0)
+	glfw.windowHint(glfw.DECORATED, 0)
+	local vidmode = glfw.getPrimaryMonitor().getVideoMode()
+	local screenW, screenH = vidmode.width, vidmode.height
+	local window = glfw.createWindow(screenW, screenH, "Test", null, null)
+	window.show()
+	window.enableEvents(glfw.Event_Key)
+	glfw.makeContextCurrent(window)
+	glfw.loadOpenGL()
+	gl = _G.gl
+
+	// Shaders
+	local shaderProgram = Program(vertexSource, fragmentSource)
+	local posAttrib = shaderProgram.getAttribLocation("position")
+	local uniColor = shaderProgram.getUniformLocation("color")
+	local modelMat = shaderProgram.getUniformLocation("model")
+
+	// View/proj matrices
+	gl.glUniformMatrix4fv(shaderProgram.getUniformLocation("view"), 1, false,
+		toF32(lookAt(0, 1.2, 1.2,  0, 0, 0,  0, 1, 0)))
+
+	gl.glUniformMatrix4fv(shaderProgram.getUniformLocation("proj"), 1, false,
+		toF32(perspective(math.pi / 4, toFloat(screenW) / screenH, 1.0, 10.0)))
+
+	// Triangle
+	local triMesh = Mesh(
+		toF32([
+			0.0, 0.5,
+			0.5, -0.5,
+			-0.5, -0.5
+		]),
+		[0, 1, 2],
+		[[posAttrib, 2, gl.GL_FLOAT, false, 0, 0]]
+	)
+
+	// Rect
+	local rectMesh = Mesh(
+		toF32([
+			-0.5, 1,
+			0.5, 1,
+			0.5, 0.5,
+			-0.5, 0.5,
+		]),
+		[0, 1, 2,  2, 3, 0],
+		[[posAttrib, 2, gl.GL_FLOAT, false, 0, 0]]
+	)
+
+	// Framebuffer shaders
+	local fbShaderProgram = Program(fbVertexSource, fbFragmentSource)
+	gl.glUniform1i(fbShaderProgram.getAttribLocation("frameBuffer"), 0)
+	gl.glUniform1f(fbShaderProgram.getUniformLocation("blurSizeH"), 2.0 / screenW)
+	gl.glUniform1f(fbShaderProgram.getUniformLocation("blurSizeV"), 2.0 / screenH)
+
+	// Framebuffer VAO
+	local fbverts, fbindices = makeScreenQuad(16, 12)
+
+	local fbMesh = Mesh(fbverts, fbindices,
+	[
+		[fbShaderProgram.getAttribLocation("position"), 2, gl.GL_FLOAT, false, 4 * gl.sizeofGLfloat, 0],
+		[fbShaderProgram.getAttribLocation("texCoord"), 2, gl.GL_FLOAT, false, 4 * gl.sizeofGLfloat, 2 * gl.sizeofGLfloat]
+	])
+
+	// Framebuffer render target
+	local fb = gl.glGenFramebuffers(1)
+	gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, fb)
+	local fbColorBuffer = gl.glGenTextures(1)
+	gl.glBindTexture(gl.GL_TEXTURE_2D, fbColorBuffer)
+	gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGB, screenW, screenH, 0, gl.GL_RGB, gl.GL_UNSIGNED_BYTE, null)
+	gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR)
+	gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR)
+	gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
+	gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
+	gl.glFramebufferTexture2D(gl.GL_FRAMEBUFFER, gl.GL_COLOR_ATTACHMENT0, gl.GL_TEXTURE_2D, fbColorBuffer, 0)
+	gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
+
+	local fps = FPS()
+	local wireframe = false
+
+	local model = Vector.fromArray("f32",
+	[
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1
+	])
+
+	while(not window.shouldClose())
+	{
+		gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, fb)
+
+		gl.glClearColor(0.2, 0.2, 0.2, 1.0)
+		gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+
+		shaderProgram.bind()
+
+		rotz(model, glfw.getTime() * (math.pi / 3))
+		gl.glUniformMatrix4fv(modelMat, 1, false, model.getMemblock())
+		gl.glUniform3f(uniColor, 1.0, 0.0, 0.0)
+		triMesh.draw()
+
+		rotz(model, -glfw.getTime() * (math.pi / 3))
+		gl.glUniformMatrix4fv(modelMat, 1, false, model.getMemblock())
+		gl.glUniform3f(uniColor, 0.0, 1.0, 0.0)
+		rectMesh.draw()
+
+		gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
+		gl.glClearColor(0.0, 0.0, 0.0, 1.0)
+		gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+		fbShaderProgram.bind()
+
+		gl.glActiveTexture(gl.GL_TEXTURE0)
+		gl.glBindTexture(gl.GL_TEXTURE_2D, fbColorBuffer)
+
+		if(wireframe) gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
+		fbMesh.draw()
+		if(wireframe) gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
+
+		window.swapBuffers()
+
+		foreach(type, wm, a, b, c, d; glfw.pollEvents)
+		{
+			if(a == glfw.KEY_ESCAPE and c == glfw.PRESS)
+				window.setShouldClose(true);
+			else if(a == glfw.KEY_W and c == glfw.PRESS)
+				wireframe = !wireframe
+		}
+
+		if(fps.update())
+			writeln(fps.fps, " ", gc.allocated())
+	}
+
+	fbShaderProgram.delete()
+	shaderProgram.delete()
+	fbMesh.delete()
+	rectMesh.delete()
+	triMesh.delete()
+	gl.glDeleteTextures(fbColorBuffer)
+	gl.glDeleteFramebuffers(fb)
+}
