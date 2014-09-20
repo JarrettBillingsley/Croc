@@ -613,7 +613,14 @@ namespace croc
 						intStep = -intStep;
 
 					if(intStep < 0)
-						*idx = Value::from(((intIdx - intHi) / intStep) * intStep);
+					{
+						auto newIdx = ((intIdx - intHi) / intStep) * intStep;
+
+						if(newIdx == intIdx)
+							newIdx += intStep;
+
+						*idx = Value::from(newIdx);
+					}
 
 					*step = Value::from(intStep);
 					(*pc) += jump;
