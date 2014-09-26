@@ -314,6 +314,8 @@ CROCAPI uword_t     croc_function_getMaxParams     (CrocThread* t, word_t func);
 CROCAPI int         croc_function_isVararg         (CrocThread* t, word_t func);
 CROCAPI int         croc_function_isNative         (CrocThread* t, word_t func);
 
+/** Like \ref croc_function_newWithEnv, except it uses the current environment namespace, so the only values it expects
+on the stack are any upvalues. */
 #define croc_function_new(t, name, maxParams, func, numUpvals)\
 	(croc_pushCurEnvironment(t), croc_function_newWithEnv((t), (name), (maxParams), (func), (numUpvals)))
 /**@}*/

@@ -24,7 +24,10 @@ extern "C"
 	}
 
 	/** Inside a native function which had upvalues associated with it at creation, you can use this to set the upvalue
-	with the given index. */
+	with the given index.
+
+	This expects one value on top of the stack. That value is set as the new value of upvalue \c idx, and then the value
+	is popped. */
 	void croc_setUpval(CrocThread* t_, uword_t idx)
 	{
 		auto t = Thread::from(t_);
@@ -116,7 +119,7 @@ extern "C"
 		return croc_getStackSize(t_) - 1;
 	}
 
-	/* Expects a value on top of the stack. Pops the value and assigns it into the global named \c name in the current
+	/** Expects a value on top of the stack. Pops the value and assigns it into the global named \c name in the current
 	function's environment, just like setting a global in Croc. */
 	void croc_setGlobal(CrocThread* t_, const char* name)
 	{

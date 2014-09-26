@@ -254,7 +254,7 @@ extern "C"
 		}
 	}
 
-	/** The equivalent of using <tt>as float<//> in Croc.
+	/** The equivalent of using <tt>as float</tt> in Croc.
 
 	\returns the int or float in \c slot typecast to a float. */
 	crocfloat_t croc_asFloat(CrocThread* t, word_t slot)
@@ -311,8 +311,8 @@ extern "C"
 		return *getValue(t, a) == *getValue(t, b);
 	}
 
-	/** The equivalent of Croc's \c a[b] operation. This expects the index to be on top of the stack, and it is replaced
-	with the result of the indexing operation. Calls \c opIndex metamethods if necessary.
+	/** The equivalent of Croc's <tt>a[b]</tt> operation. This expects the index to be on top of the stack, and it is
+	replaced with the result of the indexing operation. Calls \c opIndex metamethods if necessary.
 
 	\param container is the object to index.
 	\returns the stack index of the resulting value. */
@@ -325,7 +325,7 @@ extern "C"
 		return croc_getStackSize(t_) - 1;
 	}
 
-	/* The equivalent of Croc's <tt>a[b] = c</tt> operation. This expects the value to be assigned (\c c) to be on top
+	/** The equivalent of Croc's <tt>a[b] = c</tt> operation. This expects the value to be assigned (\c c) to be on top
 	of the stack, and the index (\c b) below it. Calls \c opIndexAssign metamethods if necessary. Pops both the value
 	and the index from the top of the stack.
 
@@ -367,9 +367,9 @@ extern "C"
 		croc_idxa(t_, container);
 	}
 
-	/** The equivalent of Croc's <tt>a[b .. c]</tt> operation. Expects the slice indices on top of the stack (the high
-	index on top, and the low index below it). Calls \c opSlice metamethods if necessary. Pops the slice indices and
-	pushes the result.
+	/** \brief The equivalent of Croc's <tt>a[b ..</tt><tt> c]</tt> operation. Expects the slice indices on top of the
+	stack (the high index on top, and the low index below it). Calls \c opSlice metamethods if necessary. Pops the slice
+	indices and pushes the result.
 
 	\param container is the object to slice.
 	\returns the stack index of the resulting value. */
@@ -383,9 +383,9 @@ extern "C"
 		return croc_getStackSize(t_) - 1;
 	}
 
-	/** The equivalent of Croc's <tt>a[b .. c] = d</tt> operation. Expects the value to be assigned into the slice on
-	top, and the slice indices below it (the high index below the value, and the low index below that). Calls \c
-	opSliceAssign metamethods if necessary. Pops all three values.
+	/** The equivalent of Croc's <tt>a[b ..</tt><tt> c] = d</tt> operation. Expects the value to be assigned into the
+	slice on top, and the slice indices below it (the high index below the value, and the low index below that). Calls
+	\c opSliceAssign metamethods if necessary. Pops all three values.
 
 	\param container is the object to slice-assign. */
 	void croc_slicea(CrocThread* t_, word_t container)
@@ -397,8 +397,8 @@ extern "C"
 		croc_pop(t_, 3);
 	}
 
-	/** The equivalent of Croc's <tt>a.(name)</tt> operation, this gets the field named \c name from the object in
-	\c container and pushes the result. Calls any \c opField metamethods if necessary.
+	/** The equivalent of Croc's <tt>a.name</tt> operation, this gets the field named \c name from the object
+	in \c container and pushes the result. Calls any \c opField metamethods if necessary.
 
 	\returns the stack index of the pushed value. */
 	word_t croc_field(CrocThread* t_, word_t container, const char* name)
@@ -425,7 +425,7 @@ extern "C"
 		return croc_getStackSize(t_) - 1;
 	}
 
-	/** The equivalent of Croc's <tt>a.(name) = b</tt> operation, this sets the field named \c name in \c container to
+	/** The equivalent of Croc's <tt>a.name = b</tt> operation, this sets the field named \c name in \c container to
 	the value on top of the stack, and then pops that value. Calls any \c opFieldAssign metamethods if necessary. */
 	void croc_fielda(CrocThread* t_, word_t container, const char* name)
 	{

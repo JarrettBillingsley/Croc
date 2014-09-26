@@ -115,11 +115,11 @@ extern "C"
 	do garbage collection, it must detect cyclic garbage (which would otherwise never be freed). Cyclic garbage usually
 	forms only a small part of all garbage, but ignoring it would cause memory leaks. In order to avoid that, the GC
 	must occasionally run a separate cycle collection algorithm during the GC cycle. This is triggered when enough
-	potential cyclic garbage is buffered (see the next limit type for that), or every \em{n} collections, whichever
-	comes first. This limit is that \em{n}. It defaults to 50; that is, every 50 garbage collection cycles, a cycle
-	collection will be forced, regardless of how much potential cyclic garbage has been buffered. Setting this limit to
-	0 will force a cycle collection at every GC cycle, which isn't that great for performance. Setting this limit very
-	high will cause cycle collections only to be triggered if enough potential cyclic garbage is buffered, but it's then
+	potential cyclic garbage is buffered (see the next limit type for that), or every \a n collections, whichever comes
+	first. This limit is that \a n. It defaults to 50; that is, every 50 garbage collection cycles, a cycle collection
+	will be forced, regardless of how much potential cyclic garbage has been buffered. Setting this limit to 0 will
+	force a cycle collection at every GC cycle, which isn't that great for performance. Setting this limit very high
+	will cause cycle collections only to be triggered if enough potential cyclic garbage is buffered, but it's then
 	possible that that garbage can hang around until program end, wasting memory.
 
 	- \c CrocGCLimit_CycleMetadataLimit - As explained above, the GC will buffer potential cyclic garbage during normal
