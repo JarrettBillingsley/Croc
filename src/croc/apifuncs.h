@@ -153,7 +153,6 @@ Checking the types of values. */
 /**@{*/
 CROCAPI CrocType croc_type           (CrocThread* t, word_t slot);
 CROCAPI word_t   croc_pushTypeString (CrocThread* t, word_t slot);
-CROCAPI int      croc_isTrue         (CrocThread* t, word_t slot);
 CROCAPI int      croc_isNum          (CrocThread* t, word_t slot);
 CROCAPI int      croc_isChar         (CrocThread* t, word_t slot);
 
@@ -240,7 +239,10 @@ CROCAPI word_t      croc_pushThread     (CrocThread* t, CrocThread* o);
 CROCAPI int         croc_getBool        (CrocThread* t, word_t slot);
 CROCAPI crocint_t   croc_getInt         (CrocThread* t, word_t slot);
 CROCAPI crocfloat_t croc_getFloat       (CrocThread* t, word_t slot);
-CROCAPI crocfloat_t croc_getNum         (CrocThread* t, word_t slot);
+
+/** An alias for \ref croc_asFloat. */
+#define croc_getNum croc_asFloat
+
 CROCAPI crocchar_t  croc_getChar        (CrocThread* t, word_t slot);
 CROCAPI const char* croc_getString      (CrocThread* t, word_t slot);
 CROCAPI const char* croc_getStringn     (CrocThread* t, word_t slot, uword_t* len);
@@ -358,40 +360,45 @@ CROCAPI int             croc_thread_hasPendingHalt (CrocThread* t);
 @ingroup API
 All sorts of simple operations on values of any type. */
 /**@{*/
-CROCAPI word_t    croc_foreachBegin    (CrocThread* t, uword_t numContainerVals);
-CROCAPI int       croc_foreachNext     (CrocThread* t, word_t state, uword_t numIndices);
-CROCAPI void      croc_foreachEnd      (CrocThread* t, word_t state);
-CROCAPI void      croc_removeKey       (CrocThread* t, word_t obj);
-CROCAPI word_t    croc_pushToString    (CrocThread* t, word_t slot);
-CROCAPI word_t    croc_pushToStringRaw (CrocThread* t, word_t slot);
-CROCAPI int       croc_in              (CrocThread* t, word_t item, word_t container);
-CROCAPI crocint_t croc_cmp             (CrocThread* t, word_t a, word_t b);
-CROCAPI int       croc_equals          (CrocThread* t, word_t a, word_t b);
-CROCAPI int       croc_is              (CrocThread* t, word_t a, word_t b);
-CROCAPI word_t    croc_idx             (CrocThread* t, word_t container);
-CROCAPI void      croc_idxa            (CrocThread* t, word_t container);
-CROCAPI word_t    croc_idxi            (CrocThread* t, word_t container, crocint_t idx);
-CROCAPI void      croc_idxai           (CrocThread* t, word_t container, crocint_t idx);
-CROCAPI word_t    croc_slice           (CrocThread* t, word_t container);
-CROCAPI void      croc_slicea          (CrocThread* t, word_t container);
-CROCAPI word_t    croc_field           (CrocThread* t, word_t container, const char* name);
-CROCAPI word_t    croc_fieldStk        (CrocThread* t, word_t container);
-CROCAPI void      croc_fielda          (CrocThread* t, word_t container, const char* name);
-CROCAPI void      croc_fieldaStk       (CrocThread* t, word_t container);
-CROCAPI word_t    croc_rawField        (CrocThread* t, word_t container, const char* name);
-CROCAPI word_t    croc_rawFieldStk     (CrocThread* t, word_t container);
-CROCAPI void      croc_rawFielda       (CrocThread* t, word_t container, const char* name);
-CROCAPI void      croc_rawFieldaStk    (CrocThread* t, word_t container);
-CROCAPI word_t    croc_hfield          (CrocThread* t, word_t container, const char* name);
-CROCAPI word_t    croc_hfieldStk       (CrocThread* t, word_t container);
-CROCAPI void      croc_hfielda         (CrocThread* t, word_t container, const char* name);
-CROCAPI void      croc_hfieldaStk      (CrocThread* t, word_t container);
-CROCAPI word_t    croc_pushLen         (CrocThread* t, word_t slot);
-CROCAPI crocint_t croc_len             (CrocThread* t, word_t slot);
-CROCAPI void      croc_lena            (CrocThread* t, word_t slot);
-CROCAPI void      croc_lenai           (CrocThread* t, word_t slot, crocint_t length);
-CROCAPI word_t    croc_cat             (CrocThread* t, uword_t num);
-CROCAPI void      croc_cateq           (CrocThread* t, word_t dest, uword_t num);
+CROCAPI word_t      croc_foreachBegin    (CrocThread* t, uword_t numContainerVals);
+CROCAPI int         croc_foreachNext     (CrocThread* t, word_t state, uword_t numIndices);
+CROCAPI void        croc_foreachEnd      (CrocThread* t, word_t state);
+CROCAPI void        croc_removeKey       (CrocThread* t, word_t obj);
+CROCAPI word_t      croc_pushToString    (CrocThread* t, word_t slot);
+CROCAPI word_t      croc_pushToStringRaw (CrocThread* t, word_t slot);
+CROCAPI int         croc_asBool          (CrocThread* t, word_t slot);
+/** An alias for \ref croc_asBool. */
+#define croc_isTrue croc_asBool
+CROCAPI crocint_t   croc_asInt           (CrocThread* t, word_t slot);
+CROCAPI crocfloat_t croc_asFloat         (CrocThread* t, word_t slot);
+CROCAPI int         croc_in              (CrocThread* t, word_t item, word_t container);
+CROCAPI crocint_t   croc_cmp             (CrocThread* t, word_t a, word_t b);
+CROCAPI int         croc_equals          (CrocThread* t, word_t a, word_t b);
+CROCAPI int         croc_is              (CrocThread* t, word_t a, word_t b);
+CROCAPI word_t      croc_idx             (CrocThread* t, word_t container);
+CROCAPI void        croc_idxa            (CrocThread* t, word_t container);
+CROCAPI word_t      croc_idxi            (CrocThread* t, word_t container, crocint_t idx);
+CROCAPI void        croc_idxai           (CrocThread* t, word_t container, crocint_t idx);
+CROCAPI word_t      croc_slice           (CrocThread* t, word_t container);
+CROCAPI void        croc_slicea          (CrocThread* t, word_t container);
+CROCAPI word_t      croc_field           (CrocThread* t, word_t container, const char* name);
+CROCAPI word_t      croc_fieldStk        (CrocThread* t, word_t container);
+CROCAPI void        croc_fielda          (CrocThread* t, word_t container, const char* name);
+CROCAPI void        croc_fieldaStk       (CrocThread* t, word_t container);
+CROCAPI word_t      croc_rawField        (CrocThread* t, word_t container, const char* name);
+CROCAPI word_t      croc_rawFieldStk     (CrocThread* t, word_t container);
+CROCAPI void        croc_rawFielda       (CrocThread* t, word_t container, const char* name);
+CROCAPI void        croc_rawFieldaStk    (CrocThread* t, word_t container);
+CROCAPI word_t      croc_hfield          (CrocThread* t, word_t container, const char* name);
+CROCAPI word_t      croc_hfieldStk       (CrocThread* t, word_t container);
+CROCAPI void        croc_hfielda         (CrocThread* t, word_t container, const char* name);
+CROCAPI void        croc_hfieldaStk      (CrocThread* t, word_t container);
+CROCAPI word_t      croc_pushLen         (CrocThread* t, word_t slot);
+CROCAPI crocint_t   croc_len             (CrocThread* t, word_t slot);
+CROCAPI void        croc_lena            (CrocThread* t, word_t slot);
+CROCAPI void        croc_lenai           (CrocThread* t, word_t slot, crocint_t length);
+CROCAPI word_t      croc_cat             (CrocThread* t, uword_t num);
+CROCAPI void        croc_cateq           (CrocThread* t, word_t dest, uword_t num);
 /**@}*/
 /*====================================================================================================================*/
 /** @defgroup Compiler Compiler

@@ -225,6 +225,55 @@ extern "C"
 		return toStringImpl(t, *getValue(t, slot), true);
 	}
 
+	/** The equivalent of using <tt>as bool</tt> in Croc.
+
+	\returns nonzero if the value at \c slot converts to \c true, and zero otherwise. */
+	int croc_asBool(CrocThread* t, word_t slot)
+	{
+		return !getValue(Thread::from(t), slot)->isFalse();
+	}
+
+	/** The equivalent of using <tt>as int</tt> in Croc.
+
+	\returns the bool, int, or float in \c slot typecast to an integer. */
+	crocint_t croc_asInt(CrocThread* t, word_t slot)
+	{
+		auto val = *getValue(Thread::from(t), slot);
+
+		switch(val.type)
+		{
+			case CrocType_Bool:  return (crocint_t)(val.mBool ? 1 : 0);
+			case CrocType_Int:   return val.mInt;
+			case CrocType_Float: return (crocint_t)val.mFloat;
+
+			default:
+				croc_pushTypeString(t, slot);
+				croc_eh_throwStd(t, "TypeError", "Cannot convert type '%s' to int", croc_getString(t, -1));
+				assert(false);
+				return 0; // dummy
+		}
+	}
+
+	/** The equivalent of using <tt>as float<//> in Croc.
+
+	\returns the int or float in \c slot typecast to a float. */
+	crocfloat_t croc_asFloat(CrocThread* t, word_t slot)
+	{
+		auto val = *getValue(Thread::from(t), slot);
+
+		switch(val.type)
+		{
+			case CrocType_Int:   return val.mInt;
+			case CrocType_Float: return val.mFloat;
+
+			default:
+				croc_pushTypeString(t, slot);
+				croc_eh_throwStd(t, "TypeError", "Cannot convert type '%s' to float", croc_getString(t, -1));
+				assert(false);
+				return 0; // dummy
+		}
+	}
+
 	/** The equivalent of Croc's \c 'in' operator. Calls \c opIn metamethods if necessary.
 
 	\returns nonzero if the value at \c item is in the value at \c container. */

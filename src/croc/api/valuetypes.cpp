@@ -188,27 +188,6 @@ extern "C"
 		return ret;
 	}
 
-	/** If the given \c slot contains an int, returns that int cast to a \ref crocfloat_t; if it contains a float,
-	returns that value; and if it's any other type, throws an exception. */
-	crocfloat_t croc_getNum(CrocThread* t_, word_t slot)
-	{
-		auto t = Thread::from(t_);
-		auto v = getValue(t, slot);
-
-		if(v->type == CrocType_Int)
-			return v->mInt;
-		else if(v->type == CrocType_Float)
-			return v->mFloat;
-		else
-		{
-			croc_pushTypeString(t_, slot);
-			croc_eh_throwStd(t_, "TypeError",
-				"%s - expected 'int' or 'float' but got '%s'", __FUNCTION__, croc_getString(t_, -1));
-			assert(false);
-			return 0.0; // dummy
-		}
-	}
-
 	/** If the given \c slot contains a string, and that string is exactly one codepoint long, returns the codepoint.
 	Otherwise, throws an exception. */
 	crocchar_t croc_getChar(CrocThread* t_, word_t slot)

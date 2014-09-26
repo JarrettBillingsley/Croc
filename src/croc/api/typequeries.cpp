@@ -15,12 +15,6 @@ extern "C"
 		return getValue(Thread::from(t), slot)->type;
 	}
 
-	/** \returns nonzero if the given stack slot is true according to Croc's truth rules, and 0 if it's false. */
-	int croc_isTrue(CrocThread* t, word_t slot)
-	{
-		return !getValue(Thread::from(t), slot)->isFalse();
-	}
-
 	/** \returns nonzero if the given stack slot holds either an int or a float, and 0 otherwise. */
 	int croc_isNum(CrocThread* t, word_t slot)
 	{
