@@ -1085,6 +1085,14 @@ namespace croc
 		return e;
 	}
 
+	UnExp* Codegen::visit(AsExp* e)
+	{
+		visit(e->op);
+		fb->toSource(e->op->endLocation);
+		fb->as(e->endLocation, e->type);
+		return e;
+	}
+
 	BinaryExp* Codegen::visitBinExp(BinaryExp* e)
 	{
 		visit(e->op1);

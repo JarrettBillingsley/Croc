@@ -454,38 +454,20 @@ const StdlibRegister _reflFuncs[] =
 
 const StdlibRegisterInfo _toString_info =
 {
-	Docstr(DFunc("toString") DParamAny("value") DParamD("style", "string", "\"d\"")
+	Docstr(DFunc("toString") DParamAny("value")
 	R"(This is like \link{rawToString}, but it will call any \b{\tt{toString}} metamethods defined for the value.
 	Arrays have a \b{\tt{toString}} metamethod defined for them by default, and any \b{\tt{toString}} methods defined
 	for class instances will be used.
 
-	The optional \tt{style} parameter only has meaning if the \tt{value} is an integer. It can be one of the following:
-	\blist
-		\li "d": Default: signed base 10.
-		\li "b": Binary.
-		\li "o": Octal.
-		\li "x": Lowercase hexadecimal.
-		\li "X": Uppercase hexadecimal.
-		\li "u": Unsigned base 10.
-	\endlist)"),
+	Note that ints and floats will be converted to strings with default formatting (base 10, etc). If you need more
+	control over the string formatting of numbers, use the \link[string.string.format]{string.format} method.)"),
 
 	"toString", 1
 };
 
 word_t _toString(CrocThread* t)
 {
-	// auto numParams = croc_getStackSize(t) - 1;
 	croc_ex_checkAnyParam(t, 1);
-
-	// TODO:
-	// if(croc_isInt(t, 1))
-	// {
-	// 	auto style = croc_ex_optStringParam(t, 2, "d");
-	// 	char[80] buffer = void;
-	// 	croc_pushString(t, safeCode(t, "exceptions.ValueError", Integer_format(buffer, getInt(t, 1), style)));
-	// }
-	// else
-
 	croc_pushToString(t, 1);
 	return 1;
 }
@@ -522,107 +504,10 @@ word_t _rawToString(CrocThread* t)
 	return 1;
 }
 
-const StdlibRegisterInfo _toBool_info =
-{
-	Docstr(DFunc("toBool")
-	R"(This returns the truth value of the given value. \tt{null}, \tt{false}, integer 0, and float 0.0 will all return
-	\tt{false}; all other values and types will return \tt{true}.)"),
-
-	"toBool", 1
-};
-
-word_t _toBool(CrocThread* t)
-{
-	croc_ex_checkAnyParam(t, 1);
-	croc_pushBool(t, croc_isTrue(t, 1));
-	return 1;
-}
-
-const StdlibRegisterInfo _toInt_info =
-{
-	Docstr(DFunc("toInt")
-	R"(This will convert a value into an integer. Only the following types can be converted:
-	\blist
-		\li \b{\tt{bool}}: Converts \tt{true} to 1 and \tt{false} to 0.
-		\li \b{\tt{int}}: Just returns the value.
-		\li \b{\tt{float}}: Truncates the fraction and returns the integer portion.
-		\li \b{\tt{string}}: Attempts to convert the string to an integer, and assumes it's in base 10. Throws an error
-			if it fails. If you want to convert a string to an integer with a base other than 10, use the string
-			object's \b{\tt{toInt}} method.
-	\endlist)"),
-
-	"toInt", 1
-};
-
-word_t _toInt(CrocThread* t)
-{
-	croc_ex_checkAnyParam(t, 1);
-
-	switch(croc_type(t, 1))
-	{
-		case CrocType_Bool:   croc_pushInt(t, cast(crocint)croc_getBool(t, 1)); break;
-		case CrocType_Int:    croc_dup(t, 1); break;
-		case CrocType_Float:  croc_pushInt(t, cast(crocint)croc_getFloat(t, 1)); break;
-
-		// TODO: bug #73
-		// case CrocType_String:
-		// 	croc_pushInt(t, safeCode(t, "exceptions.ValueError", cast(crocint)Integer_toLong(getString(t, 1), 10)));
-		// 	break;
-
-		default:
-			croc_pushTypeString(t, 1);
-			croc_eh_throwStd(t, "TypeError", "Cannot convert type '%s' to int", croc_getString(t, -1));
-	}
-
-	return 1;
-}
-
-const StdlibRegisterInfo _toFloat_info =
-{
-	Docstr(DFunc("toFloat")
-	R"(This will convert a value into a float. Only the following types can be converted:
-	\blist
-		\li \b{\tt{bool}}: Converts \tt{true} to 1.0 and \tt{false} to 0.0.
-		\li \b{\tt{int}}: Returns the value cast to a float.
-		\li \b{\tt{float}}: Just returns the value.
-		\li \b{\tt{string}}: Attempts to convert the string to a float. Throws an error if it fails.
-	\endlist
-
-	Other types will throw an error.)"),
-
-	"toFloat", 1
-};
-
-word_t _toFloat(CrocThread* t)
-{
-	croc_ex_checkAnyParam(t, 1);
-
-	switch(croc_type(t, 1))
-	{
-		case CrocType_Bool:   croc_pushFloat(t, cast(crocfloat)croc_getBool(t, 1)); break;
-		case CrocType_Int:    croc_pushFloat(t, cast(crocfloat)croc_getInt(t, 1)); break;
-		case CrocType_Float:  croc_dup(t, 1); break;
-
-		// TODO:
-		// case CrocType_String:
-		// 	pushFloat(t, safeCode(t, "exceptions.ValueError", cast(crocfloat)Float_toFloat(getString(t, 1))));
-		// 	break;
-
-		default:
-			croc_pushTypeString(t, 1);
-			croc_eh_throwStd(t, "TypeError", "Cannot convert type '%s' to float", croc_getString(t, -1));
-	}
-
-	return 1;
-}
-
 const StdlibRegister _convFuncs[] =
 {
 	_DListItem(_toString),
 	_DListItem(_rawToString),
-	_DListItem(_toBool),
-	_DListItem(_toInt),
-	_DListItem(_toFloat),
 	_DListEnd
 };
 }

@@ -429,21 +429,15 @@ word_t _loadFiles(CrocThread* t)
 		auto size = ftell(f);
 		fseek(f, 0, SEEK_SET);
 		auto data = (char*)malloc(size + 1);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-result"
 		fread(data, 1, size, f);
-#pragma GCC diagnostic pop
 		data[size] = 0;
 		fclose(f);
-
-		auto slot = croc_pushNull(t);
-		auto failed = tryCode(Thread::from(t), slot, [&] { croc_pushString(t, data); });
+		auto success = croc_tryPushString(t, data);
 		free(data);
 
-		if(failed)
-			croc_eh_rethrow(t);
-
-		croc_insertAndPop(t, slot);
+		if(!success)
+			croc_eh_throwStd(t, "UnicodeError", "Error loading %.*s.croc: Invalid UTF-8 sequence",
+				(int)path.length, path.ptr);
 
 		const char* loadedName;
 		croc_compiler_compileModuleEx(t, filenameBuf, &loadedName);

@@ -392,6 +392,7 @@ namespace croc
 		void binOp(CompileLoc loc, AstTag type);
 		void concat(CompileLoc loc, uword numOps);
 		void unOp(CompileLoc loc, AstTag type);
+		void as(CompileLoc loc, AsExp::Type type);
 		MethodCallDesc beginMethodCall();
 		void updateMethodCall(MethodCallDesc& desc, uword num);
 		void pushMethodCall(CompileLoc loc, MethodCallDesc& desc);

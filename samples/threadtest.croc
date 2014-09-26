@@ -19,7 +19,7 @@ class Thread
 	// Begin a timed wait.  Duration is in seconds (int or float).  This may
 	// not work right for long durations.
 	function beginWait(duration: int|float)
-		:mWaitTime = time.microTime() + toInt(duration * 1000000)
+		:mWaitTime = time.microTime() + ((duration * 1000000) as int)
 
 	// Add a message to this thread's message queue.
 	function send(value)

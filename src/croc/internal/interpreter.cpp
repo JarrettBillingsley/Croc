@@ -436,6 +436,47 @@ namespace croc
 					}
 					break;
 
+				case Op_AsBool:
+					GetRS();
+					t->stack[stackBase + rd] = Value::from(!RS->isFalse());
+					break;
+
+				case Op_AsInt:
+					GetRS();
+
+					switch(RS->type)
+					{
+						case CrocType_Bool:  t->stack[stackBase + rd] = Value::from((crocint)(RS->mBool ? 1 : 0)); break;
+						case CrocType_Int:   t->stack[stackBase + rd] = *RS; break;
+						case CrocType_Float: t->stack[stackBase + rd] = Value::from((crocint)RS->mFloat); break;
+
+						default:
+							pushTypeStringImpl(t, *RS);
+							croc_eh_throwStd(*t, "TypeError", "Cannot convert type '%s' to int", croc_getString(*t, -1));
+					}
+					break;
+
+				case Op_AsFloat:
+					GetRS();
+
+					switch(RS->type)
+					{
+						case CrocType_Int:   t->stack[stackBase + rd] = Value::from((crocfloat)RS->mInt); break;
+						case CrocType_Float: t->stack[stackBase + rd] = *RS; break;
+
+						default:
+							pushTypeStringImpl(t, *RS);
+							croc_eh_throwStd(*t, "TypeError", "Cannot convert type '%s' to float", croc_getString(*t, -1));
+					}
+					break;
+
+				case Op_AsString:
+					GetRS();
+					toStringImpl(t, *RS, false);
+					t->stack[stackBase + rd] = t->stack[t->stackIndex - 1];
+					t->stackIndex--;
+					break;
+
 				// Crements
 				case Op_Inc: {
 					auto dest = stackBase + rd;

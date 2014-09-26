@@ -281,8 +281,6 @@ namespace croc
 					t->stack[slot] = Value::from(cls->constructor->mFunction);
 					t->stack[slot + 1] = Value::from(inst);
 
-					// TODO: remove the native call from class ctor calls
-
 					t->nativeCallDepth++;
 
 					if(callPrologue(t, slot, 0, numParams))

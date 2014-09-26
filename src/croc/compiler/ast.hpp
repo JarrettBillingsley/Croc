@@ -80,6 +80,7 @@ inline void* operator new(croc::uword size, croc::Compiler& c)
 	X(GTExp,                "greater-than expression",         Expression)\
 	X(GEExp,                "greater-or-equals expression",    Expression)\
 	X(Cmp3Exp,              "three-way comparison expression", Expression)\
+	X(AsExp,                "'as' expression",                 Expression)\
 	X(InExp,                "'in' expression",                 Expression)\
 	X(NotInExp,             "'!in' expression",                Expression)\
 	X(ShlExp,               "left-shift expression",           Expression)\
@@ -411,6 +412,7 @@ namespace croc
 		crocint asInt();
 		crocfloat asFloat();
 		crocstr asString();
+		CrocType crocType();
 	};
 
 	struct BinaryExp : public Expression
@@ -1038,6 +1040,24 @@ namespace croc
 	struct LenExp : public UnExp
 	{
 		UNEXPCTOR(LenExp)
+	};
+
+	struct AsExp : public PostfixExp
+	{
+		enum class Type
+		{
+			Bool,
+			Int,
+			Float,
+			String
+		};
+
+		Type type;
+
+		AsExp(CompileLoc endLocation, Expression* op, Type t) :
+			PostfixExp(op->location, endLocation, AstTag_AsExp, op),
+			type(t)
+		{}
 	};
 
 	struct DotExp : public PostfixExp

@@ -1990,7 +1990,7 @@ namespace croc
 	{
 		auto location = l.loc();
 
-		auto exp1 = parseMulExp();
+		auto exp1 = parseAsExp();
 		Expression* exp2 = nullptr;
 
 		while(true)
@@ -1999,19 +1999,19 @@ namespace croc
 			{
 				case Token::Add:
 					l.next();
-					exp2 = parseMulExp();
+					exp2 = parseAsExp();
 					exp1 = new(c) AddExp(location, exp2->endLocation, exp1, exp2);
 					continue;
 
 				case Token::Sub:
 					l.next();
-					exp2 = parseMulExp();
+					exp2 = parseAsExp();
 					exp1 = new(c) SubExp(location, exp2->endLocation, exp1, exp2);
 					continue;
 
 				case Token::Cat:
 					l.next();
-					exp2 = parseMulExp();
+					exp2 = parseAsExp();
 					exp1 = new(c) CatExp(location, exp2->endLocation, exp1, exp2);
 					continue;
 
@@ -2023,6 +2023,38 @@ namespace croc
 		}
 
 		return exp1;
+	}
+
+	Expression* Parser::parseAsExp()
+	{
+		auto exp = parseMulExp();
+
+		while(true)
+		{
+			switch(l.type())
+			{
+				case Token::As: {
+					l.next();
+					auto t = l.expect(Token::Ident);
+					auto type = AsExp::Type::Bool;
+					if(t.stringValue == ATODA("bool"))   type = AsExp::Type::Bool; else
+					if(t.stringValue == ATODA("int"))    type = AsExp::Type::Int; else
+					if(t.stringValue == ATODA("float"))  type = AsExp::Type::Float; else
+					if(t.stringValue == ATODA("string")) type = AsExp::Type::String; else
+					c.synException(t.loc,
+						"Expected one of 'bool', 'int', 'float', or 'string' for 'as' expression");
+
+					exp = new(c) AsExp(t.loc, exp, type);
+					continue;
+				}
+				default:
+					break;
+			}
+
+			break;
+		}
+
+		return exp;
 	}
 
 	Expression* Parser::parseMulExp()

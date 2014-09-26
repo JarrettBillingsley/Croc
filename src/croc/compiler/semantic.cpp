@@ -1353,6 +1353,65 @@ namespace croc
 		}
 	}
 
+	Expression* Semantic::visit(AsExp* e)
+	{
+		VISIT(e->op);
+		auto op = e->op;
+
+		if(op->isConstant())
+		{
+			auto opType = op->crocType();
+
+			switch(e->type)
+			{
+				case AsExp::Type::Bool:
+					return new(c) BoolExp(e->location, op->isTrue());
+
+				case AsExp::Type::Int:
+					switch(opType)
+					{
+						case CrocType_Bool:  return new(c) IntExp(e->location, op->asBool() ? 1 : 0);
+						case CrocType_Int:   return op;
+						case CrocType_Float: return new(c) IntExp(e->location, (crocint)op->asFloat());
+
+						default:
+							c.semException(e->location, "Cannot convert type '%s' to int", typeToString(opType));
+					}
+
+				case AsExp::Type::Float:
+					switch(opType)
+					{
+						case CrocType_Int:   return new(c) FloatExp(e->location, (crocfloat)op->asInt());
+						case CrocType_Float: return op;
+
+						default:
+							c.semException(e->location, "Cannot convert type '%s' to float", typeToString(opType));
+					}
+
+				case AsExp::Type::String: {
+					switch(opType)
+					{
+						case CrocType_Null:   croc_pushNull(*c.thread());                 break;
+						case CrocType_Bool:   croc_pushBool(*c.thread(), op->asBool());   break;
+						case CrocType_Int:    croc_pushInt(*c.thread(), op->asInt());     break;
+						case CrocType_Float:  croc_pushFloat(*c.thread(), op->asFloat()); break;
+						case CrocType_String: return op;
+						default: assert(false);
+					}
+
+					croc_pushToString(*c.thread(), -1);
+					auto str = c.newString(croc_getString(*c.thread(), -1));
+					croc_pop(*c.thread(), 2);
+					return new(c) StringExp(e->location, str);
+				}
+				default:
+					assert(false);
+			}
+		}
+
+		return e;
+	}
+
 	Expression* Semantic::visit(MulExp* e)
 	{
 		VISIT(e->op1);

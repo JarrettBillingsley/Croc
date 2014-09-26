@@ -112,6 +112,7 @@ namespace croc
 		virtual Expression* visit(AddExp* e) override;
 		virtual Expression* visit(SubExp* e) override;
 		virtual Expression* visit(CatExp* e) override;
+		virtual Expression* visit(AsExp* e) override;
 		virtual Expression* visit(MulExp* e) override;
 		virtual Expression* visit(DivExp* e) override;
 		virtual Expression* visit(ModExp* e) override;

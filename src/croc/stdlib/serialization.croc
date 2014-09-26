@@ -139,7 +139,7 @@ local class Serializer
 	function _serializeBool(v)
 	{
 		:_tag(TypeTags["bool"])
-		:_output.writeUInt8(toInt(v))
+		:_output.writeUInt8(v as int)
 	}
 
 	function _serializeInt(v)
@@ -286,7 +286,7 @@ local class Serializer
 			throw ValueError("Attempting to serialize class '{}' which has a finalizer".format(nameOf(v)))
 
 		:_nativeSerializeClass(v)
-		:_output.writeUInt8(toInt(isFrozen(v)))
+		:_output.writeUInt8(isFrozen(v) as int)
 	}
 
 	function _serializeInstance(v)

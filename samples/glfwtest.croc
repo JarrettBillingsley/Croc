@@ -297,8 +297,8 @@ function makeScreenQuad(xdiv: int, ydiv: int)
 		{
 			local x = ((2.0 * xi) / xdiv) - 1
 			local y = 1 - ((2.0 * yi) / ydiv)
-			local u = toFloat(xi) / xdiv
-			local v = 1 - (toFloat(yi) / ydiv)
+			local u = (xi as float) / xdiv
+			local v = 1 - ((yi as float) / ydiv)
 
 			verts[i] = x
 			verts[i + 1] = y
@@ -413,12 +413,12 @@ function perspective(fov, aspect, near, far)
 
 function ortho(l, t, r, b, n, f)
 {
-	l = toFloat(l)
-	t = toFloat(t)
-	r = toFloat(r)
-	b = toFloat(b)
-	n = toFloat(n)
-	f = toFloat(f)
+	l = l as float
+	t = t as float
+	r = r as float
+	b = b as float
+	n = n as float
+	f = f as float
 
 	return [
 		2 / (r - l), 0, 0, -(r + l) / (r - l),
@@ -472,7 +472,7 @@ function main()
 		toF32(lookAt(0, 1.2, 1.2,  0, 0, 0,  0, 1, 0)))
 
 	gl.glUniformMatrix4fv(shaderProgram.getUniformLocation("proj"), 1, false,
-		toF32(perspective(math.pi / 4, toFloat(screenW) / screenH, 1.0, 10.0)))
+		toF32(perspective(math.pi / 4, (screenW as float) / screenH, 1.0, 10.0)))
 
 	// Triangle
 	local triMesh = Mesh(

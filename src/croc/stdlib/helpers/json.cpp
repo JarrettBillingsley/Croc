@@ -462,7 +462,6 @@ namespace croc
 
 					case 't':
 						if(!arrStartsWith(crocstr::n(mCharPos, mSourceEnd - mCharPos), ATODA("rue")))
-							// TODO
 							croc_eh_throwStd(t, "LexicalException", "(%u:%u): true expected", mLine, mCol);
 
 						nextChar();

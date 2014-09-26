@@ -4,12 +4,12 @@ function main()
 {
 	local N = 1_000_000
 	local start = time.microTime()
-	local bits = array.new(math.iceil(N / toFloat(math.intSize * 8)), -1)
+	local bits = array.new(math.iceil(N / ((math.intSize * 8) as float)), -1)
 
 	// set 0 and 1 to false
 	bits[0] &= ~3
 
-	for(i: 2 .. toInt(math.sqrt(N)))
+	for(i: 2 .. math.sqrt(N) as int)
 	{
 		if(bits[i >> 6] & (1 << (i & 63)))
 		{

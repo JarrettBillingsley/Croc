@@ -61,6 +61,20 @@ namespace croc
 				default: assert(false); return Op_Neg; // dummy
 			}
 		}
+
+		Op AsTypeToOpcode(AsExp::Type type)
+		{
+			switch(type)
+			{
+				case AsExp::Type::Bool:   return Op_AsBool;
+				case AsExp::Type::Int:    return Op_AsInt;
+				case AsExp::Type::Float:  return Op_AsFloat;
+				case AsExp::Type::String: return Op_AsString;
+
+				default: assert(false); return Op_Neg; // dummy
+			}
+		}
+
 	}
 #ifndef NDEBUG
 	const char* expTypeToString(ExpType type)
@@ -1193,6 +1207,18 @@ namespace croc
 		DEBUG_EXPSTACKCHECK(assert(src.isSource());)
 
 		auto inst = codeRD(loc, AstTagToOpcode(type), 0);
+		codeRC(src);
+		pop();
+		pushExp(ExpType::NeedsDest, inst);
+	}
+
+	// [src] => [NeedsDest]
+	void FuncBuilder::as(CompileLoc loc, AsExp::Type type)
+	{
+		auto &src = getExp(-1);
+		DEBUG_EXPSTACKCHECK(assert(src.isSource());)
+
+		auto inst = codeRD(loc, AsTypeToOpcode(type), 0);
 		codeRC(src);
 		pop();
 		pushExp(ExpType::NeedsDest, inst);

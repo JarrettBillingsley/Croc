@@ -434,10 +434,20 @@ ShiftExpression:
 	ShiftExpression >>> AddExpression
 
 AddExpression:
+	AsExpression
+	AddExpression + AsExpression
+	AddExpression - AsExpression
+	AddExpression ~ AsExpression
+
+AsExpression:
 	MulExpression
-	AddExpression + MulExpression
-	AddExpression - MulExpression
-	AddExpression ~ MulExpression
+	AsExpression as AsType
+
+AsType:
+	bool
+	int
+	float
+	string
 
 MulExpression:
 	UnaryExpression

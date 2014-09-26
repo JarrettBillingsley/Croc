@@ -80,6 +80,7 @@ namespace croc
 		Expression* parseCmpExp();
 		Expression* parseShiftExp();
 		Expression* parseAddExp();
+		Expression* parseAsExp();
 		Expression* parseMulExp();
 		Expression* parseUnExp();
 		Expression* parsePrimaryExp();

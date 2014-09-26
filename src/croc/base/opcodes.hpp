@@ -55,6 +55,10 @@ TWO SHORTS:
 	customparamfail: give error message about parameter rd not satisfying the constraint whose name is in rs
 	slice:           rd = rs[rs + 1 .. rs + 2]
 	slicea:          rd[rd + 1 .. rd + 2] = rs
+	asbool:          rd = rs as bool
+	asint:           rd = rs as int
+	asfloat:         rd = rs as float
+	asstring:        rd = rs as string
 (rd, imm)
 	for:       prepare a numeric for loop with base register rd, then jump by imm
 	forloop:   update a numeric for loop with base register rd, then jump by imm if we should keep going
@@ -218,7 +222,11 @@ FIVE SHORTS:
 	X(Namespace),\
 	X(NamespaceNP),\
 	X(SuperOf),\
-	X(AddMember)
+	X(AddMember),\
+	X(AsBool),\
+	X(AsInt),\
+	X(AsFloat),\
+	X(AsString)
 
 #define POOP(x) Op_ ## x
 	enum Op

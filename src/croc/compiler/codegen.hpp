@@ -110,6 +110,7 @@ namespace croc
 		CondExp* visit(CondExp* e) override;
 		OrOrExp* visit(OrOrExp* e) override;
 		AndAndExp* visit(AndAndExp* e) override;
+		UnExp* visit(AsExp* e) override;
 		BinaryExp* visit(AddExp* e) override;
 		BinaryExp* visit(SubExp* e) override;
 		BinaryExp* visit(MulExp* e) override;

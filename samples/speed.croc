@@ -57,7 +57,7 @@ local class Tester
 	function endTimer(s)
 	{
 		t1 = time.microTime() - t1
-		local mps = toFloat(oneMillion) / t1
+		local mps = (oneMillion as float) / t1
 		writefln("Croc {} := {:.2}", s, mps)
 	}
 
