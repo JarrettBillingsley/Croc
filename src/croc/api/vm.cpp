@@ -259,7 +259,7 @@ extern "C"
 	void croc_vm_loadAddons(CrocThread* t, CrocAddons libs)
 	{
 		if(libs & CrocAddons_Pcre)  initPcreLib(t);
-		if(libs & CrocAddons_Devil) {} //DevilLib.init(t);
+		if(libs & CrocAddons_Devil) initDevilLib(t);
 		if(libs & CrocAddons_Net)   {} //initNetLib(t);
 		if(libs & CrocAddons_Glfw)  initGlfwLib(t);
 	}
@@ -277,7 +277,7 @@ extern "C"
 		if(!(exclude & CrocAddons_Pcre))  initPcreLib(t);
 #endif
 #ifdef CROC_DEVIL_ADDON
-		if(!(exclude & CrocAddons_Devil)) {} //DevilLib.init(t);
+		if(!(exclude & CrocAddons_Devil)) initDevilLib(t);
 #endif
 #ifdef CROC_NET_ADDON
 		if(!(exclude & CrocAddons_Net))   {} //initNetLib(t);

@@ -11,6 +11,7 @@ set(croc_SRC
 	croc/addons/all.hpp
 	croc/addons/glfw.cpp
 	croc/addons/glfw.hpp
+	croc/addons/il.cpp
 	croc/addons/pcre.cpp
 	croc/api/apichecks.hpp
 	croc/api/array.cpp
@@ -175,6 +176,13 @@ if(CROC_GLFW_ADDON)
 	)
 endif()
 
+if(CROC_DEVIL_ADDON)
+	set(croc_SRC ${croc_SRC}
+		croc/ext/il/il.h
+		croc/ext/il/ilu.h
+	)
+endif()
+
 set(croc_CROCSRC
 	croc/stdlib/console.croc
 	croc/stdlib/docs.croc
@@ -236,7 +244,11 @@ set(croc_ALLSRC
 )
 
 if(NOT DEFINED CROC_BUILD_BITS)
-	set(CROC_BUILD_BITS 32)
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(CROC_BUILD_BITS 64)
+	else()
+		set(CROC_BUILD_BITS 32)
+	endif()
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX)
