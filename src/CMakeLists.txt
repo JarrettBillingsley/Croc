@@ -12,6 +12,7 @@ set(croc_SRC
 	croc/addons/glfw.cpp
 	croc/addons/glfw.hpp
 	croc/addons/il.cpp
+	croc/addons/il.hpp
 	croc/addons/pcre.cpp
 	croc/api/apichecks.hpp
 	croc/api/array.cpp
@@ -173,13 +174,6 @@ if(CROC_GLFW_ADDON)
 		croc/ext/glad.cpp
 		croc/ext/glad/glad.hpp
 		croc/ext/KHR/khrplatform.hpp
-	)
-endif()
-
-if(CROC_DEVIL_ADDON)
-	set(croc_SRC ${croc_SRC}
-		croc/ext/il/il.h
-		croc/ext/il/ilu.h
 	)
 endif()
 

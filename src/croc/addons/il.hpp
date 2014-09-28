@@ -1,4 +1,8 @@
-// THIS HEADER HAS BEEN MODIFIED FROM THE 1.7.8 il.h FOR USE WITH CROC
+#ifndef CROC_ADDONS_IL_HPP
+#define CROC_ADDONS_IL_HPP
+
+// =====================================================================================================================
+// IL/ILU Header stuff (taken from the 1.7.8 headers)
 
 //-----------------------------------------------------------------------------
 //
@@ -17,12 +21,6 @@
     The main include file for DevIL
 */
 
-#ifndef __il_h_
-#ifndef __IL_H__
-
-#define __il_h_
-#define __IL_H__
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,38 +29,38 @@ extern "C" {
 //during conversion. It takes a little more time, but it is the correct
 //way of doing this. If you are sure your floats are always valid,
 //you can undefine this value...
-#define CLAMP_HALF		1
-#define CLAMP_FLOATS	1
-#define CLAMP_DOUBLES	1
+#define CLAMP_HALF      1
+#define CLAMP_FLOATS    1
+#define CLAMP_DOUBLES   1
 
 /*#ifdef _WIN32_WCE
-	#define IL_NO_EXR
-	#define IL_NO_GIF
-	#define IL_NO_JP2
-	#define IL_NO_JPG
-	#define IL_NO_MNG
-	#define IL_NO_PNG
-	#define IL_NO_TIF
-	#define IL_NO_LCMS
+    #define IL_NO_EXR
+    #define IL_NO_GIF
+    #define IL_NO_JP2
+    #define IL_NO_JPG
+    #define IL_NO_MNG
+    #define IL_NO_PNG
+    #define IL_NO_TIF
+    #define IL_NO_LCMS
 #endif //_WIN32_WCE
 
 #ifdef DJGPP
-	#define IL_NO_EXR
-	#define IL_NO_GIF
-	#define IL_NO_JP2
-	#define IL_NO_JPG
-	#define IL_NO_MNG
-	#define IL_NO_PNG
-	#define IL_NO_TIF
-	#define IL_NO_LCMS
+    #define IL_NO_EXR
+    #define IL_NO_GIF
+    #define IL_NO_JP2
+    #define IL_NO_JPG
+    #define IL_NO_MNG
+    #define IL_NO_PNG
+    #define IL_NO_TIF
+    #define IL_NO_LCMS
 #endif //DJGPP*/
 
 // #ifdef _WIN32
-// 	#if (defined(IL_USE_PRAGMA_LIBS)) && (!defined(_IL_BUILD_LIBRARY))
-// 		#if defined(_MSC_VER) || defined(__BORLANDC__)
-// 			#pragma comment(lib, "DevIL.lib")
-// 		#endif
-// 	#endif
+//  #if (defined(IL_USE_PRAGMA_LIBS)) && (!defined(_IL_BUILD_LIBRARY))
+//      #if defined(_MSC_VER) || defined(__BORLANDC__)
+//          #pragma comment(lib, "DevIL.lib")
+//      #endif
+//  #endif
 // #endif
 
 #ifdef RESTRICT_KEYWORD
@@ -80,7 +78,7 @@ typedef unsigned char  ILboolean;
 typedef unsigned int   ILbitfield;
 typedef signed char    ILbyte;
 typedef signed short   ILshort;
-typedef int     	   ILint;
+typedef int            ILint;
 typedef size_t         ILsizei;
 typedef unsigned char  ILubyte;
 typedef unsigned short ILushort;
@@ -101,30 +99,30 @@ typedef long long unsigned int ILuint64;
 
 #include <limits.h>
 // #ifdef _UNICODE
-// 	#ifndef _WIN32_WCE
-// 		#include <wchar.h>
-// 	#endif
-// 	//if we use a define instead of a typedef,
-// 	//ILconst_string works as intended
-// 	#define ILchar wchar_t
-// 	#define ILstring wchar_t*
-// 	#define ILconst_string  wchar_t const *
+//  #ifndef _WIN32_WCE
+//      #include <wchar.h>
+//  #endif
+//  //if we use a define instead of a typedef,
+//  //ILconst_string works as intended
+//  #define ILchar wchar_t
+//  #define ILstring wchar_t*
+//  #define ILconst_string  wchar_t const *
 // #else
-	//if we use a define instead of a typedef,
-	//ILconst_string works as intended
-	#define ILchar char
-	#define ILstring char*
-	#define ILconst_string char const *
+    //if we use a define instead of a typedef,
+    //ILconst_string works as intended
+    #define ILchar char
+    #define ILstring char*
+    #define ILconst_string char const *
 // #endif //_UNICODE
 
-#define IL_FALSE			0
-#define IL_TRUE				1
+#define IL_FALSE            0
+#define IL_TRUE             1
 
 //  Matches OpenGL's right now.
 //! Data formats \link Formats Formats\endlink
 #define IL_COLOUR_INDEX     0x1900
 #define IL_COLOR_INDEX      0x1900
-#define IL_ALPHA			0x1906
+#define IL_ALPHA            0x1906
 #define IL_RGB              0x1907
 #define IL_RGBA             0x1908
 #define IL_BGR              0x80E0
@@ -144,15 +142,15 @@ typedef long long unsigned int ILuint64;
 #define IL_HALF           0x140B
 
 
-#define IL_MAX_BYTE		  		SCHAR_MAX
-#define IL_MAX_UNSIGNED_BYTE  	UCHAR_MAX
-#define IL_MAX_SHORT	  		SHRT_MAX
-#define IL_MAX_UNSIGNED_SHORT 	USHRT_MAX
-#define IL_MAX_INT		  		INT_MAX
-#define IL_MAX_UNSIGNED_INT   	UINT_MAX
+#define IL_MAX_BYTE             SCHAR_MAX
+#define IL_MAX_UNSIGNED_BYTE    UCHAR_MAX
+#define IL_MAX_SHORT            SHRT_MAX
+#define IL_MAX_UNSIGNED_SHORT   USHRT_MAX
+#define IL_MAX_INT              INT_MAX
+#define IL_MAX_UNSIGNED_INT     UINT_MAX
 
-#define IL_LIMIT(x,m,M)		(x<m?m:(x>M?M:x))
-#define IL_CLAMP(x) 		IL_LIMIT(x,0,1)
+#define IL_LIMIT(x,m,M)     (x<m?m:(x>M?M:x))
+#define IL_CLAMP(x)         IL_LIMIT(x,0,1)
 
 #define IL_VENDOR   0x1F00
 #define IL_LOAD_EXT 0x1F01
@@ -224,25 +222,25 @@ typedef long long unsigned int ILuint64;
 #define IL_PXR          0x043D  //!< Pixar - .pxr extension
 #define IL_XPM          0x043E  //!< X Pixel Map - .xpm extension
 #define IL_HDR          0x043F  //!< Radiance High Dynamic Range - .hdr extension
-#define IL_ICNS			0x0440  //!< Macintosh Icon - .icns extension
-#define IL_JP2			0x0441  //!< Jpeg 2000 - .jp2 extension
-#define IL_EXR			0x0442  //!< OpenEXR - .exr extension
-#define IL_WDP			0x0443  //!< Microsoft HD Photo - .wdp and .hdp extension
-#define IL_VTF			0x0444  //!< Valve Texture Format - .vtf extension
-#define IL_WBMP			0x0445  //!< Wireless Bitmap - .wbmp extension
-#define IL_SUN			0x0446  //!< Sun Raster - .sun, .ras, .rs, .im1, .im8, .im24 and .im32 extensions
-#define IL_IFF			0x0447  //!< Interchange File Format - .iff extension
-#define IL_TPL			0x0448  //!< Gamecube Texture - .tpl extension
-#define IL_FITS			0x0449  //!< Flexible Image Transport System - .fit and .fits extensions
-#define IL_DICOM		0x044A  //!< Digital Imaging and Communications in Medicine (DICOM) - .dcm and .dicom extensions
-#define IL_IWI			0x044B  //!< Call of Duty Infinity Ward Image - .iwi extension
-#define IL_BLP			0x044C  //!< Blizzard Texture Format - .blp extension
-#define IL_FTX			0x044D  //!< Heavy Metal: FAKK2 Texture - .ftx extension
-#define IL_ROT			0x044E  //!< Homeworld 2 - Relic Texture - .rot extension
-#define IL_TEXTURE		0x044F  //!< Medieval II: Total War Texture - .texture extension
-#define IL_DPX			0x0450  //!< Digital Picture Exchange - .dpx extension
-#define IL_UTX			0x0451  //!< Unreal (and Unreal Tournament) Texture - .utx extension
-#define IL_MP3			0x0452  //!< MPEG-1 Audio Layer 3 - .mp3 extension
+#define IL_ICNS         0x0440  //!< Macintosh Icon - .icns extension
+#define IL_JP2          0x0441  //!< Jpeg 2000 - .jp2 extension
+#define IL_EXR          0x0442  //!< OpenEXR - .exr extension
+#define IL_WDP          0x0443  //!< Microsoft HD Photo - .wdp and .hdp extension
+#define IL_VTF          0x0444  //!< Valve Texture Format - .vtf extension
+#define IL_WBMP         0x0445  //!< Wireless Bitmap - .wbmp extension
+#define IL_SUN          0x0446  //!< Sun Raster - .sun, .ras, .rs, .im1, .im8, .im24 and .im32 extensions
+#define IL_IFF          0x0447  //!< Interchange File Format - .iff extension
+#define IL_TPL          0x0448  //!< Gamecube Texture - .tpl extension
+#define IL_FITS         0x0449  //!< Flexible Image Transport System - .fit and .fits extensions
+#define IL_DICOM        0x044A  //!< Digital Imaging and Communications in Medicine (DICOM) - .dcm and .dicom extensions
+#define IL_IWI          0x044B  //!< Call of Duty Infinity Ward Image - .iwi extension
+#define IL_BLP          0x044C  //!< Blizzard Texture Format - .blp extension
+#define IL_FTX          0x044D  //!< Heavy Metal: FAKK2 Texture - .ftx extension
+#define IL_ROT          0x044E  //!< Homeworld 2 - Relic Texture - .rot extension
+#define IL_TEXTURE      0x044F  //!< Medieval II: Total War Texture - .texture extension
+#define IL_DPX          0x0450  //!< Digital Picture Exchange - .dpx extension
+#define IL_UTX          0x0451  //!< Unreal (and Unreal Tournament) Texture - .utx extension
+#define IL_MP3          0x0452  //!< MPEG-1 Audio Layer 3 - .mp3 extension
 
 
 #define IL_JASC_PAL     0x0475  //!< PaintShop Pro Palette
@@ -295,27 +293,27 @@ typedef long long unsigned int ILuint64;
 
 
 // File definitions
-#define IL_FILE_OVERWRITE	0x0620
-#define IL_FILE_MODE		0x0621
+#define IL_FILE_OVERWRITE   0x0620
+#define IL_FILE_MODE        0x0621
 
 
 // Palette definitions
-#define IL_CONV_PAL			0x0630
+#define IL_CONV_PAL         0x0630
 
 
 // Load fail definitions
-#define IL_DEFAULT_ON_FAIL	0x0632
+#define IL_DEFAULT_ON_FAIL  0x0632
 
 
 // Key colour and alpha definitions
-#define IL_USE_KEY_COLOUR	0x0635
-#define IL_USE_KEY_COLOR	0x0635
-#define IL_BLIT_BLEND		0x0636
+#define IL_USE_KEY_COLOUR   0x0635
+#define IL_USE_KEY_COLOR    0x0635
+#define IL_BLIT_BLEND       0x0636
 
 
 // Interlace definitions
-#define IL_SAVE_INTERLACED	0x0639
-#define IL_INTERLACE_MODE	0x063A
+#define IL_SAVE_INTERLACED  0x0639
+#define IL_INTERLACE_MODE   0x063A
 
 
 // Quantization definitions
@@ -338,8 +336,8 @@ typedef long long unsigned int ILuint64;
 
 
 // Compression
-#define IL_NVIDIA_COMPRESS	0x0670
-#define IL_SQUISH_COMPRESS	0x0671
+#define IL_NVIDIA_COMPRESS  0x0670
+#define IL_SQUISH_COMPRESS  0x0671
 
 
 // Subimage types
@@ -457,47 +455,47 @@ typedef long long unsigned int ILuint64;
 
 // This is from Win32's <windef.h>
 #if (_MSC_VER >= 800) || defined(_STDCALL_SUPPORTED) || defined(__BORLANDC__) || defined(__LCC__)
-	#define ILAPIENTRY __stdcall
-	#define IL_PACKSTRUCT
+    #define ILAPIENTRY __stdcall
+    #define IL_PACKSTRUCT
 //#elif defined(linux) || defined(MACOSX) || defined(__CYGWIN__) //fix bug 840364
 #elif defined( __GNUC__ )
   // this should work for any of the above commented platforms
   // plus any platform using GCC
-	#ifdef __MINGW32__
-		#define ILAPIENTRY __stdcall
-	#else
-		#define ILAPIENTRY
-	#endif
-	#define IL_PACKSTRUCT __attribute__ ((packed))
+    #ifdef __MINGW32__
+        #define ILAPIENTRY __stdcall
+    #else
+        #define ILAPIENTRY
+    #endif
+    #define IL_PACKSTRUCT __attribute__ ((packed))
 #else
-	#define ILAPIENTRY
-	#define IL_PACKSTRUCT
+    #define ILAPIENTRY
+    #define IL_PACKSTRUCT
 #endif
 
 // This is from Win32's <wingdi.h> and <winnt.h>
 #if defined(__LCC__)
-	#define ILAPI __stdcall
+    #define ILAPI __stdcall
 #elif defined(_WIN32) //changed 20031221 to fix bug 840421
-	// #ifdef IL_STATIC_LIB
-		#define ILAPI
-	// #else
-	// 	#ifdef _IL_BUILD_LIBRARY
-	// 		#define ILAPI __declspec(dllexport)
-	// 	#else
-	// 		#define ILAPI __declspec(dllimport)
-	// 	#endif
-	// #endif
+    // #ifdef IL_STATIC_LIB
+        #define ILAPI
+    // #else
+    //  #ifdef _IL_BUILD_LIBRARY
+    //      #define ILAPI __declspec(dllexport)
+    //  #else
+    //      #define ILAPI __declspec(dllimport)
+    //  #endif
+    // #endif
 #elif __APPLE__
-	#define ILAPI extern
+    #define ILAPI extern
 #else
-	#define ILAPI
+    #define ILAPI
 #endif
 
 
-#define IL_SEEK_SET	0
-#define IL_SEEK_CUR	1
-#define IL_SEEK_END	2
-#define IL_EOF		-1
+#define IL_SEEK_SET 0
+#define IL_SEEK_CUR 1
+#define IL_SEEK_END 2
+#define IL_EOF      -1
 
 
 // Callback functions for file reading
@@ -534,13 +532,13 @@ ILAPI ILboolean (ILAPIENTRY *ilActiveLayer)(ILuint Number);
 ILAPI ILboolean (ILAPIENTRY *ilActiveMipmap)(ILuint Number);
 ILAPI ILboolean (ILAPIENTRY *ilApplyPal)(ILconst_string FileName);
 ILAPI ILboolean (ILAPIENTRY *ilApplyProfile)(ILstring InProfile, ILstring OutProfile);
-ILAPI void		(ILAPIENTRY *ilBindImage)(ILuint Image);
+ILAPI void      (ILAPIENTRY *ilBindImage)(ILuint Image);
 ILAPI ILboolean (ILAPIENTRY *ilBlit)(ILuint Source, ILint DestX, ILint DestY, ILint DestZ, ILuint SrcX, ILuint SrcY, ILuint SrcZ, ILuint Width, ILuint Height, ILuint Depth);
 ILAPI ILboolean (ILAPIENTRY *ilClampNTSC)(void);
-ILAPI void		(ILAPIENTRY *ilClearColour)(ILclampf Red, ILclampf Green, ILclampf Blue, ILclampf Alpha);
+ILAPI void      (ILAPIENTRY *ilClearColour)(ILclampf Red, ILclampf Green, ILclampf Blue, ILclampf Alpha);
 ILAPI ILboolean (ILAPIENTRY *ilClearImage)(void);
 ILAPI ILuint    (ILAPIENTRY *ilCloneCurImage)(void);
-ILAPI ILubyte*	(ILAPIENTRY *ilCompressDXT)(ILubyte *Data, ILuint Width, ILuint Height, ILuint Depth, ILenum DXTCFormat, ILuint *DXTCSize);
+ILAPI ILubyte*  (ILAPIENTRY *ilCompressDXT)(ILubyte *Data, ILuint Width, ILuint Height, ILuint Depth, ILenum DXTCFormat, ILuint *DXTCSize);
 ILAPI ILboolean (ILAPIENTRY *ilCompressFunc)(ILenum Mode);
 ILAPI ILboolean (ILAPIENTRY *ilConvertImage)(ILenum DestFormat, ILenum DestType);
 ILAPI ILboolean (ILAPIENTRY *ilConvertPal)(ILenum DestFormat);
@@ -548,19 +546,19 @@ ILAPI ILboolean (ILAPIENTRY *ilCopyImage)(ILuint Src);
 ILAPI ILuint    (ILAPIENTRY *ilCopyPixels)(ILuint XOff, ILuint YOff, ILuint ZOff, ILuint Width, ILuint Height, ILuint Depth, ILenum Format, ILenum Type, void *Data);
 ILAPI ILuint    (ILAPIENTRY *ilCreateSubImage)(ILenum Type, ILuint Num);
 ILAPI ILboolean (ILAPIENTRY *ilDefaultImage)(void);
-ILAPI void		(ILAPIENTRY *ilDeleteImage)(const ILuint Num);
+ILAPI void      (ILAPIENTRY *ilDeleteImage)(const ILuint Num);
 ILAPI void      (ILAPIENTRY *ilDeleteImages)(ILsizei Num, const ILuint *Images);
-ILAPI ILenum	(ILAPIENTRY *ilDetermineType)(ILconst_string FileName);
-ILAPI ILenum	(ILAPIENTRY *ilDetermineTypeF)(ILHANDLE File);
-ILAPI ILenum	(ILAPIENTRY *ilDetermineTypeL)(const void *Lump, ILuint Size);
+ILAPI ILenum    (ILAPIENTRY *ilDetermineType)(ILconst_string FileName);
+ILAPI ILenum    (ILAPIENTRY *ilDetermineTypeF)(ILHANDLE File);
+ILAPI ILenum    (ILAPIENTRY *ilDetermineTypeL)(const void *Lump, ILuint Size);
 ILAPI ILboolean (ILAPIENTRY *ilDisable)(ILenum Mode);
 ILAPI ILboolean (ILAPIENTRY *ilDxtcDataToImage)(void);
 ILAPI ILboolean (ILAPIENTRY *ilDxtcDataToSurface)(void);
 ILAPI ILboolean (ILAPIENTRY *ilEnable)(ILenum Mode);
-ILAPI void		(ILAPIENTRY *ilFlipSurfaceDxtcData)(void);
+ILAPI void      (ILAPIENTRY *ilFlipSurfaceDxtcData)(void);
 ILAPI ILboolean (ILAPIENTRY *ilFormatFunc)(ILenum Mode);
-ILAPI void	    (ILAPIENTRY *ilGenImages)(ILsizei Num, ILuint *Images);
-ILAPI ILuint	(ILAPIENTRY *ilGenImage)(void);
+ILAPI void      (ILAPIENTRY *ilGenImages)(ILsizei Num, ILuint *Images);
+ILAPI ILuint    (ILAPIENTRY *ilGenImage)(void);
 ILAPI ILubyte*  (ILAPIENTRY *ilGetAlpha)(ILenum Type);
 ILAPI ILboolean (ILAPIENTRY *ilGetBoolean)(ILenum Mode);
 ILAPI void      (ILAPIENTRY *ilGetBooleanv)(ILenum Mode, ILboolean *Param);
@@ -573,7 +571,7 @@ ILAPI ILuint    (ILAPIENTRY *ilGetLumpPos)(void);
 ILAPI ILubyte*  (ILAPIENTRY *ilGetPalette)(void);
 ILAPI ILconst_string  (ILAPIENTRY *ilGetString)(ILenum StringName);
 ILAPI void      (ILAPIENTRY *ilHint)(ILenum Target, ILenum Mode);
-ILAPI ILboolean	(ILAPIENTRY *ilInvertSurfaceDxtcDataAlpha)(void);
+ILAPI ILboolean (ILAPIENTRY *ilInvertSurfaceDxtcDataAlpha)(void);
 ILAPI void      (ILAPIENTRY *ilInit)(void);
 ILAPI ILboolean (ILAPIENTRY *ilImageToDxtcData)(ILenum Format);
 ILAPI ILboolean (ILAPIENTRY *ilIsDisabled)(ILenum Mode);
@@ -634,14 +632,164 @@ ILAPI ILboolean (ILAPIENTRY *ilSaveData)(ILconst_string FileName);
 // ILAPI void      ILAPIENTRY ilResetMemory(void); // Deprecated
 
 // For all those weirdos that spell "colour" without the 'u'.
-#define ilClearColor	ilClearColour
+#define ilClearColor    ilClearColour
 #define ilKeyColor      ilKeyColour
 
 #define imemclear(x,y) memset(x,0,y);
+
+#define ILU_VERSION_1_7_8 1
+#define ILU_VERSION       178
+
+
+#define ILU_FILTER         0x2600
+#define ILU_NEAREST        0x2601
+#define ILU_LINEAR         0x2602
+#define ILU_BILINEAR       0x2603
+#define ILU_SCALE_BOX      0x2604
+#define ILU_SCALE_TRIANGLE 0x2605
+#define ILU_SCALE_BELL     0x2606
+#define ILU_SCALE_BSPLINE  0x2607
+#define ILU_SCALE_LANCZOS3 0x2608
+#define ILU_SCALE_MITCHELL 0x2609
+
+
+// Error types
+#define ILU_INVALID_ENUM      0x0501
+#define ILU_OUT_OF_MEMORY     0x0502
+#define ILU_INTERNAL_ERROR    0x0504
+#define ILU_INVALID_VALUE     0x0505
+#define ILU_ILLEGAL_OPERATION 0x0506
+#define ILU_INVALID_PARAM     0x0509
+
+
+// Values
+#define ILU_PLACEMENT          0x0700
+#define ILU_LOWER_LEFT         0x0701
+#define ILU_LOWER_RIGHT        0x0702
+#define ILU_UPPER_LEFT         0x0703
+#define ILU_UPPER_RIGHT        0x0704
+#define ILU_CENTER             0x0705
+#define ILU_CONVOLUTION_MATRIX 0x0710
+
+#define ILU_VERSION_NUM IL_VERSION_NUM
+#define ILU_VENDOR      IL_VENDOR
+
+
+// Languages
+#define ILU_ENGLISH            0x0800
+#define ILU_ARABIC             0x0801
+#define ILU_DUTCH              0x0802
+#define ILU_JAPANESE           0x0803
+#define ILU_SPANISH            0x0804
+#define ILU_GERMAN             0x0805
+#define ILU_FRENCH             0x0806
+
+
+// Filters
+/*
+#define ILU_FILTER_BLUR         0x0803
+#define ILU_FILTER_GAUSSIAN_3x3 0x0804
+#define ILU_FILTER_GAUSSIAN_5X5 0x0805
+#define ILU_FILTER_EMBOSS1      0x0807
+#define ILU_FILTER_EMBOSS2      0x0808
+#define ILU_FILTER_LAPLACIAN1   0x080A
+#define ILU_FILTER_LAPLACIAN2   0x080B
+#define ILU_FILTER_LAPLACIAN3   0x080C
+#define ILU_FILTER_LAPLACIAN4   0x080D
+#define ILU_FILTER_SHARPEN1     0x080E
+#define ILU_FILTER_SHARPEN2     0x080F
+#define ILU_FILTER_SHARPEN3     0x0810
+*/
+
+
+typedef struct ILinfo
+{
+    ILuint  Id;         // the image's id
+    ILubyte *Data;      // the image's data
+    ILuint  Width;      // the image's width
+    ILuint  Height;     // the image's height
+    ILuint  Depth;      // the image's depth
+    ILubyte Bpp;        // bytes per pixel (not bits) of the image
+    ILuint  SizeOfData; // the total size of the data (in bytes)
+    ILenum  Format;     // image format (in IL enum style)
+    ILenum  Type;       // image type (in IL enum style)
+    ILenum  Origin;     // origin of the image
+    ILubyte *Palette;   // the image's palette
+    ILenum  PalType;    // palette type
+    ILuint  PalSize;    // palette size
+    ILenum  CubeFlags;  // flags for what cube map sides are present
+    ILuint  NumNext;    // number of images following
+    ILuint  NumMips;    // number of mipmaps
+    ILuint  NumLayers;  // number of layers
+} ILinfo;
+
+
+typedef struct ILpointf {
+    ILfloat x;
+    ILfloat y;
+} ILpointf;
+
+typedef struct ILpointi {
+    ILint x;
+    ILint y;
+} ILpointi;
+
+ILAPI ILboolean      (ILAPIENTRY *iluAlienify)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluBlurAvg)(ILuint Iter);
+ILAPI ILboolean      (ILAPIENTRY *iluBlurGaussian)(ILuint Iter);
+ILAPI ILboolean      (ILAPIENTRY *iluBuildMipmaps)(void);
+ILAPI ILuint         (ILAPIENTRY *iluColoursUsed)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluCompareImage)(ILuint Comp);
+ILAPI ILboolean      (ILAPIENTRY *iluContrast)(ILfloat Contrast);
+ILAPI ILboolean      (ILAPIENTRY *iluCrop)(ILuint XOff, ILuint YOff, ILuint ZOff, ILuint Width, ILuint Height, ILuint Depth);
+ILAPI ILboolean      (ILAPIENTRY *iluEdgeDetectE)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluEdgeDetectP)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluEdgeDetectS)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluEmboss)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluEnlargeCanvas)(ILuint Width, ILuint Height, ILuint Depth);
+ILAPI ILboolean      (ILAPIENTRY *iluEnlargeImage)(ILfloat XDim, ILfloat YDim, ILfloat ZDim);
+ILAPI ILboolean      (ILAPIENTRY *iluEqualize)(void);
+ILAPI ILconst_string         (ILAPIENTRY *iluErrorString)(ILenum Error);
+ILAPI ILboolean      (ILAPIENTRY *iluConvolution)(ILint *matrix, ILint scale, ILint bias);
+ILAPI ILboolean      (ILAPIENTRY *iluFlipImage)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluGammaCorrect)(ILfloat Gamma);
+ILAPI void           (ILAPIENTRY *iluGetImageInfo)(ILinfo *Info);
+ILAPI ILint          (ILAPIENTRY *iluGetInteger)(ILenum Mode);
+ILAPI void           (ILAPIENTRY *iluGetIntegerv)(ILenum Mode, ILint *Param);
+ILAPI ILstring       (ILAPIENTRY *iluGetString)(ILenum StringName);
+ILAPI void           (ILAPIENTRY *iluImageParameter)(ILenum PName, ILenum Param);
+ILAPI void           (ILAPIENTRY *iluInit)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluInvertAlpha)(void);
+ILAPI ILuint         (ILAPIENTRY *iluLoadImage)(ILconst_string FileName);
+ILAPI ILboolean      (ILAPIENTRY *iluMirror)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluNegative)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluNoisify)(ILclampf Tolerance);
+ILAPI ILboolean      (ILAPIENTRY *iluPixelize)(ILuint PixSize);
+ILAPI void           (ILAPIENTRY *iluRegionfv)(ILpointf *Points, ILuint n);
+ILAPI void           (ILAPIENTRY *iluRegioniv)(ILpointi *Points, ILuint n);
+ILAPI ILboolean      (ILAPIENTRY *iluReplaceColour)(ILubyte Red, ILubyte Green, ILubyte Blue, ILfloat Tolerance);
+ILAPI ILboolean      (ILAPIENTRY *iluRotate)(ILfloat Angle);
+ILAPI ILboolean      (ILAPIENTRY *iluRotate3D)(ILfloat x, ILfloat y, ILfloat z, ILfloat Angle);
+ILAPI ILboolean      (ILAPIENTRY *iluSaturate1f)(ILfloat Saturation);
+ILAPI ILboolean      (ILAPIENTRY *iluSaturate4f)(ILfloat r, ILfloat g, ILfloat b, ILfloat Saturation);
+ILAPI ILboolean      (ILAPIENTRY *iluScale)(ILuint Width, ILuint Height, ILuint Depth);
+ILAPI ILboolean      (ILAPIENTRY *iluScaleAlpha)(ILfloat scale);
+ILAPI ILboolean      (ILAPIENTRY *iluScaleColours)(ILfloat r, ILfloat g, ILfloat b);
+ILAPI ILboolean      (ILAPIENTRY *iluSetLanguage)(ILenum Language);
+ILAPI ILboolean      (ILAPIENTRY *iluSharpen)(ILfloat Factor, ILuint Iter);
+ILAPI ILboolean      (ILAPIENTRY *iluSwapColours)(void);
+ILAPI ILboolean      (ILAPIENTRY *iluWave)(ILfloat Angle);
+
+// ILAPI void           ILAPIENTRY iluDeleteImage(ILuint Id); // Deprecated
+// ILAPI ILuint         ILAPIENTRY iluGenImage(void); // Deprecated
+
+#define iluColorsUsed   iluColoursUsed
+#define iluSwapColors   iluSwapColours
+#define iluReplaceColor iluReplaceColour
+#define iluScaleColor   iluScaleColour
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // __IL_H__
-#endif // __il_h__
+#endif

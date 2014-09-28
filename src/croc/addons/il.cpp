@@ -1,9 +1,20 @@
+#ifndef CROC_DEVIL_ADDON
+
+#include "croc/api.h"
+
+namespace croc
+{
+void initDevilLib(CrocThread* t)
+{
+	croc_eh_throwStd(t, "ApiError", "Attempting to load the DevIL library, but it was not compiled in");
+}
+}
+#else
+
 #include <type_traits>
 #include <tuple>
 
-#include "croc/ext/il/il.h"
-#include "croc/ext/il/ilu.h"
-
+#include "croc/addons/il.hpp"
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/helpers/oscompat.hpp"
@@ -12,12 +23,6 @@
 
 namespace croc
 {
-#ifndef CROC_DEVIL_ADDON
-void initDevilLib(CrocThread* t)
-{
-	croc_eh_throwStd(t, "ApiError", "Attempting to load the DevIL library, but it was not compiled in");
-}
-#else
 namespace
 {
 
@@ -1082,5 +1087,5 @@ void initDevilLib(CrocThread* t)
 {
 	croc_ex_makeModule(t, "devil", &loader);
 }
-#endif
 }
+#endif
