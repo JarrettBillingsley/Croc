@@ -3,7 +3,6 @@
 
 #include "croc/ext/glad/glad.hpp"
 
-#include "croc/addons/glfw.hpp"
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/helpers/oscompat.hpp"

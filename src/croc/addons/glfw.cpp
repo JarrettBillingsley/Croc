@@ -1,3 +1,15 @@
+#ifndef CROC_GLFW_ADDON
+
+#include "croc/api.h"
+
+namespace croc
+{
+void initGlfwLib(CrocThread* t)
+{
+	croc_eh_throwStd(t, "ApiError", "Attempting to load the GLFW library, but it was not compiled in");
+}
+}
+#else
 
 #include "croc/ext/glad/glad.hpp"
 
@@ -11,12 +23,6 @@
 
 namespace croc
 {
-#ifndef CROC_GLFW_ADDON
-void initGlfwLib(CrocThread* t)
-{
-	croc_eh_throwStd(t, "ApiError", "Attempting to load the GLFW library, but it was not compiled in");
-}
-#else
 namespace
 {
 
@@ -27,81 +33,6 @@ R"()";
 
 // =====================================================================================================================
 // GLFW shared lib loading
-
-int (*glfwInit)(void);
-void (*glfwTerminate)(void);
-void (*glfwGetVersion)(int* major, int* minor, int* rev);
-const char* (*glfwGetVersionString)(void);
-GLFWmonitor** (*glfwGetMonitors)(int* count);
-GLFWmonitor* (*glfwGetPrimaryMonitor)(void);
-void (*glfwGetMonitorPos)(GLFWmonitor* monitor, int* xpos, int* ypos);
-void (*glfwGetMonitorPhysicalSize)(GLFWmonitor* monitor, int* width, int* height);
-const char* (*glfwGetMonitorName)(GLFWmonitor* monitor);
-const GLFWvidmode* (*glfwGetVideoModes)(GLFWmonitor* monitor, int* count);
-const GLFWvidmode* (*glfwGetVideoMode)(GLFWmonitor* monitor);
-void (*glfwSetGamma)(GLFWmonitor* monitor, float gamma);
-const GLFWgammaramp* (*glfwGetGammaRamp)(GLFWmonitor* monitor);
-void (*glfwSetGammaRamp)(GLFWmonitor* monitor, const GLFWgammaramp* ramp);
-void (*glfwDefaultWindowHints)(void);
-void (*glfwWindowHint)(int target, int hint);
-GLFWwindow* (*glfwCreateWindow)(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share);
-void (*glfwDestroyWindow)(GLFWwindow* window);
-int (*glfwWindowShouldClose)(GLFWwindow* window);
-void (*glfwSetWindowShouldClose)(GLFWwindow* window, int value);
-void (*glfwSetWindowTitle)(GLFWwindow* window, const char* title);
-void (*glfwGetWindowPos)(GLFWwindow* window, int* xpos, int* ypos);
-void (*glfwSetWindowPos)(GLFWwindow* window, int xpos, int ypos);
-void (*glfwGetWindowSize)(GLFWwindow* window, int* width, int* height);
-void (*glfwSetWindowSize)(GLFWwindow* window, int width, int height);
-void (*glfwGetFramebufferSize)(GLFWwindow* window, int* width, int* height);
-void (*glfwIconifyWindow)(GLFWwindow* window);
-void (*glfwRestoreWindow)(GLFWwindow* window);
-void (*glfwShowWindow)(GLFWwindow* window);
-void (*glfwHideWindow)(GLFWwindow* window);
-GLFWmonitor* (*glfwGetWindowMonitor)(GLFWwindow* window);
-int (*glfwGetWindowAttrib)(GLFWwindow* window, int attrib);
-void (*glfwPollEvents)(void);
-void (*glfwWaitEvents)(void);
-int (*glfwGetInputMode)(GLFWwindow* window, int mode);
-void (*glfwSetInputMode)(GLFWwindow* window, int mode, int value);
-int (*glfwGetKey)(GLFWwindow* window, int key);
-int (*glfwGetMouseButton)(GLFWwindow* window, int button);
-void (*glfwGetCursorPos)(GLFWwindow* window, double* xpos, double* ypos);
-void (*glfwSetCursorPos)(GLFWwindow* window, double xpos, double ypos);
-int (*glfwJoystickPresent)(int joy);
-const float* (*glfwGetJoystickAxes)(int joy, int* count);
-const unsigned char* (*glfwGetJoystickButtons)(int joy, int* count);
-const char* (*glfwGetJoystickName)(int joy);
-void (*glfwSetClipboardString)(GLFWwindow* window, const char* string);
-const char* (*glfwGetClipboardString)(GLFWwindow* window);
-void (*glfwMakeContextCurrent)(GLFWwindow* window);
-GLFWwindow* (*glfwGetCurrentContext)(void);
-void (*glfwSwapBuffers)(GLFWwindow* window);
-void (*glfwSwapInterval)(int interval);
-int (*glfwExtensionSupported)(const char* extension);
-GLFWerrorfun (*glfwSetErrorCallback)(GLFWerrorfun cbfun);
-GLFWmonitorfun (*glfwSetMonitorCallback)(GLFWmonitorfun cbfun);
-GLFWwindowposfun (*glfwSetWindowPosCallback)(GLFWwindow* window, GLFWwindowposfun cbfun);
-GLFWwindowsizefun (*glfwSetWindowSizeCallback)(GLFWwindow* window, GLFWwindowsizefun cbfun);
-GLFWwindowclosefun (*glfwSetWindowCloseCallback)(GLFWwindow* window, GLFWwindowclosefun cbfun);
-GLFWwindowrefreshfun (*glfwSetWindowRefreshCallback)(GLFWwindow* window, GLFWwindowrefreshfun cbfun);
-GLFWwindowfocusfun (*glfwSetWindowFocusCallback)(GLFWwindow* window, GLFWwindowfocusfun cbfun);
-GLFWwindowiconifyfun (*glfwSetWindowIconifyCallback)(GLFWwindow* window, GLFWwindowiconifyfun cbfun);
-GLFWframebuffersizefun (*glfwSetFramebufferSizeCallback)(GLFWwindow* window, GLFWframebuffersizefun cbfun);
-GLFWkeyfun (*glfwSetKeyCallback)(GLFWwindow* window, GLFWkeyfun cbfun);
-GLFWcharfun (*glfwSetCharCallback)(GLFWwindow* window, GLFWcharfun cbfun);
-GLFWmousebuttonfun (*glfwSetMouseButtonCallback)(GLFWwindow* window, GLFWmousebuttonfun cbfun);
-GLFWcursorposfun (*glfwSetCursorPosCallback)(GLFWwindow* window, GLFWcursorposfun cbfun);
-GLFWcursorenterfun (*glfwSetCursorEnterCallback)(GLFWwindow* window, GLFWcursorenterfun cbfun);
-GLFWscrollfun (*glfwSetScrollCallback)(GLFWwindow* window, GLFWscrollfun cbfun);
-GLFWglproc (*glfwGetProcAddress)(const char* procname);
-double (*glfwGetTime)(void);
-void (*glfwSetTime)(double time);
-
-// Not wrapped
-// void (*glfwSetWindowUserPointer)(GLFWwindow* window, void* pointer);
-// void* (*glfwGetWindowUserPointer)(GLFWwindow* window);
-// glfwGetProcAddress, at least not publicly
 
 #ifdef _WIN32
 const char* sharedLibPaths[] =
@@ -2306,5 +2237,5 @@ void initGlfwLib(CrocThread* t)
 {
 	croc_ex_makeModule(t, "glfw", &loader);
 }
-#endif
 }
+#endif
