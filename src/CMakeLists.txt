@@ -2,13 +2,16 @@ cmake_minimum_required(VERSION 2.8)
 
 set(CROC_ALL_ADDONS "false" CACHE BOOL "Enable this to compile in all addons.")
 
-set(CROC_DEVIL_ADDON "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the DevIL addon.")
-set(CROC_GLFW_ADDON  "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the GLFW addon.")
-set(CROC_NET_ADDON   "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the net addon.")
-set(CROC_PCRE_ADDON  "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the libPCRE addon.")
+set(CROC_DEVIL_ADDON  "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the DevIL addon.")
+set(CROC_GLFW_ADDON   "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the GLFW addon.")
+set(CROC_NET_ADDON    "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the net addon.")
+set(CROC_PCRE_ADDON   "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the libPCRE addon.")
+set(CROC_OPENAL_ADDON "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the OpenAL addon.")
 
 set(croc_SRC
 	croc/addons/all.hpp
+	croc/addons/al.cpp
+	croc/addons/al.hpp
 	croc/addons/glfw.cpp
 	croc/addons/glfw.hpp
 	croc/addons/il.cpp
@@ -272,6 +275,9 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 	endif()
 	if(CROC_PCRE_ADDON)
 		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_PCRE_ADDON")
+	endif()
+	if(CROC_OPENAL_ADDON)
+		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_OPENAL_ADDON")
 	endif()
 
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DCROC_STOMP_MEMORY=1 -DCROC_LEAK_DETECTOR=1 ${CROC_ADDON_FLAGS}")

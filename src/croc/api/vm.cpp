@@ -68,6 +68,9 @@ namespace
 #ifdef CROC_GLFW_ADDON
 		"glfw",
 #endif
+#ifdef CROC_OPENAL_ADDON
+		"openal",
+#endif
 		nullptr
 	};
 }
@@ -258,10 +261,11 @@ extern "C"
 		enum. */
 	void croc_vm_loadAddons(CrocThread* t, CrocAddons libs)
 	{
-		if(libs & CrocAddons_Pcre)  initPcreLib(t);
-		if(libs & CrocAddons_Devil) initDevilLib(t);
-		if(libs & CrocAddons_Net)   {} //initNetLib(t);
-		if(libs & CrocAddons_Glfw)  initGlfwLib(t);
+		if(libs & CrocAddons_Pcre)   initPcreLib(t);
+		if(libs & CrocAddons_Devil)  initDevilLib(t);
+		if(libs & CrocAddons_Net)    {} //initNetLib(t);
+		if(libs & CrocAddons_Glfw)   initGlfwLib(t);
+		if(libs & CrocAddons_OpenAL) initOpenAlLib(t);
 	}
 
 	/** Loads addons which were compiled into the Croc library. This uses the \c CROC_XXX_ADDON macros to determine
@@ -274,16 +278,19 @@ extern "C"
 		(void)t;
 		(void)exclude;
 #ifdef CROC_PCRE_ADDON
-		if(!(exclude & CrocAddons_Pcre))  initPcreLib(t);
+		if(!(exclude & CrocAddons_Pcre))   initPcreLib(t);
 #endif
 #ifdef CROC_DEVIL_ADDON
-		if(!(exclude & CrocAddons_Devil)) initDevilLib(t);
+		if(!(exclude & CrocAddons_Devil))  initDevilLib(t);
 #endif
 #ifdef CROC_NET_ADDON
-		if(!(exclude & CrocAddons_Net))   {} //initNetLib(t);
+		if(!(exclude & CrocAddons_Net))    {} //initNetLib(t);
 #endif
 #ifdef CROC_GLFW_ADDON
-		if(!(exclude & CrocAddons_Glfw))  initGlfwLib(t);
+		if(!(exclude & CrocAddons_Glfw))   initGlfwLib(t);
+#endif
+#ifdef CROC_OPENAL_ADDON
+		if(!(exclude & CrocAddons_OpenAL)) initOpenAlLib(t);
 #endif
 	}
 
