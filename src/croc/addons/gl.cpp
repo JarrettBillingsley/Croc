@@ -46,7 +46,8 @@ Following are not wrapped at all:
 
 namespace croc
 {
-
+namespace
+{
 template<typename T, typename Enable = void>
 struct GLTypeString
 {};
@@ -4503,6 +4504,7 @@ word_t loader(CrocThread* t)
 	load_KHR_debug(t);
 
 	return 0;
+}
 }
 
 void loadOpenGL(CrocThread* t, GLADloadproc loadproc)
