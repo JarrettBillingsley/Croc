@@ -16,16 +16,9 @@ Problematic APIs
 Following are wrapped, but don't present the nicest API, or can't be used properly:
 	// Take output string buffers
 	GLuint glGetDebugMessageLog(GLuint, GLsizei, GLenum*, GLenum*, GLuint*, GLenum*, GLsizei*, GLchar*);
-
 	GLuint glGetDebugMessageLogARB(GLuint, GLsizei, GLenum*, GLenum*, GLuint*, GLenum*, GLsizei*, GLchar*);
 	void   glGetPerfMonitorCounterStringAMD(GLuint, GLuint, GLsizei, GLsizei*, GLchar*);
 	void   glGetPerfMonitorGroupStringAMD(GLuint, GLsizei, GLsizei*, GLchar*);
-
-	// Take arrays of pointers
-	void glGetPointeri_vEXT(GLenum, GLuint, void**);
-	void glGetPointerIndexedvEXT(GLenum, GLuint, void**);
-	void glGetVertexArrayPointeri_vEXT(GLuint, GLuint, GLenum, void**);
-	void glGetVertexArrayPointervEXT(GLuint, GLenum, void**);
 
 Following are not wrapped at all:
 	// Redundant?
@@ -38,6 +31,10 @@ Following are not wrapped at all:
 
 	// Return pointers whose size cannot necessarily be determined
 	void glGetPointerv(GLenum, void**);
+	void glGetPointeri_vEXT(GLenum, GLuint, void**);
+	void glGetPointerIndexedvEXT(GLenum, GLuint, void**);
+	void glGetVertexArrayPointeri_vEXT(GLuint, GLuint, GLenum, void**);
+	void glGetVertexArrayPointervEXT(GLuint, GLenum, void**);
 	void glGetBufferPointerv(GLenum, GLenum, void**);
 	void glGetNamedBufferPointerv(GLuint, GLenum, void**);
 	void glGetNamedBufferPointervEXT(GLuint, GLenum, void**);
@@ -48,6 +45,208 @@ namespace croc
 {
 namespace
 {
+
+#ifdef CROC_BUILTIN_DOCS
+const char* moduleDocs = DModule("gl")
+R"(OpenGL is a popular cross-platform API for rendering real-time 3D graphics. This module provides a relatively thin,
+unsafe wrapper over an OpenGL Core context, as well as a number of extensions.
+
+Core contexts require OpenGL 3.0+ hardware (roughly equivalent to DirectX 10+). The choice to support only core contexts
+was made partly because the entire OpenGL Compatibility API is enormous and partly because let's be honest, it's been
+the better part of a decade since pre-OpenGL 3.0 hardware was manufactured. It's time to let go.
+
+If it didn't sink in before: \b{this library is very unsafe!} In order to preserve as much performance as possible, no
+parameter validation (beyond typechecking) is performed. Furthermore, pointer parameters are very free in what they will
+accept and you can pass arbitrary integers to them. For some functions, this is necessary, but for others, this will
+just crash the host. Lastly, if you destroy the context from which the functions were loaded, chances are that calling
+them will \em{also} cause crashes.
+
+\b{Prerequisites}
+
+This module is currently loaded by the \link{glfw} addon by initializing it, creating a window, making that window's
+context current, and then calling \link{glfw.loadOpenGL}. There is currently no other way to load this library.
+
+Once the above has been done, it can be accessed like any other module.
+
+\b{OpenGL Versions}
+
+This library supports up to and including OpenGL 4.5. It also supports many forward-compatibility ("Core Extensions").
+A list of supported extensions is given \link[ext]{here}.
+
+\b{Type Constants}
+
+Many OpenGL APIs take blobs of typed memory. The most obvious Croc type to use for this is the \link{Vector} class. To
+make it easier to create \tt{Vectors} with the right types of values, there are string constants which hold \tt{Vector}
+type codes for each of the OpenGL basic types. These include \tt{GLenum}, \tt{GLboolean}, \tt{GLbitfield}, \tt{GLbyte},
+tt{GLshort}, \tt{GLint}, \tt{GLubyte}, \tt{GLushort}, \tt{GLuint}, \tt{GLsizei}, \tt{GLfloat}, \tt{GLclampf},
+\tt{GLdouble}, and \tt{GLclampd}. To use, just pass them as the type code when creating a \tt{Vector}:
+
+\code
+// creates a Vector to be used as a 4x4 matrix
+local matrix = Vector(gl.GLfloat, 16)
+// here we'd fill the matrix with values...
+// now we can pass the matrix to OpenGL by using its getMemblock method
+gl.glUniformMatrix4fv(myUniform, 1, false, matrix.getMemblock())
+\endcode
+
+In addition, there are integer constants for the byte size of each OpenGL basic type. These are named \tt{sizeof<type>},
+like \tt{sizeofGLenum}, \tt{sizeofGLboolean}, and so on.
+
+\b{\tt{glGen*} and \tt{glDelete*} functions}
+
+The native versions of these functions (such as \tt{glGenBuffers}, \tt{glDeleteBuffers} etc.) take arrays of GLuints
+which will be filled with names or which contain names to be deleted. This way of doing things would be awkward in Croc,
+so instead these families of functions have been wrapped to be more Croc-friendly.
+
+All the \tt{glGen*} functions effectively have the signature \tt{glGenWhatever(num: int, arr: array = null)}. \tt{num}
+indicates how many names to generate. \tt{arr} is an optional array to put the names into. If you pass nothing for
+\tt{arr}, \tt{num} cannot exceed 20, and the generated names will be returned as multiple values. If you pass an array
+for \tt{arr}, \tt{num} cannot exceed 1024, \tt{arr} will be resized to \tt{num} elements, the names will be placed in
+\tt{arr}, and \tt{arr} will be returned. For example:
+
+\code
+// generate 1 buffer
+local buf = gl.glGenBuffers(1)
+
+// generate 3 buffers
+local b1, b2, b3 = gl.glGenBuffers(3)
+
+// generate 10 buffers, put them in the given array, and put that array in 'names'
+local names = gl.glGenBuffers(10, [])
+\endcode
+
+All the \tt{glDelete*} functions can be called one of two ways. One, you can pass a single array containing the names
+to delete; this array cannot exceed 1024 elements and all the elements must be integers. Two, you can pass between 1 and
+1024 names as separate parameters to the function. To continue the above example:
+
+\code
+// delete the array of names
+gl.glDeleteBuffers(names)
+
+// delete 4 buffers at once
+gl.glDeleteBuffers(b1, b2, b3, buf)
+\endcode
+
+The following pairs of \tt{glGen*}/\tt{glDelete*} functions work like this:
+
+\blist
+	\li \tt{glGenTextures}/\tt{glDeleteTextures}
+	\li \tt{glGenQueries}/\tt{glDeleteQueries}
+	\li \tt{glGenBuffers}/\tt{glDeleteBuffers}
+	\li \tt{glGenRenderbuffers}/\tt{glDeleteRenderbuffers}
+	\li \tt{glGenFramebuffers}/\tt{glDeleteFramebuffers}
+	\li \tt{glGenVertexArrays}/\tt{glDeleteVertexArrays}
+	\li \tt{glGenSamplers}/\tt{glDeleteSamplers}
+	\li \tt{glGenTransformFeedbacks}/\tt{glDeleteTransformFeedbacks}
+	\li \tt{glGenProgramPipelines}/\tt{glDeleteProgramPipelines}
+	\li \tt{glGenPerfMonitorsAMD}/\tt{glDeletePerfMonitorsAMD}
+	\li \tt{glGenSamplers}/\tt{glDeleteSamplers}
+	\li \tt{glGenProgramPipelines}/\tt{glDeleteProgramPipelines}
+	\li \tt{glGenTransformFeedbacks}/\tt{glDeleteTransformFeedbacks}
+\endlist
+
+\b{Ugly APIs}
+
+At present there are only a handful of APIs which are ugly to use from Croc, and they're all ugly since they take an
+output string buffer. You can use these by passing an appropriately-sized memblock and then decoding the text with the
+\tt{text} library, but it's not the prettiest interface. It's recommended that you wrap these functions in your own.
+
+\blist
+	\li \tt{glGetDebugMessageLog}
+	\li \tt{glGetDebugMessageLogARB}
+	\li \tt{glGetPerfMonitorCounterStringAMD}
+	\li \tt{glGetPerfMonitorGroupStringAMD}
+\endlist
+
+\b{Unsupported APIs}
+
+At present there are a number of APIs which are not available for one reason or another.
+
+\tt{glMultiDrawElements} and \tt{glMultiDrawElementsBaseVertex} are not wrapped because they take arrays of pointers
+(tricky to deal with), and all they're likely to do is just iterate over those arrays and call \tt{glDrawElements} and
+\tt{glDrawElementsBaseVertex} anyway. And you can do that yourself.
+
+\tt{glFenceSync} and \tt{glCreateSyncFromCLeventARB} are not wrapped because they return \tt{GLsync*} and I don't really
+know what that is. Is it treated as an opaque pointer? Please let me know!
+
+Lastly we have functions which return pointers whose size cannot be determined. Several functions return pointers, but
+the size of the memory block they point to can be determined, and so those functions return memblocks. No such luck with
+these functions. I'm not sure how to handle these (and for that matter, some of these seem to have zero documentation
+anywhere, so I don't even know how to begin).
+
+\blist
+	\li \tt{glGetPointerv}
+	\li \tt{glGetPointeri_vEXT}
+	\li \tt{glGetPointerIndexedvEXT}
+	\li \tt{glGetVertexArrayPointeri_vEXT}
+	\li \tt{glGetVertexArrayPointervEXT}
+	\li \tt{glGetBufferPointerv}
+	\li \tt{glGetNamedBufferPointerv}
+	\li \tt{glGetNamedBufferPointervEXT}
+	\li \tt{glMapTexture2DINTEL}
+\endlist
+
+\b{Most APIs}
+
+Most APIs look and act exactly like their native counterparts. I'm not going to list every wrapped function and its
+signature; you can look at \link[https://www.opengl.org/sdk/docs/man/]{the OpenGL reference} for that. What you need to
+know is how the parameter and return types of these functions map to Croc.
+
+For parameters:
+
+\table
+	\row
+		\cell \b{Original OpenGL Type}
+		\cell \b{Croc Type}
+	\row
+		\cell \tt{GLboolean}
+		\cell \tt{bool}
+	\row
+		\cell \tt{GLenum}, \tt{GLbitfield}, \tt{GLbyte}, \tt{GLshort}, \tt{GLushort}, \tt{GLint}, \tt{GLuint},
+			\tt{GLsizei}
+		\cell \tt{int}
+	\row
+		\cell \tt{GLfloat}, \tt{GLclampf}, \tt{GLdouble}, \tt{GLclampd}
+		\cell \tt{int|float}
+	\row
+		\cell \tt{const GLchar*}
+		\cell \tt{string}
+	\row
+		\cell Any other pointer
+		\cell \tt{null|int|memblock}
+\endtable
+
+The last row bears explanation. For non-string pointer parameters, you can pass \tt{null} (which means... null), a
+memblock, or an integer. Some APIs, like \tt{glVertexAttribPointer}, double up the meaning of their pointer parameters
+and allow integers instead of "actual" pointers.
+
+If you pass a memblock, keep in mind that OpenGL \em{will not keep a reference to your memblock}, so you are responsible
+for making sure it doesn't get collected while OpenGL is still using it. Most of the time this isn't a problem, since a
+lot of APIs which take pointers copy the data out of them, but it's something to keep in mind.
+
+For return types: mostly the same. Some OpenGL APIs take output string buffers; these functions have instead been
+wrapped so they return a string (all other parameters are unaffected), or \tt{null} if an error occurs. These functions
+include:
+
+\blist
+	\li \tt{glGetProgramInfoLog}
+	\li \tt{glGetShaderInfoLog}
+	\li \tt{glGetShaderSource}
+	\li \tt{glGetActiveUniformName}
+	\li \tt{glGetActiveUniformBlockName}
+	\li \tt{glGetActiveSubroutineUniformName}
+	\li \tt{glGetActiveSubroutineName}
+	\li \tt{glGetProgramPipelineInfoLog}
+	\li \tt{glGetProgramResourceName}
+	\li \tt{glGetObjectLabel}
+	\li \tt{glGetObjectPtrLabel}
+	\li \tt{glGetNamedStringARB}
+\endlist
+
+Any other functions whose signatures are different will be explained on a function-by-function basis.
+)";
+#endif
+
 template<typename T, typename Enable = void>
 struct GLTypeString
 {};
@@ -114,9 +313,11 @@ void loadConstants(CrocThread* t)
 	croc_pushInt(t, sizeof(GLdouble));   croc_newGlobal(t, "sizeofGLdouble");
 	croc_pushInt(t, sizeof(GLclampd));   croc_newGlobal(t, "sizeofGLclampd");
 
+	croc_pushBool(t, GL_TRUE);  croc_newGlobal(t, "GL_TRUE");
+	croc_pushBool(t, GL_FALSE); croc_newGlobal(t, "GL_FALSE");
+
 	GLCONST(GL_DEPTH_BUFFER_BIT);                                           GLCONST(GL_STENCIL_BUFFER_BIT);
-	GLCONST(GL_COLOR_BUFFER_BIT);                                           GLCONST(GL_FALSE);
-	GLCONST(GL_TRUE);                                                       GLCONST(GL_POINTS);
+	GLCONST(GL_COLOR_BUFFER_BIT);                                           GLCONST(GL_POINTS);
 	GLCONST(GL_LINES);                                                      GLCONST(GL_LINE_LOOP);
 	GLCONST(GL_LINE_STRIP);                                                 GLCONST(GL_TRIANGLES);
 	GLCONST(GL_TRIANGLE_STRIP);                                             GLCONST(GL_TRIANGLE_FAN);
@@ -896,13 +1097,6 @@ getGLParam(CrocThread* t, word_t slot)
 }
 
 template<typename T>
-typename std::enable_if<std::is_same<T, GLchar>::value, T>::type
-getGLParam(CrocThread* t, word_t slot)
-{
-	return (T)croc_ex_checkCharParam(t, slot);
-}
-
-template<typename T>
 typename std::enable_if<std::is_same<T, const GLchar*>::value, T>::type
 getGLParam(CrocThread* t, word_t slot)
 {
@@ -970,13 +1164,6 @@ typename std::enable_if<std::is_floating_point<T>::value, void>::type
 pushGL(CrocThread* t, T val)
 {
 	croc_pushFloat(t, val);
-}
-
-template<typename T>
-typename std::enable_if<std::is_same<T, GLchar>::value, void>::type
-pushGL(CrocThread* t, T val)
-{
-	croc_pushChar(t, val);
 }
 
 template<typename R, typename... Args>
@@ -1257,6 +1444,13 @@ void loadGL1_4(CrocThread* t)
 	croc_ex_registerGlobals(t, _gl1_4);
 }
 
+const char* crocglMapBuffer_docs
+= Docstr(DFunc("glMapBuffer") DParam("target", "int") DParam("access", "int") DParamD("mb", "memblock", "null")
+R"(This function returns a pointer. Since we can determine the buffer's size, we can return the mapped buffer data as a
+memblock. You can pass a memblock to be used for this purpose as \tt{mb}, but if not, one will be created for you. If
+you pass one, its data (if any) will be freed and it will become a view of the buffer data. In either case the resulting
+memblock will not own its data.)");
+
 word_t crocglMapBuffer(CrocThread* t)
 {
 	auto target = cast(GLenum)croc_ex_checkIntParam(t, 1);
@@ -1312,6 +1506,11 @@ void loadGL1_5(CrocThread* t)
 	croc_ex_registerGlobals(t, _gl1_5);
 }
 
+const char* crocglShaderSource_docs
+= Docstr(DFunc("glShaderSource") DParam("shader", "int") DParam("source", "string")
+R"(This only differs from the native function in that the native function takes an array of strings whereas this takes a
+single string. You can join strings easily in Croc, so why bother!)");
+
 word_t crocglShaderSource(CrocThread* t)
 {
 	auto shader = cast(GLuint)croc_ex_checkIntParam(t, 1);
@@ -1326,6 +1525,10 @@ word_t crocglShaderSource(CrocThread* t)
 	return 0;
 }
 
+const char* crocglGetVertexAttribPointerv_docs
+= Docstr(DFunc("glGetVertexAttribPointerv") DParam("index", "int") DParam("name", "int")
+R"(\returns the pointer as an integer rather than taking a pointer-to-pointer parameter.)");
+
 word_t crocglGetVertexAttribPointerv(CrocThread* t)
 {
 	auto index = cast(GLuint)croc_ex_checkIntParam(t, 1);
@@ -1335,6 +1538,11 @@ word_t crocglGetVertexAttribPointerv(CrocThread* t)
 	croc_pushInt(t, cast(crocint)ptr);
 	return 1;
 }
+
+const char* crocglGetActiveAttrib_docs
+= Docstr(DFunc("glGetActiveAttrib") DParam("program", "int") DParam("index", "int")
+R"(\returns three values: an int of the type of the active attribute, an int of the size of the active attribute, and a
+string of the attribute's name.)");
 
 word_t crocglGetActiveAttrib(CrocThread* t)
 {
@@ -1355,6 +1563,11 @@ word_t crocglGetActiveAttrib(CrocThread* t)
 	croc_pushStringn(t, buf, length);
 	return 3;
 }
+
+const char* crocglGetActiveUniform_docs
+= Docstr(DFunc("glGetActiveUniform") DParam("program", "int") DParam("index", "int")
+R"(\returns three values: an int of the type of the active uniform, an int of the size of the active uniform, and a
+string of the uniform's name.)");
 
 word_t crocglGetActiveUniform(CrocThread* t)
 {
@@ -1571,6 +1784,11 @@ word_t crocglGetStringi(CrocThread* t)
 	return 1;
 }
 
+const char* crocglMapBufferRange_docs
+= Docstr(DFunc("glMapBufferRange") DParam("target", "int") DParam("offset", "int") DParam("length", "int") DParam(
+	"access", "int") DParamD("mb", "memblock", "null")
+R"(Works very similarly to \link{glMapBuffer}.)");
+
 word_t crocglMapBufferRange(CrocThread* t)
 {
 	auto target = cast(GLenum)croc_ex_checkIntParam(t, 1);
@@ -1594,6 +1812,10 @@ word_t crocglMapBufferRange(CrocThread* t)
 
 	return 1;
 }
+
+const char* crocglTransformFeedbackVaryings_docs
+= Docstr(DFunc("glTransformFeedbackVaryings") DParam("program", "int") DParam("varyings", "array") DParam("mode", "int")
+R"(The \tt{varyings} parameter must be an array of strings. That's it.)");
 
 word_t crocglTransformFeedbackVaryings(CrocThread* t)
 {
@@ -1638,6 +1860,11 @@ word_t crocglTransformFeedbackVaryings(CrocThread* t)
 
 	return 0;
 }
+
+const char* crocglGetTransformFeedbackVarying_docs
+= Docstr(DFunc("glGetTransformFeedbackVarying") DParam("program", "int") DParam("index", "int")
+R"(\returns nothing if an error occurred. Otherwise, returns three values: an int of the type of the varying, an int of
+the size of the varying, and a string of the varying's name.)");
 
 word_t crocglGetTransformFeedbackVarying(CrocThread* t)
 {
@@ -1762,6 +1989,11 @@ void loadGL3_0(CrocThread* t)
 	if(!GLAD_GL_VERSION_3_0) return;
 	croc_ex_registerGlobals(t, _gl3_0);
 }
+
+const char* crocglGetUniformIndices_docs
+= Docstr(DFunc("glGetUniformIndices") DParam("program", "int") DParam("names", "array") DParam("indices", "array")
+R"(The \tt{names} parameter must be an array of strings of names of uniforms. The \tt{indices} array will be used as the
+output; it will be set to the same length as \tt{names}, and will be filled with the uniform indices.)");
 
 word_t crocglGetUniformIndices(CrocThread* t)
 {
@@ -2101,6 +2333,10 @@ void loadGL4_0(CrocThread* t)
 	croc_ex_registerGlobals(t, _gl4_0);
 }
 
+const char* crocglCreateShaderProgramv_docs
+= Docstr(DFunc("glCreateShaderProgramv") DParam("type", "int") DParam("source", "string")
+R"(Like \link{glShaderSource}, takes a single string instead of an array of strings.)");
+
 word_t crocglCreateShaderProgramv(CrocThread* t)
 {
 	auto type = cast(GLenum)croc_ex_checkIntParam(t, 1);
@@ -2340,6 +2576,13 @@ void APIENTRY debugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum
 	croc_tryCall(t, f, 0);
 }
 
+const char* crocglDebugMessageCallback_docs
+= Docstr(DFunc("glDebugMessageCallback") DParam("callback", "null|function")
+R"(Sets or unsets the OpenGL debug message callback. Passing \tt{null} for \tt{callback} unsets it.
+
+The callback function will be called with five parameters: the source (int), type (int), ID (int), severity (int), and
+the message (string).)");
+
 word_t crocglDebugMessageCallback(CrocThread* t)
 {
 	if(croc_ex_optParam(t, 1, CrocType_Function))
@@ -2435,6 +2678,10 @@ void loadGL4_4(CrocThread* t)
 	croc_ex_registerGlobals(t, _gl4_4);
 }
 
+const char* crocglMapNamedBuffer_docs
+= Docstr(DFunc("glMapNamedBuffer") DParam("name", "int") DParam("access", "int") DParamD("mb", "memblock", "null")
+R"(Works just like \link{glMapBuffer}.)");
+
 word_t crocglMapNamedBuffer(CrocThread* t)
 {
 	auto name = cast(GLuint)croc_ex_checkIntParam(t, 1);
@@ -2459,6 +2706,11 @@ word_t crocglMapNamedBuffer(CrocThread* t)
 
 	return 1;
 }
+
+const char* crocglMapNamedBufferRange_docs
+= Docstr(DFunc("glMapNamedBufferRange") DParam("name", "int") DParam("offset", "int") DParam("length", "int") DParam(
+	"access", "int") DParamD("mb", "memblock", "null")
+R"(Works just like \link{glMapBufferRange}.)");
 
 word_t crocglMapNamedBufferRange(CrocThread* t)
 {
@@ -2904,6 +3156,10 @@ void APIENTRY debugMessageCallbackARB(GLenum source, GLenum type, GLuint id, GLe
 	croc_pushStringn(t, message, length);
 	croc_tryCall(t, f, 0);
 }
+
+const char* crocglDebugMessageCallbackARB_docs
+= Docstr(DFunc("glDebugMessageCallbackARB") DParam("callback", "null|function")
+R"(Works just like \link{glDebugMessageCallback}. This is a separate callback function and won't overlap with that.)");
 
 word_t crocglDebugMessageCallbackARB(CrocThread* t)
 {
@@ -3390,6 +3646,10 @@ void load_ARB_shader_subroutine(CrocThread* t)
 	croc_ex_registerGlobals(t, _ARB_shader_subroutine);
 }
 
+const char* crocglCompileShaderIncludeARB_docs
+= Docstr(DFunc("glCompileShaderIncludeARB") DParam("shader", "int") DParam("paths", "array")
+R"(Takes an array of include paths in \tt{paths}, which must be an array of strings.)");
+
 word_t crocglCompileShaderIncludeARB(CrocThread* t)
 {
 	auto shader = cast(GLuint)croc_ex_checkIntParam(t, 1);
@@ -3762,6 +4022,10 @@ void load_EXT_depth_bounds_test(CrocThread* t)
 	croc_ex_registerGlobals(t, _EXT_depth_bounds_test);
 }
 
+const char* crocglMapNamedBufferEXT_docs
+= Docstr(DFunc("glMapNamedBufferEXT") DParam("name", "int") DParam("access", "int") DParamD("mb", "memblock", "null")
+R"(Works just like \link{glMapNamedBuffer}.)");
+
 word_t crocglMapNamedBufferEXT(CrocThread* t)
 {
 	auto name = cast(GLuint)croc_ex_checkIntParam(t, 1);
@@ -3786,6 +4050,11 @@ word_t crocglMapNamedBufferEXT(CrocThread* t)
 
 	return 1;
 }
+
+const char* crocglMapNamedBufferRangeEXT_docs
+= Docstr(DFunc("glMapNamedBufferRangeEXT") DParam("name", "int") DParam("offset", "int") DParam("length", "int") DParam(
+	"access", "int") DParamD("mb", "memblock", "null")
+R"(Works just like \link{glMapNamedBufferRange}.)");
 
 word_t crocglMapNamedBufferRangeEXT(CrocThread* t)
 {
@@ -3891,7 +4160,7 @@ const CrocRegisterFunc _EXT_direct_state_access[] =
 	WRAP(glDisableClientStateIndexedEXT),
 	WRAP(glGetFloatIndexedvEXT),
 	WRAP(glGetDoubleIndexedvEXT),
-	WRAP(glGetPointerIndexedvEXT),
+	// WRAP(glGetPointerIndexedvEXT),
 	WRAP(glEnableIndexedEXT),
 	WRAP(glDisableIndexedEXT),
 	WRAP(glIsEnabledIndexedEXT),
@@ -3978,7 +4247,7 @@ const CrocRegisterFunc _EXT_direct_state_access[] =
 	WRAP(glDisableClientStateiEXT),
 	WRAP(glGetFloati_vEXT),
 	WRAP(glGetDoublei_vEXT),
-	WRAP(glGetPointeri_vEXT),
+	// WRAP(glGetPointeri_vEXT),
 	WRAP(glNamedProgramStringEXT),
 	WRAP(glNamedProgramLocalParameter4dEXT),
 	WRAP(glNamedProgramLocalParameter4dvEXT),
@@ -4026,9 +4295,9 @@ const CrocRegisterFunc _EXT_direct_state_access[] =
 	WRAP(glEnableVertexArrayAttribEXT),
 	WRAP(glDisableVertexArrayAttribEXT),
 	WRAP(glGetVertexArrayIntegervEXT),
-	WRAP(glGetVertexArrayPointervEXT),
+	// WRAP(glGetVertexArrayPointervEXT),
 	WRAP(glGetVertexArrayIntegeri_vEXT),
-	WRAP(glGetVertexArrayPointeri_vEXT),
+	// WRAP(glGetVertexArrayPointeri_vEXT),
 	{"glMapNamedBufferRangeEXT", 5, &crocglMapNamedBufferRangeEXT},
 	WRAP(glFlushMappedNamedBufferRangeEXT),
 	WRAP(glNamedBufferStorageEXT),
@@ -4305,6 +4574,105 @@ void load_NV_vertex_buffer_unified_memory(CrocThread* t)
 	croc_ex_registerGlobals(t, _NV_vertex_buffer_unified_memory);
 }
 
+const char* _extFlags_docs = Docstr(DNs("ext")
+R"(This namespace contains a boolean constant for each extension that this library supports. A \tt{true} means this
+computer supports that extension, and a \tt{false} means it doesn't. So if you want to know if the \tt{ARB_debug_output}
+extension is supported, you just have to test for \tt{gl.ext.ARB_debug_output}.
+
+The following non-core extensions are supported:
+
+\blist
+	\li \tt{AMD_gpu_shader_int64}
+	\li \tt{AMD_interleaved_elements}
+	\li \tt{AMD_occlusion_query_event}
+	\li \tt{AMD_performance_monitor}
+	\li \tt{AMD_sample_positions}
+	\li \tt{AMD_sparse_texture}
+	\li \tt{AMD_stencil_operation_extended}
+	\li \tt{ARB_bindless_texture}
+	\li \tt{ARB_cl_event}
+	\li \tt{ARB_compute_variable_group_size}
+	\li \tt{ARB_debug_output}
+	\li \tt{ARB_draw_buffers_blend}
+	\li \tt{ARB_geometry_shader4}
+	\li \tt{ARB_indirect_parameters}
+	\li \tt{ARB_instanced_arrays}
+	\li \tt{ARB_robustness}
+	\li \tt{ARB_sample_shading}
+	\li \tt{ARB_shading_language_include}
+	\li \tt{ARB_sparse_texture}
+	\li \tt{EXT_depth_bounds_test}
+	\li \tt{EXT_direct_state_access}
+	\li \tt{INTEL_map_texture}
+	\li \tt{KHR_blend_equation_advanced}
+	\li \tt{NV_bindless_multi_draw_indirect}
+	\li \tt{NV_bindless_multi_draw_indirect_count}
+	\li \tt{NV_bindless_texture}
+	\li \tt{NV_blend_equation_advanced}
+	\li \tt{NV_copy_image}
+	\li \tt{NV_depth_buffer_float}
+	\li \tt{NV_explicit_multisample}
+	\li \tt{NV_shader_buffer_load}
+	\li \tt{NV_texture_barrier}
+	\li \tt{NV_texture_multisample}
+	\li \tt{NV_vertex_buffer_unified_memory}
+\endlist
+
+In addition, a number of "core" or "forward compatibility" extensions are supported. These are extensions which backport
+functionality from newer OpenGL versions to older hardware which can support them. For example, some OpenGL 4.0-class
+hardware might not support all the features necessary for OpenGL 4.5, but it might support a small subset. These
+extensions will let those older cards access the newer functionality.
+
+Note that these extensions are only loaded if the OpenGL context is older than the version in which they were folded
+into core. The following lists the extensions and the version they became core functions (so any version lower than
+that, they may be supported):
+
+\table
+	\row \cell \tt{GL_ARB_base_instance}                \cell 4.2
+	\row \cell \tt{GL_ARB_blend_func_extended}          \cell 3.3
+	\row \cell \tt{GL_ARB_buffer_storage}               \cell 4.4
+	\row \cell \tt{GL_ARB_clear_buffer_object}          \cell 4.3
+	\row \cell \tt{GL_ARB_clear_texture}                \cell 4.4
+	\row \cell \tt{GL_ARB_compute_shader}               \cell 4.3
+	\row \cell \tt{GL_ARB_copy_image}                   \cell 4.3
+	\row \cell \tt{GL_ARB_draw_elements_base_vertex}    \cell 3.2
+	\row \cell \tt{GL_ARB_draw_indirect}                \cell 4.0
+	\row \cell \tt{GL_ARB_ES2_compatibility}            \cell 4.1
+	\row \cell \tt{GL_ARB_framebuffer_no_attachments}   \cell 4.3
+	\row \cell \tt{GL_ARB_get_program_binary}           \cell 4.1
+	\row \cell \tt{GL_ARB_gpu_shader_fp64}              \cell 4.0
+	\row \cell \tt{GL_ARB_internalformat_query}         \cell 4.2
+	\row \cell \tt{GL_ARB_internalformat_query2}        \cell 4.3
+	\row \cell \tt{GL_ARB_invalidate_subdata}           \cell 4.3
+	\row \cell \tt{GL_ARB_multi_bind}                   \cell 4.4
+	\row \cell \tt{GL_ARB_multi_draw_indirect}          \cell 4.3
+	\row \cell \tt{GL_ARB_program_interface_query}      \cell 4.3
+	\row \cell \tt{GL_ARB_provoking_vertex}             \cell 3.2
+	\row \cell \tt{GL_ARB_sampler_objects}              \cell 3.3
+	\row \cell \tt{GL_ARB_separate_shader_objects}      \cell 4.1
+	\row \cell \tt{GL_ARB_shader_atomic_counters}       \cell 4.2
+	\row \cell \tt{GL_ARB_shader_image_load_store}      \cell 4.2
+	\row \cell \tt{GL_ARB_shader_storage_buffer_object} \cell 4.3
+	\row \cell \tt{GL_ARB_shader_subroutine}            \cell 4.0
+	\row \cell \tt{GL_ARB_sync}                         \cell 3.2
+	\row \cell \tt{GL_ARB_tessellation_shader}          \cell 4.0
+	\row \cell \tt{GL_ARB_texture_buffer_range}         \cell 4.3
+	\row \cell \tt{GL_ARB_texture_multisample}          \cell 3.2
+	\row \cell \tt{GL_ARB_texture_storage}              \cell 4.2
+	\row \cell \tt{GL_ARB_texture_storage_multisample}  \cell 4.3
+	\row \cell \tt{GL_ARB_texture_view}                 \cell 4.3
+	\row \cell \tt{GL_ARB_timer_query}                  \cell 3.3
+	\row \cell \tt{GL_ARB_transform_feedback2}          \cell 4.0
+	\row \cell \tt{GL_ARB_transform_feedback3}          \cell 4.0
+	\row \cell \tt{GL_ARB_transform_feedback_instanced} \cell 4.2
+	\row \cell \tt{GL_ARB_vertex_attrib_64bit}          \cell 4.1
+	\row \cell \tt{GL_ARB_vertex_attrib_binding}        \cell 4.3
+	\row \cell \tt{GL_ARB_vertex_type_2_10_10_10_rev}   \cell 3.3
+	\row \cell \tt{GL_ARB_viewport_array}               \cell 4.1
+	\row \cell \tt{GL_KHR_debug}                        \cell 4.3
+\endtable
+)");
+
 void loadExtFlags(CrocThread* t)
 {
 	croc_namespace_new(t, "ext");
@@ -4387,6 +4755,9 @@ void loadExtFlags(CrocThread* t)
 	croc_newGlobal(t, "ext");
 }
 
+const char* _version_docs = Docstr(DFunc("version")
+R"(\returns the loaded OpenGL version as two integers, major and minor.)");
+
 word_t _version(CrocThread* t)
 {
 	croc_pushInt(t, GLVersion.major);
@@ -4395,6 +4766,34 @@ word_t _version(CrocThread* t)
 }
 
 const CrocRegisterFunc _version_info = {"version", 0, &_version};
+
+const struct
+{
+	const char* name;
+	const char* docs;
+} _funcDocs[] =
+{
+	{"version",                       _version_docs},
+	{"glMapBuffer",                   crocglMapBuffer_docs},
+	{"glShaderSource",                crocglShaderSource_docs},
+	{"glGetVertexAttribPointerv",     crocglGetVertexAttribPointerv_docs},
+	{"glGetActiveAttrib",             crocglGetActiveAttrib_docs},
+	{"glGetActiveUniform",            crocglGetActiveUniform_docs},
+	{"glMapBufferRange",              crocglMapBufferRange_docs},
+	{"glTransformFeedbackVaryings",   crocglTransformFeedbackVaryings_docs},
+	{"glGetTransformFeedbackVarying", crocglGetTransformFeedbackVarying_docs},
+	{"glGetUniformIndices",           crocglGetUniformIndices_docs},
+	{"glCreateShaderProgramv",        crocglCreateShaderProgramv_docs},
+	{"glDebugMessageCallback",        crocglDebugMessageCallback_docs},
+	{"glMapNamedBuffer",              crocglMapNamedBuffer_docs},
+	{"glMapNamedBufferRange",         crocglMapNamedBufferRange_docs},
+	{"glDebugMessageCallbackARB",     crocglDebugMessageCallbackARB_docs},
+	{"glCompileShaderIncludeARB",     crocglCompileShaderIncludeARB_docs},
+	{"glMapNamedBufferEXT",           crocglMapNamedBufferEXT_docs},
+	{"glMapNamedBufferRangeEXT",      crocglMapNamedBufferRangeEXT_docs},
+	{"ext",                           _extFlags_docs},
+	{nullptr, nullptr}
+};
 
 word_t loader(CrocThread* t)
 {
@@ -4502,6 +4901,30 @@ word_t loader(CrocThread* t)
 	load_ARB_vertex_type_2_10_10_10_rev(t);
 	load_ARB_viewport_array(t);
 	load_KHR_debug(t);
+
+#ifdef CROC_BUILTIN_DOCS
+	CrocDoc doc;
+	croc_ex_doc_init(t, &doc, __FILE__);
+	auto modNS = croc_dup(t, 0);
+	croc_ex_doc_push(&doc, moduleDocs);
+
+	// Have to do it like this since not all these functions may be available!
+	for(auto fd = &_funcDocs[0]; fd->name != nullptr; fd++)
+	{
+		if(croc_hasField(t, modNS, fd->name))
+			croc_field(t, modNS, fd->name);
+		else
+			croc_pushNull(t);
+
+		croc_ex_doc_push(&doc, fd->docs);
+		croc_ex_doc_pop(&doc, -1);
+		croc_popTop(t);
+	}
+
+	croc_ex_doc_pop(&doc, -1);
+	croc_ex_doc_finish(&doc);
+	croc_popTop(t);
+#endif
 
 	return 0;
 }

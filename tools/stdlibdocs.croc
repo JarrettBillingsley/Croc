@@ -9,7 +9,7 @@ function main()
 	local t = CrocWikiLinkTranslator()
 	local o = OutputDocVisitor(SectionOrder(), TracWikiOutputter$ CrocWikiLinkResolver$ t)
 
-	o.visitItem(docsOf(repl))
+	o.visitItem(docsOf(glfw))
 
 	t.printErrors()
 }
@@ -46,8 +46,9 @@ local StdlibLookup =
 	time          = "StdLib/TimeLib"
 
 	devil         = "Addons/DevilLib"
+	gl            = "Addons/GlLib"
 	glfw          = "Addons/GlfwLib"
-	net           = "Addons/NetLib"
+	openal        = "Addons/OpenalLib"
 	pcre          = "Addons/PcreLib"
 }
 
@@ -89,16 +90,16 @@ class CrocWikiLinkTranslator : LinkTranslator
 		if(mod is "" or mod is "Misc Library")
 		{
 			if(item is "")
-				return "StdLib/MiscLib"
+				return "wiki:StdLib/MiscLib"
 			else if(local ret = StdExceptions[item])
 				return ret
 			else if(item.startsWith("Vector"))
-				return "StdLib/MiscLib/Vector#" ~ item
+				return "wiki:StdLib/MiscLib/Vector#" ~ item
 			else
-				return "StdLib/MiscLib#" ~ item
+				return "wiki:StdLib/MiscLib#" ~ item
 		}
 		else if(local ret = StdlibLookup[mod])
-			return ret ~ ((item is "") ? "" : "#" ~ item)
+			return "wiki:" ~ ret ~ ((item is "") ? "" : "#" ~ item)
 
 		throw ValueError("Unknown stdlib module '{}'".format(mod))
 	}

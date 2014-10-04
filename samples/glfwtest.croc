@@ -145,7 +145,7 @@ function compileShader(source: string, kind: int)
 	gl.glGetShaderiv(ret, gl.GL_COMPILE_STATUS, TEMP)
 	local status = TEMP.readUInt32(0)
 
-	if(status == gl.GL_FALSE)
+	if(status == 0)
 		writefln("Error compiling shader: {}", gl.glGetShaderInfoLog(ret))
 
 	return ret
