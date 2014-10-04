@@ -456,7 +456,7 @@ function main()
 	local screenW, screenH = vidmode.width, vidmode.height
 	local window = glfw.createWindow(screenW, screenH, "Test", null, null)
 	window.show()
-	window.enableEvents(glfw.Event_Key)
+	window.enableEvents('key')
 	glfw.makeContextCurrent(window)
 	glfw.loadOpenGL()
 	gl = _G.gl
@@ -571,10 +571,13 @@ function main()
 
 		foreach(type, wm, a, b, c, d; glfw.pollEvents)
 		{
-			if(a == glfw.KEY_ESCAPE and c == glfw.PRESS)
-				window.setShouldClose(true);
-			else if(a == glfw.KEY_W and c == glfw.PRESS)
-				wireframe = !wireframe
+			if(type is 'key')
+			{
+				if(a == glfw.KEY_ESCAPE and c is 'press')
+					window.setShouldClose(true);
+				else if(a == glfw.KEY_W and c is 'press')
+					wireframe = !wireframe
+			}
 		}
 
 		if(fps.update())

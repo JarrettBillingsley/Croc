@@ -28,7 +28,50 @@ namespace
 
 #ifdef CROC_BUILTIN_DOCS
 const char* moduleDocs = DModule("glfw")
-R"()";
+R"(GLFW is a cross-platform library for creating windows and OpenGL contexts, managing them, and receiving input. This
+module presents a Croc-like interface to GLFW 3, and also loads the OpenGL API into the \tt{gl} module.
+
+\b{Prerequisites}
+
+This module loads the GLFW 3 shared library dynamically when it's first imported. On windows, this is \tt{glfw3.dll}; on
+Linux, \tt{libglfw3.so} or \tt{libglfw.so.3}; and on OSX \tt{libglfw.3.dylib}.
+
+The loaded library must be \b{GLFW version 3.0.4 or higher.} This library will check that the version of GLFW that was
+loaded is at least this version. If the shared library is not suitable, a \link{RuntimeError} will be thrown.
+
+\b{Including this library in the host}
+
+To use this library, the host must have it compiled into it. Compile Croc with the \tt{CROC_GLFW_ADDON} option enabled
+in the CMake configuration. Then from your host, when setting up the VM use the \tt{croc_vm_loadAddons} or
+\tt{croc_vm_loadAllAvailableAddons} API functions to load this library into the VM. Then from your Croc code, you can
+just \tt{import glfw} to access it.
+
+\b{OpenGL}
+
+This library will load the OpenGL API for you into a module called \tt{gl}. It only supports a core context, which means
+OpenGL 3.0 and up. It supports all the way up to OpenGL 4.5, as well as a number of extensions.
+
+\b{Windows: A note on extensions and contexts}
+
+The way Windows exposes OpenGL extension API functions is a bit weird, and supposedly different contexts can give
+different function addresses for the same extension APIs. This library does not (yet) account for this oddity, but it
+seems that this is a fairly unlikely scenario. According to \link[https://www.opengl.org/wiki/Load_OpenGL_Functions]{
+this page}, "if two contexts come from the same vendor and refer to the same GPU, then the function pointers pulled from
+one will work in another." Chances are this library will eventually support this strangeness, but for the time being, it
+doesn't. The OpenGL core and extension APIs are loaded from the first context that you call \link{loadOpenGL} on.
+
+\b{Events}
+
+The native GLFW API uses callbacks to respond to OS events. This API does not work nicely with Croc's exception handling
+methods, so instead this library uses a more traditional event API. \link{pollEvents} and \link{waitEvents} will return
+event values which you can then dispatch on. If you really want a callback API, it's trivial to implement one on top of
+this API.
+
+\b{Errors}
+
+Similarly, the native GLFW API uses an error callback to handle errors. This library instead throws exceptions to signal
+errors, and as a result some functions which would return some error value instead throw an exception.
+)";
 #endif
 
 // =====================================================================================================================
@@ -330,6 +373,7 @@ void cursorPosCallback(GLFWwindow* w, double a, double b)
 	ev.doubles.b = b;
 	addEvent(ev);
 }
+
 void scrollCallback(GLFWwindow* w, double a, double b)
 {
 	GlfwEvent ev;
@@ -340,12 +384,83 @@ void scrollCallback(GLFWwindow* w, double a, double b)
 	addEvent(ev);
 }
 
+int checkEventName(CrocThread* t, word_t slot)
+{
+	auto ev = checkCrocstrParam(t, slot);
+
+	if(ev.length > 0)
+	{
+		switch(ev[0])
+		{
+			case 'c':
+				if(ev == ATODA("close"))       return GlfwEvent::WindowClose; else
+				if(ev == ATODA("curpos"))      return GlfwEvent::CursorPos; else
+				if(ev == ATODA("curenter"))    return GlfwEvent::CursorEnter; else
+				if(ev == ATODA("char"))        return GlfwEvent::Char; else break;
+			case 'f':
+				if(ev == ATODA("focus"))       return GlfwEvent::WindowFocus; else
+				if(ev == ATODA("fbsize"))      return GlfwEvent::FramebufferSize; else break;
+			case 'i':
+				if(ev == ATODA("iconify"))     return GlfwEvent::WindowIconify; else break;
+			case 'k':
+				if(ev == ATODA("key"))         return GlfwEvent::Key; else break;
+			case 'm':
+				if(ev == ATODA("mousebutton")) return GlfwEvent::MouseButton; else
+				if(ev == ATODA("monconnect"))  return GlfwEvent::Monitor; else break;
+			case 'r':
+				if(ev == ATODA("refresh"))     return GlfwEvent::WindowRefresh; else break;
+			case 's':
+				if(ev == ATODA("scroll"))      return GlfwEvent::Scroll; else break;
+			case 'w':
+				if(ev == ATODA("winpos"))      return GlfwEvent::WindowPos; else
+				if(ev == ATODA("winsize"))     return GlfwEvent::WindowSize; else break;
+			default:
+				break;
+		}
+	}
+
+	croc_eh_throwStd(t, "ValueError", "Invalid event name");
+	return 0; // dummy
+}
+
+void pushEventName(CrocThread* t, decltype(GlfwEvent::type) type)
+{
+	switch(type)
+	{
+		case GlfwEvent::WindowPos:       croc_pushStringn(t, "winpos", 6);       return;
+		case GlfwEvent::WindowSize:      croc_pushStringn(t, "winsize", 7);      return;
+		case GlfwEvent::WindowClose:     croc_pushStringn(t, "close", 5);        return;
+		case GlfwEvent::WindowRefresh:   croc_pushStringn(t, "refresh", 7);      return;
+		case GlfwEvent::WindowFocus:     croc_pushStringn(t, "focus", 5);        return;
+		case GlfwEvent::WindowIconify:   croc_pushStringn(t, "iconify", 7);      return;
+		case GlfwEvent::FramebufferSize: croc_pushStringn(t, "fbsize", 6);       return;
+		case GlfwEvent::MouseButton:     croc_pushStringn(t, "mousebutton", 11); return;
+		case GlfwEvent::CursorPos:       croc_pushStringn(t, "curpos", 6);       return;
+		case GlfwEvent::CursorEnter:     croc_pushStringn(t, "curenter", 8);     return;
+		case GlfwEvent::Scroll:          croc_pushStringn(t, "scroll", 6);       return;
+		case GlfwEvent::Key:             croc_pushStringn(t, "key", 3);          return;
+		case GlfwEvent::Char:            croc_pushStringn(t, "char", 4);         return;
+		case GlfwEvent::Monitor:         croc_pushStringn(t, "monconnect", 10);  return;
+		default: assert(false);
+	}
+}
+
+void pushPress(CrocThread* t, int p)
+{
+	if(p == GLFW_PRESS)
+		croc_pushStringn(t, "press", 5);
+	else if(p == GLFW_RELEASE)
+		croc_pushStringn(t, "release", 7);
+	else
+		croc_pushStringn(t, "repeat", 6);
+}
+
 int pushEvent(CrocThread* t)
 {
 	GlfwEvent ev;
 	removeEvent(ev);
-
-	croc_pushInt(t, ev.type);
+	auto startSize = croc_getStackSize(t);
+	pushEventName(t, ev.type);
 
 	switch(ev.type)
 	{
@@ -353,58 +468,60 @@ int pushEvent(CrocThread* t)
 		case GlfwEvent::WindowSize:
 		case GlfwEvent::FramebufferSize:
 			pushWindowObj(t, ev.window);
-			croc_pushInt(t, cast(crocint)ev.ints.a);
-			croc_pushInt(t, cast(crocint)ev.ints.b);
-			return 4;
+			croc_pushInt(t, cast(crocint)ev.ints.a); // x
+			croc_pushInt(t, cast(crocint)ev.ints.b); // y
+			break;
 
 		case GlfwEvent::WindowClose:
 		case GlfwEvent::WindowRefresh:
 			pushWindowObj(t, ev.window);
-			return 2;
+			break;
 
 		case GlfwEvent::WindowFocus:
 		case GlfwEvent::WindowIconify:
 		case GlfwEvent::CursorEnter:
 			pushWindowObj(t, ev.window);
-			croc_pushInt(t, cast(crocint)ev.ints.a);
-			return 3;
+			croc_pushBool(t, ev.ints.a == GL_TRUE ? true : false);
+			break;
 
 		case GlfwEvent::MouseButton:
 			pushWindowObj(t, ev.window);
-			croc_pushInt(t, cast(crocint)ev.ints.a);
-			croc_pushInt(t, cast(crocint)ev.ints.b);
-			croc_pushInt(t, cast(crocint)ev.ints.c);
-			return 5;
+			croc_pushInt(t, cast(crocint)ev.ints.a); // button
+			pushPress(t, ev.ints.b);
+			croc_pushInt(t, cast(crocint)ev.ints.c); // modifiers
+			break;
 
 		case GlfwEvent::CursorPos:
 		case GlfwEvent::Scroll:
 			pushWindowObj(t, ev.window);
-			croc_pushFloat(t, cast(crocfloat)ev.doubles.a);
-			croc_pushFloat(t, cast(crocfloat)ev.doubles.b);
-			return 4;
+			croc_pushFloat(t, cast(crocfloat)ev.doubles.a); // x
+			croc_pushFloat(t, cast(crocfloat)ev.doubles.b); // y
+			break;
 
 		case GlfwEvent::Key:
 			pushWindowObj(t, ev.window);
-			croc_pushInt(t, cast(crocint)ev.ints.a);
-			croc_pushInt(t, cast(crocint)ev.ints.b);
-			croc_pushInt(t, cast(crocint)ev.ints.c);
-			croc_pushInt(t, cast(crocint)ev.ints.d);
-			return 6;
+			croc_pushInt(t, cast(crocint)ev.ints.a); // key enum
+			croc_pushInt(t, cast(crocint)ev.ints.b); // scancode
+			pushPress(t, ev.ints.c);
+			croc_pushInt(t, cast(crocint)ev.ints.d); // modifiers
+			break;
 
 		case GlfwEvent::Char:
 			pushWindowObj(t, ev.window);
 			croc_pushChar(t, cast(crocchar)ev.ints.a);
-			return 3;
+			break;
 
 		case GlfwEvent::Monitor:
 			pushMonitorObj(t, ev.monitor);
-			croc_pushInt(t, cast(crocint)ev.ints.a);
-			return 3;
+			croc_pushBool(t, ev.ints.a == GLFW_CONNECTED ? true : false);
+			break;
 
 		default:
 			assert(false);
-			return 0; // dummy
+			break;
 	}
+
+	return croc_getStackSize(t) - startSize;
 }
 
 const char* ErrorInProgress = "glfw.ErrorInProgress";
@@ -454,6 +571,18 @@ void errorCallback(int code, const char* msg)
 	errorOccurred = true;
 }
 
+void clearError(CrocThread* t)
+{
+	if(errorOccurred)
+	{
+		croc_vm_pushRegistry(t);
+		croc_pushNull(t);
+		croc_fielda(t, -2, ErrorInProgress);
+		croc_popTop(t);
+		errorOccurred = false;
+	}
+}
+
 void throwError(CrocThread* t)
 {
 	assert(errorOccurred);
@@ -473,7 +602,16 @@ void throwError(CrocThread* t)
 const StdlibRegisterInfo _init_info =
 {
 	Docstr(DFunc("init")
-	R"()"),
+	R"(Initialize the entire library. You must call this before any other functions!
+
+	\b{Bound VM:} due to the way GLFW does error handling, this library can only be initialized in one Croc VM at any
+	time. Once you call this function, the VM that called it is "bound" to the library. Attempting to call this function
+	again - from the same VM or from another - will throw a \link{StateError}. It is currently not possible to switch
+	which VM is bound, short of calling \link{terminate} in the bound VM and then this function in another.
+
+	\throws[StateError] in the situation described above.
+	\returns a boolean indicating whether or not initialization succeeded. If \tt{false}, initialization failed and you
+	should terminate your program.)"),
 
 	"init", 0
 };
@@ -490,8 +628,6 @@ word_t _init(CrocThread* t)
 		boundVM = croc_vm_getMainThread(t);
 		glfwSetErrorCallback(&errorCallback);
 	}
-	else
-		CHECK_ERROR(t);
 
 	croc_pushBool(t, ret);
 	return 1;
@@ -500,7 +636,10 @@ word_t _init(CrocThread* t)
 const StdlibRegisterInfo _terminate_info =
 {
 	Docstr(DFunc("terminate")
-	R"()"),
+	R"(Deinitializes the entire library. If you successfully initialized it before, you must call this at the end of
+	your program.
+
+	\b{Bound VM:} this unbinds the current VM from the library as explained in \link{init}.)"),
 
 	"terminate", 0
 };
@@ -517,7 +656,8 @@ word_t _terminate(CrocThread* t)
 const StdlibRegisterInfo _getVersion_info =
 {
 	Docstr(DFunc("getVersion")
-	R"()"),
+	R"(\returns three integers: the major, minor, and release version numbers of the GLFW shared library. For example,
+	if the library is version 3.0.4, this will return \tt{3, 0, 4} in that order.)"),
 
 	"getVersion", 0
 };
@@ -536,7 +676,7 @@ word_t _getVersion(CrocThread* t)
 const StdlibRegisterInfo _getVersionString_info =
 {
 	Docstr(DFunc("getVersionString")
-	R"()"),
+	R"(\returns a string representing the version of the GLFW shared library.)"),
 
 	"getVersionString", 0
 };
@@ -551,7 +691,12 @@ word_t _getVersionString(CrocThread* t)
 const StdlibRegisterInfo _loadOpenGL_info =
 {
 	Docstr(DFunc("loadOpenGL")
-	R"()"),
+	R"(With a current context (see \link{makeContextCurrent}), creates a module named \tt{gl} and loads the OpenGL core
+	API and any supported extensions into it.
+
+	If called a second time, does nothing.
+
+	\throws[OSException] if OpenGL could not be loaded, or if the computer does not support at least OpenGL 3.0.)"),
 
 	"loadOpenGL", 0
 };
@@ -566,7 +711,7 @@ word_t _loadOpenGL(CrocThread* t)
 const StdlibRegisterInfo _getMonitors_info =
 {
 	Docstr(DFunc("getMonitors")
-	R"()"),
+	R"(\returns an array of \link{Monitor} instances, one for each monitor attached to the system.)"),
 
 	"getMonitors", 0
 };
@@ -592,7 +737,8 @@ word_t _getMonitors(CrocThread* t)
 const StdlibRegisterInfo _getPrimaryMonitor_info =
 {
 	Docstr(DFunc("getPrimaryMonitor")
-	R"()"),
+	R"(\returns an instance of \link{Monitor} which represents the system's primary monitor (usually the one with the
+	taskbar/menubar/panel).)"),
 
 	"getPrimaryMonitor", 0
 };
@@ -606,26 +752,15 @@ word_t _getPrimaryMonitor(CrocThread* t)
 	return 1;
 }
 
-const StdlibRegisterInfo _defaultWindowHints_info =
-{
-	Docstr(DFunc("defaultWindowHints")
-	R"()"),
-
-	"defaultWindowHints", 0
-};
-
-word_t _defaultWindowHints(CrocThread* t)
-{
-	checkVM(t);
-	glfwDefaultWindowHints();
-	CHECK_ERROR(t);
-	return 0;
-}
-
 const StdlibRegisterInfo _windowHint_info =
 {
-	Docstr(DFunc("windowHint")
-	R"()"),
+	Docstr(DFunc("windowHint") DParam("hint", "int") DParam("value", "int")
+	R"(Sets a window hint for the next call to \link{createWindow}. These hints retain their values until the next call
+	to \tt{windowHint} or \link{defaultWindowHints}.
+
+	The best reference for these hints is \link[http://www.glfw.org/docs/3.0.4/window.html#window_hints]{the official
+	GLFW documentation}. Note that where these docs say \tt{GL_TRUE}, this library uses \tt{1}, and for \tt{GL_FALSE},
+	\tt{0}.)"),
 
 	"windowHint", 2
 };
@@ -640,10 +775,41 @@ word_t _windowHint(CrocThread* t)
 	return 0;
 }
 
+const StdlibRegisterInfo _defaultWindowHints_info =
+{
+	Docstr(DFunc("defaultWindowHints")
+	R"(Resets all window hints (those set with \link{windowHint}) to their default values.)"),
+
+	"defaultWindowHints", 0
+};
+
+word_t _defaultWindowHints(CrocThread* t)
+{
+	checkVM(t);
+	glfwDefaultWindowHints();
+	CHECK_ERROR(t);
+	return 0;
+}
+
 const StdlibRegisterInfo _createWindow_info =
 {
-	Docstr(DFunc("createWindow")
-	R"()"),
+	Docstr(DFunc("createWindow") DParam("width", "int") DParam("height", "int") DParam("title", "string")
+		DParamD("monitor", "Monitor", "null") DParamD("share", "Window", "null")
+	R"(Create a new window, and a new OpenGL context associated with that window.
+
+	\param[width] is the width in pixels of the window.
+	\param[height] is the height in pixels of the window.
+	\param[title] will be the window's title, shown in the title bar (if any) or in the task switcher.
+	\param[monitor] is the optional monitor on which this window will be made fullscreen. If \tt{null}, the window will
+		instead be windowed.
+
+		Note that "traditional" fullscreening is not always the best option thanks to modern window managers. If you
+		want your app to go full screen, at least provide an option to use a borderless window the size of the monitor.
+		Your users will thank you.
+	\param[share] is an existing window with whom this new window will share OpenGL resources. If \tt{null}, the new
+		context will not share resources.
+
+	\returns a new \link{Window} instance.)"),
 
 	"createWindow", 5
 };
@@ -672,9 +838,125 @@ word_t _createWindow(CrocThread* t)
 const StdlibRegisterInfo _pollEvents_info =
 {
 	Docstr(DFunc("pollEvents")
-	R"()"),
+	R"(Sees if there are any events on the application's event queue.
 
-	"pollEvents", 1
+	For all the window events, you must enable them per-window with \link{Window.enableEvents}. If you don't, you'll
+	never get any events for them.
+
+	\returns the first event on the queue, or nothing if there are no pending events.
+
+	The event will be returned as an event name, followed by the window or monitor it's for, and then up to four data
+	values.
+
+	Because of the way this function returns its values, you can actually use it (without parentheses) as the container
+	in a foreach loop. Your application's main loop might look something like:
+
+\code
+while(not window.shouldClose())
+{
+	foreach(ev, wm, a, b, c, d; glfw.pollEvents)
+	{
+		// switch on ev; wm contains the window or monitor, and a-d are the event values
+	}
+
+	// update window and present
+}
+\endcode
+
+	The following table explains what each type of event means, and what values will follow it.
+
+	\table
+		\row
+			\cell \b{Type}
+			\cell \b{Description}
+			\cell \b{Values}
+			\cell \b{Value Description}
+		\row
+			\cell \b{\tt{"winpos"}}
+			\cell A window was moved to a new position on the desktop.
+			\cell \tt{window: Window, x: int, y: int}
+			\cell \tt{window} is the window; \tt{(x, y)} is its new position on the desktop.
+		\row
+			\cell \b{\tt{"winsize"}}
+			\cell A window was resized. This gives the new size in \em{screen pixels}, which can differ from the actual
+				size of the framebufer for high-DPI displays. See the \tt{"fbsize"} event.
+			\cell \tt{window: Window, w: int, h: int}
+			\cell \tt{window} is the window; \tt{(w, h)} is its new size.
+		\row
+			\cell \b{\tt{"close"}}
+			\cell The user has requested a window to close. This doesn't mean the window has been closed, it's up to you
+				to decide how to respond to the user's request to close the window.
+			\cell \tt{window: Window}
+			\cell \tt{window} is the window that the user wants to close.
+		\row
+			\cell \b{\tt{"refresh"}}
+			\cell The window manager has drawn over part of a window, and the window's contents must be redrawn.
+			\cell \tt{window: Window}
+			\cell \tt{window} is the window that needs to be redrawn.
+		\row
+			\cell \b{\tt{"focus"}}
+			\cell A window has either gained or lost foreground focus.
+			\cell \tt{window: Window, focused: bool}
+			\cell \tt{window} is the window; \tt{focused} is \tt{true} for focus gained, and \tt{false} for lost.
+		\row
+			\cell \b{\tt{"iconify"}}
+			\cell A window has been minimized or un-minimized.
+			\cell \tt{window: Window, iconified: bool}
+			\cell \tt{window} is the window; \tt{iconified} is \tt{true} for minimized, and \tt{false} for un-minimized.
+		\row
+			\cell \b{\tt{"fbsize"}}
+			\cell A window was resized. This gives the new size in \em{framebuffer pixels}, which  can differ from the
+				window's screen size for high-DPI displays.
+			\cell \tt{window: Window, w: int, h: int}
+			\cell \tt{window} is the window; \tt{(w, h)} is its new framebuffer size.
+		\row
+			\cell \b{\tt{"mousebutton"}}
+			\cell A mouse button was either pressed or released.
+			\cell \tt{window: Window, button: int, action: string, mods: int}
+			\cell \tt{window} is the window; \tt{button} is the mouse button (0-7); \tt{action} is either \tt{"press"}
+				or \tt{"release"}; and \tt{mods} is a bitfield of the modifier keys that were pressed at the time.
+		\row
+			\cell \b{\tt{"curpos"}}
+			\cell The mouse cursor moved to a new position.
+			\cell \tt{window: Window, x: float, y: float}
+			\cell \tt{window} is the window; \tt{(x, y)} are the \em{floating point} coordinates of the cursor, relative
+				to the top-left of \tt{window}'s client area. If the cursor is above or to the left of the window, the
+				coordinates can be negative, and if it's to the right or below the window, they can be larger than the
+				window size.
+		\row
+			\cell \b{\tt{"curenter"}}
+			\cell The mouse cursor has either entered or left a window.
+			\cell \tt{window: Window, entered: bool}
+			\cell \tt{window} is the window; \tt{entered} is \tt{true} if the cursor entered the window, and \tt{false}
+				if it left the window.
+		\row
+			\cell \b{\tt{"scroll"}}
+			\cell The mouse scroll wheel or scroll ball moved.
+			\cell \tt{window: Window, x: float, y: float}
+			\cell \tt{window} is the window; \tt{x} is the change in the x scroll axis (usually only applicable to
+				scroll balls); \tt{y} is the change in the y scroll axis (most scroll wheels).
+		\row
+			\cell \b{\tt{"key"}}
+			\cell A keyboard key was pressed, repeated, or released. Key repeat uses the user's OS settings. All
+				non-modifier keys will repeat, but if you don't care about repeats, you can just ignore them.
+			\cell \tt{window: Window, key: int, scancode: int, action: string, mods: int}
+			\cell \tt{window} is the window; \tt{key} is one of the \tt{glfw.KEY_*} enumeration values; \tt{scancode} is
+				the raw keyboard scancode of the key; \tt{action} is one of \tt{"press"}, \tt{"release"}, and
+				\tt{"repeat"}; and \tt{mods} is a bitfield of the modifier keys that were pressed at the time.
+		\row
+			\cell \b{\tt{"char"}}
+			\cell The window received a Unicode character. This isn't the same thing as a keypress since it may have
+				come from an IME of some sort. Use this event to collect proper text input.
+			\cell \tt{window: Window, ch: string}
+			\cell \tt{window} is the window; \tt{ch} is the character that was input.
+		\row
+			\cell \b{\tt{"monconnect"}}
+			\cell A monitor was connected to or disconnected from the system.
+			\cell \tt{monitor: Monitor, connected: bool}
+			\cell \tt{monitor} is the monitor; \tt{connected} is \tt{true} for connected, \tt{false} for diseconnected.
+	\endtable)"),
+
+	"pollEvents", 1 // 1 so it can be used as an "opApply"
 };
 
 word_t _pollEvents(CrocThread* t)
@@ -696,9 +978,26 @@ word_t _pollEvents(CrocThread* t)
 const StdlibRegisterInfo _waitEvents_info =
 {
 	Docstr(DFunc("waitEvents")
-	R"()"),
+	R"(Similar to \link{pollEvents}, except this will wait for an event to occur if there is none on the application's
+	event queue.
 
-	"waitEvents", 1
+	Whereas \link{pollEvents} is better suited for realtime applications (like games), this function is better for
+	event-driven applications, like editors and such. Typically these applications don't need to render a new screen
+	every frame, so they can just idle waiting for a \tt{"refresh"} event or user input.
+
+	In this case the application's main loop will look more like this:
+
+\code
+while(not window.shouldClose())
+{
+	local ev, wm, a, b, c, d = glfw.waitEvents()
+	// switch on ev here; present only when needed
+}
+\endcode
+
+	\returns an event as specified in the docs for \link{pollEvents}.)"),
+
+	"waitEvents", 0
 };
 
 word_t _waitEvents(CrocThread* t)
@@ -716,8 +1015,11 @@ word_t _waitEvents(CrocThread* t)
 
 const StdlibRegisterInfo _joystickPresent_info =
 {
-	Docstr(DFunc("joystickPresent")
-	R"()"),
+	Docstr(DFunc("joystickPresent") DParam("joy", "int")
+	R"(Sees if a joystick is connected.
+
+	\param[joy] is the index of the joystick to check, in the range 0 to 15 inclusive.
+	\returns a boolean indicating whether or not a joystick is present at that index.)"),
 
 	"joystickPresent", 1
 };
@@ -733,8 +1035,14 @@ word_t _joystickPresent(CrocThread* t)
 
 const StdlibRegisterInfo _getJoystickAxes_info =
 {
-	Docstr(DFunc("getJoystickAxes")
-	R"()"),
+	Docstr(DFunc("getJoystickAxes") DParam("joy", "int") DParam("axes", "array")
+	R"(Gets the values of all the axes of a joystick.
+
+	\param[joy] is the index of the joystick to check, in the range 0 to 15 inclusive.
+	\param[axes] is the array where the values will be stored. \tt{axes} will be resized to the number of axes and will
+		be filled with floats.
+
+	\returns \tt{axes} for convenience.)"),
 
 	"getJoystickAxes", 2
 };
@@ -761,8 +1069,14 @@ word_t _getJoystickAxes(CrocThread* t)
 
 const StdlibRegisterInfo _getJoystickButtons_info =
 {
-	Docstr(DFunc("getJoystickButtons")
-	R"()"),
+	Docstr(DFunc("getJoystickButtons") DParam("joy", "int") DParam("buttons", "array")
+	R"(Gets the state of all the buttons of a joystick.
+
+	\param[joy] is the index of the joystick to check, in the range 0 to 15 inclusive.
+	\param[buttons] is the array where the values will be stored. \tt{buttons} will be resized to the number of buttons
+		and will be filled with bools.
+
+	\returns \tt{buttons} for convenience.)"),
 
 	"getJoystickButtons", 2
 };
@@ -789,8 +1103,11 @@ word_t _getJoystickButtons(CrocThread* t)
 
 const StdlibRegisterInfo _getJoystickName_info =
 {
-	Docstr(DFunc("getJoystickName")
-	R"()"),
+	Docstr(DFunc("getJoystickName") DParam("joy", "int")
+	R"(Gets a nice name of a joystick.
+
+	\param[joy] is the index of the joystick to check, in the range 0 to 15 inclusive.
+	\returns its name.)"),
 
 	"getJoystickName", 1
 };
@@ -806,8 +1123,14 @@ word_t _getJoystickName(CrocThread* t)
 
 const StdlibRegisterInfo _makeContextCurrent_info =
 {
-	Docstr(DFunc("makeContextCurrent")
-	R"()"),
+	Docstr(DFunc("makeContextCurrent") DParam("window", "Window")
+	R"(Makes a given window's OpenGL context the current one.
+
+	OpenGL supports multiple contexts, but only one can be active ("current") at any time. You set which one is current
+	with this function. You must make a context current before you can load the OpenGL API (with \link{loadOpenGL}) or
+	use any of the OpenGL API functions.
+
+	\param[window] is the window to make current.)"),
 
 	"makeContextCurrent", 1
 };
@@ -824,7 +1147,7 @@ word_t _makeContextCurrent(CrocThread* t)
 const StdlibRegisterInfo _getCurrentContext_info =
 {
 	Docstr(DFunc("getCurrentContext")
-	R"()"),
+	R"(\returns the \tt{Window} object whose context is the currently-selected one.)"),
 
 	"getCurrentContext", 0
 };
@@ -840,8 +1163,13 @@ word_t _getCurrentContext(CrocThread* t)
 
 const StdlibRegisterInfo _swapInterval_info =
 {
-	Docstr(DFunc("swapInterval")
-	R"()"),
+	Docstr(DFunc("swapInterval") DParam("interval", "int")
+	R"(Sets the swap interval for the current context, which is the number of screen updates to wait before swapping a
+	window's buffer, also known as "vertical sync" or "vsync."
+
+	\param[interval] is the number of frames to wait before swapping. 0 means no vsync, 1 means normal vsync, and so on.
+		Can be negative on platforms that support the \tt{WGL_EXT_swap_control_tear} or \tt{GLX_EXT_swap_control_tear}
+		context extensions, which can be tested for with \link{extensionSupported}.)"),
 
 	"swapInterval", 1
 };
@@ -856,8 +1184,11 @@ word_t _swapInterval(CrocThread* t)
 
 const StdlibRegisterInfo _extensionSupported_info =
 {
-	Docstr(DFunc("extensionSupported")
-	R"()"),
+	Docstr(DFunc("extensionSupported") DParam("name", "string")
+	R"(Tests if an OpenGL or platform-specific context extension is supported.
+
+	\param[name] is the name of the extension to query.
+	\returns a boolean indicating whether or not it is supported.)"),
 
 	"extensionSupported", 1
 };
@@ -873,8 +1204,11 @@ word_t _extensionSupported(CrocThread* t)
 
 const StdlibRegisterInfo _setMonitorEventsEnabled_info =
 {
-	Docstr(DFunc("setMonitorEventsEnabled")
-	R"()"),
+	Docstr(DFunc("setMonitorEventsEnabled") DParam("enable", "bool")
+	R"(Enables or disables the \tt{"monconnect"} events. By default they are disabled, but if you enable them you will
+	receive them through \link{pollEvents} and \link{waitEvents}.
+
+	\param[enable] is \tt{true} to enable these events, and \tt{false} to disable them.)"),
 
 	"setMonitorEventsEnabled", 1
 };
@@ -895,7 +1229,8 @@ word_t _setMonitorEventsEnabled(CrocThread* t)
 const StdlibRegisterInfo _getTime_info =
 {
 	Docstr(DFunc("getTime")
-	R"()"),
+	R"(\returns the number of seconds elapsed since GLFW was initialized as a float, unless the time has been set with
+	\link{setTime}. This is a very high-resolution timer.)"),
 
 	"getTime", 0
 };
@@ -908,8 +1243,8 @@ word_t _getTime(CrocThread* t)
 
 const StdlibRegisterInfo _setTime_info =
 {
-	Docstr(DFunc("setTime")
-	R"()"),
+	Docstr(DFunc("setTime") DParam("time", "int|float")
+	R"(Sets the GLFW time to \tt{time}, in seconds. It then continues to tick up from this value.)"),
 
 	"setTime", 1
 };
@@ -929,8 +1264,8 @@ const StdlibRegister _globalFuncs[] =
 	_DListItem(_loadOpenGL),
 	_DListItem(_getMonitors),
 	_DListItem(_getPrimaryMonitor),
-	_DListItem(_defaultWindowHints),
 	_DListItem(_windowHint),
+	_DListItem(_defaultWindowHints),
 	_DListItem(_createWindow),
 	_DListItem(_pollEvents),
 	_DListItem(_waitEvents),
@@ -951,10 +1286,16 @@ const StdlibRegister _globalFuncs[] =
 // =====================================================================================================================
 // Monitor class
 
+#ifdef CROC_BUILTIN_DOCS
+const char* MonitorDocs = DClass("Monitor")
+R"(Represents a monitor attached to the system. You don't create instances of this class, instances are given to you by
+the \link{getMonitors} and \link{getPrimaryMonitor} functions.)";
+#endif
+
 const StdlibRegisterInfo Monitor_constructor_info =
 {
-	Docstr(DFunc("constructor")
-	R"()"),
+	Docstr(DFunc("constructor") DParam("handle", "nativeobj")
+	R"(Constructor for use internally.)"),
 
 	"constructor", 1
 };
@@ -985,7 +1326,8 @@ word_t Monitor_constructor(CrocThread* t)
 const StdlibRegisterInfo Monitor_getPos_info =
 {
 	Docstr(DFunc("getPos")
-	R"()"),
+	R"(\returns the position of the top-left corner of this monitor with respect to the "virtual desktop" that spans
+	across all monitors. The position is returned as two integers, x and y.)"),
 
 	"getPos", 0
 };
@@ -1005,7 +1347,9 @@ word_t Monitor_getPos(CrocThread* t)
 const StdlibRegisterInfo Monitor_getPhysicalSize_info =
 {
 	Docstr(DFunc("getPhysicalSize")
-	R"()"),
+	R"(\returns the width and height of this monitor in millimeters as two integers, x and y.
+
+	The size returned from this function may be inaccurate due to faulty drivers or EDID data.)"),
 
 	"getPhysicalSize", 0
 };
@@ -1025,7 +1369,7 @@ word_t Monitor_getPhysicalSize(CrocThread* t)
 const StdlibRegisterInfo Monitor_getName_info =
 {
 	Docstr(DFunc("getName")
-	R"()"),
+	R"(\returns the name of this monitor.)"),
 
 	"getName", 0
 };
@@ -1043,7 +1387,17 @@ word_t Monitor_getName(CrocThread* t)
 const StdlibRegisterInfo Monitor_getVideoModes_info =
 {
 	Docstr(DFunc("getVideoModes")
-	R"()"),
+	R"(\returns an array of supported fullscreen video modes.
+
+	Each video mode is a table containing the following members:
+	\blist
+		\li \b{\tt{width}}: pixel width of the video mode
+		\li \b{\tt{height}}: pixel height of the video mode
+		\li \b{\tt{redBits}}: bits for the red channel
+		\li \b{\tt{greenBits}}: bits for the green channel
+		\li \b{\tt{blueBits}}: bits for the blue channel
+		\li \b{\tt{refreshRate}}: refresh rate in Hz (as an integer)
+	\endlist)"),
 
 	"getVideoModes", 0
 };
@@ -1076,7 +1430,7 @@ word_t Monitor_getVideoModes(CrocThread* t)
 const StdlibRegisterInfo Monitor_getVideoMode_info =
 {
 	Docstr(DFunc("getVideoMode")
-	R"()"),
+	R"(\returns the monitor's current video mode as a table as described in \link{getVideoModes}.)"),
 
 	"getVideoMode", 0
 };
@@ -1093,8 +1447,9 @@ word_t Monitor_getVideoMode(CrocThread* t)
 
 const StdlibRegisterInfo Monitor_setGamma_info =
 {
-	Docstr(DFunc("setGamma")
-	R"()"),
+	Docstr(DFunc("setGamma") DParam("gamma", "int|float")
+	R"(Generates a gamma ramp using \tt{gamma} as an exponent and sets the monitor's gamma to the new ramp. A gamma of
+	1.0 is the default; higher values make things brighter and lower values make things darker.)"),
 
 	"setGamma", 1
 };
@@ -1112,7 +1467,8 @@ word_t Monitor_setGamma(CrocThread* t)
 const StdlibRegisterInfo Monitor_getGammaRamp_info =
 {
 	Docstr(DFunc("getGammaRamp")
-	R"()"),
+	R"(\returns three arrays of integers, all the same length, which represent the monitor's current red, green, and
+	blue gamma ramps.)"),
 
 	"getGammaRamp", 0
 };
@@ -1143,8 +1499,15 @@ word_t Monitor_getGammaRamp(CrocThread* t)
 
 const StdlibRegisterInfo Monitor_setGammaRamp_info =
 {
-	Docstr(DFunc("setGammaRamp")
-	R"()"),
+	Docstr(DFunc("setGammaRamp") DParam("r", "array") DParam("g", "array") DParam("b", "array")
+	R"(Takes the red, green, and blue gamma ramps as arrays of integers and sets the monitor's gamma to these new
+	ramps.
+
+	All three ramp arrays must be the same length, and they have a maximum length of 256 elements.
+
+	\throws[ValueError] if \tt{r}, \tt{g}, and \tt{b} are not all the same length, or if they are 0 elements or more
+		than 256 elements.
+	\throws[TypeError] if any of the values in the gamma ramps are not integers.)"),
 
 	"setGammaRamp", 3
 };
@@ -1161,8 +1524,10 @@ word_t Monitor_setGammaRamp(CrocThread* t)
 	auto glen = croc_len(t, 2);
 	auto blen = croc_len(t, 3);
 
-	if(rlen != glen || glen != blen || rlen == 0 || rlen > 256)
-		return 0; // TODO: ?
+	if(rlen != glen || glen != blen)
+		croc_eh_throwStd(t, "ValueError", "All three ramps must be the same length");
+	else if(rlen == 0 || rlen > 256)
+		croc_eh_throwStd(t, "ValueError", "Invalid ramp length %" CROC_INTEGER_FORMAT, rlen);
 
 	unsigned short r[256], g[256], b[256];
 	GLFWgammaramp ramp;
@@ -1178,7 +1543,7 @@ word_t Monitor_setGammaRamp(CrocThread* t)
 		croc_idxi(t, 3, i);
 
 		if(!croc_isInt(t, -3) || !croc_isInt(t, -2) || !croc_isInt(t, -1))
-			return 0; // TODO: ?
+			croc_eh_throwStd(t, "TypeError", "All ramp values must be integers");
 
 		r[i] = croc_getInt(t, -3);
 		g[i] = croc_getInt(t, -2);
@@ -1207,12 +1572,18 @@ const StdlibRegister Monitor_methods[] =
 };
 
 // =====================================================================================================================
-// Window
+// Window class
+
+#ifdef CROC_BUILTIN_DOCS
+const char* WindowDocs = DClass("Window")
+R"(Represents a window and its associated OpenGL context. You don't create instances of this class, instances are given
+to you by the \link{createWindow} function.)";
+#endif
 
 const StdlibRegisterInfo Window_constructor_info =
 {
-	Docstr(DFunc("constructor")
-	R"()"),
+	Docstr(DFunc("constructor") DParam("handle", "nativeobj")
+	R"(Constructor for use internally.)"),
 
 	"constructor", 1
 };
@@ -1243,7 +1614,9 @@ word_t Window_constructor(CrocThread* t)
 const StdlibRegisterInfo Window_destroy_info =
 {
 	Docstr(DFunc("destroy")
-	R"()"),
+	R"(Destroys this window and its associated OpenGL context. No more events will be generated for this window.
+
+	\throws[StateError] if you call this method more than once.)"),
 
 	"destroy", 0
 };
@@ -1272,7 +1645,8 @@ word_t Window_destroy(CrocThread* t)
 const StdlibRegisterInfo Window_shouldClose_info =
 {
 	Docstr(DFunc("shouldClose")
-	R"()"),
+	R"(\returns a bool indicating whether this window should close. This flag is set to true when the user tries to
+	close the window, and can also be set to \tt{true} or \tt{false} with \link{setShouldClose}.)"),
 
 	"shouldClose", 0
 };
@@ -1288,8 +1662,8 @@ word_t Window_shouldClose(CrocThread* t)
 
 const StdlibRegisterInfo Window_setShouldClose_info =
 {
-	Docstr(DFunc("setShouldClose")
-	R"()"),
+	Docstr(DFunc("setShouldClose") DParam("should", "bool")
+	R"(Sets the "should close" flag on this window to \tt{should}.)"),
 
 	"setShouldClose", 1
 };
@@ -1305,8 +1679,8 @@ word_t Window_setShouldClose(CrocThread* t)
 
 const StdlibRegisterInfo Window_setTitle_info =
 {
-	Docstr(DFunc("setTitle")
-	R"()"),
+	Docstr(DFunc("setTitle") DParam("title", "string")
+	R"(Sets this window's title to \tt{title}.)"),
 
 	"setTitle", 1
 };
@@ -1324,7 +1698,7 @@ word_t Window_setTitle(CrocThread* t)
 const StdlibRegisterInfo Window_getPos_info =
 {
 	Docstr(DFunc("getPos")
-	R"()"),
+	R"(\returns the desktop position of this window as two ints, x and y.)"),
 
 	"getPos", 0
 };
@@ -1343,8 +1717,8 @@ word_t Window_getPos(CrocThread* t)
 
 const StdlibRegisterInfo Window_setPos_info =
 {
-	Docstr(DFunc("setPos")
-	R"()"),
+	Docstr(DFunc("setPos") DParam("x", "int") DParam("y", "int")
+	R"(Sets this window's desktop position to \tt{(x, y)}.)"),
 
 	"setPos", 2
 };
@@ -1363,7 +1737,10 @@ word_t Window_setPos(CrocThread* t)
 const StdlibRegisterInfo Window_getSize_info =
 {
 	Docstr(DFunc("getSize")
-	R"()"),
+	R"(\returns the size of this window in \em{screen pixels} as two integers, width and height.
+
+	The screen size can differ from the actual size of the framebufer for high-DPI displays. See
+	\link{getFramebufferSize}.)"),
 
 	"getSize", 0
 };
@@ -1382,8 +1759,8 @@ word_t Window_getSize(CrocThread* t)
 
 const StdlibRegisterInfo Window_setSize_info =
 {
-	Docstr(DFunc("setSize")
-	R"()"),
+	Docstr(DFunc("setSize") DParam("w", "int") DParam("h", "int")
+	R"(Sets the window's screen size to \tt{(w, h)}.)"),
 
 	"setSize", 2
 };
@@ -1402,7 +1779,9 @@ word_t Window_setSize(CrocThread* t)
 const StdlibRegisterInfo Window_getFramebufferSize_info =
 {
 	Docstr(DFunc("getFramebufferSize")
-	R"()"),
+	R"(\returns the size of the window's framebuffer as two integers, width and height.
+
+	The framebuffer size can differ from the window's screen size for high-DPI displays.)"),
 
 	"getFramebufferSize", 0
 };
@@ -1422,7 +1801,7 @@ word_t Window_getFramebufferSize(CrocThread* t)
 const StdlibRegisterInfo Window_iconify_info =
 {
 	Docstr(DFunc("iconify")
-	R"()"),
+	R"(Minimizes this window.)"),
 
 	"iconify", 0
 };
@@ -1439,7 +1818,7 @@ word_t Window_iconify(CrocThread* t)
 const StdlibRegisterInfo Window_restore_info =
 {
 	Docstr(DFunc("restore")
-	R"()"),
+	R"(Un-minimizes this window.)"),
 
 	"restore", 0
 };
@@ -1456,7 +1835,7 @@ word_t Window_restore(CrocThread* t)
 const StdlibRegisterInfo Window_show_info =
 {
 	Docstr(DFunc("show")
-	R"()"),
+	R"(Makes this window visible.)"),
 
 	"show", 0
 };
@@ -1473,7 +1852,7 @@ word_t Window_show(CrocThread* t)
 const StdlibRegisterInfo Window_hide_info =
 {
 	Docstr(DFunc("hide")
-	R"()"),
+	R"(Makes this window invisible. It doesn't minimize it, it really makes it disappear from view entirely.)"),
 
 	"hide", 0
 };
@@ -1490,7 +1869,7 @@ word_t Window_hide(CrocThread* t)
 const StdlibRegisterInfo Window_swapBuffers_info =
 {
 	Docstr(DFunc("swapBuffers")
-	R"()"),
+	R"(After drawing to the framebuffer through OpenGL, you must call this method to display anything.)"),
 
 	"swapBuffers", 0
 };
@@ -1506,7 +1885,8 @@ word_t Window_swapBuffers(CrocThread* t)
 const StdlibRegisterInfo Window_getMonitor_info =
 {
 	Docstr(DFunc("getMonitor")
-	R"()"),
+	R"(\returns the \link{Monitor} object that this window is fullscreened on, or \tt{null} if this window is in
+	windowed mode.)"),
 
 	"getMonitor", 0
 };
@@ -1517,14 +1897,26 @@ word_t Window_getMonitor(CrocThread* t)
 	auto self = Window_getThis(t);
 	auto ret = glfwGetWindowMonitor(self);
 	CHECK_ERROR(t);
-	pushMonitorObj(t, ret);
+
+	if(ret == nullptr)
+		croc_pushNull(t);
+	else
+		pushMonitorObj(t, ret);
 	return 1;
 }
 
 const StdlibRegisterInfo Window_setCursorMode_info =
 {
-	Docstr(DFunc("setCursorMode")
-	R"()"),
+	Docstr(DFunc("setCursorMode") DParam("mode", "string")
+	R"(Sets this window's cursor handling mode.
+
+	\param[mode] must be one of the following values:
+	\blist
+		\li \b{\tt{"normal"}}: the cursor appears over this window as usual.
+		\li \b{\tt{"hidden"}}: the cursor will be invisible when over this window, but it can still be moved freely.
+		\li \b{\tt{"disabled"}}: the cursor will be hidden and also disallowed from leaving this window. This is useful
+			for "mouselook" camera controls and the like.
+	\endlist)"),
 
 	"setCursorMode", 1
 };
@@ -1551,7 +1943,7 @@ word_t Window_setCursorMode(CrocThread* t)
 const StdlibRegisterInfo Window_getCursorMode_info =
 {
 	Docstr(DFunc("getCursorMode")
-	R"()"),
+	R"(\returns this window's cursor mode as a string, as described in \link{setCursorMode}.)"),
 
 	"getCursorMode", 0
 };
@@ -1575,8 +1967,12 @@ word_t Window_getCursorMode(CrocThread* t)
 
 const StdlibRegisterInfo Window_setStickyKeys_info =
 {
-	Docstr(DFunc("setStickyKeys")
-	R"()"),
+	Docstr(DFunc("setStickyKeys") DParam("enable", "bool")
+	R"(Sets whether or not this window uses "sticky keys".
+
+	If sticky keys are enabled, calls to \link{getKey} will return \tt{true} even if the key in question has been
+	released since it was last pressed. This is useful if you only care \em{if} keys have been pressed, but don't care
+	about \em{when}.)"),
 
 	"setStickyKeys", 1
 };
@@ -1593,7 +1989,7 @@ word_t Window_setStickyKeys(CrocThread* t)
 const StdlibRegisterInfo Window_getStickyKeys_info =
 {
 	Docstr(DFunc("getStickyKeys")
-	R"()"),
+	R"(\returns this window's sticky keys mode. See \link{setStickyKeys}.)"),
 
 	"getStickyKeys", 0
 };
@@ -1609,8 +2005,10 @@ word_t Window_getStickyKeys(CrocThread* t)
 
 const StdlibRegisterInfo Window_setStickyMouseButtons_info =
 {
-	Docstr(DFunc("setStickyMouseButtons")
-	R"()"),
+	Docstr(DFunc("setStickyMouseButtons") DParam("enable", "bool")
+	R"(Sets whether or not this window uses "sticky mouse buttons".
+
+	This is the same as \link{setStickyKeys} except for mouse buttons and the \link{getMouseButton} method.)"),
 
 	"setStickyMouseButtons", 1
 };
@@ -1627,7 +2025,7 @@ word_t Window_setStickyMouseButtons(CrocThread* t)
 const StdlibRegisterInfo Window_getStickyMouseButtons_info =
 {
 	Docstr(DFunc("getStickyMouseButtons")
-	R"()"),
+	R"(\returns whis window's sticky mouse buttons mode. See \link{setStickyMouseButtons}.)"),
 
 	"getStickyMouseButtons", 0
 };
@@ -1643,8 +2041,11 @@ word_t Window_getStickyMouseButtons(CrocThread* t)
 
 const StdlibRegisterInfo Window_getKey_info =
 {
-	Docstr(DFunc("getKey")
-	R"()"),
+	Docstr(DFunc("getKey") DParam("key", "int")
+	R"(Checks whether a key is currently being held down in this window.
+
+	\param[key] should be one of the key enumerations.
+	\returns \tt{true} if the key is being held down and \tt{false} if not.)"),
 
 	"getKey", 1
 };
@@ -1660,8 +2061,11 @@ word_t Window_getKey(CrocThread* t)
 
 const StdlibRegisterInfo Window_getMouseButton_info =
 {
-	Docstr(DFunc("getMouseButton")
-	R"()"),
+	Docstr(DFunc("getMouseButton") DParam("button", "int")
+	R"(Checks whether a mouse button is currently being held down in this window.
+
+	\param[button] should be a mouse button in the range 0 to 7 inclusive.
+	\returns \tt{true} if the button is being held down and \tt{false} if not.)"),
 
 	"getMouseButton", 1
 };
@@ -1678,7 +2082,7 @@ word_t Window_getMouseButton(CrocThread* t)
 const StdlibRegisterInfo Window_getCursorPos_info =
 {
 	Docstr(DFunc("getCursorPos")
-	R"()"),
+	R"(\returns the position of the cursor relative to the top-left corner of this window as two doubles, x and y.)"),
 
 	"getCursorPos", 0
 };
@@ -1697,8 +2101,8 @@ word_t Window_getCursorPos(CrocThread* t)
 
 const StdlibRegisterInfo Window_setCursorPos_info =
 {
-	Docstr(DFunc("setCursorPos")
-	R"()"),
+	Docstr(DFunc("setCursorPos") DParam("x", "int|float") DParam("y", "int|float")
+	R"(Moves the cursor to the screen position \tt{(x, y)} relative to the top-left corner of this window.)"),
 
 	"setCursorPos", 2
 };
@@ -1716,8 +2120,10 @@ word_t Window_setCursorPos(CrocThread* t)
 
 const StdlibRegisterInfo Window_setClipboardString_info =
 {
-	Docstr(DFunc("setClipboardString")
-	R"()"),
+	Docstr(DFunc("setClipboardString") DParam("data", "string")
+	R"(Puts the string \tt{data} on the OS clipboard.
+
+	This function can only be called from the main thread of your host application.)"),
 
 	"setClipboardString", 1
 };
@@ -1734,7 +2140,9 @@ word_t Window_setClipboardString(CrocThread* t)
 const StdlibRegisterInfo Window_getClipboardString_info =
 {
 	Docstr(DFunc("getClipboardString")
-	R"()"),
+	R"(\returns the contents of the clipboard as a string, or \tt{null} if the contents are not a string.
+
+	This method does \em{not} throw any exceptions, unlike many others.)"),
 
 	"getClipboardString", 0
 };
@@ -1743,15 +2151,24 @@ word_t Window_getClipboardString(CrocThread* t)
 {
 	checkVM(t);
 	auto self = Window_getThis(t);
-	croc_pushString(t, glfwGetClipboardString(self));
-	CHECK_ERROR(t);
+	auto clip = glfwGetClipboardString(self);
+	clearError(t);
+
+	if(clip == nullptr)
+		croc_pushNull(t);
+	else
+		croc_pushString(t, clip);
 	return 1;
 }
 
 const StdlibRegisterInfo Window_getAttrib_info =
 {
-	Docstr(DFunc("getAttrib")
-	R"()"),
+	Docstr(DFunc("getAttrib") DParam("attrib", "int")
+	R"(Gets one of the window's attributes.
+
+	The best reference for these attributes is the \link[http://www.glfw.org/docs/3.0.4/window.html#window_attribs]{
+	official docs}. Note that where these docs say \tt{GL_TRUE}, this library uses \tt{1}, and for \tt{GL_FALSE},
+	\tt{0}.)"),
 
 	"getAttrib", 1
 };
@@ -1767,8 +2184,18 @@ word_t Window_getAttrib(CrocThread* t)
 
 const StdlibRegisterInfo Window_enableEvents_info =
 {
-	Docstr(DFunc("enableEvents")
-	R"()"),
+	Docstr(DFunc("enableEvents") DVararg
+	R"(Enables any number of events on this window by name.
+
+	After creation, windows will not produce any events until you enable them with this method. You enable them by name,
+	which are listed in the docs for \link{pollEvents}. For example, if you want to receive key, mouse button, and
+	cursor position events, you might call:
+
+\code
+window.enableEvents("key", "mousebutton", "curpos")
+\endcode
+
+	Now these events will be generated for this window.)"),
 
 	"enableEvents", -1
 };
@@ -1781,7 +2208,7 @@ word_t Window_enableEvents(CrocThread* t)
 
 	for(uword i = 1; i < stackSize; i++)
 	{
-		switch(croc_ex_checkIntParam(t, i))
+		switch(checkEventName(t, i))
 		{
 			case GlfwEvent::WindowPos:       glfwSetWindowPosCallback      (self, &windowPosCallback);       break;
 			case GlfwEvent::WindowSize:      glfwSetWindowSizeCallback     (self, &windowSizeCallback);      break;
@@ -1796,8 +2223,7 @@ word_t Window_enableEvents(CrocThread* t)
 			case GlfwEvent::Scroll:          glfwSetScrollCallback         (self, &scrollCallback);          break;
 			case GlfwEvent::Key:             glfwSetKeyCallback            (self, &keyCallback);             break;
 			case GlfwEvent::Char:            glfwSetCharCallback           (self, &charCallback);            break;
-			default:
-				croc_eh_throwStd(t, "ValueError", "Invalid event type");
+			default: assert(false);
 		}
 
 		CHECK_ERROR(t);
@@ -1808,8 +2234,8 @@ word_t Window_enableEvents(CrocThread* t)
 
 const StdlibRegisterInfo Window_disableEvents_info =
 {
-	Docstr(DFunc("disableEvents")
-	R"()"),
+	Docstr(DFunc("disableEvents") DVararg
+	R"(The opposite of \link{enableEvents}. Takes any number of event names just like it.)"),
 
 	"disableEvents", -1
 };
@@ -1822,7 +2248,7 @@ word_t Window_disableEvents(CrocThread* t)
 
 	for(uword i = 1; i < stackSize; i++)
 	{
-		switch(croc_ex_checkIntParam(t, i))
+		switch(checkEventName(t, i))
 		{
 			case GlfwEvent::WindowPos:       glfwSetWindowPosCallback      (self, nullptr); break;
 			case GlfwEvent::WindowSize:      glfwSetWindowSizeCallback     (self, nullptr); break;
@@ -1837,8 +2263,7 @@ word_t Window_disableEvents(CrocThread* t)
 			case GlfwEvent::Scroll:          glfwSetScrollCallback         (self, nullptr); break;
 			case GlfwEvent::Key:             glfwSetKeyCallback            (self, nullptr); break;
 			case GlfwEvent::Char:            glfwSetCharCallback           (self, nullptr); break;
-			default:
-				croc_eh_throwStd(t, "ValueError", "Invalid event type");
+			default: assert(false);
 		}
 
 		CHECK_ERROR(t);
@@ -1850,7 +2275,7 @@ word_t Window_disableEvents(CrocThread* t)
 const StdlibRegisterInfo Window_enableAllEvents_info =
 {
 	Docstr(DFunc("enableAllEvents")
-	R"()"),
+	R"(Enables ALL types of events for this window.)"),
 
 	"enableAllEvents", 0
 };
@@ -1878,7 +2303,7 @@ word_t Window_enableAllEvents(CrocThread* t)
 const StdlibRegisterInfo Window_disableAllEvents_info =
 {
 	Docstr(DFunc("disableAllEvents")
-	R"()"),
+	R"(Disables ALL types of events for this window.)"),
 
 	"disableAllEvents", 0
 };
@@ -1946,9 +2371,7 @@ const StdlibRegister Window_methods[] =
 
 void registerConstants(CrocThread* t)
 {
-	croc_pushInt(t, GLFW_RELEASE);               croc_newGlobal(t, "RELEASE");
-	croc_pushInt(t, GLFW_PRESS);                 croc_newGlobal(t, "PRESS");
-	croc_pushInt(t, GLFW_REPEAT);                croc_newGlobal(t, "REPEAT");
+	// Keys
 	croc_pushInt(t, GLFW_KEY_UNKNOWN);           croc_newGlobal(t, "KEY_UNKNOWN");
 	croc_pushInt(t, GLFW_KEY_SPACE);             croc_newGlobal(t, "KEY_SPACE");
 	croc_pushInt(t, GLFW_KEY_APOSTROPHE);        croc_newGlobal(t, "KEY_APOSTROPHE");
@@ -2069,12 +2492,16 @@ void registerConstants(CrocThread* t)
 	croc_pushInt(t, GLFW_KEY_RIGHT_CONTROL);     croc_newGlobal(t, "KEY_RIGHT_CONTROL");
 	croc_pushInt(t, GLFW_KEY_RIGHT_ALT);         croc_newGlobal(t, "KEY_RIGHT_ALT");
 	croc_pushInt(t, GLFW_KEY_RIGHT_SUPER);       croc_newGlobal(t, "KEY_RIGHT_SUPER");
-	croc_pushInt(t, GLFW_KEY_MENU);              croc_newGlobal(t, "KEY_MENU    ");
+	croc_pushInt(t, GLFW_KEY_MENU);              croc_newGlobal(t, "KEY_MENU");
 	croc_pushInt(t, GLFW_KEY_LAST);              croc_newGlobal(t, "KEY_LAST");
+
+	// Modifier keys
 	croc_pushInt(t, GLFW_MOD_SHIFT);             croc_newGlobal(t, "MOD_SHIFT");
 	croc_pushInt(t, GLFW_MOD_CONTROL);           croc_newGlobal(t, "MOD_CONTROL");
 	croc_pushInt(t, GLFW_MOD_ALT);               croc_newGlobal(t, "MOD_ALT");
 	croc_pushInt(t, GLFW_MOD_SUPER);             croc_newGlobal(t, "MOD_SUPER");
+
+	// Mouse buttons
 	croc_pushInt(t, GLFW_MOUSE_BUTTON_1);        croc_newGlobal(t, "MOUSE_BUTTON_1");
 	croc_pushInt(t, GLFW_MOUSE_BUTTON_2);        croc_newGlobal(t, "MOUSE_BUTTON_2");
 	croc_pushInt(t, GLFW_MOUSE_BUTTON_3);        croc_newGlobal(t, "MOUSE_BUTTON_3");
@@ -2087,32 +2514,8 @@ void registerConstants(CrocThread* t)
 	croc_pushInt(t, GLFW_MOUSE_BUTTON_LEFT);     croc_newGlobal(t, "MOUSE_BUTTON_LEFT");
 	croc_pushInt(t, GLFW_MOUSE_BUTTON_RIGHT);    croc_newGlobal(t, "MOUSE_BUTTON_RIGHT");
 	croc_pushInt(t, GLFW_MOUSE_BUTTON_MIDDLE);   croc_newGlobal(t, "MOUSE_BUTTON_MIDDLE");
-	croc_pushInt(t, GLFW_JOYSTICK_1);            croc_newGlobal(t, "JOYSTICK_1");
-	croc_pushInt(t, GLFW_JOYSTICK_2);            croc_newGlobal(t, "JOYSTICK_2");
-	croc_pushInt(t, GLFW_JOYSTICK_3);            croc_newGlobal(t, "JOYSTICK_3");
-	croc_pushInt(t, GLFW_JOYSTICK_4);            croc_newGlobal(t, "JOYSTICK_4");
-	croc_pushInt(t, GLFW_JOYSTICK_5);            croc_newGlobal(t, "JOYSTICK_5");
-	croc_pushInt(t, GLFW_JOYSTICK_6);            croc_newGlobal(t, "JOYSTICK_6");
-	croc_pushInt(t, GLFW_JOYSTICK_7);            croc_newGlobal(t, "JOYSTICK_7");
-	croc_pushInt(t, GLFW_JOYSTICK_8);            croc_newGlobal(t, "JOYSTICK_8");
-	croc_pushInt(t, GLFW_JOYSTICK_9);            croc_newGlobal(t, "JOYSTICK_9");
-	croc_pushInt(t, GLFW_JOYSTICK_10);           croc_newGlobal(t, "JOYSTICK_10");
-	croc_pushInt(t, GLFW_JOYSTICK_11);           croc_newGlobal(t, "JOYSTICK_11");
-	croc_pushInt(t, GLFW_JOYSTICK_12);           croc_newGlobal(t, "JOYSTICK_12");
-	croc_pushInt(t, GLFW_JOYSTICK_13);           croc_newGlobal(t, "JOYSTICK_13");
-	croc_pushInt(t, GLFW_JOYSTICK_14);           croc_newGlobal(t, "JOYSTICK_14");
-	croc_pushInt(t, GLFW_JOYSTICK_15);           croc_newGlobal(t, "JOYSTICK_15");
-	croc_pushInt(t, GLFW_JOYSTICK_16);           croc_newGlobal(t, "JOYSTICK_16");
-	croc_pushInt(t, GLFW_JOYSTICK_LAST);         croc_newGlobal(t, "JOYSTICK_LAST");
-	croc_pushInt(t, GLFW_NOT_INITIALIZED);       croc_newGlobal(t, "NOT_INITIALIZED");
-	croc_pushInt(t, GLFW_NO_CURRENT_CONTEXT);    croc_newGlobal(t, "NO_CURRENT_CONTEXT");
-	croc_pushInt(t, GLFW_INVALID_ENUM);          croc_newGlobal(t, "INVALID_ENUM");
-	croc_pushInt(t, GLFW_INVALID_VALUE);         croc_newGlobal(t, "INVALID_VALUE");
-	croc_pushInt(t, GLFW_OUT_OF_MEMORY);         croc_newGlobal(t, "OUT_OF_MEMORY");
-	croc_pushInt(t, GLFW_API_UNAVAILABLE);       croc_newGlobal(t, "API_UNAVAILABLE");
-	croc_pushInt(t, GLFW_VERSION_UNAVAILABLE);   croc_newGlobal(t, "VERSION_UNAVAILABLE");
-	croc_pushInt(t, GLFW_PLATFORM_ERROR);        croc_newGlobal(t, "PLATFORM_ERROR");
-	croc_pushInt(t, GLFW_FORMAT_UNAVAILABLE);    croc_newGlobal(t, "FORMAT_UNAVAILABLE");
+
+	// Window hints and context info
 	croc_pushInt(t, GLFW_FOCUSED);               croc_newGlobal(t, "FOCUSED");
 	croc_pushInt(t, GLFW_ICONIFIED);             croc_newGlobal(t, "ICONIFIED");
 	croc_pushInt(t, GLFW_RESIZABLE);             croc_newGlobal(t, "RESIZABLE");
@@ -2149,29 +2552,6 @@ void registerConstants(CrocThread* t)
 	croc_pushInt(t, GLFW_OPENGL_ANY_PROFILE);    croc_newGlobal(t, "OPENGL_ANY_PROFILE");
 	croc_pushInt(t, GLFW_OPENGL_CORE_PROFILE);   croc_newGlobal(t, "OPENGL_CORE_PROFILE");
 	croc_pushInt(t, GLFW_OPENGL_COMPAT_PROFILE); croc_newGlobal(t, "OPENGL_COMPAT_PROFILE");
-	croc_pushInt(t, GLFW_CURSOR);                croc_newGlobal(t, "CURSOR");
-	croc_pushInt(t, GLFW_STICKY_KEYS);           croc_newGlobal(t, "STICKY_KEYS");
-	croc_pushInt(t, GLFW_STICKY_MOUSE_BUTTONS);  croc_newGlobal(t, "STICKY_MOUSE_BUTTONS");
-	croc_pushInt(t, GLFW_CURSOR_NORMAL);         croc_newGlobal(t, "CURSOR_NORMAL");
-	croc_pushInt(t, GLFW_CURSOR_HIDDEN);         croc_newGlobal(t, "CURSOR_HIDDEN");
-	croc_pushInt(t, GLFW_CURSOR_DISABLED);       croc_newGlobal(t, "CURSOR_DISABLED");
-	croc_pushInt(t, GLFW_CONNECTED);             croc_newGlobal(t, "CONNECTED");
-	croc_pushInt(t, GLFW_DISCONNECTED);          croc_newGlobal(t, "DISCONNECTED");
-
-	croc_pushInt(t, GlfwEvent::WindowPos);       croc_newGlobal(t, "Event_WindowPos");
-	croc_pushInt(t, GlfwEvent::WindowSize);      croc_newGlobal(t, "Event_WindowSize");
-	croc_pushInt(t, GlfwEvent::WindowClose);     croc_newGlobal(t, "Event_WindowClose");
-	croc_pushInt(t, GlfwEvent::WindowRefresh);   croc_newGlobal(t, "Event_WindowRefresh");
-	croc_pushInt(t, GlfwEvent::WindowFocus);     croc_newGlobal(t, "Event_WindowFocus");
-	croc_pushInt(t, GlfwEvent::WindowIconify);   croc_newGlobal(t, "Event_WindowIconify");
-	croc_pushInt(t, GlfwEvent::FramebufferSize); croc_newGlobal(t, "Event_FramebufferSize");
-	croc_pushInt(t, GlfwEvent::MouseButton);     croc_newGlobal(t, "Event_MouseButton");
-	croc_pushInt(t, GlfwEvent::CursorPos);       croc_newGlobal(t, "Event_CursorPos");
-	croc_pushInt(t, GlfwEvent::CursorEnter);     croc_newGlobal(t, "Event_CursorEnter");
-	croc_pushInt(t, GlfwEvent::Scroll);          croc_newGlobal(t, "Event_Scroll");
-	croc_pushInt(t, GlfwEvent::Key);             croc_newGlobal(t, "Event_Key");
-	croc_pushInt(t, GlfwEvent::Char);            croc_newGlobal(t, "Event_Char");
-	croc_pushInt(t, GlfwEvent::Monitor);         croc_newGlobal(t, "Event_Monitor");
 }
 
 // =====================================================================================================================
@@ -2216,14 +2596,19 @@ word loader(CrocThread* t)
 	croc_ex_doc_init(t, &doc, __FILE__);
 	croc_dup(t, 0);
 	croc_ex_doc_push(&doc, moduleDocs);
-		// croc_field(t, -1, "Regex");
-		// 	croc_ex_doc_push(&doc, RegexDocs);
-		// 	docFields(&doc, Regex_methodFuncs);
-		// 	docFieldUV(&doc, Regex_opApplyFunc);
+		docGlobals(&doc, _globalFuncs);
 
-		// 	docField(&doc, {Regex_opIndex_info, nullptr});
-		// 	croc_ex_doc_pop(&doc, -1);
-		// croc_popTop(t);
+		croc_field(t, -1, "Monitor");
+			croc_ex_doc_push(&doc, MonitorDocs);
+			docFields(&doc, Monitor_methods);
+			croc_ex_doc_pop(&doc, -1);
+		croc_popTop(t);
+
+		croc_field(t, -1, "Window");
+			croc_ex_doc_push(&doc, WindowDocs);
+			docFields(&doc, Window_methods);
+			croc_ex_doc_pop(&doc, -1);
+		croc_popTop(t);
 	croc_ex_doc_pop(&doc, -1);
 	croc_ex_doc_finish(&doc);
 	croc_popTop(t);
