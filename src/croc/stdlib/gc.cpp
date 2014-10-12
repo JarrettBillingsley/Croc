@@ -89,15 +89,15 @@ const StdlibRegisterInfo _limit_info =
 
 	The \tt{type} parameter is a string that must be one of the following values:
 
-	\blist
-		\li "nurseryLimit" - The size, in bytes, of the nursery generation. Defaults to 512KB. Most objects are
+	\dlist
+		\li{\tt{"nurseryLimit"}} The size, in bytes, of the nursery generation. Defaults to 512KB. Most objects are
 			initially allocated in the nursery. When the nursery fills up (the number of bytes allocated exceeds this
 			limit), a collection will be triggered. Setting the nursery limit higher will cause collections to run less
 			often, but they will take longer to complete. Setting the nursery limit lower will put more pressure on the
 			older generation as it will not give young objects a chance to die off, as they usually do. Setting the
 			nursery limit to 0 will cause a collection to be triggered on every allocation. That's probably bad.
 
-		\li "metadataLimit" - The size, in bytes, of the GC metadata. Defaults to 128KB. The metadata includes two
+		\li{\tt{"metadataLimit"}} The size, in bytes, of the GC metadata. Defaults to 128KB. The metadata includes two
 			buffers: one keeps track of which old-generation objects have been modified; the other keeps track of which
 			old-generation objects need to have their reference counts decreased. This is pretty low-level stuff, but
 			generally speaking, the more object mutation your program has, the faster these buffers will fill up. When
@@ -107,14 +107,14 @@ const StdlibRegisterInfo _limit_info =
 			off. Setting the metadata limit to 0 will cause a collection to be triggered on every mutation. That's also
 			probably bad!
 
-		\li "nurserySizeCutoff" - The maximum size, in bytes, of an object that can be allocated in the nursery.
+		\li{\tt{"nurserySizeCutoff"}} The maximum size, in bytes, of an object that can be allocated in the nursery.
 			Defaults to 256. If an object is bigger than this, it will be allocated directly in the old generation
 			instead. This avoids having large objects fill up the nursery and causing more collections than necessary.
 			Chances are this won't happen too often, unless you're allocating really huge class instances. Setting this
 			value to 0 will effectively turn the GC algorithm into a regular deferred reference counting GC, with only
 			one generation. Maybe that'd be useful for you?
 
-		\li "cycleCollectInterval" - Since the Croc reference implementation uses a form of reference counting to do
+		\li{\tt{"cycleCollectInterval"}} Since the Croc reference implementation uses a form of reference counting to do
 			garbage collection, it must detect cyclic garbage (which would otherwise never be freed). Cyclic garbage
 			usually forms only a small part of all garbage, but ignoring it would cause memory leaks. In order to avoid
 			that, the GC must occasionally run a separate cycle collection algorithm during the GC cycle. This is
@@ -126,7 +126,7 @@ const StdlibRegisterInfo _limit_info =
 			triggered if enough potential cyclic garbage is buffered, but it's then possible that that garbage can hang
 			around until program end, wasting memory.
 
-		\li "cycleMetadataLimit" - As explained above, the GC will buffer potential cyclic garbage during normal GC
+		\li{\tt{"cycleMetadataLimit"}} As explained above, the GC will buffer potential cyclic garbage during normal GC
 			cycles, and then when a cycle collection is initiated, it will look at that buffered garbage and determine
 			whether it really is garbage. This limit is similar to metadataLimit in that it measures the size of a
 			buffer, and when that buffer size crosses this limit, a cycle collection is triggered. This defaults to

@@ -158,13 +158,13 @@ const StdlibRegisterInfo _timeToTableUTC_info =
 	\returns a table (or \tt{ret} if it was passed) containing the following fields:
 
 	\dlist
-		\li{\tt{"year"}}: the year.
-		\li{\tt{"month"}}: the month, 1-12.
-		\li{\tt{"day"}}: the day, 1-31.
-		\li{\tt{"hour"}}: the hour, 0-23.
-		\li{\tt{"min"}}: the minute, 0-59.
-		\li{\tt{"sec"}}: the second, 0-60. Yes, 60, because of leap seconds.
-		\li{\tt{"msec"}}: the milliseconds, 0-999.
+		\li{\tt{"year"}} the year.
+		\li{\tt{"month"}} the month, 1-12.
+		\li{\tt{"day"}} the day, 1-31.
+		\li{\tt{"hour"}} the hour, 0-23.
+		\li{\tt{"min"}} the minute, 0-59.
+		\li{\tt{"sec"}} the second, 0-60. Yes, 60, because of leap seconds.
+		\li{\tt{"msec"}} the milliseconds, 0-999.
 	\endlist)"),
 
 	"timeToTableUTC", 1

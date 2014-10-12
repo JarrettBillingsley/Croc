@@ -219,11 +219,11 @@ class DocVisitor
 	These methods are called by \link{visitItem}. You must implement these methods yourself.
 	*/
 	function visitModule(item: table) throw NotImplementedError()
-	function visitClass(item: table) throw NotImplementedError()
-	function visitNamespace(item: table) throw NotImplementedError()
-	function visitFunction(item: table) throw NotImplementedError()
-	function visitField(item: table) throw NotImplementedError()
-	function visitVariable(item: table) throw NotImplementedError()
+	function visitClass(item: table) throw NotImplementedError()     /// ditto
+	function visitNamespace(item: table) throw NotImplementedError() /// ditto
+	function visitFunction(item: table) throw NotImplementedError()  /// ditto
+	function visitField(item: table) throw NotImplementedError()     /// ditto
+	function visitVariable(item: table) throw NotImplementedError()  /// ditto
 
 	/**
 	A convenience method for doctables which have children (such as modules, classes, and namespaces). This just loops

@@ -545,11 +545,17 @@ void docMiscLib(CrocThread* t)
 	always loaded when you create an instance of the Croc VM.)");
 
 	croc_vm_pushTypeMT(t, CrocType_Function);
+		croc_ex_doc_push(&doc, DNs("function")
+		R"(This is the method namespace for function objects.)");
 		docFields(&doc, _function_metatable);
+		croc_ex_doc_pop(&doc, -1);
 	croc_popTop(t);
 
 	croc_vm_pushTypeMT(t, CrocType_Funcdef);
+		croc_ex_doc_push(&doc, DNs("funcdef")
+		R"(This is the method namespace for funcdef objects.)");
 		docFields(&doc, _funcdef_metatable);
+		croc_ex_doc_pop(&doc, -1);
 	croc_popTop(t);
 
 	docGlobals(&doc, _weakrefFuncs);

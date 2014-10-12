@@ -78,7 +78,7 @@ A list of supported extensions is given \link[ext]{here}.
 Many OpenGL APIs take blobs of typed memory. The most obvious Croc type to use for this is the \link{Vector} class. To
 make it easier to create \tt{Vectors} with the right types of values, there are string constants which hold \tt{Vector}
 type codes for each of the OpenGL basic types. These include \tt{GLenum}, \tt{GLboolean}, \tt{GLbitfield}, \tt{GLbyte},
-tt{GLshort}, \tt{GLint}, \tt{GLubyte}, \tt{GLushort}, \tt{GLuint}, \tt{GLsizei}, \tt{GLfloat}, \tt{GLclampf},
+\tt{GLshort}, \tt{GLint}, \tt{GLubyte}, \tt{GLushort}, \tt{GLuint}, \tt{GLsizei}, \tt{GLfloat}, \tt{GLclampf},
 \tt{GLdouble}, and \tt{GLclampd}. To use, just pass them as the type code when creating a \tt{Vector}:
 
 \code

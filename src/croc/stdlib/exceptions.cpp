@@ -16,32 +16,32 @@ struct ExDesc
 	const char* docs;
 } _exDescs[] =
 {
-	{"LexicalException", Docstr(DClass("LexicalException")
+	{"LexicalException", Docstr(DClass("LexicalException") DBase("Throwable")
 		R"(Thrown for lexical errors in source code. The \tt{location} field is the source location that caused the
 		exception to be thrown.)")
 	},
-	{"SyntaxException", Docstr(DClass("SyntaxException")
+	{"SyntaxException", Docstr(DClass("SyntaxException") DBase("Throwable")
 		R"(Thrown for syntactic errors in source code. The \tt{location} field is the source location that caused the
 		exception to be thrown.)")
 	},
-	{"SemanticException", Docstr(DClass("SemanticException")
+	{"SemanticException", Docstr(DClass("SemanticException") DBase("Throwable")
 		R"(Thrown for semantic errors in source code. The \tt{location} field is the source location that caused the
 		exception to be thrown.)")
 	},
-	{"ImportException", Docstr(DClass("ImportException")
+	{"ImportException", Docstr(DClass("ImportException") DBase("Throwable")
 		R"(Thrown when an import fails; may also have a 'cause' exception in case the import failed because of an
 		exception being thrown from the module's top-level function.)")
 	},
-	{"OSException", Docstr(DClass("OSException")
+	{"OSException", Docstr(DClass("OSException") DBase("Throwable")
 		R"(OS error APIs are often a poor match for the way Croc does error handling, but unhandled OS errors can lead
 		to bad things happening. Therefore Croc libraries are encouraged to translate OS errors into OSExceptions so
 		that code won't blindly march on past errors, but they can still be caught and handled appropriately.)")
 	},
-	{"IOException", Docstr(DClass("IOException")
+	{"IOException", Docstr(DClass("IOException") DBase("Throwable")
 		R"(Thrown when an IO operation fails or is given invalid inputs. The rationale for this exception type is the
 		same as that of \link{OSException}.)")
 	},
-	{"HaltException", Docstr(DClass("HaltException")
+	{"HaltException", Docstr(DClass("HaltException") DBase("Throwable")
 		R"(Thrown when a thread is halted. You \em{can} catch this kind of exception, but in practice you really
 		\em{shouldn't} unless you're doing something like writing a CLI.
 
@@ -49,73 +49,73 @@ struct ExDesc
 		exception escapes the thread that was halted, the thread is simply marked as dead and execution resumes in the
 		resuming thread as normal.)")
 	},
-	{"AssertError", Docstr(DClass("AssertError")
+	{"AssertError", Docstr(DClass("AssertError") DBase("Throwable")
 		R"(Thrown when an assertion fails.)")
 	},
-	{"ApiError", Docstr(DClass("ApiError")
+	{"ApiError", Docstr(DClass("ApiError") DBase("Throwable")
 		R"(Thrown when the native API is given certain kinds of invalid input, generally inputs which mean the host is
 		malfunctioning or incorrectly programmed.)")
 	},
-	{"ParamError", Docstr(DClass("ParamError")
+	{"ParamError", Docstr(DClass("ParamError") DBase("Throwable")
 		R"(Thrown for function calls which are invalid because they were given an improper number of parameters. However
 		if a function is given parameters of incorrect type, a \link{TypeError} is thrown instead.)")
 	},
-	{"FinalizerError", Docstr(DClass("FinalizerError")
+	{"FinalizerError", Docstr(DClass("FinalizerError") DBase("Throwable")
 		R"(Thrown when an exception is thrown by a class finalizer. This is a big problem as finalizers should never
 		fail. The exception that the finalizer threw is set as the 'cause'.)")
 	},
-	{"NameError", Docstr(DClass("NameError")
+	{"NameError", Docstr(DClass("NameError") DBase("Throwable")
 		R"(Thrown on invalid global access (either the name doesn't exist or trying to redefine an existing global).
 		Also thrown on invalid local names when using the debug library.)")
 	},
-	{"BoundsError", Docstr(DClass("BoundsError")
+	{"BoundsError", Docstr(DClass("BoundsError") DBase("Throwable")
 		R"(Thrown when trying to access an array-like object out of bounds. You could also use this for other kinds of
 		containers.)")
 	},
-	{"FieldError", Docstr(DClass("FieldError")
+	{"FieldError", Docstr(DClass("FieldError") DBase("Throwable")
 		R"(Thrown when trying to access an invalid field from a namespace, class, instance etc., unless it's global
 		access, in which case a \link{NameError} is thrown.)")
 	},
-	{"MethodError", Docstr(DClass("MethodError")
+	{"MethodError", Docstr(DClass("MethodError") DBase("Throwable")
 		R"(Thrown when trying to call an invalid method on an object.)")
 	},
-	{"LookupError", Docstr(DClass("LookupError")
+	{"LookupError", Docstr(DClass("LookupError") DBase("Throwable")
 		R"(Thrown when any general kind of lookup has failed. Use one of the more specific types (like
 		\link{BoundsError} or \link{NameError} if you can.)")
 	},
-	{"RuntimeError", Docstr(DClass("RuntimeError")
+	{"RuntimeError", Docstr(DClass("RuntimeError") DBase("Throwable")
 		R"(Kind of a catchall type for other random runtime errors. Other exceptions will probably grow out of this
 		one.)")
 	},
-	{"NotImplementedError", Docstr(DClass("NotImplementedError")
+	{"NotImplementedError", Docstr(DClass("NotImplementedError") DBase("Throwable")
 		R"(An exception type that you can throw in methods that are unimplemented (such as in abstract base class
 		methods). This way when an un-overridden method is called, you get an error instead of it silently working.)")
 	},
-	{"SwitchError", Docstr(DClass("SwitchError")
+	{"SwitchError", Docstr(DClass("SwitchError") DBase("Throwable")
 		R"(Thrown when a switch without a 'default' is given a value not listed in its cases.)")
 	},
-	{"TypeError", Docstr(DClass("TypeError")
+	{"TypeError", Docstr(DClass("TypeError") DBase("Throwable")
 		R"(Thrown when an incorrect type is given to an operation (i.e. trying to add strings, or when invalid types are
 		given to function parameters).)")
 	},
-	{"ValueError", Docstr(DClass("ValueError")
+	{"ValueError", Docstr(DClass("ValueError") DBase("Throwable")
 		R"(Generally speaking, indicates that an operation was given a value of the proper type, but the value is
 		invalid somehow - not an acceptable value, or incorrectly formed, or in an invalid state. If possible, try to
 		use one of the more specific classes like \link{RangeError}, or derive your own.)")
 	},
-	{"RangeError", Docstr(DClass("RangeError")
+	{"RangeError", Docstr(DClass("RangeError") DBase("Throwable")
 		R"(Thrown to indicate that a value is out of a valid range of acceptable values. Typically used for mathematical
 		functions, i.e. square root only works on non-negative values. Note that if the error is because a value is out
 		of the range of valid indices for a container, you should use a \link{BoundsError} instead.)")
 	},
-	{"StateError", Docstr(DClass("StateError")
+	{"StateError", Docstr(DClass("StateError") DBase("Throwable")
 		R"(Thrown to indicate that an object is in an invalid state.)")
 	},
-	{"UnicodeError", Docstr(DClass("UnicodeError")
+	{"UnicodeError", Docstr(DClass("UnicodeError") DBase("Throwable")
 		R"(Thrown when Croc is given malformed/invalid Unicode data for a string, or when invalid Unicode data is
 		encountered during transcoding.)")
 	},
-	{"VMError", Docstr(DClass("VMError")
+	{"VMError", Docstr(DClass("VMError") DBase("Throwable")
 		R"(Thrown for some kinds of internal VM errors.)")
 	},
 

@@ -68,11 +68,12 @@ Fmt:
 
 	First is step 1: selecting the appropriate argument. This is the \tt{Index} in the above grammar. The index is a
 	0-based index into the variadic arguments passed to this method. You can use the same parameter multiple times by
-	using the same index multiple times, like in \tt{"{0} {0}".format(5)}, which will give the string \tt{"5 5"}. If no
-	index is given, an internal counter is used instead. This counter starts at 0 and increases by 1 each time a format
-	specifier without an index is read. So in \tt{"{} {}".format(3, 4)}, the result will be the string \tt{"3 4"}. You
-	can interleave these kinds of indices. Explicit indices do not reset the counter, so \tt{"{} {0} {}".format(1, 2)}
-	gives the string \tt{"1 1 2"}. Specifying an index out of the bounds of the variadic arguments is an error.
+	using the same index multiple times, like in \tt{"\{0\} \{0\}".format(5)}, which will give the string \tt{"5 5"}. If
+	no index is given, an internal counter is used instead. This counter starts at 0 and increases by 1 each time a
+	format specifier without an index is read. So in \tt{"\{\} \{\}".format(3, 4)}, the result will be the string
+	\tt{"3 4"}. You can interleave these kinds of indices. Explicit indices do not reset the counter, so
+	\tt{"\{\} \{0\} \{\}".format(1, 2)} gives the string \tt{"1 1 2"}. Specifying an index out of the bounds of the
+	variadic arguments is an error.
 
 	Next is step 2: converting the argument \em{arg} to a string. There are two kinds of format specifiers, regular and
 	raw, and they differ on this step.
@@ -147,7 +148,7 @@ Fmt:
 					the decimal part is zero, no decimal point is printed.
 			\endlist
 		\li For all other types, the format string is uninterpreted. Instead, if \em{arg} has a method named
-			\tt{toStringFmt}, it will have the method called with the format string as the argument, and it should
+			\tt{toStringFmt}, it will call the method called with the format string as the argument, and it should
 			return a string. If there is no method of that name, or the method doesn't return a string, it is an error.
 	\endlist
 

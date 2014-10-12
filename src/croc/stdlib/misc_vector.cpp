@@ -501,7 +501,8 @@ const StdlibRegisterInfo _range_info =
 {
 	Docstr(DFunc("range") DParam("type", "string") DParam("val1", "int|float") DParamD("val2", "int|float", "null")
 		DParamD("step", "int|float", "1")
-	R"(Creates a Vector whose values are a range of ascending or numbers, much like the \link{array.range} function.
+	R"(Creates a Vector whose values are a range of ascending or numbers, much like the
+	\link{array.range} function.
 
 	If the \tt{type} parameter is one of the integral types, the next three parameters must be ints; otherwise, they can
 	be ints or floats.
@@ -830,7 +831,8 @@ word_t _sort(CrocThread* t)
 const StdlibRegisterInfo _apply_info =
 {
 	Docstr(DFunc("apply") DParam("func", "function")
-	R"(Like \link{array.apply}, calls a function on each element of this Vector and assigns the results back into it.
+	R"(Like \link[array.array.apply]{array.apply}, calls a function on each element of this Vector and assigns the
+	results back into it.
 
 	\param[func] should be a function which takes one value (an int for integral Vectors or a float for floating-point
 	ones), and should return one value of the same type that was passed in (though it's okay to return ints for
@@ -1155,7 +1157,7 @@ const StdlibRegisterInfo _pop_info =
 {
 	Docstr(DFunc("pop") DParamD("idx", "int", "-1")
 	R"(Removes one item from anywhere in this Vector (the last item by default) and returns its value, like
-	\link{array.pop}.
+	\link[array.array.pop]{array.pop}.
 
 	\param[idx] is the index of the item to be removed, which defaults to the last item in this Vector.
 
@@ -2074,7 +2076,7 @@ const StdlibRegisterInfo _revsub_info =
 	R"x(These allow you to perform binary mathematical operations where this Vector will be used as the second operand
 	instead of the first.
 
-	For example, doing \\tt{"v.sub(5)"} will return a Vector with 5 subtracted from each element in \tt{v}, but doing
+	For example, doing \tt{"v.sub(5)"} will return a Vector with 5 subtracted from each element in \tt{v}, but doing
 	\tt{"v.revsub(5)"} will instead give a Vector with each element in \tt{v} subtracted from 5.
 
 	The behavior is otherwise identical to the regular mathematical operations.
