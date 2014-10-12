@@ -494,15 +494,21 @@ function toHeader(doctable: table, parentFQN: string, full: bool = true)
 			if(full && "protection" in doctable)
 				ret.append(doctable.protection, " ")
 
-			if(parentFQN !is "")
-				ret.append(parentFQN, ".")
-
 			if(doctable.name == "constructor")
+			{
+				if(parentFQN !is "")
+					ret.append(parentFQN, ".")
+
 				ret.append("this")
+			}
 			else
 			{
 				if(full)
 					ret.append("function ")
+
+				if(parentFQN !is "")
+					ret.append(parentFQN, ".")
+
 				ret.append(doctable.name)
 			}
 
