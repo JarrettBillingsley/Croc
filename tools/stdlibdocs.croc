@@ -1,65 +1,474 @@
 module tools.stdlibdocs
 
 import docs: docsOf
-import doctools.output: SectionOrder, LinkResolver, LinkTranslator, OutputDocVisitor
-import doctools.trac: TracWikiOutputter
+
+import doctools.output:
+	SectionOrder,
+	LinkResolver,
+	LinkTranslator,
+	OutputDocVisitor,
+	DocOutputter,
+	toHeader
+
+local Stdlibs =
+[
+	"array"
+	"ascii"
+	"compiler"
+	"console"
+	"debug"
+	"docs"
+	"doctools.console"
+	"doctools.output"
+	"doctools.trac"
+	"env"
+	"exceptions"
+	"file"
+	"gc"
+	"hash"
+	"json"
+	"math"
+	"memblock"
+	"misc"
+	"modules"
+	"object"
+	"os"
+	"path"
+	"repl"
+	"serialization"
+	"stream"
+	"string"
+	"text"
+	"thread"
+	"time"
+]
+
+local Addons =
+[
+	"devil"
+	"gl"
+	"glfw"
+	"openal"
+	"pcre"
+]
+
+local AllStdlibs = (Stdlibs ~ Addons).sort()
+
+import devil
+import glfw
+import openal
+import pcre
 
 function main()
 {
-	local t = CrocWikiLinkTranslator()
-	local o = OutputDocVisitor(SectionOrder(), TracWikiOutputter$ CrocWikiLinkResolver$ t)
+	local so = SectionOrder()
 
-	o.visitItem(docsOf(glfw))
+	if(not glfw.init())
+		return
+	scope(exit) glfw.terminate()
+	local window = glfw.createWindow(400, 300, "Test", null, null)
+	glfw.makeContextCurrent(window)
+	glfw.loadOpenGL()
 
-	t.printErrors()
+	foreach(lib; AllStdlibs)
+	{
+		writeln("doing ", lib)
+
+		local t = StdlibLinkTranslator()
+		local lr = StdlibLinkResolver(t)
+		local o = StdlibOutputter(lr, AllStdlibs)
+		local f = file.outFile("C:/Users/me/proj/croc-pages/docs/stdlib/" ~ lib ~ ".html")
+		local tw = stream.TextWriter(stream.BufferedOutStream(f), "utf-8")
+		o.setOutput(tw)
+		local v = StdlibDocVisitor(so, o)
+
+		if(lib is 'misc')
+			v.visitItem(docsOf(_G))
+		else
+			v.visitItem(docsOf(modules.loaded[lib]))
+
+		t.printErrors()
+
+		tw.flush()
+		f.close()
+	}
+}
+
+local _time = null
+local _months = ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"]
+
+local function currentTime()
+{
+	if(_time is null)
+	{
+		local t = time.clockTime()
+		local tab = time.timeToTableLocal(t)
+		_time = "{} {} {} {}:{:2}:{:2}".format(tab.day, _months[tab.month - 1], tab.year, tab.hour, tab.min, tab.sec)
+	}
+
+	return _time
+}
+
+local function synHighlight(language: string, code: string)
+{
+	local tempFile = "_temp." ~ language
+	file.writeTextFile(tempFile, code)
+	local p = os.Process(@`pygmentize -f html -O cssclass=code ` ~ tempFile, "r")
+	local mbs = stream.MemblockStream()
+	mbs.copy(p.stream())
+	local exitCode = p.wait()
+	file.remove(tempFile)
+
+	if(exitCode != 0)
+		throw OSException("pygmentize failed with code {}".format(exitCode))
+
+	return text.getCodec("utf-8").decode(mbs.getBacking())
+}
+
+class StdlibDocVisitor : OutputDocVisitor
+{
+	override function visitChildren(doctable: table)
+	{
+		:_output.outputTextRaw(@`<script>explorer.outline.incSymbolLevel();</script>`)
+		:_output.outputTextRaw(@`<dl>`)
+		(OutputDocVisitor.visitChildren)(with this, doctable)
+		:_output.outputTextRaw(@`</dl>`)
+		:_output.outputTextRaw(@`<script>explorer.outline.decSymbolLevel();</script>`)
+	}
+
+	override function visitCode(language: string, code: string)
+	{
+		:_output.beginCode(language)
+		:_output.outputTextRaw(synHighlight(language, code))
+		:_output.endCode()
+	}
+}
+
+class StdlibOutputter : DocOutputter
+{
+	_linkResolver
+	_itemDepth = 0
+	_isSpecialSection = false
+	_parentItemName = ""
+	_parentItemDepth = 0
+	_allModules
+	_output
+
+	this(lr, allModules: array)
+	{
+		:_linkResolver = lr
+		:_allModules = allModules
+	}
+
+	function setOutput(s)
+		:_output = s
+
+	// =================================================================================================================
+	// Item-level stuff
+
+	override function beginModule(doctable: table)
+	{
+		:outputTextRaw(@`<html><head>`)
+		:outputTextRaw(@`<meta http-equiv="content-type" content="text/html; charset=utf-8">`)
+		:outputTextRaw(@`<meta content="text/javascript" http-equiv="content-script-type">`)
+		:outputTextRaw(@`<title>`, toHeader(doctable, "", true), @`</title>`)
+		:outputTextRaw(@`<link rel="stylesheet" type="text/css" href="candydoc/style.css">`)
+		:outputTextRaw(@`<link rel="stylesheet" type="text/css" href="candydoc/code.css">`)
+		:outputTextRaw(@`<script language="JavaScript" src="candydoc/util.js" type="text/javascript"></script>`)
+		:outputTextRaw(@`<script language="JavaScript" src="candydoc/tree.js" type="text/javascript"></script>`)
+		:outputTextRaw(@`<script language="JavaScript" src="candydoc/explorer.js" type="text/javascript"></script>`)
+		:outputTextRaw(@`</head><body>`)
+		:outputTextRaw(@`<div id="everything">`)
+		:outputTextRaw(@`<div id="tabarea"></div><div id="explorerclient"></div>`)
+		:outputTextRaw(@`<div id="content"><script>explorer.initialize("`, doctable.name, @`");</script>`)
+		:outputTextRaw(@`	<img src="candydoc/img/banner.gif" alt="The Croc Programming Language"></img>`)
+		:outputTextRaw(@`	<div id="docbody">`)
+		:outputTextRaw(@`		<h1>`, toHeader(doctable, "", true), @`</h1>`)
+
+		:_itemDepth++
+		:_linkResolver.enterModule(doctable.name)
+
+	}
+
+	override function endModule()
+	{
+		:_linkResolver.leave()
+		:_itemDepth--
+
+		:outputTextRaw(@`	</div><div id="docfooter">`)
+		:outputTextRaw(@`		HTML and JavaScript source derived from `)
+		:outputTextRaw(@`		<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">`)
+		:outputTextRaw(@`		by Victor Nakoryakov; Page generated on `, currentTime())
+		:outputTextRaw(@`	</div>`)
+		:outputTextRaw(@`</div>`)
+		:outputTextRaw(@`<script>`)
+
+		foreach(mod; :_allModules)
+			:outputTextRaw(@`	explorer.packageExplorer.addModuleFull("`, mod, @`");`)
+
+		:outputTextRaw(@`</script>`)
+		:outputTextRaw(@`</div>`)
+		:outputTextRaw(@`</body></html>`)
+	}
+
+	override function beginFunction(doctable: table) :beginItem(doctable)
+	override function endFunction() :endItem()
+
+	override function beginClass(doctable: table)
+	{
+		:beginItem(doctable)
+		:_linkResolver.enterItem(doctable.name)
+	}
+
+	override function endClass()
+	{
+		:_linkResolver.leave()
+		:endItem()
+	}
+
+	override function beginNamespace(doctable: table)
+	{
+		:beginItem(doctable)
+		:_linkResolver.enterItem(doctable.name)
+	}
+
+	override function endNamespace()
+	{
+		:_linkResolver.leave()
+		:endItem()
+	}
+
+	override function beginField(doctable: table) :beginItem(doctable)
+	override function endField() :endItem()
+	override function beginVariable(doctable: table) :beginItem(doctable)
+	override function endVariable() :endItem()
+
+	function beginItem(doctable: table)
+	{
+		:outputHeader(doctable)
+		:outputTextRaw("<dd>")
+		:_itemDepth++
+
+		if(doctable.kind is 'class' or doctable.kind is 'namespace')
+		{
+			assert(:_parentItemName is "")
+			:_parentItemName = doctable.name
+			:_parentItemDepth = :_itemDepth - 1
+		}
+	}
+
+	function endItem()
+	{
+		:_itemDepth--
+		:outputTextRaw("</dd>")
+
+		if(:_itemDepth == :_parentItemDepth)
+			:_parentItemName = ""
+	}
+
+	function outputHeader(doctable: table)
+	{
+		:outputTextRaw(@`<script>explorer.outline.writeEnabled = true;</script>`)
+
+		local fqn = toHeader(doctable, :_parentItemName, false)
+		:outputTextRaw(@`<dt><span class="decl"><a id="`, fqn, @`"></a>`)
+		:outputText(toHeader(doctable, :_parentItemName, true))
+		:outputTextRaw(@`<script>explorer.outline.addDecl('`, fqn, @`');</script></span>`)
+
+		if(doctable.dittos)
+		{
+			foreach(dit; doctable.dittos)
+			{
+				fqn = toHeader(dit, :_parentItemName, false);
+				:outputTextRaw(@`<br/><span class="decl"><a id="`, fqn, @`"></a>`)
+				:outputText(toHeader(dit, :_parentItemName, true))
+				:outputTextRaw(@`<script>explorer.outline.addDecl('`, fqn, @`');</script></span>`)
+			}
+		}
+
+		:outputTextRaw(@`<script>explorer.outline.writeEnabled = false;</script></dt>`)
+	}
+
+	// =================================================================================================================
+	// Section-level stuff
+
+	override function beginSection(name: string)
+	{
+		if(name is not "docs")
+		{
+			:beginParagraph()
+			:beginBold()
+
+			if(name.startsWith("_"))
+				:outputText(ascii.toUpper(name[1]), name[2..], ":")
+			else
+				:outputText(ascii.toUpper(name[0]), name[1..], ":")
+
+			:endBold()
+			:outputText(" ")
+		}
+
+		:_isSpecialSection = name is "params" or name is "throws"
+
+		if(:_isSpecialSection)
+			:outputTextRaw(@`<table class="params">`)
+	}
+
+	override function endSection()
+	{
+		if(:_isSpecialSection)
+		{
+			:endTable()
+			:_isSpecialSection = false
+		}
+	}
+
+	override function beginParameter(doctable: table)
+	{
+		:beginRow()
+		:outputTextRaw(@`<td class="paramname" nowrap valign="top" style="padding-right: 8px">`)
+		:outputText(doctable.name)
+		:endCell()
+		:beginCell()
+	}
+
+	override function endParameter()
+	{
+		:endCell()
+		:endRow()
+	}
+
+	override function beginException(name: string)
+	{
+		:beginRow()
+		:outputTextRaw(@`<td class="paramname" nowrap valign="top" style="padding-right: 8px">`)
+		:beginLink(name)
+		:outputText(name)
+		:endLink()
+		:endCell()
+		:beginCell()
+	}
+
+	override function endException()
+	{
+		:endCell()
+		:endRow()
+	}
+
+	// =================================================================================================================
+	// Paragraph-level stuff
+
+	override function beginParagraph()            :outputTextRaw("<p>")
+	override function endParagraph()              :outputTextRaw("</p>")
+	override function beginCode(language: string) {}
+	override function endCode()                   {}
+	override function beginVerbatim(type: string) :outputTextRaw("<pre>")
+	override function endVerbatim()               :outputTextRaw("</pre>")
+	override function beginBulletList()           :outputTextRaw("<ul>")
+	override function endBulletList()             :outputTextRaw("</ul>")
+	override function beginNumList(type: string)  :outputTextRaw(@`<ol type="`, type, @`">`)
+	override function endNumList()                :outputTextRaw("</ol>")
+	override function beginListItem()             :outputTextRaw("<li>")
+	override function endListItem()               :outputTextRaw("</li>")
+	override function beginDefList()              :outputTextRaw("<dl>")
+	override function endDefList()                :outputTextRaw("</dl>")
+	override function beginDefTerm()              :outputTextRaw("<dt>")
+	override function endDefTerm()                :outputTextRaw("</dt>")
+	override function beginDefDef()               :outputTextRaw("<dd>")
+	override function endDefDef()                 :outputTextRaw("</dd>")
+	override function beginTable()                :outputTextRaw("<table>")
+	override function endTable()                  :outputTextRaw("</table>")
+	override function beginRow()                  :outputTextRaw("<tr>")
+	override function endRow()                    :outputTextRaw("</tr>")
+	override function beginCell()                 :outputTextRaw("<td>")
+	override function endCell()                   :outputTextRaw("</td>")
+	override function beginBold()                 :outputTextRaw("<strong>")
+	override function endBold()                   :outputTextRaw("</strong>")
+	override function beginEmphasis()             :outputTextRaw("<em>")
+	override function endEmphasis()               :outputTextRaw("</em>")
+	override function beginLink(link: string)     :outputTextRaw(@`<a href="`,  :_linkResolver.resolveLink(link), @`">`)
+	override function endLink()                   :outputTextRaw("</a>")
+	override function beginMonospace()            :outputTextRaw("<tt>")
+	override function endMonospace()              :outputTextRaw("</tt>")
+	override function beginStrikethrough()        :outputTextRaw("<del>")
+	override function endStrikethrough()          :outputTextRaw("</del>")
+	override function beginSubscript()            :outputTextRaw("<sub>")
+	override function endSubscript()              :outputTextRaw("</sub>")
+	override function beginSuperscript()          :outputTextRaw("<sup>")
+	override function endSuperscript()            :outputTextRaw("</sup>")
+	override function beginUnderline()            :outputTextRaw(@`<span style="text-decoration: underline;">`)
+	override function endUnderline()              :outputTextRaw("</span>")
+
+	override function outputText(vararg)
+	{
+		for(i: 0 .. #vararg)
+		{
+			foreach(ch; vararg[i])
+			{
+				switch(ch)
+				{
+					case '<': :_output.write("&lt;"); break
+					case '>': :_output.write("&gt;"); break
+					case '&': :_output.write("&amp;"); break
+					default: :_output.write(ch); break
+				}
+			}
+		}
+	}
+
+	function outputTextRaw(vararg)
+	{
+		for(i: 0 .. #vararg)
+			:_output.write(vararg[i])
+	}
 }
 
 local StdlibLookup =
 {
-	array         = "StdLib/ArrayLib"
-	ascii         = "StdLib/AsciiLib"
-	compiler      = "StdLib/CompilerLib"
-	console       = "StdLib/ConsoleLib"
-	debug         = "StdLib/DebugLib"
-	docs          = "StdLib/DocsLib",
-	["doctools.console"] = "StdLib/DoctoolsConsoleLib",
-	["doctools.output" ] = "StdLib/DoctoolsOutputLib",
-	["doctools.trac"   ] = "StdLib/DoctoolsTracLib"
-	env           = "StdLib/EnvLib"
-	exceptions    = "StdLib/ExceptionsLib"
-	file          = "StdLib/FileLib"
-	gc            = "StdLib/GcLib"
-	hash          = "StdLib/HashLib"
-	json          = "StdLib/JSONLib"
-	math          = "StdLib/MathLib"
-	memblock      = "StdLib/MemblockLib"
-	modules       = "StdLib/ModulesLib"
-	object        = "StdLib/ObjectLib"
-	os            = "StdLib/OSLib"
-	path          = "StdLib/PathLib"
-	repl          = "StdLib/ReplLib"
-	serialization = "StdLib/SerializationLib"
-	stream        = "StdLib/StreamLib"
-	string        = "StdLib/StringLib"
-	text          = "StdLib/TextLib"
-	thread        = "StdLib/ThreadLib"
-	time          = "StdLib/TimeLib"
+	array         = "array.html"
+	ascii         = "ascii.html"
+	compiler      = "compiler.html"
+	console       = "console.html"
+	debug         = "debug.html"
+	docs          = "docs.html",
+	["doctools.console"] = "doctools.console.html",
+	["doctools.output" ] = "doctools.output.html",
+	["doctools.trac"   ] = "doctools.trac.html"
+	env           = "env.html"
+	exceptions    = "exceptions.html"
+	file          = "file.html"
+	gc            = "gc.html"
+	hash          = "hash.html"
+	json          = "json.html"
+	math          = "math.html"
+	memblock      = "memblock.html"
+	modules       = "modules.html"
+	object        = "object.html"
+	os            = "os.html"
+	path          = "path.html"
+	repl          = "repl.html"
+	serialization = "serialization.html"
+	stream        = "stream.html"
+	string        = "string.html"
+	text          = "text.html"
+	thread        = "thread.html"
+	time          = "time.html"
 
-	devil         = "Addons/DevilLib"
-	gl            = "Addons/GlLib"
-	glfw          = "Addons/GlfwLib"
-	openal        = "Addons/OpenalLib"
-	pcre          = "Addons/PcreLib"
+	devil         = "devil.html"
+	gl            = "gl.html"
+	glfw          = "glfw.html"
+	openal        = "openal.html"
+	pcre          = "pcre.html"
 }
 
 local StdExceptions =
 {
-	[name] = "StdLib/ExceptionsLib#" ~ name
+	[name] = "exceptions.html#" ~ name
 	foreach name, cls; exceptions
 	if isClass(cls)
 }
 
-class CrocWikiLinkResolver : LinkResolver
+class StdlibLinkResolver : LinkResolver
 {
 	_ggg
 
@@ -78,7 +487,7 @@ class CrocWikiLinkResolver : LinkResolver
 	}
 }
 
-class CrocWikiLinkTranslator : LinkTranslator
+class StdlibLinkTranslator : LinkTranslator
 {
 	_errors
 
@@ -90,16 +499,16 @@ class CrocWikiLinkTranslator : LinkTranslator
 		if(mod is "" or mod is "Misc Library")
 		{
 			if(item is "")
-				return "wiki:StdLib/MiscLib"
+				return "misc.html"
 			else if(local ret = StdExceptions[item])
 				return ret
-			else if(item.startsWith("Vector"))
-				return "wiki:StdLib/MiscLib/Vector#" ~ item
+			// else if(item.startsWith("Vector"))
+			// 	return "misc_vector.html#" ~ item
 			else
-				return "wiki:StdLib/MiscLib#" ~ item
+				return "misc.html#" ~ item
 		}
 		else if(local ret = StdlibLookup[mod])
-			return "wiki:" ~ ret ~ ((item is "") ? "" : "#" ~ item)
+			return ret ~ ((item is "") ? "" : "#" ~ item)
 
 		throw ValueError("Unknown stdlib module '{}'".format(mod))
 	}
