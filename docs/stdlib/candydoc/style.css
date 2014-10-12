@@ -1,0 +1,223 @@
+/* This file is a part of CanDyDOC fileset.
+   File is written by Victor Nakoryakov and placed into the public domain.
+
+   This file is main CSS file of CanDyDOC. You may adjust some part of
+   parameters to control how result documentation would looks like. See
+   further documentation for details. */
+
+
+
+/* This controls how background would looks like and
+   sets some document-scope defaults. */
+body
+{
+	/* These parameters control default font. */
+	font-family: Arial,Verdana,'Bitstream Vera Sans',Helvetica,sans-serif;
+	font-size: 13px;
+	color: #000000;
+
+	/* These control look of background. Note that you have to use
+       fixed background to keep documentation good-looking in
+       IE6 and earlier. Otherwise whole *explorer* will jerk while
+       scrolling. If you do not want to use background at all use
+       some invalid url, e.g. url(foo). */
+	background-color: #656565;
+	background-image: url("img/backs.gif");
+	background-repeat: repeat-x;
+
+	/* Don't touch. Necessary for IE6 and earlier. */
+	height: 100%;
+}
+
+/* Style used for all hyperlinks. */
+:link, *:visited
+{
+	color: #6e9835;
+	font-weight: bold;
+	border-bottom: 1px dotted #bbb;
+	text-decoration: none;
+}
+
+:link:hover, :visited:hover
+{
+	background-color: #eee;
+	color: #555
+}
+
+/* Style appled to declarations. E.g. 'void foo(int a, float b);' */
+span.decl
+{
+	font-family: 'Consolas', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+	font-size: 14px;
+	font-weight: bold;
+	color: #000000;
+	text-align: left;
+	padding: 0em 0.1em;
+	margin: 0px;
+	background-color: #e5e0cb;
+	border-radius: 3px;
+}
+
+/* Style appled to current declaration's symbol. E.g. 'foo' in 'void foo(int a, float b);' */
+span.currsymbol { font-size: 11pt; color: #990000; font-weight: bold; }
+/* Style appled to function's parameters. E.g. 'a' and 'b' in 'void foo(int a, float b);' */
+span.funcparam  { font-weight: bold; color: #331200 }
+
+#everything
+{
+	min-width: 911px;
+	max-width: 1231px;
+	margin: 0 auto;
+}
+
+/* Style for div that actualy contains documenation. */
+#content
+{
+	padding-right: 8px;
+	position: relative;
+	left: 245px;
+	top: 8px;
+	text-align: justify;
+	min-width: 978px;
+	max-width: 978px;
+}
+
+table
+{
+	border: 2px solid #CCC;
+	font-size: 13px;
+	border-collapse: collapse;
+	border-spacing: 0px;
+}
+
+table td
+{
+	border: 1px solid #CCC;
+	padding: 0.1em 0.25em;
+}
+
+#content dd
+{
+	margin-left: 20px;
+}
+
+table.params
+{
+	border-collapse: collapse;
+	max-width: 800px;
+}
+
+table.params td
+{
+	border: 1px solid grey;
+	padding: 3px 3px 3px 3px;
+	vertical-align: middle;
+}
+
+td.paramname
+{
+	background-color: #e5e0cb;
+	border: 3px solid white;
+}
+
+/* Style for cell of above considered table that contains documentation itself. */
+#docbody
+{
+	margin-bottom: 0px;
+	border-spacing: 0px;
+	border-collapse: collapse;
+	background-color: white;
+	text-align: justify;
+	border: none;
+	padding: 0px 15px 8px 15px;
+	border: solid 1px grey;
+}
+
+/* Style for cell that contains CanDyDOC logo. */
+#docfooter
+{
+	height: 16px;
+	background-color: #e5e0cb;
+	padding: 8px 8px 8px 8px;
+	border: solid 1px grey;
+}
+
+/* Style applied to currently active tab of explorer window. */
+span.activetab
+{
+	background-color: #c3b477;
+	border-top: solid 2px #e5e0cb;
+	color: #ffffff;
+	font-weight: bold;
+	padding-left: 4px;
+	padding-right: 4px;
+	padding-top: 1px;
+	margin-right: 1px;
+}
+
+/* Style applied to currently inactive tab of explorer window. */
+span.inactivetab
+{
+	background-color: #736633;
+	color: #cccccc;
+	font-weight: normal;
+	padding-left: 4px;
+	padding-right: 4px;
+	padding-top: 0px;
+	margin-right: 1px;
+}
+
+/* Style applied to div that contains tabs of explorer. Note that if
+   you want to change it's position you have to change position of
+   #explorerclient, #content and corresponding values in ie56hack.css */
+#tabarea
+{
+	position: fixed;
+	top: 8px;
+	width: 205px;
+	height: 16px;
+	cursor: default;
+	/*font-size: 90%;*/
+}
+
+
+/* Style applied to div that contains tree in explorer. Note that if
+   you want to change it's position you have to change position of
+   #tabarea, #content and corresponding values in ie56hack.css */
+#explorerclient
+{
+	position: fixed;
+	top: 24px;
+	bottom: 8px;
+	width: 220px;
+	overflow: auto;
+	background-color: #fffcf2;
+	border: solid 2px #c3b477;
+	padding: 4px;
+	cursor: default;
+	color: black;
+}
+
+/* Following 3 styles control appearance of marker that appears
+   if you click some entity in outline window. */
+div.markertop	{ border-left: solid 2px #cc3300;}
+div.markermiddle{ border-left: dotted 2px #cc3300;}
+div.markerbottom{ border-left: dotted 2px #cc6666;}
+
+pre
+{
+	font-family: 'Consolas', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+	background: #f7f7f7;
+	border: 1px solid #d7d7d7;
+	margin: 1em 1.75em;
+	padding: 0.25em;
+	overflow: auto;
+}
+
+tt
+{
+	padding: 0em 0.1em;
+	margin: 0px;
+	background-color: #e5e0cb;
+	border-radius: 3px;
+}
