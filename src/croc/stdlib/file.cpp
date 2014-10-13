@@ -162,8 +162,8 @@ word_t _inoutFile(CrocThread* t)
 
 const StdlibRegisterInfo _readTextFile_info =
 {
-	Docstr(DFunc("readTextFile") DParam("name", "string") DParamD("encoding", "string", "?utf-8")
-		DParamD("errors", "string", "strict")
+	Docstr(DFunc("readTextFile") DParam("name", "string") DParamD("encoding", "string", "\"?utf-8\"")
+		DParamD("errors", "string", "\"strict\"")
 	R"(Reads the contents of a text file, decoding it according to the given \tt{encoding}, and returns the entire file
 	contents as a string.
 
@@ -321,7 +321,7 @@ word_t _truncate(CrocThread* t)
 const StdlibRegisterInfo _writeTextFile_info =
 {
 	Docstr(DFunc("writeTextFile") DParam("name", "string") DParam("data", "string")
-		DParamD("encoding", "string", "utf-8") DParamD("errors", "string", "strict")
+		DParamD("encoding", "string", "\"utf-8\"") DParamD("errors", "string", "\"strict\"")
 	R"(Writes the contents of the string \tt{data} to the file \tt{name}, encoding it with \tt{encoding}.
 
 	If a file named \tt{name} already exists, it will be replaced, and if it doesn't, it will be created. This is just
