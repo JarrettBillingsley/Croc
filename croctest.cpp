@@ -29,7 +29,7 @@ int main()
 		croc_fielda(t, -2, "path");
 		croc_popTop(t);
 
-		croc_ex_runModule(t, "samples.simple", 0);
+		croc_ex_runModule(t, "test", 0);
 		return 0;
 	},
 	[&]{
