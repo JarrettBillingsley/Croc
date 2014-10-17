@@ -285,7 +285,7 @@ local function doDocgen(inputFile: string, outputFile: string)
 
 		if(inputFile.startsWith("-"))
 		{
-			if(inputFile.length == 1)
+			if(#inputFile == 1)
 				name = "stdin"
 			else
 				name = inputFile[1 ..]
@@ -312,10 +312,10 @@ local function doDocgen(inputFile: string, outputFile: string)
 	{
 		local f = (outputFile is "-") ?
 			console.stdout :
-			stream.TextWriter(file.outFile(outputFile, "c"))
+			stream.TextWriter(stream.BufferedOutStream(file.outFile(outputFile, "c")))
 
 		json.writeJSON(f, dt, true)
-		f.newline()
+		f.writeln()
 		f.flush()
 
 		if(f is not console.stdout)
@@ -361,8 +361,9 @@ local function doCompile(inputFile: string, outputFile: string)
 	{
 		local src = file.readTextFile(inputFile)
 		local fd, modName = compiler.compileModule(src, inputFile)
-		local out = file.outFile(outputFile, "c")
+		local out = stream.BufferedOutStream(file.outFile(outputFile, "c"))
 		serialization.serializeModule(fd, modName, out)
+		out.flush()
 		out.close()
 	}
 	catch(e)
@@ -385,8 +386,13 @@ local function doFile(inputFile: string, docsEnabled: string, args: array)
 
 		if(inputFile.endsWith(".croc") or inputFile.endsWith(".croco"))
 		{
-			local src = file.readTextFile(inputFile)
-			local fd, modName = compiler.compileModule(src, inputFile)
+			local fd, modName
+
+			if(inputFile[-1] is 'o')
+				fd, modName = serialization.deserializeModule(stream.MemblockStream(file.readMemblock(inputFile)))
+			else
+				fd, modName = compiler.compileModule(file.readTextFile(inputFile), inputFile)
+
 			modules.customLoaders[modName] = fd
 			modToRun = modName
 		}
@@ -436,7 +442,7 @@ local class ReplInout : repl.ConsoleInout
 		while(not :_thread.isDead())
 		{
 			try
-				rets.set((:_thread)(with 5))
+				rets.set((:_thread)())
 			catch(e)
 			{
 				local runEntry = #e.traceback
@@ -515,7 +521,11 @@ return function main(args: array)
 	if(params.stop)
 		return params.failed ? ExitCode.BadArg : ExitCode.OK
 	else if(#params.docOutfile)
+	{
+		// Need file lib
+		_loadLibs(false, false)
 		return doDocgen(params.inputFile, params.docOutfile)
+	}
 	else if(#params.crocoOutfile)
 	{
 		// Need file lib
