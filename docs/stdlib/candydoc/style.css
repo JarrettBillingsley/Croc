@@ -216,8 +216,11 @@ pre
 
 tt
 {
+	font-family: 'Consolas', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
 	padding: 0em 0.1em;
 	margin: 0px;
 	background-color: #e5e0cb;
 	border-radius: 3px;
+	-webkit-border-radius: 3px;
+	-moz-border-radius: 3px;
 }
