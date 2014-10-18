@@ -13,16 +13,74 @@ p
 
 body
 {
-	min-width: 780px;
-	max-width: 1260px;
+	font-family: Arial,Verdana,'Bitstream Vera Sans',Helvetica,sans-serif;
+	font-size: 13px;
+	color: #000;
+	width: 1018px;
 	margin-left: auto;
 	margin-right: auto;
+	background-color: #656565;
+	background-image: url('http://jfbillingsley.com/croc/chrome/site/backs.gif');
+	background-repeat: repeat-x;
 }
 
 h1, h2, h3, h4, h5, h6
 {
 	margin-bottom: 2px;
 }
+
+h2.groupheader
+{
+	border-bottom-color: black;
+	color: black;
+}
+
+hr
+{
+	border-color: black;
+}
+
+div.header
+{
+	background-image: none;
+	background-color: #E5E0CB;
+	border-bottom-color: black;
+}
+
+#navrow4
+{
+	border-bottom: 1px solid black;
+}
+
+.mdescLeft, .mdescRight,
+.memItemLeft, .memItemRight,
+.memTemplItemLeft, .memTemplItemRight, .memTemplParams
+{
+	background-color: #E5E0CB;
+}
+
+/* Style used for all hyperlinks. */
+.contents a:visited
+{
+	color: #6e9835;
+}
+
+:link, *:visited
+{
+	color: #6e9835;
+	font-weight: bold;
+	border-bottom: 1px dotted #bbb;
+	text-decoration: none;
+}
+
+:link:hover, :visited:hover
+{
+	background-color: #eee;
+	color: #555
+}
+
+a.code, a.code:visited, a.line, a.line:visited             { color: #6e9835; border-bottom: none; text-decoration: underline; }
+a.codeRef, a.codeRef:visited, a.lineRef, a.lineRef:visited { color: #6e9835; border-bottom: none; text-decoration: underline; }
 
 .memname tr
 {
@@ -39,10 +97,55 @@ div.memproto
 	padding: 0px;
 }
 
+div.fragment
+{
+	font-family: 'Consolas', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+	border: dotted 1px #9c9;
+	background-color: #282828;
+	color: white;
+	padding: 4px 4px 4px 4px;
+}
+
+div.line
+{
+	font-family: 'Consolas', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+	line-height: 105%;
+}
+
+span.keyword       { color: #FF3333 }
+span.keywordtype   { color: #FF3333 }
+span.keywordflow   { color: #FF3333 }
+span.comment       { color: #00A000 }
+span.preprocessor  { color: #FF3333 }
+span.stringliteral { color: #FF7F00 }
+span.charliteral   { color: #FF7F00 }
+
+pre.fragment
+{
+	font-family: 'Consolas', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+	background: #f7f7f7;
+	border: 1px solid #d7d7d7;
+	margin: 1em 1.75em;
+	padding: 0.25em;
+	overflow: auto;
+}
+
+code
+{
+	font-family: 'Consolas', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+	padding: 0em 0.1em;
+	margin: 0px;
+	background-color: #e5e0cb;
+	border-radius: 3px;
+	-webkit-border-radius: 3px;
+	-moz-border-radius: 3px;
+}
+
 .memdoc, dl.reflist dd
 {
 	box-shadow: none;
 	background-image: none;
+	border: none;
 }
 
 .memproto, dl.reflist dt
@@ -51,22 +154,68 @@ div.memproto
 	background-image: none;
 	text-shadow: none;
 	font-family: monospace;
+	background-color: #E5E0CB;
+	border: none;
+	border-radius: 4px;
+	-webkit-border-radius: 4px;
+	-moz-border-radius: 4px;
 }
 
 .tabs, .tabs2, .tabs3
 {
 	background-image: none;
-	background-color: #CEDEC4;
+	background-color: #E5E0CB;
 }
 
 .tablist li
 {
 	background-image: none;
-	background-color: #CEDEC4;
+	background-color: #E5E0CB;
 }
 
 .navpath ul
 {
 	background-image: none;
-	background-color: #CEDEC4;
+	background-color: #E5E0CB;
+}
+
+#titlearea
+{
+	text-align: center;
+	padding: 10px 0px;
+}
+
+#container
+{
+	background-color: #FFF;
+	padding: 0px 20px;
+}
+
+address.footer
+{
+	padding-bottom: 10px;
+}
+
+table.params
+{
+	border: 2px solid #CCC;
+	font-size: 13px;
+	border-collapse: collapse;
+	border-spacing: 0px;
+	border-collapse: collapse;
+	max-width: 800px;
+}
+
+table.params td
+{
+	border: 1px solid grey;
+	padding: 3px 3px 3px 3px;
+	vertical-align: middle;
+}
+
+td.paramname
+{
+	color: black;
+	background-color: #e5e0cb;
+	text-align: right;
 }

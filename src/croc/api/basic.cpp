@@ -11,7 +11,7 @@ using namespace croc;
 extern "C"
 {
 	/** This, \ref croc_foreachNext, and \ref croc_foreachEnd are used together to perform the equivalent of the Croc
-	\c 'foreach; loop.
+	\c 'foreach' loop.
 
 	Here's how you use them:
 
