@@ -214,8 +214,7 @@ global UnsafeStdlibNames =
 ]
 
 /** An alphabetized array of names of all the Croc standard libraries, safe and unsafe. */
-global AllStdlibNames =
-	(SafeStdlibNames ~ UnsafeStdlibNames).sort()
+global AllStdlibNames = (SafeStdlibNames ~ UnsafeStdlibNames).sort()
 
 /** An alphabetized array of names of all the Croc addon libraries. This is all the addons available, not those compiled
 in. The \tt{gl} library is also included, even though it's loaded by another addon. */
@@ -230,8 +229,7 @@ global AddonNames =
 
 /** An alphabetized array of names of Croc addon libraries that were included in the host. This doesn't include the
 \tt{gl} library. */
-global IncludedAddons =
-	_modulestmp.IncludedAddons.sort() // newline prevents the initializer from showing up in the docs
+global IncludedAddons = _modulestmp.IncludedAddons.sort()
 
 /** This is just a variable that holds a string. This string contains the paths that are used when searching for
 modules. The paths are specified using forward slashes to separate path components regardless of the underlying OS, and
@@ -268,8 +266,7 @@ By default, two loaders are in this array, in the following order:
 		it and return the top-level funcdef. If it finds both in the same path, it will load whichever is newer. If
 		it gets through all the paths and finds no files, it returns nothing.
 \endlist */
-global loaders =
-	[customLoad, loadFiles]
+global loaders = [customLoad, loadFiles]
 
 /** This is another important variable. This table holds all currently-loaded modules, where the keys are the module
 names and the values are the modules' namespaces. */
