@@ -62,6 +62,8 @@ namespace croc
 	FuncDef* Semantic::commonVisitFuncDef(FuncDef* d)
 	{
 		uword i = 0;
+		bool anyFloats = false;
+
 		for(auto &p: d->params)
 		{
 			if(p.customConstraint)
@@ -70,6 +72,12 @@ namespace croc
 				args.add(new(c) IdentExp(p.name));
 				p.customConstraint = new(c) CallExp(p.customConstraint->endLocation, p.customConstraint, nullptr,
 					args.toArray());
+			}
+
+			if(p.typeMask == cast(uint32_t)TypeMask::Float || p.typeMask == cast(uint32_t)TypeMask::IntOrFloat)
+			{
+				anyFloats = true;
+				p.typeMask = cast(uint32_t)TypeMask::IntOrFloat;
 			}
 
 			if(p.defValue == nullptr)
@@ -108,7 +116,7 @@ namespace croc
 					p.defValue));
 		}
 
-		if(c.typeConstraints())
+		if(c.typeConstraints() || anyFloats)
 			extra.add(new(c) TypecheckStmt(d->code->location, d));
 
 		if(extra.length() > 0)

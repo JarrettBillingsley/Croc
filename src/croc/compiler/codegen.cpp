@@ -142,57 +142,75 @@ namespace croc
 
 	TypecheckStmt* Codegen::visit(TypecheckStmt* s)
 	{
-		bool needParamCheck = false;
-
-		for(auto &p: s->def->params)
+		if(c.typeConstraints())
 		{
-			if(p.typeMask != cast(uint32_t)TypeMask::Any)
-			{
-				needParamCheck = true;
-				break;
-			}
-		}
+			bool needParamCheck = false;
 
-		if(needParamCheck)
-			fb->paramCheck(s->def->code->location);
+			for(auto &p: s->def->params)
+			{
+				if(p.typeMask != cast(uint32_t)TypeMask::Any)
+				{
+					needParamCheck = true;
+					break;
+				}
+			}
+
+			if(needParamCheck)
+				fb->paramCheck(s->def->code->location);
+
+			uword idx = 0;
+			for(auto &p: s->def->params)
+			{
+				if(p.classTypes.length > 0)
+				{
+					auto success = InstRef();
+
+					for(auto t: p.classTypes)
+					{
+						visit(t);
+						fb->toSource(t->endLocation);
+						fb->catToTrue(success, fb->checkObjParam(t->endLocation, idx));
+					}
+
+					fb->objParamFail(p.classTypes[p.classTypes.length - 1]->endLocation, idx);
+					fb->patchTrueToHere(success);
+				}
+				else if(p.customConstraint)
+				{
+					auto success = InstRef();
+					auto con = p.customConstraint;
+					visit(con);
+					fb->toSource(con->endLocation);
+					fb->catToTrue(success, fb->codeIsTrue(con->endLocation));
+
+					dottedNameToString(AST_AS(CallExp, con)->op);
+					fb->pushString(getCrocstr(c.thread(), -1));
+					fb->toSource(con->endLocation);
+					fb->customParamFail(con->endLocation, idx);
+					croc_popTop(*c.thread());
+					fb->patchTrueToHere(success);
+				}
+
+				idx++;
+			}
+
+			DEBUG_EXPSTACKCHECK(fb->checkExpStackEmpty();)
+		}
 
 		uword idx = 0;
 		for(auto &p: s->def->params)
 		{
-			if(p.classTypes.length > 0)
+			if(p.typeMask == cast(uint32_t)TypeMask::IntOrFloat)
 			{
-				auto success = InstRef();
-
-				for(auto t: p.classTypes)
-				{
-					visit(t);
-					fb->toSource(t->endLocation);
-					fb->catToTrue(success, fb->checkObjParam(t->endLocation, idx));
-				}
-
-				fb->objParamFail(p.classTypes[p.classTypes.length - 1]->endLocation, idx);
-				fb->patchTrueToHere(success);
-			}
-			else if(p.customConstraint)
-			{
-				auto success = InstRef();
-				auto con = p.customConstraint;
-				visit(con);
-				fb->toSource(con->endLocation);
-				fb->catToTrue(success, fb->codeIsTrue(con->endLocation));
-
-				dottedNameToString(AST_AS(CallExp, con)->op);
-				fb->pushString(getCrocstr(c.thread(), -1));
-				fb->toSource(con->endLocation);
-				fb->customParamFail(con->endLocation, idx);
-				croc_popTop(*c.thread());
-				fb->patchTrueToHere(success);
+				fb->pushVar(p.name);
+				fb->dup();
+				fb->as(s->def->code->location, AsExp::Type::Float);
+				fb->assign(s->def->code->location, 1, 1);
 			}
 
 			idx++;
 		}
 
-		DEBUG_EXPSTACKCHECK(fb->checkExpStackEmpty();)
 		return s;
 	}
 

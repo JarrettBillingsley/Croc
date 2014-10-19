@@ -175,6 +175,7 @@ namespace croc
 
 		NotNull = Bool | Int | Float | Nativeobj | String | Weakref | Table | Namespace | Array | Memblock | Function |
 			Funcdef | Class | Instance | Thread,
+		IntOrFloat = Int | Float,
 		Any = Null | NotNull
 	};
 
