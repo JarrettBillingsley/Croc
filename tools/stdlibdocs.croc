@@ -10,49 +10,7 @@ import doctools.output:
 	DocOutputter,
 	toHeader
 
-local Stdlibs =
-[
-	"array"
-	"ascii"
-	"compiler"
-	"console"
-	"debug"
-	"docs"
-	"doctools.console"
-	"doctools.output"
-	"doctools.trac"
-	"env"
-	"exceptions"
-	"file"
-	"gc"
-	"hash"
-	"json"
-	"math"
-	"memblock"
-	"misc"
-	"modules"
-	"object"
-	"os"
-	"path"
-	"repl"
-	"serialization"
-	"stream"
-	"string"
-	"text"
-	"thread"
-	"time"
-]
-
-local Addons =
-[
-	"devil"
-	"gl"
-	"glfw"
-	"openal"
-	"pcre"
-]
-
-local AllStdlibs = (Stdlibs ~ Addons).sort()
+local AllStdlibs = (modules.AllStdlibNames ~ modules.AddonNames).sort()
 
 import devil
 import glfw

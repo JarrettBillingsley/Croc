@@ -930,42 +930,14 @@ function deserializeModule(input: @InStream)
 	return mod, name
 }
 
-local _stdModules =
-[
-	"array"
-	"ascii"
-	"compiler"
-	"console"
-	"debug"
-	"devil"
-	"docs"
-	"doctools.console"
-	"doctools.output"
-	"doctools.trac"
-	"env"
-	"exceptions"
-	"file"
-	"gc"
-	"gl"
-	"glfw"
-	"hash"
-	"json"
-	"math"
-	"memblock"
-	"modules"
-	"object"
-	"openal"
-	"os"
-	"path"
-	"pcre"
-	"repl"
-	"serialization"
-	"stream"
-	"string"
-	"text"
-	"thread"
-	"time"
-]
+local _stdModules_
+local function _stdModules()
+{
+	if(_stdModules_ is null)
+		_stdModules_ = modules.AllStdlibNames ~ modules.AddonNames
+
+	return _stdModules_
+}
 
 local function _addMethods(t: table, modName: string, v: class|namespace)
 {
@@ -1052,7 +1024,7 @@ function makeTransientsFromModules(whichModules: string, recursion: string, mode
 	}
 	else
 	{
-		foreach(name; _stdModules)
+		foreach(name; _stdModules())
 		{
 			if(local mod = modules.loaded[name])
 				_addModule(ret, name, mod, recursion)
