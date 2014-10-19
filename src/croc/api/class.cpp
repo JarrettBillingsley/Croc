@@ -18,8 +18,11 @@ namespace
 		if(c->isFrozen)
 		{
 			if(isMethod)
-				croc_eh_throwStd(*t, "StateError", "%s - Attempting to add a method to class '%s' which is frozen",
-					__FUNCTION__, c->name->toCString());
+			{
+				if(name == t->vm->ctorString || name == t->vm->finalizerString)
+					croc_eh_throwStd(*t, "StateError", "%s - Attempting to add a %s to class '%s' which is frozen",
+						__FUNCTION__, name->toCString(), c->name->toCString());
+			}
 			else
 				croc_eh_throwStd(*t, "StateError", "%s - Attempting to add a field to class '%s' which is frozen",
 					__FUNCTION__, c->name->toCString());
@@ -170,10 +173,16 @@ extern "C"
 		API_CHECK_PARAM(name, -1, String, "member name");
 
 		if(c->isFrozen)
-			croc_eh_throwStd(t_, "StateError", "%s - Attempting to remove a member from class '%s' which is frozen",
-				__FUNCTION__, c->name->toCString());
+		{
+			if(name == t->vm->ctorString || name == t->vm->finalizerString)
+				croc_eh_throwStd(t_, "StateError", "%s - Attempting to remove the %s from class '%s' which is frozen",
+					__FUNCTION__, name->toCString(), c->name->toCString());
 
-		if(!c->removeMember(t->vm->mem, name))
+			if(!c->removeMethod(t->vm->mem, name))
+				croc_eh_throwStd(t_, "StateError", "%s - Attempting to remove a field from class '%s' which is frozen",
+					__FUNCTION__, c->name->toCString());
+		}
+		else if(!c->removeMember(t->vm->mem, name))
 			croc_eh_throwStd(t_, "FieldError", "%s - No member named '%s' exists in class '%s'",
 				__FUNCTION__, name->toCString(), c->name->toCString());
 

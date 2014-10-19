@@ -798,9 +798,9 @@ namespace croc
 
 				if(!c->setField(t->vm->mem, name, value))
 				{
-					if(c->isFrozen)
+					if(c->isFrozen && (name == t->vm->ctorString || name == t->vm->finalizerString))
 						croc_eh_throwStd(*t, "FieldError",
-							"Attempting to change method '%s' in class '%s' after it has been frozen",
+							"Attempting to change the %s of class '%s' which is frozen",
 							name->toCString(), c->name->toCString());
 
 					if(!c->setMethod(t->vm->mem, name, value))

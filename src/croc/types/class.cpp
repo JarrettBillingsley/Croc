@@ -145,7 +145,7 @@ namespace croc
 
 	bool Class::setMethod(Memory& mem, String* name, Value value)
 	{
-		assert(!this->isFrozen);
+		// assert(!this->isFrozen);
 
 		if(auto slot = this->methods.lookupNode(name))
 		{
@@ -242,8 +242,6 @@ namespace croc
 #define MAKE_ADD_MEMBER(funcName, memberName, wantedSlot, otherSlot, setFunc)\
 	bool Class::funcName(Memory& mem, String* name, Value value, bool isOverride)\
 	{\
-		assert(!this->isFrozen);\
-\
 		auto fieldSlot = this->fields.lookupNode(name);\
 		auto methodSlot = this->methods.lookupNode(name);\
 \
@@ -272,8 +270,6 @@ namespace croc
 #define MAKE_REMOVE_MEMBER(funcName, memberName)\
 	bool Class::funcName(Memory& mem, String* name)\
 	{\
-		assert(!this->isFrozen);\
-\
 		if(auto slot = this->memberName.lookupNode(name))\
 		{\
 			REMOVEKEYREF(mem, slot);\
