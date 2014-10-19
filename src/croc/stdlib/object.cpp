@@ -410,8 +410,8 @@ word loader(CrocThread* t)
 
 void initObjectLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "object", &loader);
-	croc_ex_importNS(t, "object");
+	registerModule(t, "object", &loader);
+	croc_pushGlobal(t, "object");
 #ifdef CROC_BUILTIN_DOCS
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);

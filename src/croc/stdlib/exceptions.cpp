@@ -654,8 +654,7 @@ word loader(CrocThread* t)
 
 void initExceptionsLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "exceptions", &loader);
-	croc_ex_import(t, "exceptions");
+	registerModule(t, "exceptions", &loader);
 }
 
 #ifdef CROC_BUILTIN_DOCS

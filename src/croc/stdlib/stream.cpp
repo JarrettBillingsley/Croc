@@ -4,6 +4,7 @@
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
 #include "croc/stdlib/helpers/oscompat.hpp"
+#include "croc/stdlib/helpers/register.hpp"
 #include "croc/types/base.hpp"
 
 namespace croc
@@ -177,7 +178,7 @@ void initStreamLib(CrocThread* t)
 		croc_ex_registerFields(t, _funcs);
 	croc_newGlobal(t, "_streamtmp");
 
-	croc_ex_importFromString(t, "stream", stream_croc_text, "stream.croc");
+	registerModuleFromString(t, "stream", stream_croc_text, "stream.croc");
 
 	croc_vm_pushGlobals(t);
 	croc_pushString(t, "_streamtmp");

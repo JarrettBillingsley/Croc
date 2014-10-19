@@ -1,6 +1,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/helpers/register.hpp"
 #include "croc/types/base.hpp"
 
 namespace croc
@@ -12,6 +13,6 @@ namespace
 
 void initReplLib(CrocThread* t)
 {
-	croc_ex_importFromString(t, "repl", repl_croc_text, "repl.croc");
+	registerModuleFromString(t, "repl", repl_croc_text, "repl.croc");
 }
 }

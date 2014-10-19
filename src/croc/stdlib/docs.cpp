@@ -1,6 +1,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/helpers/register.hpp"
 #include "croc/types/base.hpp"
 
 namespace croc
@@ -74,7 +75,7 @@ namespace croc
 			croc_ex_registerFields(t, _globalFuncs);
 		croc_newGlobal(t, "_docstmp");
 
-		croc_ex_importFromString(t, "docs", docs_croc_text, "docs.croc");
+		registerModuleFromString(t, "docs", docs_croc_text, "docs.croc");
 
 		croc_vm_pushGlobals(t);
 		croc_pushString(t, "_docstmp");

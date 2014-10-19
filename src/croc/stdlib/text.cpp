@@ -4,6 +4,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/helpers/register.hpp"
 #include "croc/types/base.hpp"
 #include "croc/util/utf.hpp"
 
@@ -529,7 +530,7 @@ void initTextLib(CrocThread* t)
 		croc_ex_registerFields(t, _globalFuncs);
 	croc_newGlobal(t, "_texttmp");
 
-	croc_ex_importFromString(t, "text", text_croc_text, "text.croc");
+	registerModuleFromString(t, "text", text_croc_text, "text.croc");
 
 	croc_vm_pushGlobals(t);
 	croc_pushString(t, "_texttmp");

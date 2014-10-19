@@ -3,22 +3,17 @@ This module defines a means of outputting docs to the console (or any console-li
 */
 module doctools.console
 
-import ascii:
-	isSpace,
-	toUpper
-
-import docs:
-	docsOf,
-	childDocs,
-	metamethodDocs
-
-import doctools.output:
-	SectionOrder,
-	DocOutputter,
-	OutputDocVisitor,
-	toHeader,
-	numToLetter,
-	numToRoman
+local isSpace =          ascii.isSpace
+local toUpper =          ascii.toUpper
+local docsOf =           docs.docsOf
+local childDocs =        docs.childDocs
+local metamethodDocs =   docs.metamethodDocs
+local SectionOrder =     doctools.output.SectionOrder
+local DocOutputter =     doctools.output.DocOutputter
+local OutputDocVisitor = doctools.output.OutputDocVisitor
+local toHeader =         doctools.output.toHeader
+local numToLetter =      doctools.output.numToLetter
+local numToRoman =       doctools.output.numToRoman
 
 local helpVisitor
 

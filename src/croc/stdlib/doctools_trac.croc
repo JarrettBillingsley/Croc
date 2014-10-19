@@ -3,10 +3,9 @@ This module defines a means of outputting docs in the Trac wiki syntax format.
 */
 module doctools.trac
 
-import doctools.output:
-	DocOutputter,
-	LinkResolver,
-	toHeader
+local DocOutputter = doctools.output.DocOutputter
+local LinkResolver = doctools.output.LinkResolver
+local toHeader =     doctools.output.toHeader
 
 class TracWikiOutputter : DocOutputter
 {

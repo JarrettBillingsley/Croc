@@ -46,6 +46,8 @@ namespace croc
 		CrocNativeFunc func;
 	};
 
+	void registerModule(CrocThread* t, const char* name, CrocNativeFunc loader);
+	void registerModuleFromString(CrocThread* t, const char* name, const char* source, const char* sourceName);
 	void registerGlobals(CrocThread* t, const StdlibRegister* funcs);
 	void registerFields(CrocThread* t, const StdlibRegister* funcs);
 	void registerMethods(CrocThread* t, const StdlibRegister* funcs);

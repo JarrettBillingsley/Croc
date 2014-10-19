@@ -2,9 +2,66 @@
 #include "croc/api.h"
 #include "croc/stdlib/helpers/register.hpp"
 #include "croc/types/base.hpp"
+#include "croc/util/str.hpp"
 
 namespace croc
 {
+	namespace
+	{
+		void makeModuleNamespace(CrocThread* t, const char* name)
+		{
+			croc_pushGlobal(t, "_G");
+
+			delimiters(atoda(name), ATODA("."), [&](crocstr piece)
+			{
+				croc_pushStringn(t, cast(const char*)piece.ptr, piece.length);
+
+				if(croc_hasFieldStk(t, -2, -1))
+				{
+					croc_fieldStk(t, -2);
+					croc_insertAndPop(t, -2);
+				}
+				else
+				{
+					croc_namespace_new(t, croc_getString(t, -1));
+					croc_insert(t, -3);
+					croc_dup(t, -3);
+					croc_fieldaStk(t, -3);
+					croc_popTop(t);
+				}
+			});
+		}
+	}
+
+	void registerModule(CrocThread* t, const char* name, CrocNativeFunc loader)
+	{
+		makeModuleNamespace(t, name);
+		croc_dupTop(t);
+		croc_function_newWithEnv(t, name, 0, loader, 0);
+		croc_swapTop(t);
+		croc_call(t, -2, 0);
+	}
+
+	void registerModuleFromString(CrocThread* t, const char* name, const char* source, const char* sourceName)
+	{
+		makeModuleNamespace(t, name);
+
+		croc_pushString(t, source);
+		const char* modName;
+		croc_compiler_compileModuleEx(t, sourceName, &modName);
+
+		if(strcmp(name, modName) != 0)
+			croc_eh_throwStd(t, "ImportException",
+				"Import name (%s) does not match name given in module statement (%s)", name, modName);
+
+		croc_swapTop(t);
+		croc_dupTop(t);
+		croc_function_newScriptWithEnv(t, -3);
+		croc_swapTop(t);
+		croc_call(t, -2, 0);
+		croc_popTop(t);
+	}
+
 #define MAKE_REGISTER_MULTI(Type)\
 	void register##Type##s(CrocThread* t, const StdlibRegister* funcs)\
 	{\

@@ -38,7 +38,6 @@ namespace croc
 	void docGCLib(CrocThread* t);
 	void docMiscLib(CrocThread* t);
 	void docMiscLib_Vector(CrocThread* t, CrocDoc* doc);
-	void docModulesLib(CrocThread* t);
 	void docStringLib(CrocThread* t);
 	void docStringLib_StringBuffer(CrocThread* t, CrocDoc* doc);
 #endif

@@ -101,8 +101,8 @@ word loader(CrocThread* t)
 
 void initEnvLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "env", &loader);
-	croc_ex_importNS(t, "env");
+	registerModule(t, "env", &loader);
+	croc_pushGlobal(t, "env");
 #ifdef CROC_BUILTIN_DOCS
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);

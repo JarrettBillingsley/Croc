@@ -729,8 +729,8 @@ word loader(CrocThread* t)
 
 void initHashLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "hash", &loader);
-	croc_ex_importNS(t, "hash");
+	registerModule(t, "hash", &loader);
+	croc_pushGlobal(t, "hash");
 #ifdef CROC_BUILTIN_DOCS
 	auto hash = croc_getStackSize(t) - 1;
 	CrocDoc doc;

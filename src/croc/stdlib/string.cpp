@@ -1065,8 +1065,7 @@ word loader(CrocThread* t)
 
 void initStringLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "string", &loader);
-	croc_ex_import(t, "string");
+	registerModule(t, "string", &loader);
 }
 
 #ifdef CROC_BUILTIN_DOCS

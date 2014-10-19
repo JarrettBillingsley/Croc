@@ -643,8 +643,8 @@ word loader(CrocThread* t)
 
 void initMathLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "math", &loader);
-	croc_ex_importNS(t, "math");
+	registerModule(t, "math", &loader);
+	croc_pushGlobal(t, "math");
 #ifdef CROC_BUILTIN_DOCS
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);

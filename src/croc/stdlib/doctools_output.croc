@@ -4,7 +4,7 @@ framework which makes it easier to output docs to new formats.
 */
 module doctools.output
 
-import docs: DocVisitor, docsOf
+local DocVisitor, docsOf = docs.DocVisitor, docs.docsOf
 
 /**
 This class defines a default behavior for mapping documentation links (made with the \tt{\\link} command) to the things

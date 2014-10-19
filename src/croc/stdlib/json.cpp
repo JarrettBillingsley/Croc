@@ -131,8 +131,8 @@ word loader(CrocThread* t)
 
 void initJSONLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "json", &loader);
-	croc_ex_importNS(t, "json");
+	registerModule(t, "json", &loader);
+	croc_pushGlobal(t, "json");
 #ifdef CROC_BUILTIN_DOCS
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);

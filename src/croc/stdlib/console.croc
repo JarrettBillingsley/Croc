@@ -5,7 +5,7 @@ convenience.
 */
 module console
 
-import stream : TextReader, TextWriter, NativeStream
+local TextReader, TextWriter, NativeStream = stream.TextReader, stream.TextWriter, stream.NativeStream
 
 /**
 These are the \link{stream.Stream} objects that wrap the standard input, output, and error streams. You can, however,

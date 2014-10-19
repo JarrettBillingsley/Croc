@@ -1637,8 +1637,8 @@ word loader(CrocThread* t)
 
 void initArrayLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "array", &loader);
-	croc_ex_importNS(t, "array");
+	registerModule(t, "array", &loader);
+	croc_pushGlobal(t, "array");
 #ifdef CROC_BUILTIN_DOCS
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);

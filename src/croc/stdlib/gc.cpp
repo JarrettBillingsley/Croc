@@ -250,8 +250,7 @@ word loader(CrocThread* t)
 
 void initGCLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "gc", &loader);
-	croc_ex_import(t, "gc");
+	registerModule(t, "gc", &loader);
 }
 
 #ifdef CROC_BUILTIN_DOCS

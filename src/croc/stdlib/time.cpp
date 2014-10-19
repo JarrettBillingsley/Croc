@@ -409,8 +409,8 @@ word loader(CrocThread* t)
 void initTimeLib(CrocThread* t)
 {
 	oscompat::initTime();
-	croc_ex_makeModule(t, "time", &loader);
-	croc_ex_importNS(t, "time");
+	registerModule(t, "time", &loader);
+	croc_pushGlobal(t, "time");
 #ifdef CROC_BUILTIN_DOCS
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);

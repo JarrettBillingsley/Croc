@@ -902,8 +902,8 @@ word loader(CrocThread* t)
 
 void initMemblockLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "memblock", &loader);
-	croc_ex_importNS(t, "memblock");
+	registerModule(t, "memblock", &loader);
+	croc_pushGlobal(t, "memblock");
 #ifdef CROC_BUILTIN_DOCS
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);

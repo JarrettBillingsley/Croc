@@ -1,6 +1,7 @@
 
 #include "croc/api.h"
 #include "croc/internal/stack.hpp"
+#include "croc/stdlib/helpers/register.hpp"
 #include "croc/types/base.hpp"
 
 namespace croc
@@ -14,8 +15,8 @@ namespace croc
 
 	void initDoctoolsLibs(CrocThread* t)
 	{
-		croc_ex_importFromString(t, "doctools.output", doctools_output_croc_text, "doctools/output.croc");
-		croc_ex_importFromString(t, "doctools.console", doctools_console_croc_text, "doctools/console.croc");
-		croc_ex_importFromString(t, "doctools.trac", doctools_trac_croc_text, "doctools/trac.croc");
+		registerModuleFromString(t, "doctools.output", doctools_output_croc_text, "doctools/output.croc");
+		registerModuleFromString(t, "doctools.console", doctools_console_croc_text, "doctools/console.croc");
+		registerModuleFromString(t, "doctools.trac", doctools_trac_croc_text, "doctools/trac.croc");
 	}
 }

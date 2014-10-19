@@ -153,7 +153,6 @@ extern "C"
 		croc_compiler_setFlags(*t, CrocCompilerFlags_AllDocs);
 #endif
 		// Core libs
-		initModulesLib(*t);
 		initExceptionsLib(*t);
 		initGCLib(*t);
 
@@ -164,7 +163,6 @@ extern "C"
 
 #ifdef CROC_BUILTIN_DOCS
 		// Go back and document the libs that we loaded before the doc lib
-		docModulesLib(*t);
 		docExceptionsLib(*t);
 		docGCLib(*t);
 		docMiscLib(*t);
@@ -189,6 +187,8 @@ extern "C"
 		initThreadLib(*t);
 		initTimeLib(*t);
 		initDoctoolsLibs(*t);
+
+		initModulesLib(*t);
 
 #ifdef CROC_BUILTIN_DOCS
 		croc_compiler_setFlags(*t, CrocCompilerFlags_All);

@@ -187,6 +187,7 @@ set(croc_CROCSRC
 	croc/stdlib/doctools_console.croc
 	croc/stdlib/doctools_trac.croc
 	croc/stdlib/hash_weaktables.croc
+	croc/stdlib/modules.croc
 	croc/stdlib/repl.croc
 	croc/stdlib/serialization.croc
 	croc/stdlib/stream.croc

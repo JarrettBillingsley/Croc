@@ -470,8 +470,8 @@ const StdlibRegister _globalFuncs[] =
 
 	void initAsciiLib(CrocThread* t)
 	{
-		croc_ex_makeModule(t, "ascii", &loader);
-		croc_ex_importNS(t, "ascii");
+		registerModule(t, "ascii", &loader);
+		croc_pushGlobal(t, "ascii");
 #ifdef CROC_BUILTIN_DOCS
 		CrocDoc doc;
 		croc_ex_doc_init(t, &doc, __FILE__);

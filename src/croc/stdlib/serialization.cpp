@@ -1204,7 +1204,7 @@ void initSerializationLib(CrocThread* t)
 		croc_fielda(t, -2, "PlatformBits");
 	croc_newGlobal(t, "_serializationtmp");
 
-	croc_ex_importFromString(t, "serialization", serialization_croc_text, "serialization.croc");
+	registerModuleFromString(t, "serialization", serialization_croc_text, "serialization.croc");
 
 	croc_vm_pushGlobals(t);
 	croc_pushString(t, "_serializationtmp");

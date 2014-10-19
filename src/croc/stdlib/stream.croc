@@ -7,8 +7,7 @@ host can create instances of it.
 */
 module stream
 
-import math: min, intMax
-import text
+local min, intMax = math.min, math.intMax
 
 local utf8Codec = text.getCodec("utf-8")
 local asciiCodec = text.getCodec("ascii")

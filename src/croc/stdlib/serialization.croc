@@ -3,13 +3,20 @@ This module contains a powerful means of serializing arbitrary Croc object graph
 */
 module serialization
 
-import stream: InStream, OutStream, BinaryStream
-import math: intMin, intSize, floatSize
-import text: getCodec
-import ascii: toUpper
-import object: addMethod, isFrozen, isFinalizable, methodsOf
-import memblock: new as memblock_new
-import hash: clear as hash_clear
+local InStream =      stream.InStream
+local OutStream =     stream.OutStream
+local BinaryStream =  stream.BinaryStream
+local intMin =        math.intMin
+local intSize =       math.intSize
+local floatSize =     math.floatSize
+local getCodec =      text.getCodec
+local toUpper =       ascii.toUpper
+local addMethod =     object.addMethod
+local isFrozen =      object.isFrozen
+local isFinalizable = object.isFinalizable
+local methodsOf =     object.methodsOf
+local memblock_new =  memblock.new
+local hash_clear =    hash.clear
 
 local function capital(s) =
 	toUpper(s[0]) ~ s[1..]

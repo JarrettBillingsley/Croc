@@ -365,8 +365,8 @@ word loader(CrocThread* t)
 
 void initPathLib(CrocThread* t)
 {
-	croc_ex_makeModule(t, "path", &loader);
-	croc_ex_importNS(t, "path");
+	registerModule(t, "path", &loader);
+	croc_pushGlobal(t, "path");
 #ifdef CROC_BUILTIN_DOCS
 	CrocDoc doc;
 	croc_ex_doc_init(t, &doc, __FILE__);
