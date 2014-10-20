@@ -51,10 +51,10 @@ void _serialize(CrocThread* t, T v)
 
 void _writeUInt8(CrocThread* t, uint8_t b)
 {
-	croc_field(t, 0, _Output);
+	croc_dup(t, 0);
 	croc_pushNull(t);
 	croc_pushInt(t, b);
-	croc_methodCall(t, -3, "writeUInt8", 0);
+	croc_methodCall(t, -3, "_uint8", 0);
 }
 
 template<typename T>
@@ -77,11 +77,11 @@ void _serializeArray<uword>(CrocThread* t, DArray<uword> arr)
 
 void _append(CrocThread* t, DArray<uint8_t> arr)
 {
+	croc_ex_lookup(t, "stream.Stream.writeExact");
 	croc_field(t, 0, _Output);
-	croc_pushNull(t);
 	croc_field(t, 0, _RawBuf);
 	croc_memblock_reviewNativeArray(t, -1, cast(void*)arr.ptr, arr.length);
-	croc_methodCall(t, -3, "writeExact", 0);
+	croc_call(t, -3, 0);
 }
 
 word_t _nativeSerializeFunction(CrocThread* t)
@@ -526,9 +526,9 @@ word _deserialize(CrocThread* t)
 
 uint8_t _readUInt8(CrocThread* t)
 {
-	croc_field(t, 0, _Input);
+	croc_dup(t, 0);
 	croc_pushNull(t);
-	croc_methodCall(t, -2, "readUInt8", 1);
+	croc_methodCall(t, -2, "_uint8", 1);
 	auto ret = cast(uint8_t)croc_getInt(t, -1);
 	croc_popTop(t);
 	return ret;
@@ -536,11 +536,11 @@ uint8_t _readUInt8(CrocThread* t)
 
 void _readBlock(CrocThread* t, DArray<uint8_t> arr)
 {
+	croc_ex_lookup(t, "stream.Stream.readExact");
 	croc_field(t, 0, _Input);
-	croc_pushNull(t);
 	croc_field(t, 0, _RawBuf);
 	croc_memblock_reviewNativeArray(t, -1, arr.ptr, arr.length);
-	croc_methodCall(t, -3, "readExact", 0);
+	croc_call(t, -3, 0);
 }
 
 void _addObject(CrocThread* t, GCObject* obj)
@@ -1210,20 +1210,5 @@ void initSerializationLib(CrocThread* t)
 	croc_pushString(t, "_serializationtmp");
 	croc_removeKey(t, -2);
 	croc_popTop(t);
-
-// 	croc_ex_makeModule(t, "json", &loader);
-// 	croc_ex_importNS(t, "json");
-// #ifdef CROC_BUILTIN_DOCS
-// 	CrocDoc doc;
-// 	croc_ex_doc_init(t, &doc, __FILE__);
-// 	croc_ex_doc_push(&doc,
-// 	DModule("json")
-// 	R"(\link[http://en.wikipedia.org/wiki/JSON]{JSON} is a standard for structured data interchange based on the
-// 	JavaScript object notation. This library allows you to convert to and from JSON.)");
-// 		docFields(&doc, _globalFuncs);
-// 	croc_ex_doc_pop(&doc, -1);
-// 	croc_ex_doc_finish(&doc);
-// #endif
-// 	croc_popTop(t);
 }
 }

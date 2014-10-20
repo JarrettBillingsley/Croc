@@ -5,7 +5,6 @@ module serialization
 
 local InStream =      stream.InStream
 local OutStream =     stream.OutStream
-local BinaryStream =  stream.BinaryStream
 local intMin =        math.intMin
 local intSize =       math.intSize
 local floatSize =     math.floatSize
@@ -17,6 +16,8 @@ local isFinalizable = object.isFinalizable
 local methodsOf =     object.methodsOf
 local memblock_new =  memblock.new
 local hash_clear =    hash.clear
+local _readExact =    stream.Stream.readExact
+local _writeExact =   stream.Stream.writeExact
 
 local function capital(s) =
 	toUpper(s[0]) ~ s[1..]
@@ -43,19 +44,6 @@ local SerialVersion = 1
 
 local utf8 = getCodec("utf-8")
 
-/*
-Methods used by Serializer
-	writeUInt8
-	writeExact
-	flush
-	writeFloat64
-
-Methods used by Deserializer
-	readUInt8
-	readFloat64
-	readExact
-*/
-
 @addMethods(_serializationtmp.ExtraSerializeMethods)
 local class Serializer
 {
@@ -66,18 +54,16 @@ local class Serializer
 	_trans
 	_serializeFunc
 	_rawBuf
+	_numBuf
 
 	this(output: @OutStream)
 	{
-		if(output.super is BinaryStream)
-			:_output = output
-		else
-			:_output = BinaryStream(output)
-
+		:_output = output
 		:_strBuf = memblock_new(256)
 		local self = this
 		:_serializeFunc = \val { self._serialize(val) }
 		:_rawBuf = memblock_new(0)
+		:_numBuf = memblock_new(8)
 	}
 
 	function writeGraph(val, transients: table|instance)
@@ -97,9 +83,15 @@ local class Serializer
 		:_output.flush()
 	}
 
+	function _uint8(v: int)
+	{
+		:_numBuf.writeUInt8(0, v);
+		_writeExact(with :_output, :_numBuf, 0, 1);
+	}
+
 	function _writeSignature()
 	{
-		:_output.writeUInt8(Endianness)
+		:_uint8(Endianness)
 		:_integer(PlatformBits)
 		:_integer(intSize)
 		:_integer(floatSize)
@@ -107,12 +99,10 @@ local class Serializer
 	}
 
 	function _tag(v: int)
-		:_output.writeUInt8(v)
+		:_uint8(v)
 
 	function _integer(v: int)
 	{
-		local o = :_output
-
 		do
 		{
 			local b = v & 0x7F
@@ -122,7 +112,7 @@ local class Serializer
 			if(more)
 				b |= 0x80
 
-			o.writeUInt8(b)
+			:_uint8(b)
 		} while(more)
 	}
 
@@ -146,7 +136,7 @@ local class Serializer
 	function _serializeBool(v)
 	{
 		:_tag(TypeTags["bool"])
-		:_output.writeUInt8(v as int)
+		:_uint8(v as int)
 	}
 
 	function _serializeInt(v)
@@ -158,7 +148,8 @@ local class Serializer
 	function _serializeFloat(v)
 	{
 		:_tag(TypeTags["float"])
-		:_output.writeFloat64(v)
+		:_numBuf.writeFloat64(0, v);
+		_writeExact(with :_output, :_numBuf, 0, 8);
 	}
 
 	function _serializeNativeobj(v)
@@ -173,7 +164,7 @@ local class Serializer
 		local buf = :_strBuf
 		utf8.encodeInto(v, buf, 0)
 		:_integer(#buf)
-		:_output.writeExact(buf)
+		_writeExact(with :_output, buf)
 	}
 
 	function _serializeWeakref(v)
@@ -186,10 +177,10 @@ local class Serializer
 		local obj = deref(v)
 
 		if(obj is null)
-			:_output.writeUInt8(0)
+			:_uint8(0)
 		else
 		{
-			:_output.writeUInt8(1)
+			:_uint8(1)
 			:_serialize(obj)
 		}
 	}
@@ -218,10 +209,10 @@ local class Serializer
 			:_serialize(nameOf(v))
 
 		if(v.super is null)
-			:_output.writeUInt8(0)
+			:_uint8(0)
 		else
 		{
-			:_output.writeUInt8(1)
+			:_uint8(1)
 			:_serialize(v.super)
 		}
 
@@ -256,7 +247,7 @@ local class Serializer
 
 		:_tag(TypeTags["memblock"])
 		:_integer(#v)
-		:_output.writeExact(v)
+		_writeExact(with :_output, v)
 	}
 
 	function _serializeFunction(v)
@@ -293,7 +284,7 @@ local class Serializer
 			throw ValueError("Attempting to serialize class '{}' which has a finalizer".format(nameOf(v)))
 
 		:_nativeSerializeClass(v)
-		:_output.writeUInt8(isFrozen(v) as int)
+		:_uint8(isFrozen(v) as int)
 	}
 
 	function _serializeInstance(v)
@@ -311,7 +302,7 @@ local class Serializer
 
 			if(isFunction(s))
 			{
-				:_output.writeUInt8(1)
+				:_uint8(1)
 				v.opSerialize(:_output, :_serializeFunc)
 				return
 			}
@@ -334,7 +325,7 @@ local class Serializer
 		if(isFinalizable(v))
 			throw ValueError("Attempting to serialize '{}' which has a finalizer".format(rawToString(v)))
 
-		:_output.writeUInt8(0)
+		:_uint8(0)
 		:_nativeSerializeInstance(v)
 	}
 
@@ -376,23 +367,21 @@ local class Deserializer
 	_deserializeFunc
 	_rawBuf
 	_dummyObj
+	_numBuf
 
 	this(input: @InStream)
 	{
-		if(input.super is BinaryStream)
-			:_input = input
-		else
-			:_input = BinaryStream(input)
-
+		:_input = input
 		:_strBuf = memblock_new(256)
 		local self = this
 		:_deserializeFunc = \type -> self._deserializeCB(type)
 		:_rawBuf = memblock_new(0)
+		:_numBuf = memblock_new(8)
 	}
 
 	function _readSignature()
 	{
-		local endian = :_input.readUInt8()
+		local endian = :_uint8()
 
 		if(endian != Endianness)
 			throw ValueError("Data was serialized with a different endianness")
@@ -429,9 +418,14 @@ local class Deserializer
 			throw ValueError("Data was serialized from a Croc build with a different serial data format")
 	}
 
+	function _uint8()
+	{
+		_readExact(with :_input, :_numBuf, 0, 1)
+		return :_numBuf.readUInt8(0)
+	}
+
 	function _integer()
 	{
-		local i = :_input
 		local ret = 0
 		local shift = 0
 		local b
@@ -441,7 +435,7 @@ local class Deserializer
 			if(shift >= IntBitSize)
 				throw ValueError("Malformed data (overlong integer)")
 
-			b = i.readUInt8()
+			b = :_uint8()
 			ret |= (b & 0x7F) << shift
 			shift += 7
 
@@ -466,7 +460,7 @@ local class Deserializer
 	}
 
 	function _tag() =
-		:_input.readUInt8()
+		:_uint8()
 
 	function _checkTag(wanted: int)
 	{
@@ -592,17 +586,20 @@ local class Deserializer
 		null
 
 	function _deserializeBoolImpl() =
-		:_input.readUInt8() != 0 ? true : false
+		:_uint8() != 0 ? true : false
 
 	function _deserializeIntImpl() =
 		:_integer()
 
-	function _deserializeFloatImpl() =
-		:_input.readFloat64()
+	function _deserializeFloatImpl()
+	{
+		_readExact(with :_input, :_numBuf, 0, 8)
+		return :_numBuf.readFloat64(0)
+	}
 
 	function _deserializeWeakrefImpl()
 	{
-		if(:_input.readUInt8() != 0)
+		if(:_uint8() != 0)
 			return weakref(:_deserialize())
 		else
 			return weakref(:_dummyObj)
@@ -611,7 +608,7 @@ local class Deserializer
 	function _deserializeStringImpl()
 	{
 		#:_strBuf = :_length()
-		:_input.readExact(:_strBuf)
+		_readExact(with :_input, :_strBuf)
 		return :_addObject(utf8.decode(:_strBuf))
 	}
 
@@ -646,7 +643,7 @@ local class Deserializer
 	{
 		local len = :_length()
 		local ret = memblock_new(len)
-		:_input.readExact(ret)
+		_readExact(with :_input, ret)
 		return ret
 	}
 
@@ -891,7 +888,7 @@ function serializeModule(mod: funcdef, name: string, output: @OutStream)
 	if(mod.isCached())
 		throw ValueError("Only uncached funcdefs can be serialized as modules")
 
-	output.writeExact(ModuleFourCC)
+	_writeExact(with output, ModuleFourCC)
 
 	local graph = [name, mod]
 	local trans = {}
@@ -910,7 +907,7 @@ The inverse of \link{serializeModule}, this deserializes a module and checks tha
 */
 function deserializeModule(input: @InStream)
 {
-	input.readExact(_littleBuf)
+	_readExact(with input, _littleBuf)
 
 	if(_littleBuf != ModuleFourCC)
 		throw ValueError("Invalid magic number at beginning of module")
