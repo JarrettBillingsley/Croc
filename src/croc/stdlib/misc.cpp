@@ -94,6 +94,22 @@ word_t _function_isCacheable(CrocThread* t)
 	return 1;
 }
 
+const StdlibRegisterInfo _function_funcdef_info =
+{
+	Docstr(DFunc("funcdef")
+	R"(\returns the \tt{funcdef} object that this function was instantiated from, or \tt{null} if this function is
+	native.)"),
+
+	"funcdef", 0
+};
+
+word_t _function_funcdef(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Function);
+	croc_function_pushDef(t, 0);
+	return 1;
+}
+
 const StdlibRegister _function_metatable[] =
 {
 	_DListItem(_function_isNative),
@@ -101,6 +117,7 @@ const StdlibRegister _function_metatable[] =
 	_DListItem(_function_maxParams),
 	_DListItem(_function_isVararg),
 	_DListItem(_function_isCacheable),
+	_DListItem(_function_funcdef),
 	_DListEnd
 };
 
