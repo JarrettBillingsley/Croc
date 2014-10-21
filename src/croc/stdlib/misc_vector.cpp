@@ -1627,7 +1627,7 @@ word_t _opSlice(CrocThread* t)
 	auto n = _getMembers(t, -1);
 	auto isize = m.kind->itemSize;
 	memcpy(n.data->data.ptr, m.data->data.ptr + (lo * isize), (hi - lo) * isize);
-	return 0;
+	return 1;
 }
 
 const StdlibRegisterInfo _opSerialize_info =
