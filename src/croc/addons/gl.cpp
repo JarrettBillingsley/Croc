@@ -25,10 +25,6 @@ Following are not wrapped at all:
 	void glMultiDrawElements(GLenum, const GLsizei*, GLenum, const void**, GLsizei);
 	void glMultiDrawElementsBaseVertex(GLenum, const GLsizei*, GLenum, const void**, GLsizei, const GLint*);
 
-	// Return GLsync
-	GLsync glFenceSync(GLenum, GLbitfield);
-	GLsync glCreateSyncFromCLeventARB(struct _cl_context*, struct _cl_event*, GLbitfield);
-
 	// Return pointers whose size cannot necessarily be determined
 	void glGetPointerv(GLenum, void**);
 	void glGetPointeri_vEXT(GLenum, GLuint, void**);
@@ -39,6 +35,12 @@ Following are not wrapped at all:
 	void glGetNamedBufferPointerv(GLuint, GLenum, void**);
 	void glGetNamedBufferPointervEXT(GLuint, GLenum, void**);
 	void* glMapTexture2DINTEL(GLuint, GLint, GLbitfield, GLint*, GLenum*);
+
+	// OpenCL interop
+	GLsync glCreateSyncFromCLeventARB(struct _cl_context*, struct _cl_event*, GLbitfield);
+
+	// Not thread-safe
+	void glDebugMessageCallback(DEBUGPROC callback, void* userParam);
 */
 
 namespace croc
@@ -166,8 +168,11 @@ At present there are a number of APIs which are not available for one reason or 
 (tricky to deal with), and all they're likely to do is just iterate over those arrays and call \tt{glDrawElements} and
 \tt{glDrawElementsBaseVertex} anyway. And you can do that yourself.
 
-\tt{glFenceSync} and \tt{glCreateSyncFromCLeventARB} are not wrapped because they return \tt{GLsync*} and I don't really
-know what that is. Is it treated as an opaque pointer? Please let me know!
+\tt{glCreateSyncFromCLeventARB} is not wrapped because it's a function for OpenCL interop and currently there is no
+OpenCL binding.
+
+\tt{glDebugMessageCallback} is not wrapped because the debug message callback can occur on a different thread, and
+having two threads access the same Croc interpreter is crash city.
 
 Lastly we have functions which return pointers whose size cannot be determined. Several functions return pointers, but
 the size of the memory block they point to can be determined, and so those functions return memblocks. No such luck with
@@ -995,12 +1000,15 @@ struct function_traits<R (*)(Args...)>
 	typedef std::tuple<Args...> arg_types;
 };
 
+// HACK: x64 only has one calling convention, so declaring this in 64-bit mode counts as a duplicate decl
+#if CROC_BUILD_BITS == 32
 template<typename R, typename ...Args>
 struct function_traits<R (APIENTRY *)(Args...)>
 {
 	typedef R result_type;
 	typedef std::tuple<Args...> arg_types;
 };
+#endif
 
 namespace detail
 {
@@ -1327,7 +1335,7 @@ struct wrapDelete
 		if(croc_isArray(t, 1))
 		{
 			if(numParams > 1)
-				croc_eh_throwStd(t, "ParamError", "Expected at most 1 parameter, but was given %d", numParams);
+				croc_eh_throwStd(t, "ParamError", "Expected at most 1 parameter, but was given %" CROC_INTEGER_FORMAT, numParams);
 
 			auto len = croc_len(t, 1);
 
@@ -1339,7 +1347,7 @@ struct wrapDelete
 				croc_idxi(t, 1, i);
 
 				if(!croc_isInt(t, -1))
-					croc_eh_throwStd(t, "TypeError", "Array element %d is not an integer", i);
+					croc_eh_throwStd(t, "TypeError", "Array element %" CROC_INTEGER_FORMAT " is not an integer", i);
 
 				names[i] = croc_getInt(t, -1);
 				croc_popTop(t);
@@ -1350,7 +1358,7 @@ struct wrapDelete
 		else
 		{
 			if(numParams > 1024)
-				croc_eh_throwStd(t, "ParamError", "Expected at most 1024 parameters, but was given %d", numParams);
+				croc_eh_throwStd(t, "ParamError", "Expected at most 1024 parameters, but was given %" CROC_INTEGER_FORMAT, numParams);
 
 			for(word i = 1; i <= numParams; i++)
 				names[i] = croc_ex_checkIntParam(t, i);
@@ -1829,7 +1837,7 @@ word_t crocglTransformFeedbackVaryings(CrocThread* t)
 		croc_idxi(t, 2, i);
 
 		if(!croc_isString(t, -1))
-			croc_eh_throwStd(t, "TypeError", "Array element %d is not a string", i);
+			croc_eh_throwStd(t, "TypeError", "Array element %" CROC_INTEGER_FORMAT " is not a string", i);
 
 		croc_popTop(t);
 	}
@@ -2127,6 +2135,19 @@ void loadGL3_1(CrocThread* t)
 	croc_ex_registerGlobals(t, _gl3_1);
 }
 
+const char* crocglFenceSync_docs
+= Docstr(DFunc("glFenceSync") DParam("condition", "int") DParam("flags", "int")
+R"(\returns an int which represents the \tt{GLsync} object. This can be passed to functions which expect GLsync
+objects.)");
+
+word_t crocglFenceSync(CrocThread* t)
+{
+	auto condition = cast(GLenum)croc_ex_checkIntParam(t, 1);
+	auto flags = cast(GLbitfield)croc_ex_checkIntParam(t, 2);
+	croc_pushInt(t, cast(crocint)glFenceSync(condition, flags));
+	return 1;
+}
+
 const CrocRegisterFunc _gl3_2[] =
 {
 	WRAP(glDrawElementsBaseVertex),
@@ -2134,7 +2155,7 @@ const CrocRegisterFunc _gl3_2[] =
 	WRAP(glDrawElementsInstancedBaseVertex),
 	// WRAP(glMultiDrawElementsBaseVertex),
 	WRAP(glProvokingVertex),
-	// WRAP(glFenceSync),
+	{"glFenceSync", 2, &crocglFenceSync},
 	WRAP(glIsSync),
 	WRAP(glDeleteSync),
 	WRAP(glClientWaitSync),
@@ -2561,48 +2582,6 @@ word_t crocglGetObjectPtrLabel(CrocThread* t)
 	return 1;
 }
 
-void APIENTRY debugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
-	const GLchar* message, const void* vm)
-{
-	auto t = croc_vm_getCurrentThread(cast(CrocThread*)vm);
-
-	auto f = croc_ex_pushRegistryVar(t, "gl.DebugCallback");
-	croc_pushNull(t);
-	croc_pushInt(t, source);
-	croc_pushInt(t, type);
-	croc_pushInt(t, id);
-	croc_pushInt(t, severity);
-	croc_pushStringn(t, message, length);
-	croc_tryCall(t, f, 0);
-}
-
-const char* crocglDebugMessageCallback_docs
-= Docstr(DFunc("glDebugMessageCallback") DParam("callback", "null|function")
-R"(Sets or unsets the OpenGL debug message callback. Passing \tt{null} for \tt{callback} unsets it.
-
-The callback function will be called with five parameters: the source (int), type (int), ID (int), severity (int), and
-the message (string).)");
-
-word_t crocglDebugMessageCallback(CrocThread* t)
-{
-	if(croc_ex_optParam(t, 1, CrocType_Function))
-	{
-		croc_vm_pushRegistry(t);
-		croc_dup(t, 1);
-		croc_fielda(t, -2, "gl.DebugCallback");
-		glDebugMessageCallback(&debugMessageCallback, croc_vm_getMainThread(t));
-	}
-	else
-	{
-		croc_vm_pushRegistry(t);
-		croc_pushNull(t);
-		croc_fielda(t, -2, "gl.DebugCallback");
-		glDebugMessageCallback(nullptr, nullptr);
-	}
-
-	return 0;
-}
-
 const CrocRegisterFunc _gl4_3[] =
 {
 	WRAP(glClearBufferData),
@@ -2640,7 +2619,7 @@ const CrocRegisterFunc _gl4_3[] =
 	WRAP(glVertexBindingDivisor),
 	WRAP(glDebugMessageControl),
 	WRAP(glDebugMessageInsert),
-	{"glDebugMessageCallback", 1, &crocglDebugMessageCallback},
+	// WRAP(glDebugMessageCallback),
 	WRAP(glGetDebugMessageLog),
 	WRAP(glPushDebugGroup),
 	WRAP(glPopDebugGroup),
@@ -3142,50 +3121,11 @@ void load_ARB_copy_image(CrocThread* t)
 	croc_ex_registerGlobals(t, _ARB_copy_image);
 }
 
-void APIENTRY debugMessageCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
-	const GLchar* message, const void* vm)
-{
-	auto t = croc_vm_getCurrentThread(cast(CrocThread*)vm);
-
-	auto f = croc_ex_pushRegistryVar(t, "gl.DebugCallbackARB");
-	croc_pushNull(t);
-	croc_pushInt(t, source);
-	croc_pushInt(t, type);
-	croc_pushInt(t, id);
-	croc_pushInt(t, severity);
-	croc_pushStringn(t, message, length);
-	croc_tryCall(t, f, 0);
-}
-
-const char* crocglDebugMessageCallbackARB_docs
-= Docstr(DFunc("glDebugMessageCallbackARB") DParam("callback", "null|function")
-R"(Works just like \link{glDebugMessageCallback}. This is a separate callback function and won't overlap with that.)");
-
-word_t crocglDebugMessageCallbackARB(CrocThread* t)
-{
-	if(croc_ex_optParam(t, 1, CrocType_Function))
-	{
-		croc_vm_pushRegistry(t);
-		croc_dup(t, 1);
-		croc_fielda(t, -2, "gl.DebugCallbackARB");
-		glDebugMessageCallbackARB(&debugMessageCallbackARB, croc_vm_getMainThread(t));
-	}
-	else
-	{
-		croc_vm_pushRegistry(t);
-		croc_pushNull(t);
-		croc_fielda(t, -2, "gl.DebugCallbackARB");
-		glDebugMessageCallbackARB(nullptr, nullptr);
-	}
-
-	return 0;
-}
-
 const CrocRegisterFunc _ARB_debug_output[] =
 {
 	WRAP(glDebugMessageControlARB),
 	WRAP(glDebugMessageInsertARB),
-	{"glDebugMessageCallbackARB", 1, &crocglDebugMessageCallbackARB},
+	// WRAP(glDebugMessageCallbackARB),
 	WRAP(glGetDebugMessageLogARB),
 	{nullptr, 0, nullptr}
 };
@@ -3661,7 +3601,7 @@ word_t crocglCompileShaderIncludeARB(CrocThread* t)
 		croc_idxi(t, 2, i);
 
 		if(!croc_isString(t, -1))
-			croc_eh_throwStd(t, "TypeError", "Array element %d is not a string", i);
+			croc_eh_throwStd(t, "TypeError", "Array element %" CROC_INTEGER_FORMAT " is not a string", i);
 
 		croc_popTop(t);
 	}
@@ -4376,7 +4316,7 @@ const CrocRegisterFunc _KHR_debug[] =
 {
 	WRAP(glDebugMessageControl),
 	WRAP(glDebugMessageInsert),
-	{"glDebugMessageCallback", 1, &crocglDebugMessageCallback},
+	// WRAP(glDebugMessageCallback),
 	WRAP(glGetDebugMessageLog),
 	WRAP(glPushDebugGroup),
 	WRAP(glPopDebugGroup),
@@ -4783,11 +4723,10 @@ const struct
 	{"glTransformFeedbackVaryings",   crocglTransformFeedbackVaryings_docs},
 	{"glGetTransformFeedbackVarying", crocglGetTransformFeedbackVarying_docs},
 	{"glGetUniformIndices",           crocglGetUniformIndices_docs},
+	{"glFenceSync",                   crocglFenceSync_docs},
 	{"glCreateShaderProgramv",        crocglCreateShaderProgramv_docs},
-	{"glDebugMessageCallback",        crocglDebugMessageCallback_docs},
 	{"glMapNamedBuffer",              crocglMapNamedBuffer_docs},
 	{"glMapNamedBufferRange",         crocglMapNamedBufferRange_docs},
-	{"glDebugMessageCallbackARB",     crocglDebugMessageCallbackARB_docs},
 	{"glCompileShaderIncludeARB",     crocglCompileShaderIncludeARB_docs},
 	{"glMapNamedBufferEXT",           crocglMapNamedBufferEXT_docs},
 	{"glMapNamedBufferRangeEXT",      crocglMapNamedBufferRangeEXT_docs},

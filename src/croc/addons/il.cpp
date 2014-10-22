@@ -475,12 +475,15 @@ struct function_traits<R (*)(Args...)>
 	typedef std::tuple<Args...> arg_types;
 };
 
+// HACK: x64 only has one calling convention, so declaring this in 64-bit mode counts as a duplicate decl
+#if CROC_BUILD_BITS == 32
 template<typename R, typename ...Args>
 struct function_traits<R (APIENTRY *)(Args...)>
 {
 	typedef R result_type;
 	typedef std::tuple<Args...> arg_types;
 };
+#endif
 
 namespace detail
 {

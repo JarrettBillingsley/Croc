@@ -14,7 +14,7 @@ namespace
 void initModulesLib(CrocThread* t)
 {
 	croc_table_new(t, 1);
-		croc_function_new(t, "_setfenv", 2, [](CrocThread* t)
+		croc_function_new(t, "_setfenv", 2, [](CrocThread* t) -> word_t
 		{
 			croc_dup(t, 2);
 			croc_function_setEnv(t, 1);

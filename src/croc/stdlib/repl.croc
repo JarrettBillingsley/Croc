@@ -163,7 +163,7 @@ local function _tryAsExpression(inout, buffer: string)
 			else
 				inout.write(", ")
 
-			dumpVal(ret, false, output)
+			dumpVal(ret, false, inout)
 		}
 
 		inout.writeln()
@@ -305,6 +305,8 @@ function interactive(inout)
 console, like \tt{repl.interactive(repl.ConsoleInout)}. */
 class ConsoleInout
 {
+	function flush() {}
+
 	function readln(prompt: string)
 	{
 		console.stdout.write(prompt)

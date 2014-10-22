@@ -281,6 +281,7 @@ PcreGroupRange getGroupRange(CrocThread* t, word group)
 		croc_ex_paramTypeError(t, group, "int|string");
 
 	assert(false);
+	return gi[0]; // dummy
 }
 
 inline crocstr checkCrocstrParam(CrocThread* t, word_t slot)
