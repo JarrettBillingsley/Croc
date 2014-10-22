@@ -1335,7 +1335,7 @@ struct wrapDelete
 		if(croc_isArray(t, 1))
 		{
 			if(numParams > 1)
-				croc_eh_throwStd(t, "ParamError", "Expected at most 1 parameter, but was given %" CROC_INTEGER_FORMAT, numParams);
+				croc_eh_throwStd(t, "ParamError", "Expected at most 1 parameter, but was given %" CROC_SSIZE_T_FORMAT, numParams);
 
 			auto len = croc_len(t, 1);
 
@@ -1347,7 +1347,7 @@ struct wrapDelete
 				croc_idxi(t, 1, i);
 
 				if(!croc_isInt(t, -1))
-					croc_eh_throwStd(t, "TypeError", "Array element %" CROC_INTEGER_FORMAT " is not an integer", i);
+					croc_eh_throwStd(t, "TypeError", "Array element %" CROC_SSIZE_T_FORMAT " is not an integer", i);
 
 				names[i] = croc_getInt(t, -1);
 				croc_popTop(t);
@@ -1358,7 +1358,7 @@ struct wrapDelete
 		else
 		{
 			if(numParams > 1024)
-				croc_eh_throwStd(t, "ParamError", "Expected at most 1024 parameters, but was given %" CROC_INTEGER_FORMAT, numParams);
+				croc_eh_throwStd(t, "ParamError", "Expected at most 1024 parameters, but was given %" CROC_SSIZE_T_FORMAT, numParams);
 
 			for(word i = 1; i <= numParams; i++)
 				names[i] = croc_ex_checkIntParam(t, i);
@@ -1837,7 +1837,7 @@ word_t crocglTransformFeedbackVaryings(CrocThread* t)
 		croc_idxi(t, 2, i);
 
 		if(!croc_isString(t, -1))
-			croc_eh_throwStd(t, "TypeError", "Array element %" CROC_INTEGER_FORMAT " is not a string", i);
+			croc_eh_throwStd(t, "TypeError", "Array element %" CROC_SSIZE_T_FORMAT " is not a string", i);
 
 		croc_popTop(t);
 	}
@@ -3601,7 +3601,7 @@ word_t crocglCompileShaderIncludeARB(CrocThread* t)
 		croc_idxi(t, 2, i);
 
 		if(!croc_isString(t, -1))
-			croc_eh_throwStd(t, "TypeError", "Array element %" CROC_INTEGER_FORMAT " is not a string", i);
+			croc_eh_throwStd(t, "TypeError", "Array element %" CROC_SSIZE_T_FORMAT " is not a string", i);
 
 		croc_popTop(t);
 	}
