@@ -1,5 +1,4 @@
 #ifndef CROC_GLFW_ADDON
-#pragma message "waaaat"
 #include "croc/api.h"
 
 namespace croc
