@@ -291,7 +291,7 @@ CROCAPI void   croc_array_fill         (CrocThread* t, word_t arr);
 Functions which operate on memblocks. */
 /**@{*/
 CROCAPI word_t croc_memblock_new               (CrocThread* t, uword_t len);
-CROCAPI word_t croc_memblock_fromNativeArray   (CrocThread* t, void* arr, uword_t arrLen);
+CROCAPI word_t croc_memblock_fromNativeArray   (CrocThread* t, const void* arr, uword_t arrLen);
 CROCAPI word_t croc_memblock_viewNativeArray   (CrocThread* t, void* arr, uword_t arrLen);
 CROCAPI void   croc_memblock_reviewNativeArray (CrocThread* t, word_t slot, void* arr, uword_t arrLen);
 CROCAPI char*  croc_memblock_getData           (CrocThread* t, word_t slot);

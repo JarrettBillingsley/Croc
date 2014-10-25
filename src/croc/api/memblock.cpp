@@ -22,7 +22,7 @@ extern "C"
 	\param arr is the pointer to the array.
 	\param arrLen is the length of the array, in bytes.
 	\returns the stack index of the pushed value. */
-	word_t croc_memblock_fromNativeArray(CrocThread* t_, void* arr, uword_t arrLen)
+	word_t croc_memblock_fromNativeArray(CrocThread* t_, const void* arr, uword_t arrLen)
 	{
 		auto t = Thread::from(t_);
 		auto ret = croc_memblock_new(t_, arrLen);
