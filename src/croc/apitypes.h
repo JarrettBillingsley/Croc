@@ -166,7 +166,8 @@ typedef enum CrocAddons
 	CrocAddons_Net =     8, /**< The \c net lib. */
 	CrocAddons_Glfw =    16, /**< The \c glfw lib. */
 	CrocAddons_OpenAL =  32, /**< The \c openal lib. */
-	CrocAddons_Safe = CrocAddons_Pcre, /**< The safe addons. */
+	CrocAddons_ImGui =   64, /**< The \c openal lib. */
+	CrocAddons_Safe = CrocAddons_Pcre | CrocAddons_ImGui, /**< The safe addons. */
 	CrocAddons_Unsafe = CrocAddons_Devil | CrocAddons_Net | CrocAddons_Glfw | CrocAddons_OpenAL, /**< The unsafe addons. */
 	CrocAddons_All = CrocAddons_Safe | CrocAddons_Unsafe /**< All addons, safe or not. */
 } CrocAddons;

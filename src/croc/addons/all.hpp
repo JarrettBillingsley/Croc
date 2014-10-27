@@ -3,10 +3,11 @@
 
 namespace croc
 {
-	void initOpenAlLib(CrocThread* t);
 	void initDevilLib(CrocThread* t);
 	void initGlfwLib(CrocThread* t);
+	void initImGuiLib(CrocThread* t);
 	void initNetLib(CrocThread* t);
+	void initOpenAlLib(CrocThread* t);
 	void initPcreLib(CrocThread* t);
 }
 

@@ -71,6 +71,9 @@ namespace
 #ifdef CROC_OPENAL_ADDON
 		"openal",
 #endif
+#ifdef CROC_IMGUI_ADDON
+		"imgui",
+#endif
 		nullptr
 	};
 }
@@ -266,6 +269,7 @@ extern "C"
 		if(libs & CrocAddons_Net)    {} //initNetLib(t);
 		if(libs & CrocAddons_Glfw)   initGlfwLib(t);
 		if(libs & CrocAddons_OpenAL) initOpenAlLib(t);
+		if(libs & CrocAddons_ImGui)  initImGuiLib(t);
 	}
 
 	/** Loads addons which were compiled into the Croc library. This uses the \c CROC_XXX_ADDON macros to determine
@@ -291,6 +295,9 @@ extern "C"
 #endif
 #ifdef CROC_OPENAL_ADDON
 		if(!(exclude & CrocAddons_OpenAL)) initOpenAlLib(t);
+#endif
+#ifdef CROC_OPENAL_ADDON
+		if(!(exclude & CrocAddons_ImGui))  initImGuiLib(t);
 #endif
 	}
 

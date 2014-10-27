@@ -223,6 +223,7 @@ global AddonNames =
 	"devil"
 	"gl"
 	"glfw"
+	"imgui"
 	"openal"
 	"pcre"
 ]

@@ -1,0 +1,401 @@
+module samples.imguitest
+
+import devil as il
+import glfw
+import imgui
+
+object.addMethod(glfw.Window, "center", function center(mon: glfw.Monitor)
+{
+	local mode = mon.getVideoMode()
+	local sw, sh = mode.width, mode.height
+	local w, h = :getSize()
+	:setPos((sw / 2) - (w / 2), (sh / 2) - (h / 2))
+})
+
+local window
+local fontTex
+local mousePressed = [false false]
+local mousePosScaleX, mousePosScaleY = 1.0, 1.0
+
+local VBO_imgui, VAO_imgui
+local PROG_imgui
+local ATTR_pos, ATTR_uv, ATTR_color
+local UNIF_proj, UNIF_clipRect, UNIF_fontTex
+
+local first = true
+function renderDrawLists(verts: memblock, vertSize: int, commands: array, numCommands: int)
+{
+	if(vertSize == 0 or numCommands == 0)
+		return
+
+	gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO_imgui)
+	gl.glBindVertexArray(VAO_imgui)
+	gl.glBufferData(gl.GL_ARRAY_BUFFER, vertSize, null, gl.GL_STREAM_DRAW)
+	local dest = gl.glMapBuffer(gl.GL_ARRAY_BUFFER, gl.GL_WRITE_ONLY)
+	dest.copy(0, verts, 0, vertSize)
+	gl.glUnmapBuffer(gl.GL_ARRAY_BUFFER)
+
+	gl.glEnable(gl.GL_BLEND)
+	gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+	gl.glDisable(gl.GL_CULL_FACE)
+	gl.glDisable(gl.GL_DEPTH_TEST)
+
+	gl.glBindTexture(gl.GL_TEXTURE_2D, fontTex)
+	gl.glUseProgram(PROG_imgui)
+
+	local w, h = imgui.io.getDisplaySize()
+	w = w as int
+	h = h as int
+	local offset = 0
+
+	if(first)
+	{
+		first = false
+		local mvp = Vector.fromArray(gl.GLfloat, [2.0/w, 0, 0, 0, 0, 2.0/-h, 0, 0, 0, 0, -1, 0, -1, 1, 0, 1])
+		gl.glUniformMatrix4fv(UNIF_proj, 1, false, mvp.getMemblock())
+	}
+
+	for(i: 0 .. numCommands)
+	{
+		local cmd = commands[i]
+		local clipL, clipR, clipT, clipB = cmd.clipL, cmd.clipR, cmd.clipT, cmd.clipB
+		local numVerts = cmd.numVerts
+		gl.glUniform4f(UNIF_clipRect, clipL, clipT, clipR, clipB)
+		gl.glDrawArrays(gl.GL_TRIANGLES, offset, numVerts)
+		offset += numVerts
+	}
+}
+
+function getClipboardText() =
+	window.getClipboardString()
+
+function setClipboardText(text: string)
+	window.setClipboardString(text)
+
+local VS_imgui = @`
+#version 150 core
+
+uniform mat4 MVP;
+
+in vec2 i_pos;
+in vec2 i_uv;
+in vec4 i_col;
+
+out vec4 col;
+out vec2 pixel_pos;
+out vec2 uv;
+
+void main()
+{
+	col = i_col;
+	pixel_pos = i_pos;
+	uv = i_uv;
+	gl_Position = MVP * vec4(i_pos.x, i_pos.y, 0.0f, 1.0f);
+}`
+
+local FS_imgui = @`
+#version 150 core
+
+uniform sampler2D Tex;
+uniform vec4 ClipRect;
+
+in vec4 col;
+in vec2 pixel_pos;
+in vec2 uv;
+
+out vec4 o_col;
+
+void main()
+{
+	o_col = texture(Tex, uv) * col;
+	o_col.w *= (
+		step(ClipRect.x, pixel_pos.x) *
+		step(ClipRect.y, pixel_pos.y) *
+		step(pixel_pos.x, ClipRect.z) *
+		step(pixel_pos.y, ClipRect.w));
+}`
+
+function initImGui()
+{
+	local w, h = window.getSize()
+	local fbW, fbH = window.getFramebufferSize()
+	mousePosScaleX = fbW / (w as float)
+	mousePosScaleY = fbH / (h as float)
+
+	imgui.io.setDisplaySize(fbW, fbH)
+	imgui.io.setDeltaTime(1 / 60.0)
+	imgui.io.setPixelCenterOffset(0.0)
+	imgui.io.setKeyMap(imgui.Key_Tab,        glfw.KEY_TAB)
+	imgui.io.setKeyMap(imgui.Key_LeftArrow,  glfw.KEY_LEFT)
+	imgui.io.setKeyMap(imgui.Key_RightArrow, glfw.KEY_RIGHT)
+	imgui.io.setKeyMap(imgui.Key_UpArrow,    glfw.KEY_UP)
+	imgui.io.setKeyMap(imgui.Key_DownArrow,  glfw.KEY_DOWN)
+	imgui.io.setKeyMap(imgui.Key_Home,       glfw.KEY_HOME)
+	imgui.io.setKeyMap(imgui.Key_End,        glfw.KEY_END)
+	imgui.io.setKeyMap(imgui.Key_Delete,     glfw.KEY_DELETE)
+	imgui.io.setKeyMap(imgui.Key_Backspace,  glfw.KEY_BACKSPACE)
+	imgui.io.setKeyMap(imgui.Key_Enter,      glfw.KEY_ENTER)
+	imgui.io.setKeyMap(imgui.Key_Escape,     glfw.KEY_ESCAPE)
+	imgui.io.setKeyMap(imgui.Key_A,          glfw.KEY_A)
+	imgui.io.setKeyMap(imgui.Key_C,          glfw.KEY_C)
+	imgui.io.setKeyMap(imgui.Key_V,          glfw.KEY_V)
+	imgui.io.setKeyMap(imgui.Key_X,          glfw.KEY_X)
+	imgui.io.setKeyMap(imgui.Key_Y,          glfw.KEY_Y)
+	imgui.io.setKeyMap(imgui.Key_Z,          glfw.KEY_Z)
+
+	imgui.io.setRenderDrawListsCallback(renderDrawLists)
+	imgui.io.setSetClipboardTextCallback(setClipboardText)
+	imgui.io.setGetClipboardTextCallback(getClipboardText)
+
+	local vertexShader = gl.glCreateShader(gl.GL_VERTEX_SHADER)
+	gl.glShaderSource(vertexShader, VS_imgui)
+	gl.glCompileShader(vertexShader)
+	local TEMP = memblock.new(gl.sizeofGLuint)
+	gl.glGetShaderiv(vertexShader, gl.GL_COMPILE_STATUS, TEMP)
+	local status = TEMP.readUInt32(0)
+	if(status == 0)
+	{
+		writefln("Error compiling shader: {}", gl.glGetShaderInfoLog(vertexShader))
+		assert(false)
+	}
+
+	local fragmentShader = gl.glCreateShader(gl.GL_FRAGMENT_SHADER)
+	gl.glShaderSource(fragmentShader, FS_imgui)
+	gl.glCompileShader(fragmentShader)
+	gl.glGetShaderiv(fragmentShader, gl.GL_COMPILE_STATUS, TEMP)
+	status = TEMP.readUInt32(0)
+	if(status == 0)
+	{
+		writefln("Error compiling shader: {}", gl.glGetShaderInfoLog(fragmentShader))
+		assert(false)
+	}
+
+	PROG_imgui = gl.glCreateProgram()
+	gl.glAttachShader(PROG_imgui, vertexShader)
+	gl.glAttachShader(PROG_imgui, fragmentShader)
+	gl.glBindFragDataLocation(PROG_imgui, 0, "o_col")
+	gl.glLinkProgram(PROG_imgui)
+	gl.glGetProgramiv(PROG_imgui, gl.GL_LINK_STATUS, TEMP)
+	status = TEMP.readUInt32(0)
+
+	if(status == 0)
+	{
+		writefln("Error linking program: {}", gl.glGetProgramInfoLog(PROG_imgui))
+		assert(false)
+	}
+
+	VBO_imgui = gl.glGenBuffers(1)
+	gl.glBindBuffer(gl.GL_ARRAY_BUFFER, VBO_imgui)
+	VAO_imgui = gl.glGenVertexArrays(1)
+	gl.glBindVertexArray(VAO_imgui)
+
+	ATTR_pos = gl.glGetAttribLocation(PROG_imgui, "i_pos")
+	gl.glVertexAttribPointer(ATTR_pos, 2, gl.GL_FLOAT, false, 20, 0)
+	gl.glEnableVertexAttribArray(ATTR_pos)
+
+	ATTR_uv = gl.glGetAttribLocation(PROG_imgui, "i_uv")
+	gl.glEnableVertexAttribArray(ATTR_uv)
+	gl.glVertexAttribPointer(ATTR_uv, 2, gl.GL_FLOAT, false, 20, 2 * gl.sizeofGLfloat)
+
+	ATTR_color = gl.glGetAttribLocation(PROG_imgui, "i_col")
+	gl.glVertexAttribPointer(ATTR_color, 4, gl.GL_UNSIGNED_BYTE, true, 20, 4 * gl.sizeofGLfloat)
+	gl.glEnableVertexAttribArray(ATTR_color)
+
+	UNIF_proj = gl.glGetUniformLocation(PROG_imgui, "MVP")
+	UNIF_clipRect = gl.glGetUniformLocation(PROG_imgui, "ClipRect")
+
+	gl.glBindVertexArray(0)
+	gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+
+	// Load font texture
+	fontTex = gl.glGenTextures(1)
+	gl.glBindTexture(gl.GL_TEXTURE_2D, fontTex)
+	gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
+	gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
+
+	local imageHandle_ = Vector(il.ILuint, 1)
+	il.ilGenImages(1, imageHandle_.getMemblock())
+	local imageHandle = imageHandle_[0]
+	il.ilBindImage(imageHandle)
+	local defaultFont = imgui.getDefaultFontData()
+	il.ilLoadL(il.IL_PNG, defaultFont, #defaultFont)
+	il.ilConvertImage(il.IL_RGBA, il.IL_UNSIGNED_BYTE)
+	local imw, imh = il.ilGetInteger(il.IL_IMAGE_WIDTH), il.ilGetInteger(il.IL_IMAGE_HEIGHT)
+	local data = il.ilGetData()
+	gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, imw, imh, 0, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE, il.ilGetData())
+	il.ilDeleteImages(1, imageHandle_.getMemblock())
+}
+
+local _time = 0.0
+
+function updateImGui()
+{
+	local curTime = glfw.getTime()
+	imgui.io.setDeltaTime(curTime - _time)
+	_time = curTime
+
+	local mouseX, mouseY = window.getCursorPos()
+	imgui.io.setMousePos(mouseX * mousePosScaleX, mouseY * mousePosScaleY)
+	imgui.io.setMouseDown(0, mousePressed[0] or window.getMouseButton(0))
+	imgui.io.setMouseDown(1, mousePressed[1] or window.getMouseButton(1))
+
+	// imgui.newFrame()
+}
+
+function doEvents()
+{
+	mousePressed[0] = false
+	mousePressed[1] = false
+	imgui.io.setMouseWheel(0)
+
+	foreach(type, wm, a, b, c, d; glfw.pollEvents)
+	{
+		switch(type)
+		{
+			case "mousebutton":
+				if(b is 'press' and a >= 0 and a < 2)
+					mousePressed[a] = true;
+				break
+
+			case "scroll":
+				imgui.io.setMouseWheel(b > 0 ? 1 : b < 0 ? -1 : 0)
+				break
+
+			case "key":
+				if(c is 'press')
+					imgui.io.setKeysDown(a, true)
+				if(c is 'release')
+					imgui.io.setKeysDown(a, false)
+
+				imgui.io.setKeyCtrl((d & glfw.MOD_CONTROL) != 0)
+				imgui.io.setKeyShift((d & glfw.MOD_SHIFT) != 0)
+				break
+
+			case "char":
+				if(a.ord() > 0 and a.ord() <= 0xFFFF)
+					imgui.io.addInputCharacter(a)
+				break
+		}
+	}
+}
+
+function main()
+{
+	if(not glfw.init())
+		return 1
+
+	scope(exit) glfw.terminate()
+
+	glfw.windowHint(glfw.RESIZABLE, 0)
+	glfw.windowHint(glfw.OPENGL_DEBUG_CONTEXT, 1)
+	window = glfw.createWindow(1280, 960, "ImGui Test", null, null)
+	window.center(glfw.getPrimaryMonitor())
+	window.show()
+	window.enableEvents("key", "mousebutton", "scroll", "char")
+	glfw.makeContextCurrent(window)
+	glfw.loadOpenGL()
+
+	imgui.init()
+	scope(exit) imgui.shutdown()
+	initImGui()
+
+	local state  =
+	{
+		f = 0.0
+		showTestWindow = true
+		showAnotherWindow = false
+		comboSelection = 0
+	}
+
+	local comboOptions = ["Apple", "Banana", "Cherry", "Durian"]
+	local function comboFn(i) = i < #comboOptions ? comboOptions[i] : null
+
+	local msPerFrame = array.new(120, 0)
+	local msPerFrameIdx = 0
+	local msPerFrameAccum = 0.0
+
+	local gcAllocated = array.new(120, gc.allocated() / 1000.0)
+	local gcAllocatedIdx = 0
+	local gcAllocatedTimer = 30
+
+	local style = imgui.getStyle()
+	style.windowFillAlphaDefault = 1.0
+	imgui.setStyle(style)
+
+	local filter = imgui.TextFilter()
+	local filterLines = ["aaa1.c", "bbb1.c", "ccc1.c", "aaa2.cpp", "bbb2.cpp", "ccc2.cpp", "abc.h", "hello, world"]
+
+	while(not window.shouldClose())
+	{
+		doEvents()
+		updateImGui()
+		imgui.newFrame()
+
+		imgui.text("Hello, world!")
+
+		if(imgui.isHovered())
+		{
+			imgui.beginTooltip()
+			imgui.text("I SAID HELLO")
+			imgui.endTooltip()
+		}
+
+		imgui.sliderFloat("float", state, 'f', 0, 1)
+		imgui.plotLines("GC", \i -> gcAllocated[i], #gcAllocated, gcAllocatedIdx, null, null, null, null, 100)
+		imgui.comboFunc("Choose a thing!", state, 'comboSelection', comboFn, #comboOptions)
+		state.showTestWindow = imgui.button("Test Window") ? not state.showTestWindow : state.showTestWindow
+		state.showAnotherWindow = imgui.button("Another Window") ? not state.showAnotherWindow : state.showAnotherWindow
+
+		// Calculate and show framerate
+		msPerFrameAccum -= msPerFrame[msPerFrameIdx]
+		msPerFrame[msPerFrameIdx] = imgui.io.getDeltaTime() * 1000.0
+		msPerFrameAccum += msPerFrame[msPerFrameIdx]
+		msPerFrameIdx = (msPerFrameIdx + 1) % 120
+		local msPerFrameAvg = msPerFrameAccum / 120.0
+		imgui.text("Application average {:.3f} ms/frame ({:.1f} FPS)".format(msPerFrameAvg, 1000.0 / msPerFrameAvg))
+
+		imgui.plotLines("Frame times", \i -> msPerFrame[i], #msPerFrame, msPerFrameIdx, null, 0, 30, null, 100)
+
+		imgui.text("Filter usage:\n" ~
+			"  \"\"         display all lines\n" ~
+			"  \"xxx\"      display lines containing \"xxx\"\n" ~
+			"  \"xxx,yyy\"  display lines containing \"xxx\" or \"yyy\"\n" ~
+			"  \"-xxx\"     hide lines containing \"xxx\"")
+		filter.draw()
+
+		foreach(line; filterLines)
+			if(filter.passFilter(line))
+				imgui.bulletText(line)
+
+		if(state.showAnotherWindow)
+		{
+			imgui.beginClosable("Another Window", state, 'showAnotherWindow', 500, 400)
+			imgui.text("Hello")
+			imgui.showStyleEditor(style)
+			imgui.end()
+		}
+
+		if(state.showTestWindow)
+		{
+			imgui.setNewWindowDefaultPos(650, 20)
+			imgui.showTestWindowClosable(state, 'showTestWindow')
+		}
+
+		local dx, dy = imgui.io.getDisplaySize()
+		gl.glViewport(0, 0, dx as int, dy as int)
+		gl.glClearColor(0.3, 0.2, 0.2, 1)
+		gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+		imgui.render()
+
+		window.swapBuffers()
+
+		gcAllocatedTimer--
+
+		if(gcAllocatedTimer <= 0)
+		{
+			gcAllocated[gcAllocatedIdx] = gc.allocated() / 1000.0
+			gcAllocatedIdx = (gcAllocatedIdx + 1) % #gcAllocated
+			gcAllocatedTimer = 30
+		}
+	}
+}

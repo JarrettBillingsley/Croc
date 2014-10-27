@@ -7,6 +7,15 @@ set(CROC_GLFW_ADDON   "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the GLFW addo
 set(CROC_NET_ADDON    "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the net addon.")
 set(CROC_PCRE_ADDON   "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the libPCRE addon.")
 set(CROC_OPENAL_ADDON "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the OpenAL addon.")
+set(CROC_IMGUI_ADDON  "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the ImGui addon.")
+
+if(NOT DEFINED CROC_BUILD_BITS)
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(CROC_BUILD_BITS 64)
+	else()
+		set(CROC_BUILD_BITS 32)
+	endif()
+endif()
 
 set(croc_SRC
 	croc/addons/all.hpp
@@ -16,6 +25,7 @@ set(croc_SRC
 	croc/addons/glfw.hpp
 	croc/addons/il.cpp
 	croc/addons/il.hpp
+	croc/addons/imgui.cpp
 	croc/addons/pcre.cpp
 	croc/api/apichecks.hpp
 	croc/api/array.cpp
@@ -241,14 +251,6 @@ set(croc_ALLSRC
 	${croc_CROCSRC_CONVERTED}
 )
 
-if(NOT DEFINED CROC_BUILD_BITS)
-	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-		set(CROC_BUILD_BITS 64)
-	else()
-		set(CROC_BUILD_BITS 32)
-	endif()
-endif()
-
 if(CMAKE_COMPILER_IS_GNUCXX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmax-errors=2 -m${CROC_BUILD_BITS}")
@@ -280,6 +282,9 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 	if(CROC_OPENAL_ADDON)
 		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_OPENAL_ADDON")
 	endif()
+	if(CROC_IMGUI_ADDON)
+		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_IMGUI_ADDON")
+	endif()
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CROC_ADDON_FLAGS}")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DCROC_STOMP_MEMORY=1 -DCROC_LEAK_DETECTOR=1")
@@ -292,3 +297,9 @@ endif()
 
 add_library(croc ${croc_ALLSRC})
 add_dependencies(croc ConvertCrocFiles)
+
+if(CROC_IMGUI_ADDON)
+	add_subdirectory(croc/ext/imgui)
+	add_dependencies(croc imgui)
+	target_link_libraries(croc imgui)
+endif()
