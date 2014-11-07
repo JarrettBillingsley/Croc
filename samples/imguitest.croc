@@ -70,7 +70,9 @@ function getClipboardText() =
 	window.getClipboardString()
 
 function setClipboardText(text: string)
+{
 	window.setClipboardString(text)
+}
 
 local VS_imgui = @`
 #version 150 core

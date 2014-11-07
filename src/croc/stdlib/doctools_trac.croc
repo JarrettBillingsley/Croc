@@ -40,8 +40,8 @@ class TracWikiOutputter : DocOutputter
 		:endItem()
 	}
 
-	override function beginFunction(doctable: table) :beginItem(doctable)
-	override function endFunction() :endItem()
+	override function beginFunction(doctable: table) { :beginItem(doctable) }
+	override function endFunction() { :endItem() }
 
 	override function beginClass(doctable: table)
 	{
@@ -67,10 +67,10 @@ class TracWikiOutputter : DocOutputter
 		:endItem()
 	}
 
-	override function beginField(doctable: table) :beginItem(doctable)
-	override function endField() :endItem()
-	override function beginVariable(doctable: table) :beginItem(doctable)
-	override function endVariable() :endItem()
+	override function beginField(doctable: table) { :beginItem(doctable) }
+	override function endField() { :endItem() }
+	override function beginVariable(doctable: table) { :beginItem(doctable) }
+	override function endVariable() { :endItem() }
 
 	function beginItem(doctable: table)
 	{
@@ -184,7 +184,7 @@ class TracWikiOutputter : DocOutputter
 		:beginDefDef()
 	}
 
-	override function endParameter() :endDefDef()
+	override function endParameter() { :endDefDef() }
 
 	override function beginException(name: string)
 	{
@@ -196,7 +196,7 @@ class TracWikiOutputter : DocOutputter
 		:beginDefDef()
 	}
 
-	override function endException() :endDefDef()
+	override function endException() { :endDefDef() }
 
 	// =================================================================================================================
 	// Paragraph-level stuff
@@ -227,7 +227,9 @@ class TracWikiOutputter : DocOutputter
 	}
 
 	override function endCode()
+	{
 		:outputText("\n}}}\n")
+	}
 
 	override function beginVerbatim(type: string)
 	{
@@ -236,7 +238,9 @@ class TracWikiOutputter : DocOutputter
 	}
 
 	override function endVerbatim()
+	{
 		:outputText("\n}}}\n")
+	}
 
 	override function beginBulletList()
 	{
@@ -281,7 +285,9 @@ class TracWikiOutputter : DocOutputter
 	}
 
 	override function endListItem()
+	{
 		:_isFirstInSection = false
+	}
 
 	override function beginDefList()
 	{
@@ -307,7 +313,9 @@ class TracWikiOutputter : DocOutputter
 	}
 
 	override function endDefTerm()
+	{
 		:outputText("::\n")
+	}
 
 	override function beginDefDef()
 	{
@@ -316,7 +324,9 @@ class TracWikiOutputter : DocOutputter
 	}
 
 	override function endDefDef()
+	{
 		:_isFirstInSection = false
+	}
 
 	override function beginTable()
 	{
@@ -334,32 +344,38 @@ class TracWikiOutputter : DocOutputter
 	}
 
 	override function beginRow()
+	{
 		:outputText("||")
+	}
 
 	override function endRow()
+	{
 		:outputText("\n")
+	}
 
 	override function beginCell() {}
 
 	override function endCell()
+	{
 		:outputText("||")
+	}
 
-	override function beginBold() :outputText("'''")
-	override function endBold() :outputText("'''")
-	override function beginEmphasis() :outputText("''")
-	override function endEmphasis() :outputText("''")
-	override function beginLink(link: string) :outputText("[",  :_linkResolver.resolveLink(link), " ")
-	override function endLink() :outputText("]")
-	override function beginMonospace() :outputText("`")
-	override function endMonospace() :outputText("`")
-	override function beginStrikethrough() :outputText("~~")
-	override function endStrikethrough() :outputText("~~")
-	override function beginSubscript() :outputText(",,")
-	override function endSubscript() :outputText(",,")
-	override function beginSuperscript() :outputText("^")
-	override function endSuperscript() :outputText("^")
-	override function beginUnderline() :outputText("__")
-	override function endUnderline() :outputText("__")
+	override function beginBold() { :outputText("'''") }
+	override function endBold() { :outputText("'''") }
+	override function beginEmphasis() { :outputText("''") }
+	override function endEmphasis() { :outputText("''") }
+	override function beginLink(link: string) { :outputText("[",  :_linkResolver.resolveLink(link), " ") }
+	override function endLink() { :outputText("]") }
+	override function beginMonospace() { :outputText("`") }
+	override function endMonospace() { :outputText("`") }
+	override function beginStrikethrough() { :outputText("~~") }
+	override function endStrikethrough() { :outputText("~~") }
+	override function beginSubscript() { :outputText(",,") }
+	override function endSubscript() { :outputText(",,") }
+	override function beginSuperscript() { :outputText("^") }
+	override function endSuperscript() { :outputText("^") }
+	override function beginUnderline() { :outputText("__") }
+	override function endUnderline() { :outputText("__") }
 
 	/**
 	By default, this method just outputs each of its params to stdout. If you want to make the output go somewhere else,

@@ -490,7 +490,9 @@ class Position : Component
 	y = 0.0
 
 	function set(x, y)
+	{
 		:x, :y = x, y
+	}
 }
 
 class Velocity : Component
@@ -499,7 +501,9 @@ class Velocity : Component
 	y = 0.0
 
 	function set(x, y)
+	{
 		:x, :y = x, y
+	}
 }
 
 class Rotation : Component
@@ -513,7 +517,9 @@ class Bounds : Component
 	h = 0
 
 	function set(w, h)
+	{
 		:w, :h = w, h
+	}
 }
 
 class PlayerLifetime : Component
@@ -539,7 +545,9 @@ class Sprite : Component
 	layer = 0
 
 	function set(img, frame, layer = 0)
+	{
 		:img, :frame, :layer = img, frame, layer
+	}
 }
 
 class Collidable : Component

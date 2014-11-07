@@ -338,7 +338,9 @@ class LinkTranslator
 	\returns the link translated into a form that makes sense to whatever output format you're using.
 	*/
 	function translateLink(mod: string, item: string)
+	{
 		throw NotImplementedError()
+	}
 
 	/**
 	Given a URI, translates it into a suitable link string.
@@ -350,7 +352,9 @@ class LinkTranslator
 	\returns the link translated into a form that makes sense to whatever output format you're using.
 	*/
 	function translateURI(uri: string)
+	{
 		throw NotImplementedError()
+	}
 
 	/**
 	This method is called when the given link fails to resolve.
@@ -365,7 +369,9 @@ class LinkTranslator
 	\throws[exceptions.ValueError] by default as explained above.
 	*/
 	function invalidLink(link: string)
+	{
 		throw ValueError("No target found for link '{}'".format(link))
+	}
 }
 
 /// Checks if a given name is a valid name for a doc section.
@@ -723,13 +729,17 @@ class SectionOrder
 	\param[before] is the name of the section before which \tt{sec} will be inserted.
 	*/
 	function insertSectionBefore(sec: string, before: string)
+	{
 		:_insertSectionImpl(sec, before, false)
+	}
 
 	/**
 	Same as \link{insertSectionBefore}, but puts \tt{sec} after \tt{after} instead of before it.
 	*/
 	function insertSectionAfter(sec: string, after: string)
+	{
 		:_insertSectionImpl(sec, after, true)
+	}
 
 	function _insertSectionImpl(sec: string, target: string, after: bool)
 	{
@@ -781,18 +791,18 @@ class DocOutputter
 
 	\param[doctable] is the doc table of the given item.
 	*/
-	function beginModule(doctable: table) throw NotImplementedError()
-	function endModule() throw NotImplementedError() /// ditto
-	function beginFunction(doctable: table) throw NotImplementedError() /// ditto
-	function endFunction() throw NotImplementedError() /// ditto
-	function beginClass(doctable: table) throw NotImplementedError() /// ditto
-	function endClass() throw NotImplementedError() /// ditto
-	function beginNamespace(doctable: table) throw NotImplementedError() /// ditto
-	function endNamespace() throw NotImplementedError() /// ditto
-	function beginField(doctable: table) throw NotImplementedError() /// ditto
-	function endField() throw NotImplementedError() /// ditto
-	function beginVariable(doctable: table) throw NotImplementedError() /// ditto
-	function endVariable() throw NotImplementedError() /// ditto
+	function beginModule(doctable: table) { throw NotImplementedError() }
+	function endModule() { throw NotImplementedError() } /// ditto
+	function beginFunction(doctable: table) { throw NotImplementedError() } /// ditto
+	function endFunction() { throw NotImplementedError() } /// ditto
+	function beginClass(doctable: table) { throw NotImplementedError() } /// ditto
+	function endClass() { throw NotImplementedError() } /// ditto
+	function beginNamespace(doctable: table) { throw NotImplementedError() } /// ditto
+	function endNamespace() { throw NotImplementedError() } /// ditto
+	function beginField(doctable: table) { throw NotImplementedError() } /// ditto
+	function endField() { throw NotImplementedError() } /// ditto
+	function beginVariable(doctable: table) { throw NotImplementedError() } /// ditto
+	function endVariable() { throw NotImplementedError() } /// ditto
 
 	// Section-level stuff
 
@@ -808,10 +818,10 @@ class DocOutputter
 	\param[name] is the name of the section, completely unmodified (so it will be lowercase and, if it's a custom
 		section, will still have the underscore at the beginning).
 	*/
-	function beginSection(name: string) throw NotImplementedError()
+	function beginSection(name: string) { throw NotImplementedError() }
 
 	/// Called when a section ends.
-	function endSection() throw NotImplementedError()
+	function endSection() { throw NotImplementedError() }
 
 	/**
 	When outputting a \tt{"params"} section, this is called for each parameter.
@@ -822,10 +832,10 @@ class DocOutputter
 
 	\param[doctable] is the doctable of the parameter being begun.
 	*/
-	function beginParameter(doctable: table) throw NotImplementedError()
+	function beginParameter(doctable: table) { throw NotImplementedError() }
 
 	/// Called when a parameter ends.
-	function endParameter() throw NotImplementedError()
+	function endParameter() { throw NotImplementedError() }
 
 	/**
 	When outputting a \tt{"throws"} section, this is called for each exception.
@@ -835,10 +845,10 @@ class DocOutputter
 
 	\param[name] is the exception name.
 	*/
-	function beginException(name: string) throw NotImplementedError()
+	function beginException(name: string) { throw NotImplementedError() }
 
 	/// Called when an exception ends.
-	function endException() throw NotImplementedError()
+	function endException() { throw NotImplementedError() }
 
 	// Paragraph-level stuff
 
@@ -849,15 +859,15 @@ class DocOutputter
 
 	\param[vararg] are all strings to be output.
 	*/
-	function outputText(vararg) throw NotImplementedError()
+	function outputText(vararg) { throw NotImplementedError() }
 
 	/**
 	Begin and end a single paragraph as defined by the doc comment spec.
 
 	Between these calls, you'll get calls to output the paragraph's contents.
 	*/
-	function beginParagraph() throw NotImplementedError()
-	function endParagraph() throw NotImplementedError() /// ditto
+	function beginParagraph() { throw NotImplementedError() }
+	function endParagraph() { throw NotImplementedError() } /// ditto
 
 	/**
 	Begin and end code and verbatim sections.
@@ -866,10 +876,10 @@ class DocOutputter
 
 	Within these sections, only \link{outputText} will be called.
 	*/
-	function beginCode(language: string) throw NotImplementedError()
-	function endCode() throw NotImplementedError() /// ditto
-	function beginVerbatim(type: string) throw NotImplementedError() /// ditto
-	function endVerbatim() throw NotImplementedError() /// ditto
+	function beginCode(language: string) { throw NotImplementedError() }
+	function endCode() { throw NotImplementedError() } /// ditto
+	function beginVerbatim(type: string) { throw NotImplementedError() } /// ditto
+	function endVerbatim() { throw NotImplementedError() } /// ditto
 
 	/**
 	Begin and end bulleted and numbered lists.
@@ -877,18 +887,18 @@ class DocOutputter
 	The \tt{type} parameter of \tt{beginNumList} specifies the type of list (one of \tt{"1", "a", "A", "i",} and
 	\tt{"I"}).
 	*/
-	function beginBulletList() throw NotImplementedError()
-	function endBulletList() throw NotImplementedError() /// ditto
-	function beginNumList(type: string) throw NotImplementedError() /// ditto
-	function endNumList() throw NotImplementedError() /// ditto
+	function beginBulletList() { throw NotImplementedError() }
+	function endBulletList() { throw NotImplementedError() } /// ditto
+	function beginNumList(type: string) { throw NotImplementedError() } /// ditto
+	function endNumList() { throw NotImplementedError() } /// ditto
 
 	/**
 	Begin and end list items in bulleted and numbered lists.
 
 	Each list item will be bracketed by these two calls. Sub-lists are not treated as their own list items.
 	*/
-	function beginListItem() throw NotImplementedError()
-	function endListItem() throw NotImplementedError() /// ditto
+	function beginListItem() { throw NotImplementedError() }
+	function endListItem() { throw NotImplementedError() } /// ditto
 
 	/**
 	Begin and end definition lists.
@@ -896,8 +906,8 @@ class DocOutputter
 	Each item will consist of a definition term followed by a definition ... definition. Hey, you come up with a better
 	name!
 	*/
-	function beginDefList() throw NotImplementedError()
-	function endDefList() throw NotImplementedError() /// ditto
+	function beginDefList() { throw NotImplementedError() }
+	function endDefList() { throw NotImplementedError() } /// ditto
 
 	/**
 	Begin and end definition list items.
@@ -905,10 +915,10 @@ class DocOutputter
 	For each item, you will get a \tt{beginDefTerm}, then some paragraph elements for the term, then \tt{endDefTerm};
 	then comes \tt{beginDefDef}, then the contents of the definition, and finally \tt{endDefDef}.
 	*/
-	function beginDefTerm() throw NotImplementedError()
-	function endDefTerm() throw NotImplementedError() /// ditto
-	function beginDefDef() throw NotImplementedError() /// ditto
-	function endDefDef() throw NotImplementedError() /// ditto
+	function beginDefTerm() { throw NotImplementedError() }
+	function endDefTerm() { throw NotImplementedError() } /// ditto
+	function beginDefDef() { throw NotImplementedError() } /// ditto
+	function endDefDef() { throw NotImplementedError() } /// ditto
 
 	/**
 	Begin and end tables, their rows, and their cells.
@@ -916,28 +926,28 @@ class DocOutputter
 	Each row is bracketed by \tt{beginRow/endRow} calls; each cell in each row is bracketed by \tt{beginCell/endCell}
 	calls. It's simple.
 	*/
-	function beginTable() throw NotImplementedError()
-	function endTable() throw NotImplementedError() /// ditto
-	function beginRow() throw NotImplementedError() /// ditto
-	function endRow() throw NotImplementedError() /// ditto
-	function beginCell() throw NotImplementedError() /// ditto
-	function endCell() throw NotImplementedError() /// ditto
+	function beginTable() { throw NotImplementedError() }
+	function endTable() { throw NotImplementedError() } /// ditto
+	function beginRow() { throw NotImplementedError() } /// ditto
+	function endRow() { throw NotImplementedError() } /// ditto
+	function beginCell() { throw NotImplementedError() } /// ditto
+	function endCell() { throw NotImplementedError() } /// ditto
 
 	/// Begin and end text spans.
-	function beginBold() throw NotImplementedError()
-	function endBold() throw NotImplementedError() /// ditto
-	function beginEmphasis() throw NotImplementedError() /// ditto
-	function endEmphasis() throw NotImplementedError() /// ditto
-	function beginStrikethrough() throw NotImplementedError() /// ditto
-	function endStrikethrough() throw NotImplementedError() /// ditto
-	function beginSubscript() throw NotImplementedError() /// ditto
-	function endSubscript() throw NotImplementedError() /// ditto
-	function beginSuperscript() throw NotImplementedError() /// ditto
-	function endSuperscript() throw NotImplementedError() /// ditto
-	function beginMonospace() throw NotImplementedError() /// ditto
-	function endMonospace() throw NotImplementedError() /// ditto
-	function beginUnderline() throw NotImplementedError() /// ditto
-	function endUnderline() throw NotImplementedError() /// ditto
+	function beginBold() { throw NotImplementedError() }
+	function endBold() { throw NotImplementedError() } /// ditto
+	function beginEmphasis() { throw NotImplementedError() } /// ditto
+	function endEmphasis() { throw NotImplementedError() } /// ditto
+	function beginStrikethrough() { throw NotImplementedError() } /// ditto
+	function endStrikethrough() { throw NotImplementedError() } /// ditto
+	function beginSubscript() { throw NotImplementedError() } /// ditto
+	function endSubscript() { throw NotImplementedError() } /// ditto
+	function beginSuperscript() { throw NotImplementedError() } /// ditto
+	function endSuperscript() { throw NotImplementedError() } /// ditto
+	function beginMonospace() { throw NotImplementedError() } /// ditto
+	function endMonospace() { throw NotImplementedError() } /// ditto
+	function beginUnderline() { throw NotImplementedError() } /// ditto
+	function endUnderline() { throw NotImplementedError() } /// ditto
 
 	/**
 	Begin and end link text spans.
@@ -945,8 +955,8 @@ class DocOutputter
 	\param[link] is the link target, and if you want the link to work, you'll have to use a \link{LinkResolver} with
 	an implementation of \link{LinkTranslator} to do so.
 	*/
-	function beginLink(link: string) throw NotImplementedError()
-	function endLink() throw NotImplementedError() /// ditto
+	function beginLink(link: string) { throw NotImplementedError() }
+	function endLink() { throw NotImplementedError() } /// ditto
 }
 
 /**
@@ -1101,7 +1111,9 @@ class OutputDocVisitor : DocVisitor
 
 	/// Simply calls the outputter's \tt{outputText} with its input as the parameter.
 	override function visitText(elem: string)
+	{
 		:_output.outputText(elem)
+	}
 
 	/// Implmentations of the methods which output text structures and spans.
 	override function visitCode(language: string, contents: string)

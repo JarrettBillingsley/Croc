@@ -42,7 +42,9 @@ class Vao
 	}
 
 	function bind()
+	{
 		gl.glBindVertexArray(:handle)
+	}
 
 	function draw()
 	{
@@ -156,7 +158,9 @@ class VertShader
 	handle
 
 	this(source: string)
+	{
 		:handle = compileShader(source, gl.GL_VERTEX_SHADER)
+	}
 
 	function delete()
 	{
@@ -170,7 +174,9 @@ class FragShader
 	handle
 
 	this(source: string)
+	{
 		:handle = compileShader(source, gl.GL_FRAGMENT_SHADER)
+	}
 
 	function delete()
 	{
@@ -212,7 +218,9 @@ class Program
 		gl.glGetAttribLocation(:handle, name)
 
 	function bind()
+	{
 		gl.glUseProgram(:handle)
+	}
 }
 
 local vertexSource =

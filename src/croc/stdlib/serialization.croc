@@ -99,7 +99,9 @@ local class Serializer
 	}
 
 	function _tag(v: int)
+	{
 		:_uint8(v)
+	}
 
 	function _integer(v: int)
 	{
@@ -131,7 +133,9 @@ local class Serializer
 	}
 
 	function _serializeNull(_)
+	{
 		:_tag(TypeTags["null"])
+	}
 
 	function _serializeBool(v)
 	{
@@ -153,7 +157,9 @@ local class Serializer
 	}
 
 	function _serializeNativeobj(v)
+	{
 		throw TypeError("Attempting to serialize a nativeobj. Please use the transients table.")
+	}
 
 	function _serializeString(v)
 	{
@@ -330,7 +336,9 @@ local class Serializer
 	}
 
 	function _serializeThread(v)
+	{
 		throw TypeError("Attempting to serialize a thread. Please use the transients table.")
+	}
 	// {
 	// 	if(:_alreadyWritten(v))
 	// 		return
@@ -823,7 +831,9 @@ common cases.
 \throws[TypeError] if an unserializable type is encountered in the object graph.
 */
 function serializeGraph(val, transients: table|instance, output: @OutStream)
+{
 	Serializer(output).writeGraph(val, transients)
+}
 
 /**
 The inverse of \link{serializeGraph}. This reads an object graph from a stream and returns the reconstructed graph.

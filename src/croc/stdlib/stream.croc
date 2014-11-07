@@ -162,7 +162,9 @@ class Stream
 	\throws[IOException] or a derived class if some error occurred.
 	*/
 	function read(this: @InStream, m: memblock, offset: int = 0, size: int = #m - offset)
+	{
 		throw NotImplementedError()
+	}
 
 	/**
 	Writes data into the stream from the given memblock.
@@ -190,7 +192,9 @@ class Stream
 		on write is a much rarer and usually more serious/unrecoverable issue.
 	*/
 	function write(this: @OutStream, m: memblock, offset: int = 0, size: int = #m - offset)
+	{
 		throw NotImplementedError()
+	}
 
 	/**
 	Changes the position of the stream's read/write position, and reports the new position once changed.
@@ -214,7 +218,9 @@ class Stream
 	\throws[IOException] if the resulting stream position would be negative, or if some error occurred.
 	*/
 	function seek(this: @SeekStream, offset: int, where: string)
+	{
 		throw NotImplementedError()
+	}
 
 	/**
 	Tells whether or not \link{read} can be called on this stream.
@@ -1190,13 +1196,17 @@ class TextWriter
 	\param[f] is \tt{true} to enable this behavior, \tt{false} otherwise. By default, flushing is off.
 	*/
 	function flushOnNL(f: bool)
+	{
 		:_shouldFlush = f
+	}
 
 	/**
 	Just flushes the underlying stream.
 	*/
 	function flush()
+	{
 		:_stream.flush()
+	}
 
 	/**
 	Converts each argument to its string representation (with \link{toString}), encodes the string with the writer's
@@ -1225,7 +1235,9 @@ class TextWriter
 	Equivalent to calling \tt{write(fmt.format(vararg))}.
 	*/
 	function writef(fmt: string, vararg)
+	{
 		:_stream.write(:_codec.encodeInto(fmt.format(vararg), :_writeBuf, 0))
+	}
 
 	/**
 	Same as above, but outputs a newline and optionally flushes like \link{writeln}.
@@ -1341,7 +1353,9 @@ class NativeStream : Stream
 	Calls the underlying flush method of the stream.
 	*/
 	override function flush(this: @OpenStream)
+	{
 		nativeStreamFlush(hidden(with this, "handle"))
+	}
 
 	/**
 	Closes the stream. You can safely call this on streams that have already been closed; nothing will happen.

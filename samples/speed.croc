@@ -52,7 +52,9 @@ local class Tester
 	x
 
 	function beginTimer()
+	{
 		t1 = time.microTime()
+	}
 
 	function endTimer(s)
 	{
@@ -231,4 +233,6 @@ local class Tester
 }
 
 function main()
+{
 	Tester.test()
+}

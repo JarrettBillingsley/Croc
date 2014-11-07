@@ -19,7 +19,9 @@ class Thread
 	// Begin a timed wait.  Duration is in seconds (int or float).  This may
 	// not work right for long durations.
 	function beginWait(duration: int|float)
+	{
 		:mWaitTime = time.microTime() + ((duration * 1000000) as int)
+	}
 
 	// Add a message to this thread's message queue.
 	function send(value)
@@ -58,6 +60,7 @@ class Thread
 	// false.  This will give the thread any message that it's waiting for, and if none
 	// is waiting, will give it the varargs to this function instead.
 	function resume(vararg)
+	{
 		if(:mNeedMessage)
 		{
 			assert(:mMessageHead !is null)
@@ -68,15 +71,18 @@ class Thread
 		}
 		else
 			return (:mBody)(vararg)
+	}
 
 	// Returns a bool, whether this thread is waiting, either on a message or on a timer.
 	function isWaiting()
+	{
 		if(:mNeedMessage)
 			return :mMessageHead is null
 		else if(:mWaitTime is null)
 			return false
 		else
 			return time.microTime() < :mWaitTime
+	}
 
 	// Returns whether the thread has completed or not.
 	function isDead() = :mBody.isDead()
@@ -138,11 +144,15 @@ function scheduler(threads)
 
 // Wait for 'duration' seconds.  Can be float or int.
 function wait(duration)
+{
 	yield("Wait", duration)
+}
 
 // Send the message 'value' to Thread 'dest'.
 function send(dest, value)
+{
 	yield("Send", dest, value)
+}
 
 // Receive a message from any thread.
 function receive() = yield("Receive")

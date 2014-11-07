@@ -218,12 +218,12 @@ class DocVisitor
 	/**
 	These methods are called by \link{visitItem}. You must implement these methods yourself.
 	*/
-	function visitModule(item: table) throw NotImplementedError()
-	function visitClass(item: table) throw NotImplementedError()     /// ditto
-	function visitNamespace(item: table) throw NotImplementedError() /// ditto
-	function visitFunction(item: table) throw NotImplementedError()  /// ditto
-	function visitField(item: table) throw NotImplementedError()     /// ditto
-	function visitVariable(item: table) throw NotImplementedError()  /// ditto
+	function visitModule(item: table) { throw NotImplementedError() }
+	function visitClass(item: table) { throw NotImplementedError() }     /// ditto
+	function visitNamespace(item: table) { throw NotImplementedError() } /// ditto
+	function visitFunction(item: table) { throw NotImplementedError() }  /// ditto
+	function visitField(item: table) { throw NotImplementedError() }     /// ditto
+	function visitVariable(item: table) { throw NotImplementedError() }  /// ditto
 
 	/**
 	A convenience method for doctables which have children (such as modules, classes, and namespaces). This just loops
@@ -251,7 +251,9 @@ class DocVisitor
 	or newlines), so you can override this method to do so.
 	*/
 	function visitParagraph(par: array)
+	{
 		:visitParagraphElements(par)
+	}
 
 	/**
 	Visits an array of paragraph elements. You can use this method to implement the text visitor methods which follow,
@@ -301,50 +303,50 @@ class DocVisitor
 	}
 
 	/// Visits a segment of plain text that appears in a paragraph. Must be overridden.
-	function visitText(elem: string) throw NotImplementedError()
+	function visitText(elem: string) { throw NotImplementedError() }
 
 	/// Visits a code snippet. Must be overridden.
-	function visitCode(language: string, contents: string) throw NotImplementedError()
+	function visitCode(language: string, contents: string) { throw NotImplementedError() }
 
 	/// Visits a verbatim block. Must be overridden.
-	function visitVerbatim(type: string, contents: string) throw NotImplementedError()
+	function visitVerbatim(type: string, contents: string) { throw NotImplementedError() }
 
 	/// Visits a bulleted list. Must be overridden.
-	function visitBlist(items: array) throw NotImplementedError()
+	function visitBlist(items: array) { throw NotImplementedError() }
 
 	/// Visits a numbered list. Must be overridden.
-	function visitNlist(type: string, items: array) throw NotImplementedError()
+	function visitNlist(type: string, items: array) { throw NotImplementedError() }
 
 	/// Visits a definition list. Must be overridden.
-	function visitDlist(items: array) throw NotImplementedError()
+	function visitDlist(items: array) { throw NotImplementedError() }
 
 	/// Visits a table. Must be overridden.
-	function visitTable(rows: array) throw NotImplementedError()
+	function visitTable(rows: array) { throw NotImplementedError() }
 
 	/// Visits an bold text span. Must be overridden.
-	function visitBold(contents: array) throw NotImplementedError()
+	function visitBold(contents: array) { throw NotImplementedError() }
 
 	/// Visits an emphasis text span. Must be overridden.
-	function visitEmphasis(contents: array) throw NotImplementedError()
+	function visitEmphasis(contents: array) { throw NotImplementedError() }
 
 	/// Visits a link text span. Must be overridden.
-	function visitLink(link: string, contents: array) throw NotImplementedError()
+	function visitLink(link: string, contents: array) { throw NotImplementedError() }
 
 	/// Visits an strikethrough text span. Must be overridden.
-	function visitStrikethrough(contents: array) throw NotImplementedError()
+	function visitStrikethrough(contents: array) { throw NotImplementedError() }
 
 	/// Visits a subscript text span. Must be overridden.
-	function visitSubscript(contents: array) throw NotImplementedError()
+	function visitSubscript(contents: array) { throw NotImplementedError() }
 
 	/// Visits a superscript text span. Must be overridden.
-	function visitSuperscript(contents: array) throw NotImplementedError()
+	function visitSuperscript(contents: array) { throw NotImplementedError() }
 
 	/// Visits a monospace text span. Must be overridden.
-	function visitMonospace(contents: array) throw NotImplementedError()
+	function visitMonospace(contents: array) { throw NotImplementedError() }
 
 	/// Visits an underline text span. Must be overridden.
-	function visitUnderline(contents: array) throw NotImplementedError()
+	function visitUnderline(contents: array) { throw NotImplementedError() }
 
 	/// Visits a custom text span. Must be overridden.
-	function visitCustomSpan(type: string, contents: array) throw NotImplementedError()
+	function visitCustomSpan(type: string, contents: array) { throw NotImplementedError() }
 }

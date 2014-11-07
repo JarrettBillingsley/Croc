@@ -138,15 +138,17 @@ class BasicConsoleOutputter : DocOutputter
 		than this will simply set the length to 40.
 	*/
 	function setLineLength(lineEnd: int)
+	{
 		:_lineEnd = math.max(lineEnd, 40)
+	}
 
 	// =================================================================================================================
 	// Item-level stuff
 
-	override function beginModule(doctable: table) :beginItem(doctable)
-	override function endModule() :endItem()
-	override function beginFunction(doctable: table) :beginItem(doctable)
-	override function endFunction() :endItem()
+	override function beginModule(doctable: table) { :beginItem(doctable) }
+	override function endModule() { :endItem() }
+	override function beginFunction(doctable: table) { :beginItem(doctable) }
+	override function endFunction() { :endItem() }
 
 	override function beginClass(doctable: table)
 	{
@@ -172,13 +174,13 @@ class BasicConsoleOutputter : DocOutputter
 		:endItem()
 	}
 
-	override function beginField(doctable: table) :beginItem(doctable)
-	override function endField() :endItem()
-	override function beginVariable(doctable: table) :beginItem(doctable)
-	override function endVariable() :endItem()
+	override function beginField(doctable: table) { :beginItem(doctable) }
+	override function endField() { :endItem() }
+	override function beginVariable(doctable: table) { :beginItem(doctable) }
+	override function endVariable() { :endItem() }
 
-	function beginItem(doctable: table) :outputHeader(doctable)
-	function endItem() :newline()
+	function beginItem(doctable: table) { :outputHeader(doctable) }
+	function endItem() { :newline() }
 
 	function outputHeader(doctable: table)
 	{
@@ -261,7 +263,7 @@ class BasicConsoleOutputter : DocOutputter
 		:beginDefDef()
 	}
 
-	override function endParameter() :endDefDef()
+	override function endParameter() { :endDefDef() }
 
 	override function beginException(name: string)
 	{
@@ -271,7 +273,7 @@ class BasicConsoleOutputter : DocOutputter
 		:beginDefDef()
 	}
 
-	override function endException() :endDefDef()
+	override function endException() { :endDefDef() }
 
 	// =================================================================================================================
 	// Paragraph-level stuff
@@ -375,9 +377,9 @@ class BasicConsoleOutputter : DocOutputter
 		}
 	}
 
-	override function endListItem() :newline()
+	override function endListItem() { :newline() }
 
-	override function beginDefList() :_listType.append(null)
+	override function beginDefList() { :_listType.append(null) }
 
 	override function endDefList()
 	{
@@ -385,7 +387,7 @@ class BasicConsoleOutputter : DocOutputter
 		:newline()
 	}
 
-	override function beginDefTerm() :newline()
+	override function beginDefTerm() { :newline() }
 
 	override function endDefTerm()
 	{
@@ -423,7 +425,9 @@ class BasicConsoleOutputter : DocOutputter
 	}
 
 	override function endRow()
+	{
 		:_listType.pop()
+	}
 
 	override function beginCell()
 	{
@@ -433,22 +437,22 @@ class BasicConsoleOutputter : DocOutputter
 
 	override function endCell() {}
 
-	override function beginBold() :outputText("*")
-	override function endBold() :outputText("*")
-	override function beginEmphasis() :outputText("_")
-	override function endEmphasis() :outputText("_")
+	override function beginBold() { :outputText("*") }
+	override function endBold() { :outputText("*") }
+	override function beginEmphasis() { :outputText("_") }
+	override function endEmphasis() { :outputText("_") }
 	override function beginLink(link: string) {}
 	override function endLink() {}
 	override function beginMonospace() {}
 	override function endMonospace() {}
-	override function beginStrikethrough() :outputText("~");
-	override function endStrikethrough() :outputText("~");
-	override function beginSubscript() :outputText("_")
+	override function beginStrikethrough() { :outputText("~"); }
+	override function endStrikethrough() { :outputText("~"); }
+	override function beginSubscript() { :outputText("_") }
 	override function endSubscript() {}
-	override function beginSuperscript() :outputText("^")
+	override function beginSuperscript() { :outputText("^") }
 	override function endSuperscript() {}
-	override function beginUnderline() :outputText("__")
-	override function endUnderline() :outputText("__")
+	override function beginUnderline() { :outputText("__") }
+	override function endUnderline() { :outputText("__") }
 
 	// =================================================================================================================
 	// Raw output

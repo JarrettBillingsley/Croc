@@ -494,7 +494,9 @@ class TextCodec
 
 	\returns \tt{dest}. */
 	function encodeInto(str: string, dest: memblock, start: int, errors: string = "strict")
+	{
 		throw NotImplementedError()
+	}
 
 	/** Same as calling \link{encodeInto} with a new, empty memblock and a starting index of 0. */
 	function encode(str: string, errors: string = "strict") =
@@ -513,7 +515,9 @@ class TextCodec
 		is an incomplete character encoding at the end of the data. If you need to be able to decode data piecemeal,
 		such as in a stream decoding situation, this is what \link{incrementalDecoder} is for. */
 	function decodeRange(src: memblock, lo: int, hi: int, errors: string = "strict")
+	{
 		throw NotImplementedError()
+	}
 
 	/** Same as calling \link{decodeRange} with a slice of the entire memblock. */
 	function decode(src: memblock, errors: string = "strict") =
@@ -522,12 +526,16 @@ class TextCodec
 	/** \returns a new instance of a class derived from \link{IncrementalEncoder} that allows you to encode a stream of
 	text incrementally. See that class's docs for more info. */
 	function incrementalEncoder(errors: string = "strict")
+	{
 		throw NotImplementedError()
+	}
 
 	/** \returns a new instance of a class derived from \link{IncrementalDecoder} that allows you to decode a stream of
 	text incrementally. See that class's docs for more info. */
 	function incrementalDecoder(errors: string = "strict")
+	{
 		throw NotImplementedError()
+	}
 }
 
 /** The base class for incremental text encoders, which are returned from \link{TextCodec.incrementalEncoder} methods.
@@ -540,7 +548,9 @@ class IncrementalEncoder
 	/** Instead of specifying the error behavior on each call, incremental encoders have it specified once in the
 	constructor. */
 	this(errors: string = "strict")
+	{
 		throw NotImplementedError()
+	}
 
 	/** Similar to \link{TextCodec.encodeInto}.
 
@@ -555,7 +565,9 @@ class IncrementalEncoder
 
 	\returns \tt{dest}. */
 	function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
+	{
 		throw NotImplementedError()
+	}
 
 	/** Same as caling \link{encodeInto} with a new, empty memblock and a starting index of 0. */
 	function encode(str: string, final: bool = false) =
@@ -564,7 +576,9 @@ class IncrementalEncoder
 	/** Resets any internal state to its initial state so that this encoder object can be used to encode a new string.
 	This will be called automatically by \link{encodeInto} if its \tt{final} param was \tt{true}. */
 	function reset()
+	{
 		throw NotImplementedError()
+	}
 }
 
 /** The base class for incremental text decoders, which are returned from \link{TextCodec.incrementalDecoder} methods.
@@ -577,7 +591,9 @@ class IncrementalDecoder
 	/** Instead of specifying the error behavior on each call, incremental decoders have it specified once in the
 	constructor. */
 	this(errors: string = "strict")
+	{
 		throw NotImplementedError()
+	}
 
 	/** Similar to \link{TextCodec.decodeRange}.
 
@@ -596,7 +612,9 @@ class IncrementalDecoder
 
 	\returns as much of the data as could be decoded as a string. */
 	function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
+	{
 		throw NotImplementedError()
+	}
 
 	/** Same as calling \link{decodeRange} with a slice of the entire memblock. */
 	function decode(src: memblock, final: bool = false) =
@@ -605,7 +623,9 @@ class IncrementalDecoder
 	/** Resets any internal state to its initial state so that this encoder object can be used to encode a new string.
 	This will be called automatically by \link{decodeRange} if its \tt{final} param was \tt{true}. */
 	function reset()
+	{
 		throw NotImplementedError()
+	}
 }
 
 /** A base class for incremental decoders which share a common behavior: needing to save partial character encodings
@@ -645,7 +665,9 @@ class BufferedIncrementalDecoder : IncrementalDecoder
 	\returns two values: the decoded string (or an empty string if nothing was decoded) and the number of bytes consumed
 		from the given slice of the memblock. */
 	function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
+	{
 		throw NotImplementedError()
+	}
 
 	/// Implementation of the \link{IncrementalDecoder.decodeRange} method.
 	override function decodeRange(src: memblock, lo: int, hi: int, final: bool = false)
@@ -693,7 +715,9 @@ local class AsciiIncrementalEncoder : IncrementalEncoder
 	_errors
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
 		asciiEncodeInternal(str, dest, start, :_errors)
@@ -706,7 +730,9 @@ local class AsciiIncrementalDecoder : IncrementalDecoder
 	_errors
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function decodeRange(src: memblock, lo: int, hi: int, final: bool = false) =
 		asciiDecodeInternal(src, lo, hi, :_errors)
@@ -740,7 +766,9 @@ local class Latin1IncrementalEncoder : IncrementalEncoder
 	_errors
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
 		latin1EncodeInternal(str, dest, start, :_errors)
@@ -753,7 +781,9 @@ local class Latin1IncrementalDecoder : IncrementalDecoder
 	_errors
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function decodeRange(src: memblock, lo: int, hi: int, final: bool = false) =
 		latin1DecodeInternal(src, lo, hi, :_errors)
@@ -788,7 +818,9 @@ local class Utf8IncrementalEncoder : IncrementalEncoder
 	_errors
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
 		utf8EncodeInternal(str, dest, start, :_errors)
@@ -798,8 +830,8 @@ local class Utf8IncrementalEncoder : IncrementalEncoder
 
 local class Utf8IncrementalDecoder : BufferedIncrementalDecoder
 {
-	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
-		return utf8DecodeInternal(src, lo, hi, errors)
+	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false) =
+		utf8DecodeInternal(src, lo, hi, errors)
 }
 
 class Utf8Codec : TextCodec
@@ -837,7 +869,9 @@ local class Utf8SigIncrementalEncoder : IncrementalEncoder
 	_first = true
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
 	{
@@ -939,7 +973,9 @@ local class Utf16IncrementalEncoder : IncrementalEncoder
 	_first = true
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
 	{
@@ -1059,7 +1095,9 @@ local class Utf16LEIncrementalEncoder : IncrementalEncoder
 	_errors
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
 		utf16EncodeInternal(str, dest, start, :_errors, 'l')
@@ -1069,8 +1107,8 @@ local class Utf16LEIncrementalEncoder : IncrementalEncoder
 
 local class Utf16LEIncrementalDecoder : BufferedIncrementalDecoder
 {
-	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
-		return utf16DecodeInternal(src, lo, hi, errors, 'l')
+	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false) =
+		utf16DecodeInternal(src, lo, hi, errors, 'l')
 }
 
 class Utf16LECodec : TextCodec
@@ -1108,7 +1146,9 @@ local class Utf16BEIncrementalEncoder : IncrementalEncoder
 	_errors
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
 		utf16EncodeInternal(str, dest, start, :_errors, 'b')
@@ -1118,8 +1158,8 @@ local class Utf16BEIncrementalEncoder : IncrementalEncoder
 
 local class Utf16BEIncrementalDecoder : BufferedIncrementalDecoder
 {
-	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
-		return utf16DecodeInternal(src, lo, hi, errors, 'b')
+	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false) =
+		utf16DecodeInternal(src, lo, hi, errors, 'b')
 }
 
 class Utf16BECodec : TextCodec
@@ -1160,7 +1200,9 @@ local class Utf32IncrementalEncoder : IncrementalEncoder
 	_first = true
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false)
 	{
@@ -1280,7 +1322,9 @@ local class Utf32LEIncrementalEncoder : IncrementalEncoder
 	_errors
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
 		utf32EncodeInternal(str, dest, start, :_errors, 'l')
@@ -1290,8 +1334,8 @@ local class Utf32LEIncrementalEncoder : IncrementalEncoder
 
 local class Utf32LEIncrementalDecoder : BufferedIncrementalDecoder
 {
-	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
-		return utf32DecodeInternal(src, lo, hi, errors, 'l')
+	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false) =
+		utf32DecodeInternal(src, lo, hi, errors, 'l')
 }
 
 class Utf32LECodec : TextCodec
@@ -1329,7 +1373,9 @@ local class Utf32BEIncrementalEncoder : IncrementalEncoder
 	_errors
 
 	override this(errors: string = "strict")
+	{
 		:_errors = errors
+	}
 
 	override function encodeInto(str: string, dest: memblock, start: int, final: bool = false) =
 		utf32EncodeInternal(str, dest, start, :_errors, 'b')
@@ -1339,8 +1385,8 @@ local class Utf32BEIncrementalEncoder : IncrementalEncoder
 
 local class Utf32BEIncrementalDecoder : BufferedIncrementalDecoder
 {
-	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false)
-		return utf32DecodeInternal(src, lo, hi, errors, 'b')
+	override function _bufferedDecode(src: memblock, lo: int, hi: int, errors: string = "strict", final: bool = false) =
+		utf32DecodeInternal(src, lo, hi, errors, 'b')
 }
 
 class Utf32BECodec : TextCodec

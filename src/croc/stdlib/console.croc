@@ -34,7 +34,9 @@ Also mirrored in the global namespace so you can access it unqualified.
 \see \link{stream.TextWriter.write}
 */
 function write(vararg)
+{
 	stdout.write(vararg)
+}
 
 /**
 This is a shortcut for calling \tt{stdout.writeln} with the given arguments.
@@ -44,7 +46,9 @@ Also mirrored in the global namespace so you can access it unqualified.
 \see \link{stream.TextWriter.writeln}
 */
 function writeln(vararg)
+{
 	stdout.writeln(vararg)
+}
 
 /**
 This is a shortcut for calling \tt{stdout.writef} with the given arguments.
@@ -54,7 +58,9 @@ Also mirrored in the global namespace so you can access it unqualified.
 \see \link{stream.TextWriter.writef}
 */
 function writef(fmt: string, vararg)
+{
 	stdout.writef(fmt, vararg)
+}
 
 /**
 This is a shortcut for calling \tt{stdout.writefln} with the given arguments.
@@ -64,7 +70,9 @@ Also mirrored in the global namespace so you can access it unqualified.
 \see \link{stream.TextWriter.writefln}
 */
 function writefln(fmt: string, vararg)
+{
 	stdout.writefln(fmt, vararg)
+}
 
 /**
 This is a shortcut for calling \tt{stdin.readln}.

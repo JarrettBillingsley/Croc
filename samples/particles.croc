@@ -7,8 +7,8 @@ import sdl: key, event
 local Speed = 1.0
 local Life = 240
 
-function randColor()
-	return math.frand(0.0, 1.0), math.frand(0.0, 1.0), math.frand(0.0, 1.0)
+function randColor() =
+	math.frand(0.0, 1.0), math.frand(0.0, 1.0), math.frand(0.0, 1.0)
 
 class Particle
 {

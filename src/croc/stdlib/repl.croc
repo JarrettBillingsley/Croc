@@ -21,12 +21,14 @@ local class ExitObj
 
 	/** Calling an instance of this object causes the REPL to terminate. */
 	function opCall()
+	{
 		:_running[0] = false
+	}
 
 	/** If there was already an 'exit' in the global namespace when the REPL started, this method will return the value
 	of that object; otherwise, returns null. */
-	function original()
-		return :_orig
+	function original() =
+		:_orig
 }
 object.freeze(ExitObj)
 

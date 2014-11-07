@@ -437,17 +437,7 @@ namespace croc
 			code = new(c) ReturnStmt(arr[0]->location, arr[0]->endLocation, arr);
 		}
 		else
-		{
-			code = parseStatement();
-
-			if(code->type != AstTag_BlockStmt)
-			{
-				List<Statement*> dummy(c);
-				dummy.add(code);
-				auto arr = dummy.toArray();
-				code = new(c) BlockStmt(code->location, code->endLocation, arr);
-			}
-		}
+			code = parseBlockStmt();
 
 		return new(c) FuncDef(location, name, params, isVararg, code);
 	}

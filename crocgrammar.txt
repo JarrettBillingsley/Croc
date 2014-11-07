@@ -228,7 +228,7 @@ SimpleFunctionDeclaration:
 	function Identifier FunctionBody
 
 FunctionBody:
-	'(' Parameters? ')' (Statement | = Expression)
+	'(' Parameters? ')' (BlockStatement | = Expression)
 
 Parameters:
 	(Parameter | ThisParam) (, Parameter)* (, VarargParam)?
