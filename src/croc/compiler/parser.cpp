@@ -421,8 +421,10 @@ namespace croc
 		l.expect(Token::LParen);
 		bool isVararg;
 		auto params = parseFuncParams(isVararg);
-
 		l.expect(Token::RParen);
+
+		bool isVarret;
+		auto returns = parseFuncReturns(isVarret);
 
 		Statement* code = nullptr;
 
@@ -449,7 +451,7 @@ namespace croc
 			}
 		}
 
-		return new(c) FuncDef(location, name, params, isVararg, code);
+		return new(c) FuncDef(location, name, params, isVararg, returns, isVarret, code);
 	}
 
 	DArray<FuncParam> Parser::parseFuncParams(bool& isVararg)
@@ -472,7 +474,7 @@ namespace croc
 				l.next();
 				p.valueString = capture([&]{p.defValue = parseExpression();});
 
-				// Having a default parameter implies allowing nullptr as a parameter type
+				// Having a default parameter implies allowing null as a parameter type
 				p.typeMask |= cast(uint32_t)TypeMask::Null;
 			}
 
@@ -543,7 +545,48 @@ namespace croc
 		return ret.toArray();
 	}
 
-	uint32_t Parser::parseParamType(DArray<Expression*>& classTypes, crocstr& typeString,
+	DArray<FuncReturn> Parser::parseFuncReturns(bool& isVarret)
+	{
+		List<FuncReturn> ret(c);
+
+		if(l.type() != Token::Colon)
+			isVarret = true;
+		else
+		{
+			l.next();
+
+			if(l.type() == Token::Ellipsis)
+			{
+				isVarret = true;
+				l.next();
+			}
+			else
+			{
+				FuncReturn p;
+				p.typeMask = parseReturnType(p.classTypes, p.typeString, p.customConstraint);
+				ret.add(p);
+
+				while(l.type() == Token::Comma)
+				{
+					l.next();
+
+					if(l.type() == Token::Ellipsis)
+					{
+						isVarret = true;
+						l.next();
+						break;
+					}
+
+					p.typeMask = parseReturnType(p.classTypes, p.typeString, p.customConstraint);
+					ret.add(p);
+				}
+			}
+		}
+
+		return ret.toArray();
+	}
+
+	uint32_t Parser::parseType(const char* kind, DArray<Expression*>& classTypes, crocstr& typeString,
 		Expression*& customConstraint)
 	{
 		uint32_t ret = 0;
@@ -552,7 +595,7 @@ namespace croc
 		auto addConstraint = [&](CrocType t)
 		{
 			if((ret & (1 << cast(uint32_t)t)) && t != CrocType_Instance)
-				c.semException(l.loc(), "Duplicate parameter type constraint for type '%s'", typeToString(t));
+				c.semException(l.loc(), "Duplicate %s type constraint for type '%s'", kind, typeToString(t));
 
 			ret |= 1 << cast(uint32_t)t;
 		};
@@ -682,6 +725,16 @@ namespace croc
 		});
 
 		return ret;
+	}
+
+	uint32_t Parser::parseParamType(DArray<Expression*>& classTypes, crocstr& typeString, Expression*& customConstraint)
+	{
+		return parseType("parameter", classTypes, typeString, customConstraint);
+	}
+
+	uint32_t Parser::parseReturnType(DArray<Expression*>& classTypes, crocstr& typeString, Expression*& customConstraint)
+	{
+		return parseType("return", classTypes, typeString, customConstraint);
 	}
 
 	FuncDef* Parser::parseSimpleFuncDef()

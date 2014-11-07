@@ -228,7 +228,7 @@ SimpleFunctionDeclaration:
 	function Identifier FunctionBody
 
 FunctionBody:
-	'(' Parameters? ')' (Statement | = Expression)
+	'(' Parameters? ')' ReturnTypes? (Statement | = Expression)
 
 Parameters:
 	(Parameter | ThisParam) (, Parameter)* (, VarargParam)?
@@ -243,6 +243,10 @@ ThisParam:
 
 Parameter:
 	Identifier (: Type)? (= Expression)?
+
+ReturnTypes:
+	: List(Type) (, ...)?
+	: ...
 
 Type:
 	BasicType

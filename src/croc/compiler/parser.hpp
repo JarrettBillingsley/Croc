@@ -43,7 +43,10 @@ namespace croc
 		FuncDecl* parseFuncDecl(Decorator* deco);
 		FuncDef* parseFuncBody(CompileLoc location, Identifier* name);
 		DArray<FuncParam> parseFuncParams(bool& isVararg);
+		DArray<FuncReturn> parseFuncReturns(bool& isVarret);
+		uint32_t parseType(const char* kind, DArray<Expression*>& classTypes, crocstr& typeString, Expression*& customConstraint);
 		uint32_t parseParamType(DArray<Expression*>& classTypes, crocstr& typeString, Expression*& customConstraint);
+		uint32_t parseReturnType(DArray<Expression*>& classTypes, crocstr& typeString, Expression*& customConstraint);
 		FuncDef* parseSimpleFuncDef();
 		FuncDef* parseFuncLiteral();
 		FuncDef* parseHaskellFuncLiteral();
