@@ -222,6 +222,21 @@ namespace croc
 		{}
 	};
 
+	struct FuncReturn
+	{
+		uint32_t typeMask;
+		DArray<Expression*> classTypes;
+		Expression* customConstraint;
+		crocstr typeString;
+
+		FuncReturn() :
+			typeMask(cast(uint32_t)TypeMask::Any),
+			classTypes(),
+			customConstraint(),
+			typeString()
+		{}
+	};
+
 	struct ClassField
 	{
 		crocstr name;
@@ -484,6 +499,8 @@ namespace croc
 		Identifier* name;
 		DArray<FuncParam> params;
 		bool isVararg;
+		DArray<FuncReturn> returns;
+		bool isVarret;
 		Statement* code;
 		crocstr docs;
 		CompileLoc docsLoc;
@@ -493,6 +510,20 @@ namespace croc
 			name(name),
 			params(params),
 			isVararg(isVararg),
+			returns(),
+			isVarret(true),
+			code(code)
+		{}
+
+		FuncDef(CompileLoc location, Identifier* name, DArray<FuncParam> params, bool isVararg,
+			DArray<FuncReturn> returns, bool isVarret, Statement* code) :
+
+			AstNode(location, code->endLocation, AstTag_FuncDef),
+			name(name),
+			params(params),
+			isVararg(isVararg),
+			returns(returns),
+			isVarret(isVarret),
 			code(code)
 		{}
 	};
