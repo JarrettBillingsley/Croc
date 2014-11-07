@@ -254,6 +254,8 @@ namespace croc
 		uint32_t readHexDigits(uword num);
 		crocchar readEscapeSequence(CompileLoc beginning);
 		crocstr readStringLiteral(bool escape);
+		uword readVerbatimOpening(CompileLoc beginning);
+		crocstr readVerbatimString(CompileLoc beginning, uword equalLen);
 		void addComment(crocstr str, CompileLoc location);
 		void readLineComment();
 		void readBlockComment();

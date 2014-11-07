@@ -686,6 +686,100 @@ namespace croc
 		return mCompiler.newString(buf.toArrayView());
 	}
 
+	uword Lexer::readVerbatimOpening(CompileLoc beginning)
+	{
+		uword len = 0;
+
+		while(!IS_EOF() && mCharacter == '=')
+		{
+			len++;
+			nextChar();
+		}
+
+		if(len > 0)
+		{
+			if(IS_EOF() || mCharacter != '[')
+				mCompiler.lexException(beginning, "Invalid verbatim string opening sequence");
+
+			nextChar();
+		}
+
+		return len;
+	}
+
+	crocstr Lexer::readVerbatimString(CompileLoc beginning, uword equalLen)
+	{
+		if(IS_NEWLINE())
+			nextLine(false);
+
+		List<uchar, 256> buf(mCompiler);
+		uchar utfbuf[4];
+		auto tmp = ustring();
+
+		while(true)
+		{
+			if(IS_EOF())
+				mCompiler.eofException(beginning, "Unterminated string literal");
+
+			switch(mCharacter)
+			{
+				case '\r':
+				case '\n':
+					buf.add('\n');
+					nextLine(false);
+					continue;
+
+				case ']': {
+					auto seqBegin = mLoc;
+					// Tentatively add characters until we determine whether or not this is a closing sequence
+					buf.add(']');
+					nextChar();
+
+					if(IS_EOF())
+						mCompiler.eofException(seqBegin, "Invalid verbatim string closing sequence");
+
+					uword len = 0;
+
+					while(!IS_EOF() && mCharacter == '=')
+					{
+						buf.add('=');
+						len++;
+						nextChar();
+					}
+
+					if(len > 0)
+					{
+						if(IS_EOF())
+							mCompiler.eofException(seqBegin, "Invalid verbatim string closing sequence");
+						else if(len == equalLen && mCharacter == ']')
+						{
+							buf.length(buf.length() - (equalLen + 1)); // get rid of the tentative characters
+							break;
+						}
+					}
+
+					// Wasn't a closing sequence, oh well
+					continue;
+				}
+				default: {
+					auto loc = mLoc;
+
+					if(encodeUtf8Char(ustring::n(utfbuf, 4), mCharacter, tmp) != UtfError_OK)
+						mCompiler.lexException(loc, "Invalid character");
+
+					buf.add(tmp);
+					nextChar();
+					continue;
+				}
+			}
+
+			break;
+		}
+
+		nextChar();
+		return mCompiler.newString(buf.toArrayView());
+	}
+
 	void Lexer::addComment(crocstr str, CompileLoc location)
 	{
 		auto derp = [&](crocstr& existing)
@@ -1150,7 +1244,18 @@ namespace croc
 
 				case '(':  NEXT_AND_TOK(Token::LParen);    RETURN;
 				case ')':  NEXT_AND_TOK(Token::RParen);    RETURN;
-				case '[':  NEXT_AND_TOK(Token::LBracket);  RETURN;
+
+				case '[': {
+					auto beginning = mLoc;
+					nextChar();
+					if(auto equalLen = readVerbatimOpening(beginning))
+					{
+						mTok.stringValue = readVerbatimString(beginning, equalLen);
+						TOK(Token::StringLiteral);
+					}
+					else TOK(Token::LBracket);
+					RETURN;
+				}
 				case ']':  NEXT_AND_TOK(Token::RBracket);  RETURN;
 				case '{':  NEXT_AND_TOK(Token::LBrace);    RETURN;
 				case '}':  NEXT_AND_TOK(Token::RBrace);    RETURN;

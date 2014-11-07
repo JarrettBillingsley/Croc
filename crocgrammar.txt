@@ -91,6 +91,7 @@ VerbatimString:
 	@" (Character | EndOfLine | "")* "
 	@' (Character | EndOfLine | '')* '
 	@` (Character | EndOfLine | ``)* `
+	[={n}[ (Character | EndOfLine)* ]={n}]
 
 IntLiteral:
 	Decimal
