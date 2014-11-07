@@ -30,7 +30,22 @@ namespace
 
 #ifdef CROC_BUILTIN_DOCS
 const char* moduleDocs = DModule("imgui")
-R"()";
+R"(This library provides an interface to \link[https://github.com/ocornut/imgui/]{Omar Cornut's ImGui library}. With
+this you can make lightweight immediate-mode GUIs for developer use inside games, content creation tools, and so on.
+
+ImGui does not render anything; all it outputs is a vertex buffer and a list of draw commands, and you're responsible
+for drawing them. You also must feed it inputs from the keyboard, mouse etc. For an example on how to do this, there is
+a "imguitest" program in Croc's samples which renders a GUI with OpenGL and uses GLFW for windowing.
+
+\b{Currently Unsupported Features}
+
+The following features are not yet wrapped:
+
+\blist
+	\li Custom font support. Only the default font is available, and it only supports ASCII text.
+	\li Direct draw-list manipulation, useful for writing your own widgets.
+	\li Getting and setting tree state storage.
+\endlist)";
 #endif
 
 // =====================================================================================================================
@@ -101,19 +116,6 @@ void renderDrawLists(ImDrawList** const draw_lists, int count)
 
 	// Make sure we have the command array and vertex data memblock
 	auto registry = croc_vm_pushRegistry(t); // reg
-
-	if(!croc_hasField(t, registry, DrawListVerts))
-	{
-		croc_memblock_new(t, 0);
-		croc_fielda(t, registry, DrawListVerts);
-	}
-
-	if(!croc_hasField(t, registry, DrawListCommands))
-	{
-		croc_array_new(t, 0);
-		croc_fielda(t, registry, DrawListCommands);
-	}
-
 	auto fn = getCallback(t, RenderDrawListsCallback); // reg fn
 	croc_pushNull(t); // reg fn null
 
@@ -461,9 +463,11 @@ word_t _init(CrocThread* t)
 
 	boundVM = croc_vm_getMainThread(t);
 	insideTooltip = false;
-
-	auto &io = ImGui::GetIO();
-	io.RenderDrawListsFn = &noRenderDrawLists;
+	croc_memblock_new(t, 0);
+	croc_ex_setRegistryVar(t, DrawListVerts);
+	croc_array_new(t, 0);
+	croc_ex_setRegistryVar(t, DrawListCommands);
+	ImGui::GetIO().RenderDrawListsFn = &noRenderDrawLists;
 	return 0;
 }
 
