@@ -230,8 +230,11 @@ FunctionBody:
 	'(' Parameters? ')' (Statement | = Expression)
 
 Parameters:
-	(this : Type | Parameter) (, Parameter)* (, vararg)?
+	(Parameter | ThisParam) (, Parameter)* (, vararg)?
 	vararg
+
+ThisParam:
+	this (as Identifier)? (: Type | Parameter)?
 
 Parameter:
 	Identifier (: Type)? (= Expression)?

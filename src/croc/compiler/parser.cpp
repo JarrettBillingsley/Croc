@@ -499,11 +499,25 @@ namespace croc
 		if(l.type() == Token::This)
 		{
 			FuncParam p;
-			p.name = new(c) Identifier(l.loc(), c.newString("this"));
-
+			auto thisLoc = l.loc();
 			l.next();
-			l.expect(Token::Colon);
-			p.typeMask = parseParamType(p.classTypes, p.typeString, p.customConstraint);
+
+			if(l.type() != Token::As && l.type() != Token::Colon)
+				l.expected("as or :");
+
+			if(l.type() == Token::As)
+			{
+				l.next();
+				p.name = parseIdentifier();
+			}
+			else
+				p.name = new(c) Identifier(thisLoc, c.newString("this"));
+
+			if(l.type() == Token::Colon)
+			{
+				l.next();
+				p.typeMask = parseParamType(p.classTypes, p.typeString, p.customConstraint);
+			}
 
 			ret.add(p);
 
