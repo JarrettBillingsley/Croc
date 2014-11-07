@@ -1210,8 +1210,14 @@ namespace croc
 #endif
 						TOK(Token::FloatLiteral);
 					}
-					else if(mCharacter == '.') NEXT_AND_TOK(Token::DotDot);
-					else                  TOK(Token::Dot);
+					else if(mCharacter == '.')
+					{
+						nextChar();
+
+						if(mCharacter == '.') NEXT_AND_TOK(Token::Ellipsis);
+						else                  TOK(Token::DotDot);
+					}
+					else                      TOK(Token::Dot);
 					RETURN;
 
 				case '!':

@@ -485,7 +485,7 @@ namespace croc
 			{
 				l.next();
 
-				if(l.type() == Token::Vararg)
+				if(l.type() == Token::Vararg || l.type() == Token::Ellipsis)
 				{
 					isVararg = true;
 					l.next();
@@ -533,7 +533,7 @@ namespace croc
 				parseParam();
 				parseRestOfParams();
 			}
-			else if(l.type() == Token::Vararg)
+			else if(l.type() == Token::Vararg || l.type() == Token::Ellipsis)
 			{
 				isVararg = true;
 				l.next();

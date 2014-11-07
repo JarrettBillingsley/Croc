@@ -45,7 +45,7 @@ Symbol:
 	+ | += | ++ | - | -= | -- | ~ | ~= | * | *= | / | /= | % | %=
 	< | <= | <=> | << | <<= | > | >= | >> | >>= | >>> | >>>=
 	& | &= | && | '|' | |= | || | ^ | ^= | = | == | ? | ?=
-	. | '..' | ! | != | '(' | ')' | [ | ] | { | } | : | ,
+	. | '..' | '...' | ! | != | '(' | ')' | [ | ] | { | } | : | ,
 	; | # | \ | -> | $ | @
 
 Identifier:
@@ -231,8 +231,12 @@ FunctionBody:
 	'(' Parameters? ')' (Statement | = Expression)
 
 Parameters:
-	(Parameter | ThisParam) (, Parameter)* (, vararg)?
+	(Parameter | ThisParam) (, Parameter)* (, VarargParam)?
+	VarargParam
+
+VarargParam:
 	vararg
+	...
 
 ThisParam:
 	this (as Identifier)? (: Type | Parameter)?

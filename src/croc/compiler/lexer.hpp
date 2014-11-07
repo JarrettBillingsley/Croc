@@ -88,6 +88,7 @@ namespace croc
 	X(EQ,            "==")\
 	X(Dot,           ".")\
 	X(DotDot,        "..")\
+	X(Ellipsis,      "...")\
 	X(Not,           "!")\
 	X(NE,            "!=")\
 	X(LParen,        "(")\
