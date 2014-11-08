@@ -147,6 +147,39 @@ extern "C"
 		return f->isVararg();
 	}
 
+	/** \returns the number of \a non-variadic values that the function at \c func returns. */
+	uword_t croc_function_getNumReturns(CrocThread* t_, word_t func)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_PARAM(f, func, Function, "func");
+
+		if(f->isNative)
+			return 0;
+		else
+			return f->scriptFunc->numReturns;
+	}
+
+	/** \returns the maximum number of values that the function at \c func can return. For variadic return functions,
+	this will be an absurdly large number. */
+	uword_t croc_function_getMaxReturns(CrocThread* t_, word_t func)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_PARAM(f, func, Function, "func");
+
+		if(f->isNative || f->scriptFunc->isVarret)
+			return cast(uword_t)-1;
+		else
+			return f->scriptFunc->numReturns;
+	}
+
+	/** \returns nonzero if the function at \c func has variadic returns. */
+	int croc_function_isVarret(CrocThread* t_, word_t func)
+	{
+		auto t = Thread::from(t_);
+		API_CHECK_PARAM(f, func, Function, "func");
+		return f->isVarret();
+	}
+
 	/** \returns nonzero if the function at \c func is native. */
 	int croc_function_isNative(CrocThread* t_, word_t func)
 	{

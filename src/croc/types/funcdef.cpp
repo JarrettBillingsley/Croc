@@ -13,6 +13,7 @@ namespace croc
 	void Funcdef::free(Memory& mem, Funcdef* fd)
 	{
 		fd->paramMasks.free(mem);
+		fd->returnMasks.free(mem);
 		fd->upvals.free(mem);
 		fd->innerFuncs.free(mem);
 		fd->constants.free(mem);

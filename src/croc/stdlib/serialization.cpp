@@ -116,9 +116,12 @@ word_t _nativeSerializeFuncdef(CrocThread* t)
 	_integer(t, v->locLine);
 	_integer(t, v->locCol);
 	_writeUInt8(t, cast(uint8_t)v->isVararg);
+	_writeUInt8(t, cast(uint8_t)v->isVarret);
 	_serialize(t, v->name);
 	_integer(t, v->numParams);
 	_serializeArray(t, v->paramMasks);
+	_integer(t, v->numReturns);
+	_serializeArray(t, v->returnMasks);
 
 	_integer(t, v->upvals.length);
 
@@ -637,12 +640,18 @@ word_t _deserializeFuncdefImpl(CrocThread* t)
 	def->locLine = _length(t);
 	def->locCol = _length(t);
 	def->isVararg = cast(bool)_readUInt8(t);
+	def->isVarret = cast(bool)_readUInt8(t);
 	def->name = _deserializeString(t);
 	def->numParams = _length(t);
-
 	def->paramMasks.resize(t_->vm->mem, _length(t));
 
 	for(auto &mask: def->paramMasks)
+		mask = _length(t);
+
+	def->numReturns = _length(t);
+	def->returnMasks.resize(t_->vm->mem, _length(t));
+
+	for(auto &mask: def->returnMasks)
 		mask = _length(t);
 
 	def->upvals.resize(t_->vm->mem, _length(t));

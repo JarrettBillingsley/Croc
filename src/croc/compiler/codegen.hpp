@@ -34,6 +34,7 @@ namespace croc
 		void visitIf(CompileLoc endLocation, CompileLoc elseLocation, IdentExp* condVar, Expression* condition, std::function<void()> genBody, std::function<void()> genElse);
 		void visitForNum(CompileLoc location, CompileLoc endLocation, crocstr name, Expression* lo, Expression* hi, Expression* step, Identifier* index, std::function<void()> genBody);
 		void visitForeach(CompileLoc location, CompileLoc endLocation, crocstr name, DArray<Identifier*> indices, DArray<Expression*> container, std::function<void()> genBody);
+		void codeReturn(CompileLoc location, uword numRets);
 		OpAssignStmt* visitOpAssign(OpAssignStmt* s);
 		BinaryExp* visitBinExp(BinaryExp* e);
 		BinaryExp* visitComparisonExp(BinaryExp* e);

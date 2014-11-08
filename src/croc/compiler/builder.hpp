@@ -256,11 +256,14 @@ namespace croc
 		uword mExpSP = 0;
 		uword mTryCatchDepth = 0;
 
+		FuncDef* mDef;
 		CompileLoc mLocation;
 		bool mIsVararg;
 		crocstr mName;
 		uword mNumParams;
 		List<uword> mParamMasks;
+		bool mIsVarret;
+		List<uword> mReturnMasks;
 
 		List<UpvalDesc> mUpvals;
 		uword mStackSize;
@@ -293,6 +296,8 @@ namespace croc
 			mName(name),
 			mNumParams(0),
 			mParamMasks(c),
+			mIsVarret(true),
+			mReturnMasks(c),
 			mUpvals(c),
 			mStackSize(0),
 			mInnerFuncs(c),
@@ -313,8 +318,12 @@ namespace croc
 		~FuncBuilder();
 		static void searchVar(FuncBuilder* fb, Identifier* name, Exp& e, bool isOriginal = true);
 
+		void setDef(FuncDef* def);
+		FuncDef* getDef();
 		void setVararg(bool isVararg);
 		bool isVararg();
+		void setVarret(bool isVarret);
+		bool isVarret();
 		void setNumParams(uword numParams);
 		FuncBuilder* parent();
 		void printExpStack();
@@ -326,6 +335,7 @@ namespace croc
 		void setScopeName(crocstr name);
 		void closeScopeUpvals(CompileLoc loc);
 		void addParam(Identifier* ident, uword typeMask);
+		void addReturn(uword typeMask);
 		uword insertLocal(Identifier* ident);
 		void activateLocals(uword num);
 		void beginSwitch(CompileLoc loc);
@@ -349,6 +359,7 @@ namespace croc
 		void pushThis();
 		void addUpval(Identifier* name, Exp& e);
 		void pushVar(Identifier* name);
+		void pushReturn(CompileLoc loc, uword returnIdx);
 		void pushVararg(CompileLoc loc);
 		void pushVargLen(CompileLoc loc);
 		void pushClosure(FuncBuilder* fb);
@@ -360,8 +371,10 @@ namespace croc
 		void arraySet(CompileLoc loc, uword numItems, uword block);
 		void arrayAppend(CompileLoc loc);
 		void customParamFail(CompileLoc loc, uword paramIdx);
+		void customReturnFail(CompileLoc loc, uword returnIdx);
 		void assertFail(CompileLoc loc);
 		uword checkObjParam(CompileLoc loc, uword paramIdx);
+		uword checkObjReturn(CompileLoc loc, uword retIdx);
 		uword codeIsTrue(CompileLoc loc, bool isTrue = true);
 		uword codeCmp(CompileLoc loc, Comparison type);
 		uword codeSwitchCmp(CompileLoc loc);
@@ -373,7 +386,9 @@ namespace croc
 		void addClassField(CompileLoc loc, bool isOverride);
 		void addClassMethod(CompileLoc loc, bool isOverride);
 		void objParamFail(CompileLoc loc, uword paramIdx);
+		void objReturnFail(CompileLoc loc, uword returnIdx);
 		void paramCheck(CompileLoc loc);
+		void returnCheck(CompileLoc loc);
 		void incDec(CompileLoc loc, AstTag type);
 		void reflexOp(CompileLoc loc, AstTag type);
 		void concatEq(CompileLoc loc, uword operands);
@@ -393,6 +408,7 @@ namespace croc
 		void concat(CompileLoc loc, uword numOps);
 		void unOp(CompileLoc loc, AstTag type);
 		void as(CompileLoc loc, AsExp::Type type);
+		void retAsFloat(CompileLoc loc, uword returnIdx);
 		MethodCallDesc beginMethodCall();
 		void updateMethodCall(MethodCallDesc& desc, uword num);
 		void pushMethodCall(CompileLoc loc, MethodCallDesc& desc);
@@ -420,7 +436,7 @@ namespace croc
 		bool inTryCatch();
 		void codeContinue(CompileLoc loc, crocstr name);
 		void codeBreak(CompileLoc loc, crocstr name);
-		void defaultReturn(CompileLoc loc);
+		void defaultReturn(CompileLoc loc, bool checkRets);
 		void codeRet(CompileLoc loc);
 		void codeUnwind(CompileLoc loc);
 		void codeEndFinal(CompileLoc loc);

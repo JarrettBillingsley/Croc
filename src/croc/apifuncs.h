@@ -312,6 +312,9 @@ CROCAPI word_t      croc_function_pushDef          (CrocThread* t, word_t func);
 CROCAPI uword_t     croc_function_getNumParams     (CrocThread* t, word_t func);
 CROCAPI uword_t     croc_function_getMaxParams     (CrocThread* t, word_t func);
 CROCAPI int         croc_function_isVararg         (CrocThread* t, word_t func);
+CROCAPI uword_t     croc_function_getNumReturns    (CrocThread* t, word_t func);
+CROCAPI uword_t     croc_function_getMaxReturns    (CrocThread* t, word_t func);
+CROCAPI int         croc_function_isVarret         (CrocThread* t, word_t func);
 CROCAPI int         croc_function_isNative         (CrocThread* t, word_t func);
 
 /** Like \ref croc_function_newWithEnv, except it uses the current environment namespace, so the only values it expects

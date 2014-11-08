@@ -31,6 +31,7 @@ ONE SHORT:
 	endfinal:    rethrow any in-flight exception, or continue unwinding if doing so
 	ret:         return
 	checkparams: check params against param masks
+	checkrets:   check returns against return masks
 (rd)
 	inc:          rd++
 	dec:          rd--
@@ -39,7 +40,9 @@ ONE SHORT:
 	close:        close open upvals down to and including rd
 	objparamfail: give an error about parameter rd not being of an acceptable type
 (rdimm)
-	unwind: unwind rdimm number of EH frames
+	unwind:     unwind rdimm number of EH frames
+	objretfail: give an error about return rd not being of an acceptable type
+	retasfloat: convert return stack value rdimm to float
 
 TWO SHORTS:
 
@@ -78,9 +81,11 @@ TWO SHORTS:
 	setu:        upvals[uimm] = rd
 	newarr:      rd = array.new(constTable[uimm])
 	namespacenp: rd = namespace constTable[uimm] : null {}
+	moveret:     rd = returnStack[uimm]
 (rdimm, rs)
-	throw:  throw the value in rs; rd == 0 means normal throw, rd == 1 means rethrow
-	switch: switch on the value in rs using switch table index rd
+	throw:         throw the value in rs; rd == 0 means normal throw, rd == 1 means rethrow
+	switch:        switch on the value in rs using switch table index rd
+	customretfail: give error message about return rdimm not satisfying the constraint whose name is in rs
 (rdimm, imm)
 	jmp: if rd == 1, jump by imm, otherwise no-op
 
@@ -111,6 +116,7 @@ THREE SHORTS:
 	namespace: rd = namespace constTable[uimm] : rt {}
 (rdimm, rs, imm)
 	istrue: if the truth value of rs matches the truth value in rd, jump by imm
+	checkobjret: if(!isInstance(returnStack[rdimm]) || returnStack[rdimm] as rs) jump by imm
 
 FOUR SHORTS:
 
@@ -159,6 +165,7 @@ FIVE SHORTS:
 	X(Inc),\
 	X(Dec),\
 	X(Move),\
+	X(MoveRet),\
 	X(NewGlobal),\
 	X(GetGlobal),\
 	X(SetGlobal),\
@@ -198,9 +205,13 @@ FIVE SHORTS:
 	X(VargSlice),\
 	X(Yield),\
 	X(CheckParams),\
+	X(CheckRets),\
 	X(CheckObjParam),\
+	X(CheckObjRet),\
 	X(ObjParamFail),\
+	X(ObjRetFail),\
 	X(CustomParamFail),\
+	X(CustomRetFail),\
 	X(AssertFail),\
 	X(Length),\
 	X(LengthAssign),\
@@ -226,7 +237,8 @@ FIVE SHORTS:
 	X(AsBool),\
 	X(AsInt),\
 	X(AsFloat),\
-	X(AsString)
+	X(AsString),\
+	X(RetAsFloat)
 
 #define POOP(x) Op_ ## x
 	enum Op

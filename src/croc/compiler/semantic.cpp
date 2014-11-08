@@ -80,29 +80,35 @@ namespace croc
 				p.typeMask = cast(uint32_t)TypeMask::IntOrFloat;
 			}
 
-			if(p.defValue == nullptr)
-				continue;
+			if(p.defValue)
+			{
+				p.defValue = visit(p.defValue);
 
-			p.defValue = visit(p.defValue);
+				if(p.defValue->isConstant())
+				{
+					CrocType type;
 
-			if(!p.defValue->isConstant())
-				continue;
+					if(p.defValue->isNull())        type = CrocType_Null;
+					else if(p.defValue->isBool())   type = CrocType_Bool;
+					else if(p.defValue->isInt())    type = CrocType_Int;
+					else if(p.defValue->isFloat())  type = CrocType_Float;
+					else if(p.defValue->isString()) type = CrocType_String;
+					else { assert(false); type = CrocType_Null; } // dummy
 
-			CrocType type;
-
-			if(p.defValue->isNull())        type = CrocType_Null;
-			else if(p.defValue->isBool())   type = CrocType_Bool;
-			else if(p.defValue->isInt())    type = CrocType_Int;
-			else if(p.defValue->isFloat())  type = CrocType_Float;
-			else if(p.defValue->isString()) type = CrocType_String;
-			else { assert(false); type = CrocType_Null; } // dummy
-
-			if(!(p.typeMask & (1 << type)))
-				c.semException(p.defValue->location,
-					"Parameter %" CROC_SIZE_T_FORMAT ": Default parameter of type '%s' is not allowed",
-					i - 1, typeToString(type));
+					if(!(p.typeMask & (1 << type)))
+						c.semException(p.defValue->location,
+							"Parameter %" CROC_SIZE_T_FORMAT ": Default parameter of type '%s' is not allowed",
+							i - 1, typeToString(type));
+				}
+			}
 
 			i++;
+		}
+
+		for(auto &r: d->returns)
+		{
+			if(r.typeMask == cast(uint32_t)TypeMask::Float || r.typeMask == cast(uint32_t)TypeMask::IntOrFloat)
+				r.typeMask = cast(uint32_t)TypeMask::IntOrFloat;
 		}
 
 		VISIT(d->code);

@@ -76,6 +76,53 @@ word_t _function_isVararg(CrocThread* t)
 	return 1;
 }
 
+const StdlibRegisterInfo _function_numReturns_info =
+{
+	Docstr(DFunc("numReturns")
+	R"(\returns an integer telling how many \em{non-variadic} values the function returns.)"),
+
+	"numReturns", 0
+};
+
+word_t _function_numReturns(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Function);
+	croc_pushInt(t, croc_function_getNumReturns(t, 0));
+	return 1;
+}
+
+const StdlibRegisterInfo _function_maxReturns_info =
+{
+	Docstr(DFunc("maxReturns")
+	R"(\returns an integer of the maximum number of values this function can return. Variadic return functions will
+	simply return a very large number from this method.)"),
+
+	"maxReturns", 0
+};
+
+word_t _function_maxReturns(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Function);
+	croc_pushInt(t, croc_function_getMaxReturns(t, 0));
+	return 1;
+}
+
+const StdlibRegisterInfo _function_isVarret_info =
+{
+	Docstr(DFunc("isVarret")
+	R"(\returns a bool telling whether or not the function has variadic returns (i.e. can return any number of
+	values). Always returns \tt{true} for native functions, currently.)"),
+
+	"isVarret", 0
+};
+
+word_t _function_isVarret(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Function);
+	croc_pushBool(t, croc_function_isVarret(t, 0));
+	return 1;
+}
+
 const StdlibRegisterInfo _function_isCacheable_info =
 {
 	Docstr(DFunc("isCacheable")
@@ -116,6 +163,9 @@ const StdlibRegister _function_metatable[] =
 	_DListItem(_function_numParams),
 	_DListItem(_function_maxParams),
 	_DListItem(_function_isVararg),
+	_DListItem(_function_numReturns),
+	_DListItem(_function_maxReturns),
+	_DListItem(_function_isVarret),
 	_DListItem(_function_isCacheable),
 	_DListItem(_function_funcdef),
 	_DListEnd
@@ -152,6 +202,37 @@ word_t _funcdef_isVararg(CrocThread* t)
 {
 	croc_ex_checkParam(t, 0, CrocType_Funcdef);
 	croc_pushBool(t, getFuncdef(Thread::from(t), 0)->isVararg);
+	return 1;
+}
+
+const StdlibRegisterInfo _funcdef_numReturns_info =
+{
+	Docstr(DFunc("numReturns")
+	R"(\returns an integer telling how many \em{non-variadic} values the function described by the funcdef returns.)"),
+
+	"numReturns", 0
+};
+
+word_t _funcdef_numReturns(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Funcdef);
+	croc_pushInt(t, getFuncdef(Thread::from(t), 0)->numReturns);
+	return 1;
+}
+
+const StdlibRegisterInfo _funcdef_isVarret_info =
+{
+	Docstr(DFunc("isVarret")
+	R"(\returns a bool telling whether or not the function has variadic returns (i.e. can return any number of
+	values).)"),
+
+	"isVarret", 0
+};
+
+word_t _funcdef_isVarret(CrocThread* t)
+{
+	croc_ex_checkParam(t, 0, CrocType_Funcdef);
+	croc_pushBool(t, getFuncdef(Thread::from(t), 0)->isVarret);
 	return 1;
 }
 
@@ -219,6 +300,8 @@ const StdlibRegister _funcdef_metatable[] =
 {
 	_DListItem(_funcdef_numParams),
 	_DListItem(_funcdef_isVararg),
+	_DListItem(_funcdef_numReturns),
+	_DListItem(_funcdef_isVarret),
 	_DListItem(_funcdef_isCacheable),
 	_DListItem(_funcdef_isCached),
 	_DListItem(_funcdef_close),

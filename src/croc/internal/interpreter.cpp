@@ -1074,16 +1074,115 @@ namespace croc
 					break;
 				}
 				case Op_CustomParamFail: {
-					pushTypeStringImpl(t, t->stack[stackBase + rd]);
 					GetRS();
 
 					if(rd == 0)
-						croc_eh_throwStd(*t, "TypeError", "'this' parameter: type '%s' does not satisfy constraint '%s'",
-							croc_getString(*t, -1), RS->mString->toCString());
+						croc_eh_throwStd(*t, "TypeError", "'this' parameter: value does not satisfy constraint '%s'",
+							RS->mString->toCString());
 					else
 						croc_eh_throwStd(*t, "TypeError",
-							"Parameter %d: type '%s' does not satisfy constraint '%s'",
-							rd, croc_getString(*t, -1), RS->mString->toCString());
+							"Parameter %d: value does not satisfy constraint '%s'",
+							rd, RS->mString->toCString());
+					break;
+				}
+				case Op_CheckRets: {
+					auto val = &t->results[t->currentAR->firstResult];
+					auto actualReturns = t->currentAR->numResults;
+					auto func = t->currentAR->func->scriptFunc;
+					auto masks = func->returnMasks;
+
+					if(!func->isVarret && actualReturns > func->numReturns)
+						croc_eh_throwStd(*t, "ParamError", "Function %s expects at most %" CROC_SIZE_T_FORMAT
+							" returns but was given %" CROC_SIZE_T_FORMAT,
+							func->name->toCString(), func->numReturns, actualReturns);
+
+					for(uword idx = 0; idx < masks.length; idx++)
+					{
+						auto ok = (idx < actualReturns) ?
+							(masks[idx] & (1 << val->type)) :
+							(masks[idx] & (1 << CrocType_Null));
+
+						if(!ok)
+						{
+							if(idx < actualReturns)
+								pushTypeStringImpl(t, *val);
+							else
+								pushTypeStringImpl(t, Value::nullValue);
+
+							croc_eh_throwStd(*t, "TypeError",
+								"Return %" CROC_SIZE_T_FORMAT ": type '%s' is not allowed",
+								idx + 1, croc_getString(*t, -1));
+						}
+
+						val++;
+					}
+					break;
+				}
+				case Op_CheckObjRet: {
+					auto returns = &t->results[t->currentAR->firstResult];
+					auto actualReturns = t->currentAR->numResults;
+					auto val = (cast(uword)rd < actualReturns) ? &returns[rd] : &Value::nullValue;
+					GetRS();
+					auto jump = GetImm();
+
+					if(val->type != CrocType_Instance)
+						(*pc) += jump;
+					else
+					{
+						if(RS->type != CrocType_Class)
+						{
+							pushTypeStringImpl(t, *RS);
+
+							croc_eh_throwStd(*t, "TypeError",
+								"Return %u: instance type constraint type must be 'class', not '%s'",
+								rd + 1, croc_getString(*t, -1));
+						}
+
+						if(val->mInstance->derivesFrom(RS->mClass))
+							(*pc) += jump;
+					}
+					break;
+				}
+				case Op_ObjRetFail: {
+					auto returns = &t->results[t->currentAR->firstResult];
+					auto actualReturns = t->currentAR->numResults;
+					auto val = (cast(uword)rd < actualReturns) ? &returns[rd] : &Value::nullValue;
+					pushTypeStringImpl(t, *val);
+
+					croc_eh_throwStd(*t, "TypeError", "Return %d: type '%s' is not allowed",
+						rd + 1, croc_getString(*t, -1));
+
+					break;
+				}
+				case Op_CustomRetFail: {
+					GetRS();
+
+					croc_eh_throwStd(*t, "TypeError", "Return %d: value does not satisfy constraint '%s'",
+						rd + 1, RS->mString->toCString());
+					break;
+				}
+				case Op_MoveRet: {
+					auto ret = GetUImm();
+					auto returns = &t->results[t->currentAR->firstResult];
+					auto actualReturns = t->currentAR->numResults;
+					auto val = (cast(uword)ret < actualReturns) ? &returns[ret] : &Value::nullValue;
+					t->stack[stackBase + rd] = *val;
+					break;
+				}
+				case Op_RetAsFloat: {
+					auto returns = &t->results[t->currentAR->firstResult];
+					auto actualReturns = t->currentAR->numResults;
+					auto val = (cast(uword)rd < actualReturns) ? &returns[rd] : &Value::nullValue;
+
+					switch(val->type)
+					{
+						case CrocType_Int:   if(cast(uword)rd < actualReturns) returns[rd] = Value::from((crocfloat)val->mInt); break;
+						case CrocType_Float: if(cast(uword)rd < actualReturns) returns[rd] = *val; break;
+
+						default:
+							pushTypeStringImpl(t, *val);
+							croc_eh_throwStd(*t, "TypeError", "Cannot convert type '%s' to float", croc_getString(*t, -1));
+					}
 					break;
 				}
 				case Op_AssertFail: {

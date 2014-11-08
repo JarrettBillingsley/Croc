@@ -40,7 +40,7 @@ local PlatformBits = _serializationtmp.PlatformBits
 local ModuleFourCC = getCodec("ascii").encode("Croc")
 
 // This gets bumped any time the serialization format changes.
-local SerialVersion = 1
+local SerialVersion = 2
 
 local utf8 = getCodec("utf-8")
 

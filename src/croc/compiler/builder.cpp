@@ -118,6 +118,16 @@ namespace croc
 			s.offsets.clear(c.mem());
 	}
 
+	void FuncBuilder::setDef(FuncDef* def)
+	{
+		mDef = def;
+	}
+
+	FuncDef* FuncBuilder::getDef()
+	{
+		return mDef;
+	}
+
 	void FuncBuilder::setVararg(bool isVararg)
 	{
 		mIsVararg = isVararg;
@@ -126,6 +136,16 @@ namespace croc
 	bool FuncBuilder::isVararg()
 	{
 		return mIsVararg;
+	}
+
+	void FuncBuilder::setVarret(bool isVarret)
+	{
+		mIsVarret = isVarret;
+	}
+
+	bool FuncBuilder::isVarret()
+	{
+		return mIsVarret;
 	}
 
 	void FuncBuilder::setNumParams(uword numParams)
@@ -239,6 +259,11 @@ namespace croc
 	{
 		insertLocal(ident);
 		mParamMasks.add(typeMask);
+	}
+
+	void FuncBuilder::addReturn(uword typeMask)
+	{
+		mReturnMasks.add(typeMask);
 	}
 
 	uword FuncBuilder::insertLocal(Identifier* ident)
@@ -598,6 +623,13 @@ namespace croc
 			e.index = addStringConst(name->name);
 	}
 
+	// [] => [NeedsDest]
+	void FuncBuilder::pushReturn(CompileLoc loc, uword returnIdx)
+	{
+		pushExp(ExpType::NeedsDest, codeRD(loc, Op_MoveRet, 0));
+		codeUImm(returnIdx);
+	}
+
 	// [] => [Vararg]
 	void FuncBuilder::pushVararg(CompileLoc loc)
 	{
@@ -749,6 +781,18 @@ namespace croc
 	}
 
 	// [src] => []
+	void FuncBuilder::customReturnFail(CompileLoc loc, uword returnIdx)
+	{
+		auto &msg = getExp(-1);
+		DEBUG_EXPSTACKCHECK(assert(msg.isSource());)
+
+		codeRD(loc, Op_CustomRetFail, returnIdx);
+		codeRC(msg);
+
+		pop();
+	}
+
+	// [src] => []
 	void FuncBuilder::assertFail(CompileLoc loc)
 	{
 		auto &msg = getExp(-1);
@@ -765,6 +809,20 @@ namespace croc
 		DEBUG_EXPSTACKCHECK(assert(type.isSource());)
 
 		auto ret = codeRD(loc, Op_CheckObjParam, paramIdx);
+		codeRC(type);
+		codeImm(INST_NO_JUMP);
+
+		pop();
+		return ret;
+	}
+
+	// [src] => []
+	uword FuncBuilder::checkObjReturn(CompileLoc loc, uword returnIdx)
+	{
+		auto &type = getExp(-1);
+		DEBUG_EXPSTACKCHECK(assert(type.isSource());)
+
+		auto ret = codeRD(loc, Op_CheckObjRet, returnIdx);
 		codeRC(type);
 		codeImm(INST_NO_JUMP);
 
@@ -893,9 +951,19 @@ namespace croc
 		codeRD(loc, Op_ObjParamFail, paramIdx);
 	}
 
+	void FuncBuilder::objReturnFail(CompileLoc loc, uword returnIdx)
+	{
+		codeRD(loc, Op_ObjRetFail, returnIdx);
+	}
+
 	void FuncBuilder::paramCheck(CompileLoc loc)
 	{
 		codeRD(loc, Op_CheckParams, 0);
+	}
+
+	void FuncBuilder::returnCheck(CompileLoc loc)
+	{
+		codeRD(loc, Op_CheckRets, 0);
 	}
 
 	// [Temp]
@@ -1222,6 +1290,13 @@ namespace croc
 		codeRC(src);
 		pop();
 		pushExp(ExpType::NeedsDest, inst);
+	}
+
+	// [] => []
+	void FuncBuilder::retAsFloat(CompileLoc loc, uword returnIdx)
+	{
+		assert(returnIdx <= INST_RD_MAX);
+		codeRD(loc, Op_RetAsFloat, returnIdx);
 	}
 
 	MethodCallDesc FuncBuilder::beginMethodCall()
@@ -1620,9 +1695,13 @@ namespace croc
 		codeImm(br);
 	}
 
-	void FuncBuilder::defaultReturn(CompileLoc loc)
+	void FuncBuilder::defaultReturn(CompileLoc loc, bool checkRets)
 	{
 		saveRets(loc, 0);
+
+		if(checkRets)
+			returnCheck(loc);
+
 		codeRet(loc);
 	}
 
@@ -1850,7 +1929,8 @@ namespace croc
 
 			case Op_ForeachLoop:
 			case Op_IsTrue:
-			case Op_CheckObjParam: setImm(i + 2, offs); break;
+			case Op_CheckObjParam:
+			case Op_CheckObjRet:   setImm(i + 2, offs); break;
 
 			case Op_Cmp:
 			case Op_SwitchCmp:
@@ -1875,7 +1955,8 @@ namespace croc
 
 			case Op_ForeachLoop:
 			case Op_IsTrue:
-			case Op_CheckObjParam: return getImm(i + 2);
+			case Op_CheckObjParam:
+			case Op_CheckObjRet:   return getImm(i + 2);
 
 			case Op_Cmp:
 			case Op_SwitchCmp:
@@ -1901,7 +1982,8 @@ namespace croc
 
 			case Op_ForeachLoop:
 			case Op_IsTrue:
-			case Op_CheckObjParam: return dest - (srcIndex + 3);
+			case Op_CheckObjParam:
+			case Op_CheckObjRet:   return dest - (srcIndex + 3);
 
 			case Op_Cmp:
 			case Op_SwitchCmp:
@@ -2341,9 +2423,12 @@ namespace croc
 		ret->locLine = mLocation.line;
 		ret->locCol = mLocation.col;
 		ret->isVararg = mIsVararg;
+		ret->isVarret = mIsVarret;
 		ret->name = String::create(t->vm, mName);
 		ret->numParams = mNumParams;
 		ret->paramMasks = mParamMasks.toArrayView().dup(c.mem());
+		ret->numReturns = mReturnMasks.length();
+		ret->returnMasks = mReturnMasks.toArrayView().dup(c.mem());
 
 		ret->upvals.resize(c.mem(), mUpvals.length());
 
@@ -2413,6 +2498,10 @@ namespace croc
 		uword i = 0;
 		for(auto m: mParamMasks)
 			printf("\tParam %u mask: %x\n", i++, m);
+
+		i = 0;
+		for(auto m: mReturnMasks)
+			printf("\tReturn %u mask: %x\n", i++, m);
 
 		i = 0;
 		for(auto s: mInnerFuncs)
@@ -2505,11 +2594,11 @@ namespace croc
 		switch(INST_GET_OPCODE(i))
 		{
 			// (__)
-			case Op_PopEH:    printf("popeh"); goto _1;
-			// case Op_PopEH2:  printf("popeh"); goto _1;
+			case Op_PopEH:       printf("popeh"); goto _1;
 			case Op_EndFinal:    printf("endfinal"); goto _1;
 			case Op_Ret:         printf("ret"); goto _1;
 			case Op_CheckParams: printf("checkparams"); goto _1;
+			case Op_CheckRets:   printf("checkrets"); goto _1;
 			_1: break;
 
 			// (rd)
@@ -2523,24 +2612,26 @@ namespace croc
 			_2: rd(i); break;
 
 			// (rdimm)
-			case Op_Unwind: printf("unwind"); goto _3;
+			case Op_Unwind:     printf("unwind"); goto _3;
+			case Op_ObjRetFail: printf("objretfail"); goto _3;
+			case Op_RetAsFloat: printf("retasfloat"); goto _3;
 			_3: rdimm(i); break;
 
 			// (rd, rs)
-			case Op_Neg: printf("neg"); goto _4;
-			case Op_Com: printf("com"); goto _4;
-			case Op_Not: printf("not"); goto _4;
-			case Op_AddEq:  printf("addeq"); goto _4;
-			case Op_SubEq:  printf("subeq"); goto _4;
-			case Op_MulEq:  printf("muleq"); goto _4;
-			case Op_DivEq:  printf("diveq"); goto _4;
-			case Op_ModEq:  printf("modeq"); goto _4;
-			case Op_AndEq:  printf("andeq"); goto _4;
-			case Op_OrEq:   printf("oreq"); goto _4;
-			case Op_XorEq:  printf("xoreq"); goto _4;
-			case Op_ShlEq:  printf("shleq"); goto _4;
-			case Op_ShrEq:  printf("shreq"); goto _4;
-			case Op_UShrEq: printf("ushreq"); goto _4;
+			case Op_Neg:             printf("neg"); goto _4;
+			case Op_Com:             printf("com"); goto _4;
+			case Op_Not:             printf("not"); goto _4;
+			case Op_AddEq:           printf("addeq"); goto _4;
+			case Op_SubEq:           printf("subeq"); goto _4;
+			case Op_MulEq:           printf("muleq"); goto _4;
+			case Op_DivEq:           printf("diveq"); goto _4;
+			case Op_ModEq:           printf("modeq"); goto _4;
+			case Op_AndEq:           printf("andeq"); goto _4;
+			case Op_OrEq:            printf("oreq"); goto _4;
+			case Op_XorEq:           printf("xoreq"); goto _4;
+			case Op_ShlEq:           printf("shleq"); goto _4;
+			case Op_ShrEq:           printf("shreq"); goto _4;
+			case Op_UShrEq:          printf("ushreq"); goto _4;
 			case Op_Move:            printf("mov"); goto _4;
 			case Op_VargIndex:       printf("vargidx"); goto _4;
 			case Op_Length:          printf("len"); goto _4;
@@ -2550,6 +2641,10 @@ namespace croc
 			case Op_CustomParamFail: printf("customparamfail"); goto _4;
 			case Op_Slice:           printf("slice"); goto _4;
 			case Op_SliceAssign:     printf("slicea"); goto _4;
+			case Op_AsBool:          printf("asbool"); goto _4;
+			case Op_AsInt:           printf("asint"); goto _4;
+			case Op_AsFloat:         printf("asfloat"); goto _4;
+			case Op_AsString:        printf("asstring"); goto _4;
 			_4: rd(i); rc(); break;
 
 			// (rd, imm)
@@ -2561,25 +2656,27 @@ namespace croc
 			_5: rd(i); imm(); break;
 
 			// (rd, uimm)
-			case Op_Vararg: printf("vararg"); goto _6a;
-			case Op_SaveRets: printf("saverets"); goto _6a;
-			case Op_VargSlice: printf("vargslice"); goto _6a;
-			case Op_Closure: printf("closure"); goto _6a;
+			case Op_Vararg:         printf("vararg"); goto _6a;
+			case Op_SaveRets:       printf("saverets"); goto _6a;
+			case Op_VargSlice:      printf("vargslice"); goto _6a;
+			case Op_Closure:        printf("closure"); goto _6a;
 			case Op_ClosureWithEnv: printf("closurewenv"); goto _6a;
-			case Op_GetUpval: printf("getu"); goto _6a;
-			case Op_SetUpval: printf("setu"); goto _6a;
+			case Op_GetUpval:       printf("getu"); goto _6a;
+			case Op_SetUpval:       printf("setu"); goto _6a;
+			case Op_MoveRet:        printf("moveret"); goto _6a;
 			_6a: rd(i); uimm(); break;
 
-			case Op_NewGlobal: printf("newg"); goto _6b;
-			case Op_GetGlobal: printf("getg"); goto _6b;
-			case Op_SetGlobal: printf("setg"); goto _6b;
-			case Op_NewArray: printf("newarr"); goto _6b;
+			case Op_NewGlobal:   printf("newg"); goto _6b;
+			case Op_GetGlobal:   printf("getg"); goto _6b;
+			case Op_SetGlobal:   printf("setg"); goto _6b;
+			case Op_NewArray:    printf("newarr"); goto _6b;
 			case Op_NamespaceNP: printf("namespacenp"); goto _6b;
 			_6b: rd(i); printf(", c%u", nextIns().uimm); break;
 
 			// (rdimm, rs)
 			case Op_Throw: if(INST_GET_RD(i)) { printf("re"); } printf("throw"); rcNoComma(); break;
-			case Op_Switch: printf("switch"); goto _7;
+			case Op_Switch:        printf("switch"); goto _7;
+			case Op_CustomRetFail: printf("customretfail"); goto _7;
 			_7: rdimm(i); rc(); break;
 
 			// (rdimm, imm)
@@ -2629,7 +2726,8 @@ namespace croc
 			case Op_Namespace: printf("namespace"); rd(i); printf(", c%u", nextIns().uimm); rc(); break;
 
 			// (rdimm, rs, imm)
-			case Op_IsTrue: printf(INST_GET_RD(i) ? "istrue" : "isfalse"); rcNoComma(); imm(); break;
+			case Op_IsTrue:      printf(INST_GET_RD(i) ? "istrue" : "isfalse"); rcNoComma(); imm(); break;
+			case Op_CheckObjRet: printf("checkobjret"); rd(i); rc(); imm(); break;
 
 			// (rdimm, rs, rt, imm)
 			case Op_Cmp:
@@ -2659,7 +2757,7 @@ namespace croc
 			case Op_Method:     printf("method"); rd(i); rc(); rc(); uimm(); uimm(); break;
 			case Op_TailMethod: printf("tmethod"); rd(i); rc(); rc(); uimm(); nextIns(); break;
 
-			default: assert(false);
+			default: printf("no case for opcode %d\n", INST_GET_OPCODE(i)); assert(false);
 		}
 
 		printf("\n");

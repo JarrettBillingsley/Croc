@@ -110,4 +110,12 @@ namespace croc
 		else
 			return this->scriptFunc->isVararg;
 	}
+
+	bool Function::isVarret()
+	{
+		if(this->isNative)
+			return true;
+		else
+			return this->scriptFunc->isVarret;
+	}
 }

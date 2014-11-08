@@ -21,8 +21,13 @@ namespace croc
 
 			failed = tryCode(c.thread(), slot, [&]
 			{
+				fb->setDef(d);
 				fb->setVararg(d->isVararg);
+				fb->setVarret(d->isVarret);
 				fb->setNumParams(d->params.length);
+
+				for(auto &r: d->returns)
+					fb->addReturn(r.typeMask);
 
 				Scope scop;
 				fb->pushScope(scop);
@@ -33,7 +38,7 @@ namespace croc
 
 					visit(d->code);
 				fb->popScope(d->code->endLocation);
-				fb->defaultReturn(d->code->endLocation);
+				fb->defaultReturn(d->code->endLocation, c.typeConstraints() && d->returns.length > 0);
 			});
 
 			fb = nullptr;
@@ -77,7 +82,7 @@ namespace croc
 						fb->popToNothing();
 					}
 				fb->popScope(m->endLocation);
-				fb->defaultReturn(m->endLocation);
+				fb->defaultReturn(m->endLocation, false);
 
 				DEBUG_EXPSTACKCHECK(fb->checkExpStackEmpty();)
 			});
@@ -112,8 +117,13 @@ namespace croc
 
 			failed = tryCode(c.thread(), slot, [&]
 			{
+				fb->setDef(d);
 				fb->setVararg(d->isVararg);
+				fb->setVarret(d->isVarret);
 				fb->setNumParams(d->params.length);
+
+				for(auto &r: d->returns)
+					fb->addReturn(r.typeMask);
 
 				Scope scop;
 				fb->pushScope(scop);
@@ -124,7 +134,7 @@ namespace croc
 
 					visit(d->code);
 				fb->popScope(d->code->endLocation);
-				fb->defaultReturn(d->code->endLocation);
+				fb->defaultReturn(d->code->endLocation, c.typeConstraints() && d->returns.length > 0);
 				fb->parent()->pushClosure(fb);
 			});
 
@@ -875,6 +885,73 @@ namespace croc
 		return s;
 	}
 
+	void Codegen::codeReturn(CompileLoc location, uword numRets)
+	{
+		fb->saveRets(location, numRets);
+
+		// If there's no def, we're returning from a module's top-level... in which case there's nothing to check
+		if(auto def = fb->getDef())
+		{
+			if(c.typeConstraints())
+			{
+				if(def->returns.length > 0)
+					fb->returnCheck(location);
+
+				uword idx = 0;
+				for(auto &r: def->returns)
+				{
+					if(r.classTypes.length > 0)
+					{
+						auto success = InstRef();
+
+						for(auto t: r.classTypes)
+						{
+							visit(t);
+							fb->toSource(t->endLocation);
+							fb->catToTrue(success, fb->checkObjReturn(t->endLocation, idx));
+						}
+
+						fb->objReturnFail(r.classTypes[r.classTypes.length - 1]->endLocation, idx);
+						fb->patchTrueToHere(success);
+					}
+					else if(r.customConstraint)
+					{
+						auto success = InstRef();
+						auto con = r.customConstraint;
+
+						visitCall(con->endLocation, con, nullptr, [&]
+						{
+							fb->pushReturn(con->endLocation, idx);
+							fb->toTemporary(con->endLocation);
+							return 1;
+						});
+
+						fb->toSource(con->endLocation);
+						fb->catToTrue(success, fb->codeIsTrue(con->endLocation));
+
+						dottedNameToString(con);
+						fb->pushString(getCrocstr(c.thread(), -1));
+						fb->toSource(con->endLocation);
+						fb->customReturnFail(con->endLocation, idx);
+						croc_popTop(*c.thread());
+						fb->patchTrueToHere(success);
+					}
+
+					idx++;
+				}
+			}
+
+			uword idx = 0;
+			for(auto &r: def->returns)
+			{
+				if(r.typeMask == cast(uint32_t)TypeMask::IntOrFloat)
+					fb->retAsFloat(location, idx);
+
+				idx++;
+			}
+		}
+	}
+
 	ReturnStmt* Codegen::visit(ReturnStmt* s)
 	{
 		if(!fb->inTryCatch() &&
@@ -883,13 +960,13 @@ namespace croc
 		{
 			visit(s->exprs[0]);
 			fb->makeTailcall();
-			fb->saveRets(s->exprs[0]->endLocation, 1);
+			codeReturn(s->exprs[0]->endLocation, 1);
 			fb->codeRet(s->endLocation);
 		}
 		else
 		{
 			codeGenList(s->exprs);
-			fb->saveRets(s->endLocation, s->exprs.length);
+			codeReturn(s->endLocation, s->exprs.length);
 
 			if(fb->inTryCatch())
 				fb->codeUnwind(s->endLocation);

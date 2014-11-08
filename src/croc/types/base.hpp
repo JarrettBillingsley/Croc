@@ -391,6 +391,7 @@ namespace croc
 		void setNativeUpval(Memory& mem, uword idx, Value val);
 		void setEnvironment(Memory& mem, Namespace* ns);
 		bool isVararg();
+		bool isVarret();
 	};
 
 	struct Funcdef : public GCObject
@@ -399,9 +400,12 @@ namespace croc
 		word locLine;
 		word locCol;
 		bool isVararg;
+		bool isVarret;
 		String* name;
 		uword numParams;
 		DArray<uword> paramMasks;
+		uword numReturns;
+		DArray<uword> returnMasks;
 
 		struct UpvalDesc
 		{

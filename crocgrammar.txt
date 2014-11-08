@@ -247,6 +247,7 @@ Parameter:
 ReturnTypes:
 	: List(Type) (, ...)?
 	: ...
+	: void
 
 Type:
 	BasicType

@@ -550,6 +550,11 @@ namespace croc
 				isVarret = true;
 				l.next();
 			}
+			else if(l.type() == Token::Ident && l.tok().stringValue == ATODA("void"))
+			{
+				isVarret = false;
+				l.next();
+			}
 			else
 			{
 				FuncReturn p;
@@ -582,10 +587,10 @@ namespace croc
 		uint32_t ret = 0;
 		List<Expression*> objTypes(c);
 
-		auto addConstraint = [&](CrocType t)
+		auto addConstraint = [&](CompileLoc loc, CrocType t)
 		{
 			if((ret & (1 << cast(uint32_t)t)) && t != CrocType_Instance)
-				c.semException(l.loc(), "Duplicate %s type constraint for type '%s'", kind, typeToString(t));
+				c.semException(loc, "Duplicate %s type constraint for type '%s'", kind, typeToString(t));
 
 			ret |= 1 << cast(uint32_t)t;
 		};
@@ -611,34 +616,35 @@ namespace croc
 		{
 			switch(l.type())
 			{
-				case Token::Null:      addConstraint(CrocType_Null);      l.next(); break;
-				case Token::Function:  addConstraint(CrocType_Function);  l.next(); break;
-				case Token::Namespace: addConstraint(CrocType_Namespace); l.next(); break;
-				case Token::Class:     addConstraint(CrocType_Class);     l.next(); break;
+				case Token::Null:      addConstraint(l.loc(), CrocType_Null);      l.next(); break;
+				case Token::Function:  addConstraint(l.loc(), CrocType_Function);  l.next(); break;
+				case Token::Namespace: addConstraint(l.loc(), CrocType_Namespace); l.next(); break;
+				case Token::Class:     addConstraint(l.loc(), CrocType_Class);     l.next(); break;
 
 				default:
+					auto constraintLoc = l.loc();
 					auto t = l.expect(Token::Ident);
 
 					if(l.type() == Token::Dot)
 					{
-						addConstraint(CrocType_Instance);
+						addConstraint(constraintLoc, CrocType_Instance);
 						objTypes.add(parseIdentList(t));
 					}
 					else
-					if(t.stringValue == ATODA("bool"))      addConstraint(CrocType_Bool); else
-					if(t.stringValue == ATODA("int"))       addConstraint(CrocType_Int); else
-					if(t.stringValue == ATODA("float"))     addConstraint(CrocType_Float); else
-					if(t.stringValue == ATODA("string"))    addConstraint(CrocType_String); else
-					if(t.stringValue == ATODA("table"))     addConstraint(CrocType_Table); else
-					if(t.stringValue == ATODA("array"))     addConstraint(CrocType_Array); else
-					if(t.stringValue == ATODA("memblock"))  addConstraint(CrocType_Memblock); else
-					if(t.stringValue == ATODA("thread"))    addConstraint(CrocType_Thread); else
-					if(t.stringValue == ATODA("nativeobj")) addConstraint(CrocType_Nativeobj); else
-					if(t.stringValue == ATODA("weakref"))   addConstraint(CrocType_Weakref); else
-					if(t.stringValue == ATODA("funcdef"))   addConstraint(CrocType_Funcdef); else
+					if(t.stringValue == ATODA("bool"))      addConstraint(constraintLoc, CrocType_Bool); else
+					if(t.stringValue == ATODA("int"))       addConstraint(constraintLoc, CrocType_Int); else
+					if(t.stringValue == ATODA("float"))     addConstraint(constraintLoc, CrocType_Float); else
+					if(t.stringValue == ATODA("string"))    addConstraint(constraintLoc, CrocType_String); else
+					if(t.stringValue == ATODA("table"))     addConstraint(constraintLoc, CrocType_Table); else
+					if(t.stringValue == ATODA("array"))     addConstraint(constraintLoc, CrocType_Array); else
+					if(t.stringValue == ATODA("memblock"))  addConstraint(constraintLoc, CrocType_Memblock); else
+					if(t.stringValue == ATODA("thread"))    addConstraint(constraintLoc, CrocType_Thread); else
+					if(t.stringValue == ATODA("nativeobj")) addConstraint(constraintLoc, CrocType_Nativeobj); else
+					if(t.stringValue == ATODA("weakref"))   addConstraint(constraintLoc, CrocType_Weakref); else
+					if(t.stringValue == ATODA("funcdef"))   addConstraint(constraintLoc, CrocType_Funcdef); else
 					if(t.stringValue == ATODA("instance"))
 					{
-						addConstraint(CrocType_Instance);
+						addConstraint(constraintLoc, CrocType_Instance);
 
 						if(l.type() == Token::LParen)
 						{
@@ -664,7 +670,7 @@ namespace croc
 					}
 					else
 					{
-						addConstraint(CrocType_Instance);
+						addConstraint(constraintLoc, CrocType_Instance);
 						objTypes.add(new(c) IdentExp(new(c) Identifier(t.loc, t.stringValue)));
 						break;
 					}
