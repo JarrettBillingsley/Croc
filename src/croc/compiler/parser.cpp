@@ -2572,7 +2572,8 @@ namespace croc
 					}
 
 					if(exp->type == AstTag_VarargExp)
-						exp = new(c) VargSliceExp(location, endLocation, loIndex, hiIndex);
+						c.synException(location, "'vararg' cannot be used as the lhs of a slice. If you want to slice "
+							"the first variadic param, enclose 'vararg' in parentheses");
 					else
 						exp = new(c) SliceExp(endLocation, exp, loIndex, hiIndex);
 					continue;

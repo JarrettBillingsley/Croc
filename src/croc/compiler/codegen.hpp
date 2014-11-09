@@ -147,7 +147,6 @@ namespace croc
 		IndexExp* visit(IndexExp* e) override;
 		VargIndexExp* visit(VargIndexExp* e) override;
 		SliceExp* visit(SliceExp* e) override;
-		VargSliceExp* visit(VargSliceExp* e) override;
 		IdentExp* visit(IdentExp* e) override;
 		ThisExp* visit(ThisExp* e) override;
 		NullExp* visit(NullExp* e) override;

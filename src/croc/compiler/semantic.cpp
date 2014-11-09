@@ -1580,20 +1580,6 @@ namespace croc
 		return e;
 	}
 
-	Expression* Semantic::visit(VargSliceExp* e)
-	{
-		VISIT(e->loIndex);
-		VISIT(e->hiIndex);
-
-		if(e->loIndex->isConstant() && !(e->loIndex->isNull() || e->loIndex->isInt()))
-			c.semException(e->loIndex->location, "low index of vararg slice must be nullptr or int");
-
-		if(e->hiIndex->isConstant() && !(e->hiIndex->isNull() || e->hiIndex->isInt()))
-			c.semException(e->hiIndex->location, "high index of vararg slice must be nullptr or int");
-
-		return e;
-	}
-
 	FuncLiteralExp* Semantic::visit(FuncLiteralExp* e)
 	{
 		VISIT(e->def);

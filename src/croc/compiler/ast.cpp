@@ -49,7 +49,6 @@ namespace croc
 			case AstTag_CallExp:
 			case AstTag_MethodCallExp:
 			case AstTag_VarargExp:
-			case AstTag_VargSliceExp:
 			case AstTag_YieldExp: return true;
 			default:              return false;
 		}

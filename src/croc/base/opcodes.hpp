@@ -71,7 +71,6 @@ TWO SHORTS:
 (rd, uimm)
 	vararg:      regs[rd .. rd + uimm] = vararg
 	saverets:    save uimm returns starting at rd
-	vargslice:   regs[rd .. rd + uimm] = vararg[rd .. rd + 1]
 	closure:     rd = newclosure(uimm)
 	closurewenv: rd = newclosure(uimm, env: rd)
 	newg:        newglobal(constTable[uimm]); setglobal(constTable[uimm], rd)
@@ -202,7 +201,6 @@ FIVE SHORTS:
 	X(VargLen),\
 	X(VargIndex),\
 	X(VargIndexAssign),\
-	X(VargSlice),\
 	X(Yield),\
 	X(CheckParams),\
 	X(CheckRets),\

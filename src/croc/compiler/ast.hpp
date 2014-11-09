@@ -102,7 +102,6 @@ inline void* operator new(croc::uword size, croc::Compiler& c)
 	X(IndexExp,             "index expression",                Expression)\
 	X(VargIndexExp,         "vararg index expression",         Expression)\
 	X(SliceExp,             "slice expression",                Expression)\
-	X(VargSliceExp,         "vararg slice expression",         Expression)\
 	X(CallExp,              "call expression",                 Expression)\
 	X(MethodCallExp,        "method call expression",          Expression)\
 	X(IdentExp,             "identifier expression",           Expression)\
@@ -1209,18 +1208,6 @@ namespace croc
 		VargIndexExp(CompileLoc location, CompileLoc endLocation, Expression* index) :
 			PrimaryExp(location, endLocation, AstTag_VargIndexExp),
 			index(index)
-		{}
-	};
-
-	struct VargSliceExp : public PrimaryExp
-	{
-		Expression* loIndex;
-		Expression* hiIndex;
-
-		VargSliceExp(CompileLoc location, CompileLoc endLocation, Expression* loIndex, Expression* hiIndex) :
-			PrimaryExp(location, endLocation, AstTag_VargSliceExp),
-			loIndex(loIndex),
-			hiIndex(hiIndex)
 		{}
 	};
 

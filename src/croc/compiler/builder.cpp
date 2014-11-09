@@ -12,9 +12,9 @@
 /*
 any = any, duh
 src = Local|Const
-multret = Call|Yield|Vararg|VarargSlice
+multret = Call|Yield|Vararg
 args = ((n-1)*Temp Temp|multret)?
-dst = anything but Const, Vararg, VarargSlice, Call, Yield, NeedsDest, or Conflict
+dst = anything but Const, Vararg, Call, Yield, NeedsDest, or Conflict
 */
 
 namespace croc
@@ -92,7 +92,6 @@ namespace croc
 			case ExpType::Slice:       return "Slice";
 			case ExpType::Vararg:      return "Vararg";
 			case ExpType::VarargIndex: return "VarargIndex";
-			case ExpType::VarargSlice: return "VarargSlice";
 			case ExpType::Length:      return "Length";
 			case ExpType::Call:        return "Call";
 			case ExpType::Yield:       return "Yield";
@@ -1189,21 +1188,6 @@ namespace croc
 		pushExp(ExpType::VarargIndex, packRegOrConst(idx));
 	}
 
-	// [Temp Temp] => [VarargSlice]
-	void FuncBuilder::varargSlice(CompileLoc loc)
-	{
-		Exp lo = getExp(-2);
-		Exp hi = getExp(-1);
-
-		DEBUG_EXPSTACKCHECK(assert(lo.type == ExpType::Temporary);)
-		DEBUG_EXPSTACKCHECK(assert(hi.type == ExpType::Temporary);)
-
-		pop(2);
-		mFreeReg = hi.regAfter;
-		pushExp(ExpType::VarargSlice, codeRD(loc, Op_VargSlice, lo.index));
-		codeUImm(0);
-	}
-
 	// [src] => [Length]
 	void FuncBuilder::length()
 	{
@@ -1898,8 +1882,7 @@ namespace croc
 	{
 		switch(getOpcode(index))
 		{
-			case Op_Vararg:
-			case Op_VargSlice:  setUImm(index + 1, num); break;
+			case Op_Vararg:     setUImm(index + 1, num); break;
 
 			case Op_Call:
 			case Op_Yield:      setUImm(index + 2, num); break;
@@ -2092,7 +2075,6 @@ namespace croc
 		switch(src.type)
 		{
 			case ExpType::Vararg:
-			case ExpType::VarargSlice:
 			case ExpType::Call:
 			case ExpType::Yield:
 				setMultRetReturns(src.index, num + 1);
@@ -2235,7 +2217,6 @@ namespace croc
 				codeRC(s);
 				break;
 			}
-			case ExpType::VarargSlice:
 			case ExpType::Call:
 			case ExpType::Yield:
 				setMultRetReturns(src.index, 2);
@@ -2658,7 +2639,6 @@ namespace croc
 			// (rd, uimm)
 			case Op_Vararg:         printf("vararg"); goto _6a;
 			case Op_SaveRets:       printf("saverets"); goto _6a;
-			case Op_VargSlice:      printf("vargslice"); goto _6a;
 			case Op_Closure:        printf("closure"); goto _6a;
 			case Op_ClosureWithEnv: printf("closurewenv"); goto _6a;
 			case Op_GetUpval:       printf("getu"); goto _6a;

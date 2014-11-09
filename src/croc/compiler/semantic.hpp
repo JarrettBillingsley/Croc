@@ -127,7 +127,6 @@ namespace croc
 		virtual Expression* visit(IndexExp* e) override;
 		virtual Expression* visit(VargIndexExp* e) override;
 		virtual Expression* visit(SliceExp* e) override;
-		virtual Expression* visit(VargSliceExp* e) override;
 		virtual FuncLiteralExp* visit(FuncLiteralExp* e) override;
 		virtual Expression* visit(ParenExp* e) override;
 		virtual TableCtorExp* visit(TableCtorExp* e) override;

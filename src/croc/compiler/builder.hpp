@@ -59,7 +59,6 @@ namespace croc
 		Slice,       // index = base: RegIdx
 		Vararg,      // index = inst: InstIdx
 		VarargIndex, // index = op: RegOrCTIdx
-		VarargSlice, // index = inst: InstIdx
 		Length,      // index = op: RegOrCTIdx
 		Call,        // index = inst: InstIdx
 		Yield,       // index = inst: InstIdx
@@ -95,8 +94,7 @@ namespace croc
 
 		inline bool isMultRet()
 		{
-			return type == ExpType::Call || type == ExpType::Yield || type == ExpType::Vararg ||
-				type == ExpType::VarargSlice;
+			return type == ExpType::Call || type == ExpType::Yield || type == ExpType::Vararg;
 		}
 
 		inline bool isSource()
@@ -401,7 +399,6 @@ namespace croc
 		void field();
 		void index();
 		void varargIndex();
-		void varargSlice(CompileLoc loc);
 		void length();
 		void slice();
 		void binOp(CompileLoc loc, AstTag type);

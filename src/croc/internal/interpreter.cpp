@@ -950,51 +950,6 @@ namespace croc
 					t->stack[t->currentAR->vargBase + cast(uword)index] = *RT;
 					break;
 				}
-				case Op_VargSlice: {
-					uword numNeeded = GetUImm();
-					auto numVarargs = stackBase - t->currentAR->vargBase;
-
-					crocint lo;
-					crocint hi;
-
-					auto loSrc = t->stack[stackBase + rd];
-					auto hiSrc = t->stack[stackBase + rd + 1];
-
-					if(!correctIndices(lo, hi, loSrc, hiSrc, numVarargs))
-					{
-						pushTypeStringImpl(t, t->stack[stackBase + rd]);
-						pushTypeStringImpl(t, t->stack[stackBase + rd + 1]);
-						croc_eh_throwStd(*t, "TypeError", "Attempting to slice 'vararg' with '%s' and '%s'",
-							croc_getString(*t, -2), croc_getString(*t, -1));
-					}
-
-					if(lo > hi || lo < 0 || cast(uword)lo > numVarargs || hi < 0 || cast(uword)hi > numVarargs)
-						croc_eh_throwStd(*t, "BoundsError",
-							"Invalid vararg slice indices [%" CROC_INTEGER_FORMAT " .. %" CROC_INTEGER_FORMAT "]",
-							lo, hi);
-
-					auto sliceSize = cast(uword)(hi - lo);
-					auto src = t->currentAR->vargBase + cast(uword)lo;
-					auto dest = stackBase + cast(uword)rd;
-
-					if(numNeeded == 0)
-					{
-						numNeeded = sliceSize;
-						t->stackIndex = dest + sliceSize;
-						checkStack(t, t->stackIndex);
-					}
-					else
-						numNeeded--;
-
-					if(numNeeded <= sliceSize)
-						memmove(&t->stack[dest], &t->stack[src], numNeeded * sizeof(Value));
-					else
-					{
-						memmove(&t->stack[dest], &t->stack[src], sliceSize * sizeof(Value));
-						t->stack.slice(dest + sliceSize, dest + numNeeded).fill(Value::nullValue);
-					}
-					break;
-				}
 				case Op_Yield: {
 					auto numParams = cast(word)GetUImm() - 1;
 					auto numResults = cast(word)GetUImm() - 1;

@@ -1347,19 +1347,6 @@ namespace croc
 		return e;
 	}
 
-	VargSliceExp* Codegen::visit(VargSliceExp* e)
-	{
-		if(!fb->isVararg())
-			c.semException(e->location, "'vararg' cannot be used in a non-variadic function");
-
-		Expression* list[2];
-		list[0] = e->loIndex;
-		list[1] = e->hiIndex;
-		codeGenList(DArray<Expression*>::n(list, 2), false);
-		fb->varargSlice(e->endLocation);
-		return e;
-	}
-
 	IdentExp* Codegen::visit(IdentExp* e)
 	{
 		fb->pushVar(e->name);
