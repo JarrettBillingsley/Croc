@@ -6,7 +6,7 @@ import string: StringBuffer
 
 function as_(c: class) =
 	\i: instance ->
-		(i as c) !is null
+		(i as c) is not null
 
 local cats =
 {
@@ -269,7 +269,7 @@ digraph d
 
 		function cycleColor(c)
 		{
-			if(c !in cycleColors)
+			if(c not in cycleColors)
 			{
 // 				local r, g, b =
 				cycleColors[c] = "\"#{:x2}{:x2}{:x2}\"".format(math.rand(128) + 127, math.rand(128) + 127, math.rand(128) + 127)
@@ -282,7 +282,7 @@ digraph d
 		{
 			if(cat is :ignore)
 				continue
-			else if(cat !is :uncat)
+			else if(cat is not :uncat)
 			{
 				ret.append(@'
 	subgraph cluster_' ~ cat.name ~ @'
@@ -299,7 +299,7 @@ digraph d
 			foreach(mod; cat.modules)
 				ret.formatln("\t\"{}\" [style = filled, fillcolor = {}]", mod.name, mod.cycle ? cycleColor(mod.cycle) : "grey")
 
-			if(cat !is :uncat)
+			if(cat is not :uncat)
 				ret.formatln("\t}")
 
 			foreach(mod; cat.modules)
@@ -355,7 +355,7 @@ digraph d
 
 			foreach(w, _; v.deps)
 			{
-				if(w !in index)
+				if(w not in index)
 				{
 					tarjan(w)
 					lowlink[v] = min(lowlink[v], lowlink[w])
@@ -372,7 +372,7 @@ digraph d
 				{
 					local n = S.pop()
 					cycle.append(n)
-				} while(n !is v)
+				} while(n is not v)
 
 				if(#cycle > 1)
 					foreach(mod; cycle)
@@ -381,7 +381,7 @@ digraph d
 		}
 
 		foreach(mod; :allModules)
-			if(mod !in index)
+			if(mod not in index)
 				tarjan(mod)
 
 		hash.clear(index)

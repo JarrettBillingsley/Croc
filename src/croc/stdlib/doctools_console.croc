@@ -227,7 +227,7 @@ class BasicConsoleOutputter : DocOutputter
 	{
 		:beginParagraph()
 
-		if(name !is "docs")
+		if(name is not "docs")
 		{
 			:beginBold()
 
@@ -494,7 +494,7 @@ class BasicConsoleOutputter : DocOutputter
 
 				local first, second = splitAtWS(s, remaining)
 
-				if(first !is null)
+				if(first is not null)
 					:baseWrite(first)
 
 				:newline()

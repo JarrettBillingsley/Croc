@@ -126,7 +126,7 @@ access their doc tables through their parents' \tt{children} doctable member. Th
 */
 function childDocs(obj: class|namespace, child: string)
 {
-	if(child !in obj)
+	if(child not in obj)
 		throw ValueError("Object has no child named '{}'".format(child))
 
 	local docs = docsOf(obj)

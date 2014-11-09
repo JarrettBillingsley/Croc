@@ -74,7 +74,7 @@ class WeakKeyTable : WeakTableBase
 			{
 				local v = :_data[keys[idx]]
 
-				if(v !is null)
+				if(v is not null)
 					return deref(keys[idx]), v
 			}
 		}
@@ -107,7 +107,7 @@ class WeakKeyTable : WeakTableBase
 	/**
 	Gets an array of the keys (dereferenced) of this table.
 	*/
-	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
+	function keys() = [deref(k) foreach k, _; :_data if deref(k) is not null]
 
 	/**
 	Gets an array of the values of this table.
@@ -171,7 +171,7 @@ class WeakValTable : WeakTableBase
 			{
 				local v = deref(:_data[keys[idx]])
 
-				if(v !is null)
+				if(v is not null)
 					return keys[idx], v
 			}
 		}
@@ -209,7 +209,7 @@ class WeakValTable : WeakTableBase
 	/**
 	Gets an array of the values (dereferenced) of this table.
 	*/
-	function values() = [deref(v) foreach _, v; :_data if deref(v) !is null]
+	function values() = [deref(v) foreach _, v; :_data if deref(v) is not null]
 
 	/**
 	Normalizes the table by removing any key-value pairs where the value has been collected. This is usually called
@@ -266,7 +266,7 @@ class WeakKeyValTable : WeakTableBase
 			{
 				local v = deref(:_data[keys[idx]])
 
-				if(v !is null)
+				if(v is not null)
 					return deref(keys[idx]), v
 			}
 		}
@@ -299,12 +299,12 @@ class WeakKeyValTable : WeakTableBase
 	/**
 	Gets an array of the keys (dereferenced) of this table.
 	*/
-	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
+	function keys() = [deref(k) foreach k, _; :_data if deref(k) is not null]
 
 	/**
 	Gets an array of the values (dereferenced) of this table.
 	*/
-	function values() = [deref(v) foreach _, v; :_data if deref(v) !is null]
+	function values() = [deref(v) foreach _, v; :_data if deref(v) is not null]
 
 	/**
 	Normalizes the table by removing any key-value pairs where the key or value have been collected. This is usually

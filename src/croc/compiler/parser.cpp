@@ -688,7 +688,7 @@ namespace croc
 
 				ret = cast(uint32_t)TypeMask::Any;
 			}
-			else if(l.type() == Token::Not || l.type() == Token::NotKeyword)
+			else if(l.type() == Token::NotKeyword)
 			{
 				l.next();
 				l.expect(Token::Null);
@@ -1899,25 +1899,6 @@ namespace croc
 				l.next();
 				exp2 = parseShiftExp();
 				exp1 = new(c) NotEqualExp(location, exp2->endLocation, exp1, exp2);
-				break;
-
-			case Token::Not:
-				if(l.peek().type == Token::Is)
-				{
-					l.next();
-					l.next();
-					exp2 = parseShiftExp();
-					exp1 = new(c) NotIsExp(location, exp2->endLocation, exp1, exp2);
-				}
-				else if(l.peek().type == Token::In)
-				{
-					l.next();
-					l.next();
-					exp2 = parseShiftExp();
-					exp1 = new(c) NotInExp(location, exp2->endLocation, exp1, exp2);
-				}
-				// no, there should not be an 'else' here
-
 				break;
 
 			case Token::NotKeyword:

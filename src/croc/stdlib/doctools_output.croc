@@ -64,7 +64,7 @@ class LinkResolver
 		// Might be some globals added by user code that aren't in docsOf(_G).children
 		foreach(name, val; _G)
 		{
-			if(name !is "_G" && name !in :_globals && name !in modules.loaded)
+			if(name is not "_G" && name not in :_globals && name not in modules.loaded)
 			{
 				if(local dt = docsOf(val))
 					:_globals[name] = :_makeMapRec(dt)
@@ -99,7 +99,7 @@ class LinkResolver
 	*/
 	function enterModule(name: string)
 	{
-		if(:_item !is null || :_module !is null)
+		if(:_item is not null || :_module is not null)
 			throw StateError("Attempting to enter a module from {} scope".format(:currentScope()))
 
 		if(local m = :_modules[name])
@@ -117,7 +117,7 @@ class LinkResolver
 	*/
 	function enterItem(name: string)
 	{
-		if(:_item !is null || :_module is null)
+		if(:_item is not null || :_module is null)
 			throw StateError("Attempting to enter an item from {} scope".format(:currentScope()))
 
 		if(local i = :_module.children[name])
@@ -133,9 +133,9 @@ class LinkResolver
 	*/
 	function leave()
 	{
-		if(:_item !is null)
+		if(:_item is not null)
 			:_item = null
-		else if(:_module !is null)
+		else if(:_module is not null)
 			:_module = null
 		else
 			throw StateError("Attempting to leave at global scope")
@@ -196,10 +196,10 @@ class LinkResolver
 	// Private
 
 	function _inItem(link: string) =
-		:_item !is null && link in :_item.children
+		:_item is not null && link in :_item.children
 
 	function _inCurModule(link: string) =
-		:_module !is null && :_inModule(:_module, link)
+		:_module is not null && :_inModule(:_module, link)
 
 	function _inModules(link: string)
 	{
@@ -262,7 +262,7 @@ class LinkResolver
 		local f = link[dot + 1 ..]
 		local i = :_globals[n]
 
-		return i !is null && i.children && f in i.children
+		return i is not null && i.children && f in i.children
 	}
 
 	function _inGlobals(link: string) =
@@ -376,7 +376,7 @@ class LinkTranslator
 
 /// Checks if a given name is a valid name for a doc section.
 function validSectionName(name: string) =
-	!(#name == 0 || (#name == 1 && name[0] == '_') || (name[0] != '_' && name !in stdSections))
+	!(#name == 0 || (#name == 1 && name[0] == '_') || (name[0] != '_' && name not in stdSections))
 
 /// Checks if a paragraph list is empty (has no actual text).
 function isPlistEmpty(plist: array) =
@@ -502,7 +502,7 @@ function toHeader(doctable: table, parentFQN: string, full: bool = true)
 
 			if(doctable.name == "constructor")
 			{
-				if(parentFQN !is "")
+				if(parentFQN is not "")
 					ret.append(parentFQN, ".")
 
 				ret.append("this")
@@ -512,7 +512,7 @@ function toHeader(doctable: table, parentFQN: string, full: bool = true)
 				if(full)
 					ret.append("function ")
 
-				if(parentFQN !is "")
+				if(parentFQN is not "")
 					ret.append(parentFQN, ".")
 
 				ret.append(doctable.name)
@@ -544,7 +544,7 @@ function toHeader(doctable: table, parentFQN: string, full: bool = true)
 			if(full)
 				ret.append(doctable.kind, " ")
 
-			if(parentFQN !is "")
+			if(parentFQN is not "")
 				ret.append(parentFQN, ".")
 
 			ret.append(doctable.name)
@@ -557,7 +557,7 @@ function toHeader(doctable: table, parentFQN: string, full: bool = true)
 			break
 
 		case "field":
-			if(parentFQN !is "")
+			if(parentFQN is not "")
 				ret.append(parentFQN, ".")
 
 			ret.append(doctable.name)
@@ -573,7 +573,7 @@ function toHeader(doctable: table, parentFQN: string, full: bool = true)
 			if(full)
 				ret.append(doctable.protection, " ")
 
-			if(parentFQN !is "")
+			if(parentFQN is not "")
 				ret.append(parentFQN, ".")
 
 			ret.append(doctable.name)
@@ -706,7 +706,7 @@ class SectionOrder
 
 		// Make sure all standard sections are accounted for
 		foreach(sec; stdSections)
-			if(sec !in order)
+			if(sec not in order)
 				throw ValueError("Standard section '{}' does not exist in the given order".format(sec))
 
 		// Make sure there are no duplicates
@@ -749,7 +749,7 @@ class SectionOrder
 			throw ValueError("Invalid section name '{}'".format(target))
 		else if(sec == target)
 			throw ValueError("Section names must be different")
-		else if(target !in ord)
+		else if(target not in ord)
 			throw ValueError("Section '{}' does not exist in the section order".format(target))
 
 		local ord = :_sectionOrder

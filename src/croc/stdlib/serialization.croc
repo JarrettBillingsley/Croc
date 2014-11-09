@@ -128,7 +128,7 @@ local class Serializer
 		}
 
 		local method = SerializeMethods[typeof(val)]
-		assert(method !is null, "t: " ~ typeof(val))
+		assert(method is not null, "t: " ~ typeof(val))
 		return :(method)(val)
 	}
 
@@ -508,7 +508,7 @@ local class Deserializer
 				throw ValueError("Malformed data (expected object of type '{}' but found '{}' instead)".format(r))
 		}
 
-		if(typeof(val) !is w)
+		if(typeof(val) is not w)
 		{
 			throw ValueError("Malformed data (expected type '{}' but found a backref to type '{}' instead)".format(
 				w, niceTypeof(val)))

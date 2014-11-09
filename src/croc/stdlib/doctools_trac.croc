@@ -146,7 +146,7 @@ class TracWikiOutputter : DocOutputter
 
 	override function beginSection(name: string)
 	{
-		if(name !is "docs")
+		if(name is not "docs")
 		{
 			:beginParagraph()
 			:beginBold()

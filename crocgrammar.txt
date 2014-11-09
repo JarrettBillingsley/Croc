@@ -249,7 +249,6 @@ ReturnTypes:
 
 Type:
 	BasicType
-	! null
 	not null
 	any
 	@ DottedName
@@ -425,7 +424,6 @@ EqualExpression:
 	ShiftExpression == ShiftExpression
 	ShiftExpression != ShiftExpression
 	ShiftExpression is ShiftExpression
-	ShiftExpression ! is ShiftExpression
 	ShiftExpression is not ShiftExpression
 
 RelExpression:
@@ -435,7 +433,6 @@ RelExpression:
 	ShiftExpression >= ShiftExpression
 	ShiftExpression <=> ShiftExpression
 	ShiftExpression in ShiftExpression
-	ShiftExpression ! in ShiftExpression
 	ShiftExpression not in ShiftExpression
 
 ShiftExpression:

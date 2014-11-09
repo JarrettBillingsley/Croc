@@ -1047,7 +1047,7 @@ class TextReader
 
 		#:_chunks = 0
 
-		while outer(:_string !is "")
+		while outer(:_string is not "")
 		{
 			foreach(pos, c; :_string)
 			{
@@ -1294,7 +1294,7 @@ class NativeStream : Stream
 	*/
 	override this(stream: nativeobj, caps: string)
 	{
-		if(hidden(with this, "handle") !is null)
+		if(hidden(with this, "handle") is not null)
 			throw StateError("Attempting to call constructor on an already-initialized stream")
 
 		nativeStreamCtor(this, stream, caps)

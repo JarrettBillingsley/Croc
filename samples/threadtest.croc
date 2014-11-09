@@ -63,7 +63,7 @@ class Thread
 	{
 		if(:mNeedMessage)
 		{
-			assert(:mMessageHead !is null)
+			assert(:mMessageHead is not null)
 			:mNeedMessage = false
 			local ok, value = :receive()
 			assert(ok)
