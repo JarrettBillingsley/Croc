@@ -1299,30 +1299,19 @@ namespace croc
 
 		l.expect(Token::Import);
 
-		Expression* expr = nullptr;
-		Identifier* importName = nullptr;
+		List<uchar, 32> name(c);
+		name.add(parseName());
 
-		if(l.type() == Token::LParen)
+		while(l.type() == Token::Dot)
 		{
 			l.next();
-			expr = parseExpression();
-			l.expect(Token::RParen);
-		}
-		else
-		{
-			List<uchar, 32> name(c);
-
+			name.add('.');
 			name.add(parseName());
-
-			while(l.type() == Token::Dot)
-			{
-				l.next();
-				name.add('.');
-				name.add(parseName());
-			}
-
-			expr = new(c) StringExp(location, c.newString(name.toArrayView()));
 		}
+
+		auto expr = new(c) StringExp(location, c.newString(name.toArrayView()));
+
+		Identifier* importName = nullptr;
 
 		if(l.type() == Token::As)
 		{

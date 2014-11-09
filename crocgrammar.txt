@@ -181,7 +181,6 @@ AssertStatement:
 
 ImportStatement:
 	import DottedName (as Identifier)? SelectiveImports? StatementTerminator
-	import '(' Expression ')' (as Identifier)? SelectiveImports? StatementTerminator
 
 SelectiveImports:
 	: List(SelectiveImport)
