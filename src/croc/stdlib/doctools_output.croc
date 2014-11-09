@@ -712,7 +712,7 @@ class SectionOrder
 		// Make sure there are no duplicates
 		local temp = order.dup().sort()
 
-		for(i: 0 .. #temp - 1)
+		for(i; 0 .. #temp - 1)
 		{
 			if(temp[i] is temp[i + 1])
 				throw ValueError("Section '{}' is repeated in the given order".format(temp[i]))

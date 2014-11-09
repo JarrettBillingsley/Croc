@@ -299,9 +299,9 @@ function makeScreenQuad(xdiv: int, ydiv: int)
 	local verts = Vector("f32", 4 * (xdiv + 1) * (ydiv + 1))
 	local i = 0
 
-	for(yi: 0 .. ydiv + 1)
+	for(yi; 0 .. ydiv + 1)
 	{
-		for(xi: 0 .. xdiv + 1)
+		for(xi; 0 .. xdiv + 1)
 		{
 			local x = ((2.0 * xi) / xdiv) - 1
 			local y = 1 - ((2.0 * yi) / ydiv)
@@ -320,9 +320,9 @@ function makeScreenQuad(xdiv: int, ydiv: int)
 	local stride = xdiv + 1
 	i = 0
 
-	for(yi: 0 .. ydiv)
+	for(yi; 0 .. ydiv)
 	{
-		for(xi: 0 .. xdiv)
+		for(xi; 0 .. xdiv)
 		{
 			local a = (yi * stride) + xi
 			local b = a + 1

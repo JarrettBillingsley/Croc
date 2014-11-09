@@ -188,7 +188,7 @@ local function outputArray(o, arr: array, shown: table)
 	{
 		outputRepr(o, arr[0], shown)
 
-		for(i: 1 .. #arr)
+		for(i; 1 .. #arr)
 		{
 			o.write(", ")
 			outputRepr(o, arr[i], shown)
@@ -441,7 +441,7 @@ function aliasCodec(name: string, vararg)
 	if(#vararg == 0)
 		throw ParamError("Must have at least one variadic argument")
 
-	for(i: 0 .. #vararg)
+	for(i; 0 .. #vararg)
 	{
 		local rename = vararg[i]
 

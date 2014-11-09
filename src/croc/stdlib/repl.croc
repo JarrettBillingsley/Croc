@@ -77,7 +77,7 @@ local function _printTraceback(inout, e)
 	{
 		local runEntry = #e.traceback
 
-		for(i: 0 .. #e.traceback)
+		for(i; 0 .. #e.traceback)
 		{
 			if(e.traceback[i].file.startsWith("repl._run"))
 			{

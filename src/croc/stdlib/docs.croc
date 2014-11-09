@@ -43,7 +43,7 @@ function _doc_(
 {
 	local d = doctable
 
-	for(i: 0 .. #vararg)
+	for(i; 0 .. #vararg)
 	{
 		local idx = vararg[i]
 

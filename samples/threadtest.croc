@@ -185,7 +185,7 @@ function main()
 	{
 		local empty = { type = "Empty" }
 
-		for(i: 0 .. N)
+		for(i; 0 .. N)
 			send(producer, empty)
 
 		while(true)

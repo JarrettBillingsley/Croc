@@ -1214,7 +1214,7 @@ class TextWriter
 	*/
 	function write(vararg)
 	{
-		for(i: 0 .. #vararg)
+		for(i; 0 .. #vararg)
 			:_stream.write(:_codec.encodeInto(toString(vararg[i]), :_writeBuf, 0))
 	}
 

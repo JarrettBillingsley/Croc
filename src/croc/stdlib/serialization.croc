@@ -625,7 +625,7 @@ local class Deserializer
 		local len = :_length()
 		local ret = :_addObject({})
 
-		for(i: 0 .. len)
+		for(i; 0 .. len)
 		{
 			local key, value = :_deserialize(), :_deserialize()
 			ret[key] = value
@@ -641,7 +641,7 @@ local class Deserializer
 		local ret = :_addObject([])
 		#ret = :_length()
 
-		for(i: 0 .. #ret)
+		for(i; 0 .. #ret)
 			ret[i] = :_deserialize()
 
 		return ret

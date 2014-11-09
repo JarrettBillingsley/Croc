@@ -55,7 +55,7 @@ function renderDrawLists(verts: memblock, vertSize: int, commands: array, numCom
 		gl.glUniformMatrix4fv(UNIF_proj, 1, false, mvp.getMemblock())
 	}
 
-	for(i: 0 .. numCommands)
+	for(i; 0 .. numCommands)
 	{
 		local cmd = commands[i]
 		local clipL, clipR, clipT, clipB = cmd.clipL, cmd.clipR, cmd.clipT, cmd.clipB

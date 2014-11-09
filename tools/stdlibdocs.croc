@@ -359,7 +359,7 @@ class StdlibOutputter : DocOutputter
 
 	override function outputText(vararg)
 	{
-		for(i: 0 .. #vararg)
+		for(i; 0 .. #vararg)
 		{
 			foreach(ch; vararg[i])
 			{
@@ -376,7 +376,7 @@ class StdlibOutputter : DocOutputter
 
 	function outputTextRaw(vararg)
 	{
-		for(i: 0 .. #vararg)
+		for(i; 0 .. #vararg)
 			:_output.write(vararg[i])
 	}
 }

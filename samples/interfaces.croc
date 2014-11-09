@@ -61,7 +61,7 @@ class Interface
 
 function implements(T: class, vararg)
 {
-	for(i: 0 .. #vararg)
+	for(i; 0 .. #vararg)
 	{
 		local p = vararg[i]
 

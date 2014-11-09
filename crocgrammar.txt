@@ -299,7 +299,7 @@ DoWhileStatement:
 
 ForStatement:
 	for Identifier? '(' ForInitializer? ; Expression? ; ForIncrement? ')' Statement
-	for Identifier? '(' Identifier (: | ;) Expression '..' List(Expression) ')' Statement
+	for Identifier? '(' Identifier ; Expression '..' List(Expression) ')' Statement
 
 ForInitializer:
 	ForInitializer , ForInitializer

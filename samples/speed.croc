@@ -70,7 +70,7 @@ local class Tester
 		local y = 5
 		local z = 10
 
-		for(i: 0 .. oneMillion / 8)
+		for(i; 0 .. oneMillion / 8)
 		{
 			x = y + z; x = y + z; x = y + z; x = y + z
 			x = y + z; x = y + z; x = y + z; x = y + z
@@ -86,7 +86,7 @@ local class Tester
 		local y = 5.0
 		local z = 10.0
 
-		for(i: 0 .. oneMillion / 8)
+		for(i; 0 .. oneMillion / 8)
 		{
 			x = y + z; x = y + z; x = y + z; x = y + z
 			x = y + z; x = y + z; x = y + z; x = y + z
@@ -101,7 +101,7 @@ local class Tester
 		local x = 0
 		local y = 5
 
-		for(i: 0 .. oneMillion / 8)
+		for(i; 0 .. oneMillion / 8)
 		{
 			x += y; x += y; x += y; x += y
 			x += y; x += y; x += y; x += y
@@ -116,7 +116,7 @@ local class Tester
 		local x = 0.0
 		local y = 5.0
 
-		for(i: 0 .. oneMillion / 8)
+		for(i; 0 .. oneMillion / 8)
 		{
 			x += y; x += y; x += y; x += y
 			x += y; x += y; x += y; x += y
@@ -131,7 +131,7 @@ local class Tester
 		local v = 1
 		local y
 
-		for(i : 0 .. oneMillion / 8)
+		for(i ; 0 .. oneMillion / 8)
 		{
 			y = v; y = v;  y = v; y = v
 			y = v; y = v;  y = v; y = v
@@ -145,7 +145,7 @@ local class Tester
 		:beginTimer()
 		local v = 1
 
-		for(i : 0 .. oneMillion / 8)
+		for(i ; 0 .. oneMillion / 8)
 		{
 			v = 1; v = 2; v = 3; v = 4
 			v = 1; v = 2; v = 3; v = 4
@@ -160,7 +160,7 @@ local class Tester
 		:x = 1
 		local y
 
-		for(i : 0 .. oneMillion / 8)
+		for(i ; 0 .. oneMillion / 8)
 		{
 			y = :x; y = :x; y = :x; y = :x
 			y = :x; y = :x; y = :x; y = :x
@@ -173,7 +173,7 @@ local class Tester
 	{
 		:beginTimer()
 
-		for(i : 0 .. oneMillion / 8)
+		for(i ; 0 .. oneMillion / 8)
 		{
 			:x = 1; :x = 2; :x = 3; :x = 4
 			:x = 1; :x = 2; :x = 3; :x = 4;
@@ -186,7 +186,7 @@ local class Tester
 	{
 		:beginTimer()
 
-		for(i : 0 .. oneMillion / 8)
+		for(i ; 0 .. oneMillion / 8)
 		{
 			foo(); foo(); foo(); foo()
 			foo(); foo(); foo(); foo()
@@ -199,7 +199,7 @@ local class Tester
 	{
 		:beginTimer()
 
-		for(i : 0 .. oneMillion / 8)
+		for(i ; 0 .. oneMillion / 8)
 		{
 			Tester(); Tester(); Tester(); Tester()
 			Tester(); Tester(); Tester(); Tester()

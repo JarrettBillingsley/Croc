@@ -461,13 +461,13 @@ class BasicConsoleOutputter : DocOutputter
 	{
 		if(:_inVerbatim)
 		{
-			for(i: 0 .. #vararg)
+			for(i; 0 .. #vararg)
 				:_output.write(vararg[i])
 
 			return
 		}
 
-		for(i: 0 .. #vararg)
+		for(i; 0 .. #vararg)
 		{
 			local s = vararg[i]
 

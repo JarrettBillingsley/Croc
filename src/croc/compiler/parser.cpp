@@ -1130,7 +1130,7 @@ namespace croc
 
 		if(l.type() == Token::Semicolon)
 			l.next();
-		else if(l.type() == Token::Ident && (l.peek().type == Token::Colon || l.peek().type == Token::Semicolon))
+		else if(l.type() == Token::Ident && l.peek().type == Token::Semicolon)
 		{
 			auto index = parseIdentifier();
 
@@ -2602,11 +2602,7 @@ namespace croc
 		{
 			l.next();
 			auto name = parseIdentifier();
-
-			if(l.type() != Token::Colon && l.type() != Token::Semicolon)
-				l.expected(": or ;");
-
-			l.next();
+			l.expect(Token::Semicolon);
 
 			auto exp = parseExpression();
 			l.expect(Token::DotDot);

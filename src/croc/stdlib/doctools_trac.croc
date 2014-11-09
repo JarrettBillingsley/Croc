@@ -383,7 +383,7 @@ class TracWikiOutputter : DocOutputter
 	*/
 	override function outputText(vararg)
 	{
-		for(i: 0 .. #vararg)
+		for(i; 0 .. #vararg)
 			write(vararg[i])
 	}
 

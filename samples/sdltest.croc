@@ -12,7 +12,7 @@ local h = 864
 
 sdl.setVideoMode(w, h, 32, sdl.hwSurface)
 
-for(i: 0 .. joy.count())
+for(i; 0 .. joy.count())
 {
 	joy.open(i)
 	writefln("{}: {} axes, {} buttons, {} hats, {} trackballs", joy.info(i))
@@ -33,20 +33,20 @@ while(!quit)
 
 // 		if(e.startsWith("joy"))
 // 			writefln("{}: {} {} {} {}", e, a, b, c, d)
-// 
+//
 // 		if(e == "active")
 // 		{
 // 			write(a ? "Gained " : "Lost ")
-// 
+//
 // 			if(b & event.mouseFocus)
 // 				write("mouse ")
-// 
+//
 // 			if(b & event.inputFocus)
 // 				write("input ")
-// 
+//
 // 			if(b & event.active)
 // 				write("active")
-// 
+//
 // 			writeln()
 // 			console.stdout.flush()
 // 		}
