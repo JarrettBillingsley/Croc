@@ -33,12 +33,12 @@ function autoctorOverride(c: class, fields: array) =
 
 // ===================================================================
 
-@autoctor$
+@autoctor(
 [
 	autofield('x', "int")
 	autofield('y', "int", 2)
 	autofield('z', "int", 3)
-]
+])
 class Class
 {}
 

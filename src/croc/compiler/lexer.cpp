@@ -1261,7 +1261,6 @@ namespace croc
 				case ';':  NEXT_AND_TOK(Token::Semicolon); RETURN;
 				case '#':  NEXT_AND_TOK(Token::Length);    RETURN;
 				case '\\': NEXT_AND_TOK(Token::Backslash); RETURN;
-				case '$':  NEXT_AND_TOK(Token::Dollar);    RETURN;
 
 				case '\0':
 				case 0xFFFF:

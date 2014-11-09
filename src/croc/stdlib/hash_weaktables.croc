@@ -1,7 +1,7 @@
 local weakref, deref = weakref, deref
 local allWeakTables = {}
 
-gc.postCallback$ function postGC()
+gc.postCallback(function postGC()
 {
 	foreach(k, _; allWeakTables, "modify")
 	{
@@ -12,7 +12,7 @@ gc.postCallback$ function postGC()
 		else
 			tab.normalize()
 	}
-}
+})
 
 /**
 Base class for all types of weak tables.

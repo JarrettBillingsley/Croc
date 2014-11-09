@@ -164,7 +164,7 @@ function main()
 
 	local producer, consumer
 
-	producer = Thread$ thread.new$ \
+	producer = Thread(thread.new(\
 	{
 		local i = 0
 
@@ -179,9 +179,9 @@ function main()
 			writefln("Producer produced {}.", item.value)
 			send(consumer, item)
 		}
-	}
+	}))
 
-	consumer = Thread$ thread.new$ \
+	consumer = Thread(thread.new(\
 	{
 		local empty = { type = "Empty" }
 
@@ -196,8 +196,8 @@ function main()
 			send(producer, empty)
 			writefln("Consumer consumed {}.", msg.value)
 		}
-	}
+	}))
 
-	scheduler(Set$ producer, consumer)
+	scheduler(Set(producer, consumer))
 	writeln("Finished.")
 }

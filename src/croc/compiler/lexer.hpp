@@ -103,7 +103,6 @@ namespace croc
 	X(Question,      "?")\
 	X(Backslash,     "\\")\
 	X(Arrow,         "->")\
-	X(Dollar,        "$")\
 	X(At,            "@")
 
 #define MISC_TOKEN_LIST(X)\

@@ -227,23 +227,7 @@ namespace croc
 		Expression* context = nullptr;
 		CompileLoc endLocation;
 
-		if(l.type() == Token::Dollar)
-		{
-			l.next();
-
-			List<Expression*> args(c);
-			args.add(parseExpression());
-
-			while(l.type() == Token::Comma)
-			{
-				l.next();
-				args.add(parseExpression());
-			}
-
-			argsArr = args.toArray();
-			endLocation = argsArr[argsArr.length - 1]->endLocation;
-		}
-		else if(l.type() == Token::LParen)
+		if(l.type() == Token::LParen)
 		{
 			l.next();
 
@@ -2446,27 +2430,6 @@ namespace croc
 					}
 					continue;
 
-				case Token::Dollar: {
-					l.next();
-
-					List<Expression*> args(c);
-					args.add(parseExpression());
-
-					while(l.type() == Token::Comma)
-					{
-						l.next();
-						args.add(parseExpression());
-					}
-
-					auto arr = args.toArray();
-
-					if(auto dot = AST_AS(DotExp, exp))
-						exp = new(c) MethodCallExp(dot->location, arr[arr.length - 1]->endLocation, dot->op, dot->name,
-							arr);
-					else
-						exp = new(c) CallExp(arr[arr.length - 1]->endLocation, exp, nullptr, arr);
-					continue;
-				}
 				case Token::LParen: {
 					if(exp->endLocation.line != l.loc().line)
 						return exp;

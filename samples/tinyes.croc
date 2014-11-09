@@ -555,7 +555,7 @@ class Collidable : Component
 	type = CollisionType.Player
 }
 
-local game = EntitySystem$
+local game = EntitySystem(
 {
 	components =
 	[
@@ -593,5 +593,5 @@ local game = EntitySystem$
 		Star = [Position Sprite]
 		Bullet = [Position Velocity Bounds LifeTimer Sprite Collidable]
 	}
-}
+})
 */

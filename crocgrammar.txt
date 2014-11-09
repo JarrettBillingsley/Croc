@@ -46,7 +46,7 @@ Symbol:
 	< | <= | <=> | << | <<= | > | >= | >> | >>= | >>> | >>>=
 	& | &= | && | '|' | |= | || | ^ | ^= | = | == | ? | ?=
 	. | '..' | '...' | ! | != | '(' | ')' | [ | ] | { | } | : | ,
-	; | # | \ | -> | $ | @
+	; | # | \ | -> | @
 
 Identifier:
 	IdentifierStart IdentifierChar*
@@ -488,12 +488,11 @@ CallExpression:
 	DotExpression ArgumentsWith
 
 ArgumentsWith:
-	Arguments
+	'(' Arguments? ')'
 	'(' with Expression (, List(Expression))? ')'
 
 Arguments:
-	'(' List(Expression)? ')'
-	$ List(Expression)
+	List(Expression)
 
 PrimaryExpression:
 	Identifier
