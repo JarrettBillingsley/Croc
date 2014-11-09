@@ -889,13 +889,13 @@ const StdlibRegisterInfo Regex_opApply_info =
 	this regex has matched in the subject string), and the second being this regex object itself. For example:
 
 \code
-local re = pcre.Regex$ @"(\w+)\s?=\s?(\w+)"
+local re = pcre.Regex(@"(\w+)\s?=\s?(\w+)")
 local subject =
 "foo = bar
 baz= quux"
 
 foreach(i, m; re.search(subject))
-	writefln$ "{}: key = '{}', value = '{}'", i, m.match(1), m.match(2)
+	writefln("{}: key = '{}', value = '{}'", i, m.match(1), m.match(2))
 \endcode
 
 	This will print out:
@@ -911,7 +911,7 @@ foreach(i, m; re.search(subject))
 \code
 re.search(subject)
 for(local i = 0; re.test(); i++)
-	writefln$ "{}: key = '{}', value = '{}'", i, re.match(1), re.match(2)
+	writefln("{}: key = '{}', value = '{}'", i, re.match(1), re.match(2))
 \endcode
 
 	Given the same regex and subject string, this will print out the same thing as the previous example.)x"),

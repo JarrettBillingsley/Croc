@@ -539,7 +539,7 @@ namespace croc
 	}
 
 	/**
-	Assuming the given UTF-8 is well-formed, decodes a single codepoint from $(B before) the current pointer, and moves
+	Assuming the given UTF-8 is well-formed, decodes a single codepoint from \b before the current pointer, and moves
 	the pointer to point to it.
 
 	Params:
