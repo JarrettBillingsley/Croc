@@ -1424,14 +1424,8 @@ namespace croc
 
 		List<CaseCond> conditions(c);
 		conditions.add(CaseCond(parseExpression()));
-		Expression* highRange = nullptr;
 
-		if(l.type() == Token::DotDot)
-		{
-			l.next();
-			highRange = parseExpression();
-		}
-		else while(l.type() == Token::Comma)
+		while(l.type() == Token::Comma)
 		{
 			l.next();
 			conditions.add(CaseCond(parseExpression()));
@@ -1447,7 +1441,7 @@ namespace croc
 		auto endLocation = l.loc();
 
 		auto code = new(c) ScopeStmt(new(c) BlockStmt(location, endLocation, statements.toArray()));
-		return new(c) CaseStmt(location, endLocation, conditions.toArray(), highRange, code);
+		return new(c) CaseStmt(location, endLocation, conditions.toArray(), code);
 	}
 
 	DefaultStmt* Parser::parseDefaultStmt()

@@ -320,7 +320,7 @@ SwitchStatement:
 	switch Identifier? '(' Expression ')' { List(CaseStatement) DefaultStatement? }
 
 CaseStatement:
-	case (List(Expression) | (Expression '..' Expression)) : Statement*
+	case List(Expression) : Statement*
 
 DefaultStatement:
 	default : Statement*

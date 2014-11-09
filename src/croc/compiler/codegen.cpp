@@ -791,39 +791,14 @@ namespace croc
 
 			for(auto caseStmt: s->cases)
 			{
-				if(caseStmt->highRange)
+				for(auto &c: caseStmt->conditions)
 				{
-					auto &c = caseStmt->conditions[0];
-					auto lo = c.exp;
-					auto hi = caseStmt->highRange;
-
-					fb->dup();
-					visit(lo);
-					fb->toSource(lo->endLocation);
-
-					auto jmp1 = fb->codeCmp(lo->location, Comparison_LT);
-
-					fb->dup();
-					visit(hi);
-					fb->toSource(hi->endLocation);
-
-					auto jmp2 = fb->codeCmp(hi->endLocation, Comparison_GT);
-
-					c.dynJump = fb->makeJump(hi->endLocation);
-					fb->patchJumpToHere(jmp1);
-					fb->patchJumpToHere(jmp2);
-				}
-				else
-				{
-					for(auto &c: caseStmt->conditions)
+					if(!c.exp->isConstant())
 					{
-						if(!c.exp->isConstant())
-						{
-							fb->dup();
-							visit(c.exp);
-							fb->toSource(c.exp->endLocation);
-							c.dynJump = fb->codeSwitchCmp(c.exp->endLocation);
-						}
+						fb->dup();
+						visit(c.exp);
+						fb->toSource(c.exp->endLocation);
+						c.dynJump = fb->codeSwitchCmp(c.exp->endLocation);
 					}
 				}
 			}
@@ -845,17 +820,12 @@ namespace croc
 
 	CaseStmt* Codegen::visit(CaseStmt* s)
 	{
-		if(s->highRange)
-			fb->patchJumpToHere(s->conditions[0].dynJump);
-		else
+		for(auto &c: s->conditions)
 		{
-			for(auto &c: s->conditions)
-			{
-				if(c.exp->isConstant())
-					fb->addCase(c.exp->location, c.exp);
-				else
-					fb->patchJumpToHere(c.dynJump);
-			}
+			if(c.exp->isConstant())
+				fb->addCase(c.exp->location, c.exp);
+			else
+				fb->patchJumpToHere(c.dynJump);
 		}
 
 		visit(s->code);

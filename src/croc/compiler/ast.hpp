@@ -824,14 +824,11 @@ namespace croc
 	struct CaseStmt : public Statement
 	{
 		DArray<CaseCond> conditions;
-		Expression* highRange;
 		Statement* code;
 
-		CaseStmt(CompileLoc location, CompileLoc endLocation, DArray<CaseCond> conditions, Expression* highRange,
-			Statement* code) :
+		CaseStmt(CompileLoc location, CompileLoc endLocation, DArray<CaseCond> conditions, Statement* code) :
 			Statement(location, endLocation, AstTag_CaseStmt),
 			conditions(conditions),
-			highRange(highRange),
 			code(code)
 		{}
 	};
