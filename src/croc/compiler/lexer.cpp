@@ -652,16 +652,7 @@ namespace croc
 				default:
 				_default:
 					if(!escape && mCharacter == delimiter)
-					{
-						if(lookaheadChar() == delimiter)
-						{
-							buf.add(delimiter);
-							nextChar();
-							nextChar();
-						}
-						else
-							break;
-					}
+						break;
 					else
 					{
 						if(escape && mCharacter == delimiter)
@@ -1240,7 +1231,7 @@ namespace croc
 
 				case '@':
 					nextChar();
-					if(mCharacter == '\"' || mCharacter == '\'' || mCharacter == '`')
+					if(mCharacter == '\"' || mCharacter == '\'')
 					{
 						mTok.stringValue = readStringLiteral(false);
 						TOK(Token::StringLiteral);

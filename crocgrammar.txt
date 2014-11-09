@@ -88,9 +88,8 @@ EscapeSequence:
 	\ DecimalDigit (DecimalDigit DecimalDigit?)?
 
 VerbatimString:
-	@" (Character | EndOfLine | "")* "
-	@' (Character | EndOfLine | '')* '
-	@` (Character | EndOfLine | ``)* `
+	@" (Character | EndOfLine)* "
+	@' (Character | EndOfLine)* '
 	[={n}[ (Character | EndOfLine)* ]={n}]
 
 IntLiteral:
