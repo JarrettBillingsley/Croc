@@ -1099,6 +1099,7 @@ namespace croc
 		{}
 	};
 
+	// Note: although .super was removed from the language, this is still used internally by typed catch statements.
 	struct DotSuperExp : public PostfixExp
 	{
 		DotSuperExp(CompileLoc location, Expression* op) :

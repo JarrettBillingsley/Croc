@@ -148,7 +148,8 @@ extern "C"
 		return inst.type == CrocType_Instance && inst.mInstance->parent == cls;
 	}
 
-	/** Works just like the <tt>a.super</tt> expression in Croc. Gets the super of the object in \c slot and pushes it.
+	/** Gets the super of the object in \c slot and pushes it. For instances, this is the class it was instantiated
+	from; for namespaces, the parent namespace (or null if none).
 
 	\returns the stack index of the pushed value. */
 	word_t croc_superOf(CrocThread* t_, word_t slot)

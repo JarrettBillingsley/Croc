@@ -64,7 +64,7 @@ IdentifierChar:
 Keyword:
 	and | as | assert | break | case | catch | class | continue | default | do | else
 	false | finally | for | foreach | function | global | if | import | in | is | local
-	module | namespace | not | null | or | override | return | scope | super | switch
+	module | namespace | not | null | or | override | return | scope | switch
 	this | throw | true | try | vararg | while | with | yield
 
 StringLiteral:

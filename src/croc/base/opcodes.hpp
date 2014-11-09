@@ -54,7 +54,7 @@ TWO SHORTS:
 	len:             rd = #rs
 	lena:            #rd = rs
 	append:          rd.append(rs)
-	superof:         rd = rs.super
+	superof:         rd = superOf(rs)
 	customparamfail: give error message about parameter rd not satisfying the constraint whose name is in rs
 	slice:           rd = rs[rs + 1 .. rs + 2]
 	slicea:          rd[rd + 1 .. rd + 2] = rs

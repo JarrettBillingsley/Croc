@@ -445,6 +445,26 @@ word_t _nameOf(CrocThread* t)
 	return 1;
 }
 
+const StdlibRegisterInfo _superOf_info =
+{
+	Docstr(DFunc("superOf") DParam("value", "instance|namespace")
+	R"(\returns the super of the given value. For instances, this is the class that it was instantiated from; for
+	namespaces, this is the parent namespace, or \tt{null} if it has none.)"),
+
+	"superOf", 1
+};
+
+word_t _superOf(CrocThread* t)
+{
+	croc_ex_checkAnyParam(t, 1);
+
+	if(!croc_isInstance(t, 1) && !croc_isNamespace(t, 1))
+		croc_ex_paramTypeError(t, 1, "instance|namespace");
+
+	croc_superOf(t, 1);
+	return 1;
+}
+
 const StdlibRegisterInfo _hasField_info =
 {
 	Docstr(DFunc("hasField") DParamAny("value") DParam("name", "string")
@@ -528,6 +548,7 @@ const StdlibRegister _reflFuncs[] =
 	_DListItem(_typeof),
 	_DListItem(_niceTypeof),
 	_DListItem(_nameOf),
+	_DListItem(_superOf),
 	_DListItem(_hasField),
 	_DListItem(_hasMethod),
 	_DListItem(_isNull),

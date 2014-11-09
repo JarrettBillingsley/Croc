@@ -656,8 +656,8 @@ namespace croc
 			...
 		catch(__catch0)
 		{
-			if(__catch0.super is E1) { local e = __catch0; catch1() }
-			else if(__catch0.super is E2 || __catch0.super is E3) { local f = __catch0; catch2() }
+			if(superOf(__catch0) is E1) { local e = __catch0; catch1() }
+			else if(superOf(__catch0) is E2 || superOf(__catch0) is E3) { local f = __catch0; catch2() }
 			else throw __catch0
 		}
 
@@ -676,7 +676,7 @@ namespace croc
 			...
 		catch(__catch0)
 		{
-			if(__catch0.super is E1) { local e = __catch0; catch1() }
+			if(superOf(__catch0) is E1) { local e = __catch0; catch1() }
 			else { local f = __catch0; catch2() }
 		}
 		*/
@@ -716,7 +716,7 @@ namespace croc
 				stmt = ifCode;
 			else
 			{
-				// if(__catch0.super is E2 || __catch0.super is E3)
+				// if(superOf(__catch0) is E2 || superOf(__catch0) is E3)
 				Expression* cond = new(c) IsExp(ca.catchVar->location, ca.catchVar->location, cvarSuperExp,
 					ca.exTypes[0]);
 

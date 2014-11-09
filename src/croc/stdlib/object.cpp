@@ -364,7 +364,7 @@ const StdlibRegisterInfo _instanceOf_info =
 {
 	Docstr(DFunc("instanceOf") DParamAny("value") DParam("cls", "class")
 	R"(\returns \tt{true} if \tt{value} is an instance and it is an instance of \tt{cls}, and \tt{false} otherwise. In
-	other words, it returns \tt{isInstance(value) && value.super is cls}.)"),
+	other words, it returns \tt{isInstance(value) && superOf(value) is cls}.)"),
 
 	"instanceOf", 2
 };

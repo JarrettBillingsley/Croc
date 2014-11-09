@@ -38,7 +38,6 @@ namespace croc
 	X(Override,      "override")\
 	X(Return,        "return")\
 	X(Scope,         "scope")\
-	X(Super,         "super")\
 	X(Switch,        "switch")\
 	X(This,          "this")\
 	X(Throw,         "throw")\

@@ -52,8 +52,8 @@ class Interface
 
 	function opCall(val: instance)
 	{
-		if(val.super not in :_implementors)
-			:implement(val.super)
+		if(superOf(val) not in :_implementors)
+			:implement(superOf(val))
 
 		return true
 	}

@@ -161,7 +161,6 @@ namespace croc
 			case Token::Null:
 			case Token::Or:
 			case Token::StringLiteral:
-			case Token::Super:
 			case Token::This:
 			case Token::True:
 			case Token::Vararg:
@@ -2413,12 +2412,6 @@ namespace croc
 			endLoc = l.expect(Token::RParen).loc;
 			return new(c) DotExp(new(c) ThisExp(loc), exp);
 		}
-		else if(l.type() == Token::Super)
-		{
-			endLoc = l.loc();
-			l.next();
-			return new(c) DotSuperExp(endLoc, new(c) ThisExp(loc));
-		}
 		else
 		{
 			endLoc = l.loc();
@@ -2443,12 +2436,6 @@ namespace croc
 						auto loc = l.loc();
 						auto name = checkPrivateFieldName(parseName());
 						exp = new(c) DotExp(exp, new(c) StringExp(loc, name));
-					}
-					else if(l.type() == Token::Super)
-					{
-						auto endLocation = l.loc();
-						l.next();
-						exp = new(c) DotSuperExp(endLocation, exp);
 					}
 					else
 					{
