@@ -646,13 +646,7 @@ namespace croc
 					{
 						addConstraint(constraintLoc, CrocType_Instance);
 
-						if(l.type() == Token::LParen)
-						{
-							l.next();
-							objTypes.add(parseExpression());
-							l.expect(Token::RParen);
-						}
-						else if(l.type() == Token::Ident)
+						if(l.type() == Token::Ident)
 						{
 							auto tt = l.expect(Token::Ident);
 
@@ -664,7 +658,9 @@ namespace croc
 						else if(l.type() != Token::Or &&
 							l.type() != Token::Comma &&
 							l.type() != Token::RParen &&
-							l.type() != Token::Arrow)
+							l.type() != Token::Arrow &&
+							l.type() != Token::LBrace &&
+							l.type() != Token::Assign)
 
 							l.expected("class type");
 					}

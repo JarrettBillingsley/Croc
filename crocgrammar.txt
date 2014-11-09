@@ -266,7 +266,7 @@ BasicType:
 	memblock
 	function
 	class
-	instance (DottedName | ('(' Expression')'))?
+	instance DottedName?
 	DottedName
 	namespace
 	thread
