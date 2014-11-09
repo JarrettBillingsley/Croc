@@ -41,7 +41,7 @@ ONE SHORT:
 	objparamfail: give an error about parameter rd not being of an acceptable type
 (rdimm)
 	unwind:     unwind rdimm number of EH frames
-	objretfail: give an error about return rd not being of an acceptable type
+	objretfail: give an error about return rdimm not being of an acceptable type
 	retasfloat: convert return stack value rdimm to float
 
 TWO SHORTS:
