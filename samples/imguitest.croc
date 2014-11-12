@@ -74,7 +74,7 @@ function setClipboardText(text: string)
 	window.setClipboardString(text)
 }
 
-local VS_imgui = @`
+local VS_imgui = [=[
 #version 150 core
 
 uniform mat4 MVP;
@@ -93,9 +93,9 @@ void main()
 	pixel_pos = i_pos;
 	uv = i_uv;
 	gl_Position = MVP * vec4(i_pos.x, i_pos.y, 0.0f, 1.0f);
-}`
+}]=]
 
-local FS_imgui = @`
+local FS_imgui = [=[
 #version 150 core
 
 uniform sampler2D Tex;
@@ -115,7 +115,7 @@ void main()
 		step(ClipRect.y, pixel_pos.y) *
 		step(pixel_pos.x, ClipRect.z) *
 		step(pixel_pos.y, ClipRect.w));
-}`
+}]=]
 
 function initImGui()
 {

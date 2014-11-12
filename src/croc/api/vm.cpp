@@ -296,7 +296,7 @@ extern "C"
 #ifdef CROC_OPENAL_ADDON
 		if(!(exclude & CrocAddons_OpenAL)) initOpenAlLib(t);
 #endif
-#ifdef CROC_OPENAL_ADDON
+#ifdef CROC_IMGUI_ADDON
 		if(!(exclude & CrocAddons_ImGui))  initImGuiLib(t);
 #endif
 	}
