@@ -28,8 +28,8 @@ local namespace ExitCode
 	OtherError = 2
 }
 
-local ShortUsage =
-@`Usage:
+local ShortUsage = [=[
+Usage:
     croc [options] [filename [args]]   run file with args, or enter REPL
     croc [options] -e "string"         run "string"
     croc --compile outpath filename    compile module to bytecode
@@ -42,10 +42,10 @@ Options:
     --docs=<on|off|default>            doc comment mode
     -I "path"                          add import path
     -l dotted.module.name              import module
-    --safe                             safe libs only (overrides -d)`
+    --safe                             safe libs only (overrides -d)]=]
 
-local LongUsage =
-@`This is the Croc standalone interpreter. It can be run in several different
+local LongUsage = [=[
+This is the Croc standalone interpreter. It can be run in several different
 modes, and the modes in which code is executed can also take options.
 
 The execution options are as follows:
@@ -125,10 +125,12 @@ Exit codes:
     1 means there was an invalid program argument.
     2 means there was some error during execution.
     3 is reserved for something really bad happening.
-`
+]=]
 
 local function printVersion()
+{
 	writeln(Version)
+}
 
 local function printUsage(full: bool)
 {
@@ -419,10 +421,14 @@ local class ReplInout : repl.ConsoleInout
 	_thread
 
 	function init()
+	{
 		:_thread = null
+	}
 
 	function cleanup()
+	{
 		:_thread = null
+	}
 
 	function run(fd: funcdef)
 	{
@@ -447,7 +453,7 @@ local class ReplInout : repl.ConsoleInout
 			{
 				local runEntry = #e.traceback
 
-				for(i: 0 .. #e.traceback)
+				for(i; 0 .. #e.traceback)
 				{
 					if(e.traceback[i].file.startsWith("<croc>.run"))
 					{
@@ -705,7 +711,14 @@ int main(int argc, char** argv)
 	}
 	else
 	{
-		fprintf(stderr, "Fatal error\n");
+		fprintf(stderr, "-------- Fatal Error --------\n");
+		croc_pushToString(t, -1);
+		fprintf(stderr, "%s\n", croc_getString(t, -1));
+		croc_popTop(t);
+		croc_dupTop(t);
+		croc_pushNull(t);
+		croc_methodCall(t, -2, "tracebackString", 1);
+		fprintf(stderr, "%s\n", croc_getString(t, -1));
 		return 3;
 	}
 }
