@@ -31,11 +31,17 @@ namespace croc
 
 	void RNG::seed(uint32_t seed)
 	{
+		initialSeed = seed;
 		x = seed | 1;
 		y = seed | 2;
 		z = seed | 4;
 		w = seed | 8;
 		carry = 0;
+	}
+
+	uint32_t RNG::getSeed()
+	{
+		return initialSeed;
 	}
 
 	uint32_t RNG::next()

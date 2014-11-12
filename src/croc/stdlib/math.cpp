@@ -463,6 +463,42 @@ word_t _frand(CrocThread* t)
 	return 1;
 }
 
+const StdlibRegisterInfo _seedRand_info =
+{
+	Docstr(DFunc("seedRand") DParam("seed", "int")
+	R"(Seeds the VM-wide random number generator with the given \tt{seed}.
+
+	The random number generator is seeded with the current time when the VM is created, so normally you won't have to
+	call this unless you want to replicate a certain sequence of random numbers.
+
+	\param[seed] will be used as the seed. Only the lower 32 bits will be used; the upper 32 will be discarded.)"),
+
+	"seedRand", 1
+};
+
+word_t _seedRand(CrocThread* t)
+{
+	auto seed = cast(uint32_t)croc_ex_checkIntParam(t, 1);
+	auto &rng = Thread::from(t)->vm->rng;
+	rng.seed(seed);
+	return 0;
+}
+
+const StdlibRegisterInfo _getRandSeed_info =
+{
+	Docstr(DFunc("getRandSeed")
+	R"(\returns the last value that the VM-wide random number generator was seeded with.)"),
+
+	"getRandSeed", 0
+};
+
+word_t _getRandSeed(CrocThread* t)
+{
+	auto &rng = Thread::from(t)->vm->rng;
+	croc_pushInt(t, rng.getSeed());
+	return 1;
+}
+
 const StdlibRegisterInfo _max_info =
 {
 	Docstr(DFunc("max") DVararg
@@ -578,6 +614,8 @@ const StdlibRegister _globalFuncs[] =
 	_DListItem(_sign),
 	_DListItem(_rand),
 	_DListItem(_frand),
+	_DListItem(_seedRand),
+	_DListItem(_getRandSeed),
 	_DListItem(_max),
 	_DListItem(_min),
 	_DListEnd

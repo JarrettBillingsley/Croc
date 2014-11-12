@@ -9,6 +9,7 @@ namespace croc
 	struct RNG
 	{
 	private:
+		uint32_t initialSeed;
 		uint32_t k;
 		uint32_t m;
 		uint32_t x;
@@ -19,6 +20,7 @@ namespace croc
 
 	public:
 		RNG():
+			initialSeed(0),
 			k(0),
 			m(0),
 			x(1),
@@ -30,6 +32,7 @@ namespace croc
 
 		void seed();
 		void seed(uint32_t seed);
+		uint32_t getSeed();
 		uint32_t next();
 		uint64_t next64();
 		double nextf32();
