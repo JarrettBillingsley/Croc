@@ -1029,7 +1029,7 @@ namespace croc
 			{
 				auto &e = mExpStack[j];
 
-				if(e.index == index || e.index2 == index)
+				if((e.haveRegIndex() && e.index == index) || (e.haveIndex2() && e.index2 == index))
 				{
 					if(reloc == cast(uword)-1)
 					{
@@ -2265,7 +2265,7 @@ namespace croc
 		assert(opcode < Op_NUM_OPCODES);
 		assert(dest <= INST_RD_MAX);
 
-		DEBUG_WRITECODE(printf("(%u:%u)[%u] %s RD %u", loc.line, loc.col, mCode.length(), OpNames[opcode], dest);)
+		DEBUG_WRITECODE(printf("\n(%u:%u)[%u] %s RD %u", loc.line, loc.col, mCode.length(), OpNames[opcode], dest);)
 
 		Instruction i;
 		i.uimm =

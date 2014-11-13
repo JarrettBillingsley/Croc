@@ -110,6 +110,17 @@ namespace croc
 				type == ExpType::Length;
 		}
 
+		inline bool haveIndex2()
+		{
+			return type == ExpType::Index || type == ExpType::Field;
+		}
+
+		inline bool haveRegIndex()
+		{
+			return type == ExpType::Local || type == ExpType::NewLocal || type == ExpType::Index ||
+				type == ExpType::Field || type == ExpType::Slice || type == ExpType::VarargIndex;
+		}
+
 #ifndef NDEBUG
 		void print()
 		{
