@@ -14,6 +14,7 @@ local AllStdlibs = (modules.AllStdlibNames ~ modules.AddonNames).sort()
 
 import devil
 import glfw
+import imgui
 import openal
 import pcre
 
@@ -71,7 +72,7 @@ local function synHighlight(language: string, code: string)
 {
 	local tempFile = "_temp." ~ language
 	file.writeTextFile(tempFile, code)
-	local p = os.Process(@`pygmentize -f html -O cssclass=code ` ~ tempFile, "r")
+	local p = os.Process(@'pygmentize -f html -O cssclass=code ' ~ tempFile, "r")
 	local mbs = stream.MemblockStream()
 	mbs.copy(p.stream())
 	local exitCode = p.wait()
@@ -87,11 +88,11 @@ class StdlibDocVisitor : OutputDocVisitor
 {
 	override function visitChildren(doctable: table)
 	{
-		:_output.outputTextRaw(@`<script>explorer.outline.incSymbolLevel();</script>`)
-		:_output.outputTextRaw(@`<dl>`)
+		:_output.outputTextRaw(@'<script>explorer.outline.incSymbolLevel();</script>')
+		:_output.outputTextRaw(@'<dl>')
 		(OutputDocVisitor.visitChildren)(with this, doctable)
-		:_output.outputTextRaw(@`</dl>`)
-		:_output.outputTextRaw(@`<script>explorer.outline.decSymbolLevel();</script>`)
+		:_output.outputTextRaw(@'</dl>')
+		:_output.outputTextRaw(@'<script>explorer.outline.decSymbolLevel();</script>')
 	}
 
 	override function visitCode(language: string, code: string)
@@ -119,29 +120,31 @@ class StdlibOutputter : DocOutputter
 	}
 
 	function setOutput(s)
+	{
 		:_output = s
+	}
 
 	// =================================================================================================================
 	// Item-level stuff
 
 	override function beginModule(doctable: table)
 	{
-		:outputTextRaw(@`<html><head>`)
-		:outputTextRaw(@`<meta http-equiv="content-type" content="text/html; charset=utf-8">`)
-		:outputTextRaw(@`<meta content="text/javascript" http-equiv="content-script-type">`)
-		:outputTextRaw(@`<title>`, toHeader(doctable, "", true), @`</title>`)
-		:outputTextRaw(@`<link rel="stylesheet" type="text/css" href="candydoc/style.css">`)
-		:outputTextRaw(@`<link rel="stylesheet" type="text/css" href="candydoc/code.css">`)
-		:outputTextRaw(@`<script language="JavaScript" src="candydoc/util.js" type="text/javascript"></script>`)
-		:outputTextRaw(@`<script language="JavaScript" src="candydoc/tree.js" type="text/javascript"></script>`)
-		:outputTextRaw(@`<script language="JavaScript" src="candydoc/explorer.js" type="text/javascript"></script>`)
-		:outputTextRaw(@`</head><body>`)
-		:outputTextRaw(@`<div id="everything">`)
-		:outputTextRaw(@`<div id="tabarea"></div><div id="explorerclient"></div>`)
-		:outputTextRaw(@`<div id="content"><script>explorer.initialize("`, doctable.name, @`");</script>`)
-		:outputTextRaw(@`	<img src="candydoc/img/banner.gif" alt="The Croc Programming Language"></img>`)
-		:outputTextRaw(@`	<div id="docbody">`)
-		:outputTextRaw(@`		<h1>`, toHeader(doctable, "", true), @`</h1>`)
+		:outputTextRaw(@'<html><head>')
+		:outputTextRaw(@'<meta http-equiv="content-type" content="text/html; charset=utf-8">')
+		:outputTextRaw(@'<meta content="text/javascript" http-equiv="content-script-type">')
+		:outputTextRaw(@'<title>', toHeader(doctable, "", true), @'</title>')
+		:outputTextRaw(@'<link rel="stylesheet" type="text/css" href="candydoc/style.css">')
+		:outputTextRaw(@'<link rel="stylesheet" type="text/css" href="candydoc/code.css">')
+		:outputTextRaw(@'<script language="JavaScript" src="candydoc/util.js" type="text/javascript"></script>')
+		:outputTextRaw(@'<script language="JavaScript" src="candydoc/tree.js" type="text/javascript"></script>')
+		:outputTextRaw(@'<script language="JavaScript" src="candydoc/explorer.js" type="text/javascript"></script>')
+		:outputTextRaw(@'</head><body>')
+		:outputTextRaw(@'<div id="everything">')
+		:outputTextRaw(@'<div id="tabarea"></div><div id="explorerclient"></div>')
+		:outputTextRaw(@'<div id="content"><script>explorer.initialize("', doctable.name, @'");</script>')
+		:outputTextRaw(@'	<img src="candydoc/img/banner.gif" alt="The Croc Programming Language"></img>')
+		:outputTextRaw(@'	<div id="docbody">')
+		:outputTextRaw(@'		<h1>', toHeader(doctable, "", true), @'</h1>')
 
 		:_itemDepth++
 		:_linkResolver.enterModule(doctable.name)
@@ -153,24 +156,24 @@ class StdlibOutputter : DocOutputter
 		:_linkResolver.leave()
 		:_itemDepth--
 
-		:outputTextRaw(@`	</div><div id="docfooter">`)
-		:outputTextRaw(@`		HTML and JavaScript source derived from `)
-		:outputTextRaw(@`		<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">`)
-		:outputTextRaw(@`		by Victor Nakoryakov; Page generated on `, currentTime())
-		:outputTextRaw(@`	</div>`)
-		:outputTextRaw(@`</div>`)
-		:outputTextRaw(@`<script>`)
+		:outputTextRaw(@'	</div><div id="docfooter">')
+		:outputTextRaw(@'		HTML and JavaScript source derived from ')
+		:outputTextRaw(@'		<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">')
+		:outputTextRaw(@'		by Victor Nakoryakov; Page generated on ', currentTime())
+		:outputTextRaw(@'	</div>')
+		:outputTextRaw(@'</div>')
+		:outputTextRaw(@'<script>')
 
 		foreach(mod; :_allModules)
-			:outputTextRaw(@`	explorer.packageExplorer.addModuleFull("`, mod, @`");`)
+			:outputTextRaw(@'	explorer.packageExplorer.addModuleFull("', mod, @'");')
 
-		:outputTextRaw(@`</script>`)
-		:outputTextRaw(@`</div>`)
-		:outputTextRaw(@`</body></html>`)
+		:outputTextRaw(@'</script>')
+		:outputTextRaw(@'</div>')
+		:outputTextRaw(@'</body></html>')
 	}
 
-	override function beginFunction(doctable: table) :beginItem(doctable)
-	override function endFunction() :endItem()
+	override function beginFunction(doctable: table) { :beginItem(doctable) }
+	override function endFunction() { :endItem() }
 
 	override function beginClass(doctable: table)
 	{
@@ -196,10 +199,10 @@ class StdlibOutputter : DocOutputter
 		:endItem()
 	}
 
-	override function beginField(doctable: table) :beginItem(doctable)
-	override function endField() :endItem()
-	override function beginVariable(doctable: table) :beginItem(doctable)
-	override function endVariable() :endItem()
+	override function beginField(doctable: table) { :beginItem(doctable) }
+	override function endField() { :endItem() }
+	override function beginVariable(doctable: table) { :beginItem(doctable) }
+	override function endVariable() { :endItem() }
 
 	function beginItem(doctable: table)
 	{
@@ -226,25 +229,25 @@ class StdlibOutputter : DocOutputter
 
 	function outputHeader(doctable: table)
 	{
-		:outputTextRaw(@`<script>explorer.outline.writeEnabled = true;</script>`)
+		:outputTextRaw(@'<script>explorer.outline.writeEnabled = true;</script>')
 
 		local fqn = toHeader(doctable, :_parentItemName, false)
-		:outputTextRaw(@`<dt><span class="decl"><a id="`, fqn, @`"></a>`)
+		:outputTextRaw(@'<dt><span class="decl"><a id="', fqn, @'"></a>')
 		:outputText(toHeader(doctable, :_parentItemName, true))
-		:outputTextRaw(@`<script>explorer.outline.addDecl('`, fqn, @`');</script></span>`)
+		:outputTextRaw(@'<script>explorer.outline.addDecl("', fqn, @'");</script></span>')
 
 		if(doctable.dittos)
 		{
 			foreach(dit; doctable.dittos)
 			{
 				fqn = toHeader(dit, :_parentItemName, false);
-				:outputTextRaw(@`<br/><span class="decl"><a id="`, fqn, @`"></a>`)
+				:outputTextRaw(@'<br/><span class="decl"><a id="', fqn, @'"></a>')
 				:outputText(toHeader(dit, :_parentItemName, true))
-				:outputTextRaw(@`<script>explorer.outline.addDecl('`, fqn, @`');</script></span>`)
+				:outputTextRaw(@'<script>explorer.outline.addDecl("', fqn, @'");</script></span>')
 			}
 		}
 
-		:outputTextRaw(@`<script>explorer.outline.writeEnabled = false;</script></dt>`)
+		:outputTextRaw(@'<script>explorer.outline.writeEnabled = false;</script></dt>')
 	}
 
 	// =================================================================================================================
@@ -269,7 +272,7 @@ class StdlibOutputter : DocOutputter
 		:_isSpecialSection = name is "params" or name is "throws"
 
 		if(:_isSpecialSection)
-			:outputTextRaw(@`<table class="params">`)
+			:outputTextRaw(@'<table class="params">')
 	}
 
 	override function endSection()
@@ -284,7 +287,7 @@ class StdlibOutputter : DocOutputter
 	override function beginParameter(doctable: table)
 	{
 		:beginRow()
-		:outputTextRaw(@`<td class="paramname" nowrap valign="top" style="padding-right: 8px">`)
+		:outputTextRaw(@'<td class="paramname" nowrap valign="top" style="padding-right: 8px">')
 		:outputText(doctable.name)
 		:endCell()
 		:beginCell()
@@ -299,7 +302,7 @@ class StdlibOutputter : DocOutputter
 	override function beginException(name: string)
 	{
 		:beginRow()
-		:outputTextRaw(@`<td class="paramname" nowrap valign="top" style="padding-right: 8px">`)
+		:outputTextRaw(@'<td class="paramname" nowrap valign="top" style="padding-right: 8px">')
 		:beginLink(name)
 		:outputText(name)
 		:endLink()
@@ -316,46 +319,46 @@ class StdlibOutputter : DocOutputter
 	// =================================================================================================================
 	// Paragraph-level stuff
 
-	override function beginParagraph()            :outputTextRaw("<p>")
-	override function endParagraph()              :outputTextRaw("</p>")
+	override function beginParagraph()            { :outputTextRaw("<p>") }
+	override function endParagraph()              { :outputTextRaw("</p>") }
 	override function beginCode(language: string) {}
 	override function endCode()                   {}
-	override function beginVerbatim(type: string) :outputTextRaw("<pre>")
-	override function endVerbatim()               :outputTextRaw("</pre>")
-	override function beginBulletList()           :outputTextRaw("<ul>")
-	override function endBulletList()             :outputTextRaw("</ul>")
-	override function beginNumList(type: string)  :outputTextRaw(@`<ol type="`, type, @`">`)
-	override function endNumList()                :outputTextRaw("</ol>")
-	override function beginListItem()             :outputTextRaw("<li>")
-	override function endListItem()               :outputTextRaw("</li>")
-	override function beginDefList()              :outputTextRaw("<dl>")
-	override function endDefList()                :outputTextRaw("</dl>")
-	override function beginDefTerm()              :outputTextRaw("<dt>")
-	override function endDefTerm()                :outputTextRaw("</dt>")
-	override function beginDefDef()               :outputTextRaw("<dd>")
-	override function endDefDef()                 :outputTextRaw("</dd>")
-	override function beginTable()                :outputTextRaw("<table>")
-	override function endTable()                  :outputTextRaw("</table>")
-	override function beginRow()                  :outputTextRaw("<tr>")
-	override function endRow()                    :outputTextRaw("</tr>")
-	override function beginCell()                 :outputTextRaw("<td>")
-	override function endCell()                   :outputTextRaw("</td>")
-	override function beginBold()                 :outputTextRaw("<strong>")
-	override function endBold()                   :outputTextRaw("</strong>")
-	override function beginEmphasis()             :outputTextRaw("<em>")
-	override function endEmphasis()               :outputTextRaw("</em>")
-	override function beginLink(link: string)     :outputTextRaw(@`<a href="`,  :_linkResolver.resolveLink(link), @`">`)
-	override function endLink()                   :outputTextRaw("</a>")
-	override function beginMonospace()            :outputTextRaw("<tt>")
-	override function endMonospace()              :outputTextRaw("</tt>")
-	override function beginStrikethrough()        :outputTextRaw("<del>")
-	override function endStrikethrough()          :outputTextRaw("</del>")
-	override function beginSubscript()            :outputTextRaw("<sub>")
-	override function endSubscript()              :outputTextRaw("</sub>")
-	override function beginSuperscript()          :outputTextRaw("<sup>")
-	override function endSuperscript()            :outputTextRaw("</sup>")
-	override function beginUnderline()            :outputTextRaw(@`<span style="text-decoration: underline;">`)
-	override function endUnderline()              :outputTextRaw("</span>")
+	override function beginVerbatim(type: string) { :outputTextRaw("<pre>") }
+	override function endVerbatim()               { :outputTextRaw("</pre>") }
+	override function beginBulletList()           { :outputTextRaw("<ul>") }
+	override function endBulletList()             { :outputTextRaw("</ul>") }
+	override function beginNumList(type: string)  { :outputTextRaw(@'<ol type="', type, @'">') }
+	override function endNumList()                { :outputTextRaw("</ol>") }
+	override function beginListItem()             { :outputTextRaw("<li>") }
+	override function endListItem()               { :outputTextRaw("</li>") }
+	override function beginDefList()              { :outputTextRaw("<dl>") }
+	override function endDefList()                { :outputTextRaw("</dl>") }
+	override function beginDefTerm()              { :outputTextRaw("<dt>") }
+	override function endDefTerm()                { :outputTextRaw("</dt>") }
+	override function beginDefDef()               { :outputTextRaw("<dd>") }
+	override function endDefDef()                 { :outputTextRaw("</dd>") }
+	override function beginTable()                { :outputTextRaw("<table>") }
+	override function endTable()                  { :outputTextRaw("</table>") }
+	override function beginRow()                  { :outputTextRaw("<tr>") }
+	override function endRow()                    { :outputTextRaw("</tr>") }
+	override function beginCell()                 { :outputTextRaw("<td>") }
+	override function endCell()                   { :outputTextRaw("</td>") }
+	override function beginBold()                 { :outputTextRaw("<strong>") }
+	override function endBold()                   { :outputTextRaw("</strong>") }
+	override function beginEmphasis()             { :outputTextRaw("<em>") }
+	override function endEmphasis()               { :outputTextRaw("</em>") }
+	override function beginLink(link: string)     { :outputTextRaw(@'<a href="',  :_linkResolver.resolveLink(link), @'">') }
+	override function endLink()                   { :outputTextRaw("</a>") }
+	override function beginMonospace()            { :outputTextRaw("<tt>") }
+	override function endMonospace()              { :outputTextRaw("</tt>") }
+	override function beginStrikethrough()        { :outputTextRaw("<del>") }
+	override function endStrikethrough()          { :outputTextRaw("</del>") }
+	override function beginSubscript()            { :outputTextRaw("<sub>") }
+	override function endSubscript()              { :outputTextRaw("</sub>") }
+	override function beginSuperscript()          { :outputTextRaw("<sup>") }
+	override function endSuperscript()            { :outputTextRaw("</sup>") }
+	override function beginUnderline()            { :outputTextRaw(@'<span style="text-decoration: underline;">') }
+	override function endUnderline()              { :outputTextRaw("</span>") }
 
 	override function outputText(vararg)
 	{
@@ -415,6 +418,7 @@ local StdlibLookup =
 	devil         = "devil.html"
 	gl            = "gl.html"
 	glfw          = "glfw.html"
+	imgui         = "imgui.html"
 	openal        = "openal.html"
 	pcre          = "pcre.html"
 }
@@ -450,7 +454,9 @@ class StdlibLinkTranslator : LinkTranslator
 	_errors
 
 	this()
+	{
 		:_errors = []
+	}
 
 	override function translateLink(mod: string, item: string)
 	{
