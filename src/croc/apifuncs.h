@@ -7,9 +7,6 @@
 
 #include "croc/apitypes.h"
 
-#define CROCAPI
-#define CROCPRINT(a, b) __attribute__((format(printf, a, b)))
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -464,7 +461,5 @@ CROCAPI word_t  croc_compiler_parseDocCommentText  (CrocThread* t);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
-
-#undef CROCAPI
 
 #endif

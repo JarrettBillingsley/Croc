@@ -9,6 +9,8 @@ set(CROC_PCRE_ADDON   "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the libPCRE a
 set(CROC_OPENAL_ADDON "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the OpenAL addon.")
 set(CROC_IMGUI_ADDON  "${CROC_ALL_ADDONS}" CACHE BOOL "Compiles in the ImGui addon.")
 
+set(CROC_BUILD_SHARED "false" CACHE BOOL "If enabled, builds Croc as a shared library; otherwise builds it as a static library.")
+
 if(NOT DEFINED CROC_BUILD_BITS)
 	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 		set(CROC_BUILD_BITS 64)
@@ -256,6 +258,12 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmax-errors=2 -m${CROC_BUILD_BITS}")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCROC_BUILTIN_DOCS=1 -DCROC_BUILD_BITS=${CROC_BUILD_BITS}")
 
+	if(CROC_BUILD_SHARED AND WIN32)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCROCAPI=__declspec(dllexport)")
+	else()
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCROCAPI=extern")
+	endif()
+
 	if(CROC_BUILD_BITS EQUAL 32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xlinker \"-melf_i386\" -Xlinker \"--oformat=elf32-i386\"")
 	endif()
@@ -295,7 +303,12 @@ else()
 	message(FATAL_ERROR "Dunno what compiler you have but I don't support it")
 endif()
 
-add_library(croc ${croc_ALLSRC})
+if(CROC_BUILD_SHARED)
+	add_library(croc SHARED ${croc_ALLSRC})
+else()
+	add_library(croc STATIC ${croc_ALLSRC})
+endif()
+
 add_dependencies(croc ConvertCrocFiles)
 
 if(CROC_IMGUI_ADDON)

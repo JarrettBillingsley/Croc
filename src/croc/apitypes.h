@@ -10,6 +10,11 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
+#ifndef CROCAPI
+#define CROCAPI extern
+#endif
+#define CROCPRINT(a, b) __attribute__((format(printf, a, b)))
+
 /** @addtogroup APITypes */
 /**@{*/
 

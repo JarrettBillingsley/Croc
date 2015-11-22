@@ -8,9 +8,6 @@
 
 #include "croc/apitypes.h"
 
-#define CROCAPI
-#define CROCPRINT(a, b) __attribute__((format(printf, a, b)))
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -291,7 +288,5 @@ CROCAPI void croc_ex_docFields           (CrocDoc* d, const char** docStrings);
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
-
-#undef CROCAPI
 
 #endif
