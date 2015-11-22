@@ -300,6 +300,7 @@ namespace croc
 			mExpStack(),
 			mExpSP(0),
 			mTryCatchDepth(0),
+			mDef(nullptr),
 			mLocation(location),
 			mIsVararg(false),
 			mName(name),
