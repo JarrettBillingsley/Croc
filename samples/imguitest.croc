@@ -260,7 +260,7 @@ function doEvents()
 				break
 
 			case "scroll":
-				imgui.io.setMouseWheel(b > 0 ? 1 : b < 0 ? -1 : 0)
+				imgui.io.setMouseWheel(b <=> 0)
 				break
 
 			case "key":

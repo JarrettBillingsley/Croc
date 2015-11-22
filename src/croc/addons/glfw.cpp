@@ -996,7 +996,7 @@ while(not window.shouldClose())
 
 	\returns an event as specified in the docs for \link{pollEvents}.)"),
 
-	"waitEvents", 0
+	"waitEvents", 1 // 1 so it can be used as an "opApply"
 };
 
 word_t _waitEvents(CrocThread* t)

@@ -5651,7 +5651,7 @@ ImVec2 ImBitmapFont::CalcTextSizeA(float size, float max_width, const char* text
     const char* s = text_begin;
     while (s < text_end)
     {
-        unsigned int c;
+        unsigned int c = 0;
         const int bytes_count = ImTextCharFromUtf8(&c, s, text_end);
         s += bytes_count > 0 ? bytes_count : 1;  // Handle decoding failure by skipping to next byte
 
@@ -5780,7 +5780,7 @@ void ImBitmapFont::RenderText(float size, ImVec2 pos, ImU32 col, const ImVec4& c
     float y = pos.y;
     for (const char* s = text_begin; s < text_end; )
     {
-        unsigned int c;
+        unsigned int c = 0;
         const int bytes_count = ImTextCharFromUtf8(&c, s, text_end);
         s += bytes_count > 0 ? bytes_count : 1;  // Handle decoding failure by skipping to next byte
         if (c >= 0x10000)
