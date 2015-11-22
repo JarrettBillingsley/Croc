@@ -15,6 +15,7 @@ local _loadLibs = _croctmp._loadLibs
 local _setInterruptibleThread = _croctmp._setInterruptibleThread
 local _haltWasTriggered = _croctmp._haltWasTriggered
 local _resetInterrupt = _croctmp._resetInterrupt
+local _loadFileLib = _croctmp._loadFileLib
 
 local Version = "Croc alpha"
 
@@ -30,7 +31,8 @@ local namespace ExitCode
 
 local ShortUsage = [=[
 Usage:
-    croc [options] [filename [args]]   run file with args, or enter REPL
+    croc [options]                     enter REPL
+    croc [options] filename [args]     run <filename> with args
     croc [options] -e "string"         run "string"
     croc --compile outpath filename    compile module to bytecode
     croc --doctable outname filename   extract doctable as JSON
@@ -244,12 +246,10 @@ local function parseArguments(args: array)
 			default:
 				if(args[i].startsWith("--docs"))
 				{
-					local pos = args[i].find('=')
+					local _, eq, mode = args[i].partition('=')
 
-					if(pos == #args[i])
+					if(eq is '' or mode is '')
 						return argError(ret, "Malfomed flag: '{}'", args[i]);
-
-					local mode = args[i][pos + 1 ..]
 
 					switch(mode)
 					{
@@ -265,10 +265,12 @@ local function parseArguments(args: array)
 				}
 				else if(args[i].startsWith("-"))
 					return argError(ret, "Unknown flag '{}'", args[i])
-
-				ret.inputFile = args[i]
-				ret.args = args[i + 1 ..]
-				break
+				else
+				{
+					ret.inputFile = args[i]
+					ret.args = args[i + 1 ..]
+					break
+				}
 		}
 
 		break
@@ -377,7 +379,15 @@ local function doCompile(inputFile: string, outputFile: string)
 	return ExitCode.OK
 }
 
-local function doFile(inputFile: string, docsEnabled: string, args: array)
+local function unloadFileLib()
+{
+	hash.remove(modules.loaded, 'file')
+	hash.remove(modules.customLoaders, 'file')
+	hash.remove(_G, 'file')
+	gc.collect()
+}
+
+local function doFile(isSafe: bool, inputFile: string, docsEnabled: string, args: array)
 {
 	if(docsEnabled is "on")
 		compiler.setFlags("alldocs")
@@ -390,10 +400,16 @@ local function doFile(inputFile: string, docsEnabled: string, args: array)
 		{
 			local fd, modName
 
+			if(isSafe)
+				_loadFileLib();
+
 			if(inputFile[-1] is 'o')
 				fd, modName = serialization.deserializeModule(stream.MemblockStream(file.readMemblock(inputFile)))
 			else
 				fd, modName = compiler.compileModule(file.readTextFile(inputFile), inputFile)
+
+			if(isSafe)
+				unloadFileLib();
 
 			modules.customLoaders[modName] = fd
 			modToRun = modName
@@ -451,18 +467,8 @@ local class ReplInout : repl.ConsoleInout
 				rets.set((:_thread)())
 			catch(e)
 			{
-				local runEntry = #e.traceback
-
-				for(i; 0 .. #e.traceback)
-				{
-					if(e.traceback[i].file.startsWith("<croc>.run"))
-					{
-						runEntry = i
-						break
-					}
-				}
-
-				e.traceback = e.traceback[0 .. runEntry]
+				if(#e.traceback > 0)
+					e.traceback = e.traceback[0 .. e.traceback.findIf(\tb -> tb.file.startsWith("<croc>.run"))]
 				exceptions.rethrow(e)
 			}
 		}
@@ -544,7 +550,7 @@ return function main(args: array)
 	if(params.exec)
 		return doOneLine(params.execStr)
 	else if(#params.inputFile)
-		return doFile(params.inputFile, params.docsEnabled, params.args)
+		return doFile(params.safe, params.inputFile, params.docsEnabled, params.args)
 	else
 		return doInteractive(params.docsEnabled)
 }
@@ -563,6 +569,12 @@ word_t _loadLibs(CrocThread* t)
 		croc_vm_loadAllAvailableAddons(t);
 	}
 
+	return 0;
+}
+
+word_t _loadFileLib(CrocThread* t)
+{
+	croc_vm_loadUnsafeLibs(t, CrocUnsafeLib_File);
 	return 0;
 }
 
@@ -654,6 +666,8 @@ int main(int argc, char** argv)
 		croc_table_new(t, 0);
 			croc_function_new(t, "_loadLibs", 2, &_loadLibs, 0);
 			croc_fielda(t, -2, "_loadLibs");
+			croc_function_new(t, "_loadFileLib", 0, &_loadFileLib, 0);
+			croc_fielda(t, -2, "_loadFileLib");
 			croc_function_new(t, "_setInterruptibleThread", 1, &_setInterruptibleThread, 0);
 			croc_fielda(t, -2, "_setInterruptibleThread");
 			croc_function_new(t, "_haltWasTriggered", 0, &_haltWasTriggered, 0);

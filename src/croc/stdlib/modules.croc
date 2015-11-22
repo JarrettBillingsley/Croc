@@ -11,6 +11,8 @@ local path_join = _G.path.join
 // Internals
 
 local _setfenv = _modulestmp._setfenv
+local _existsTime = _modulestmp._existsTime
+local _getFileContents = _modulestmp._getFileContents
 local Loading = {}
 local Prefixes = {}
 
@@ -149,16 +151,15 @@ local function loadFiles(name: string)
 	{
 		local src = path_join(piece, srcFile)
 		local bin = src ~ 'o'
-		local srcExists, binExists = file.exists(src), file.exists(bin)
-		local srcTime = srcExists ? file.modified(src) : 0
-		local binTime = binExists ? file.modified(bin) : 0
+		local srcExists, srcTime = _existsTime(src)
+		local binExists, binTime = _existsTime(bin);
 
 		local fd, loadedName
 
 		if(srcExists and (not binExists or srcTime > binTime))
-			fd, loadedName = compiler.compileModuleEx(file.readTextFile(src), src)
+			fd, loadedName = compiler.compileModuleEx(text.getCodec('utf-8').decode(_getFileContents(src), 'strict'), src)
 		else if(binExists)
-			fd, loadedName = serialization.deserializeModule(stream.MemblockStream(file.readMemblock(bin)))
+			fd, loadedName = serialization.deserializeModule(stream.MemblockStream(_getFileContents(bin)))
 		else
 			continue
 
