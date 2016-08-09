@@ -243,7 +243,23 @@ word_t _opEquals(CrocThread* t)
 {
 	auto a = checkArrayParam(t, 0)->toDArray();
 	auto b = checkArrayParam(t, 1)->toDArray();
-	croc_pushBool(t, a == b);
+
+	if(a.length != b.length)
+		croc_pushBool(t, false);
+	else
+	{
+		for(uword i = 0; i < a.length; i++)
+		{
+			if(a[i].value != b[i].value)
+			{
+				croc_pushBool(t, false);
+				return 1;
+			}
+		}
+
+		croc_pushBool(t, true);
+	}
+
 	return 1;
 }
 

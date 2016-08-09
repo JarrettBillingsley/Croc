@@ -309,6 +309,8 @@ else()
 	add_library(croc STATIC ${croc_ALLSRC})
 endif()
 
+# TODO: post-build step that copies the shared lib into the executable directory?
+
 add_dependencies(croc ConvertCrocFiles)
 
 if(CROC_IMGUI_ADDON)

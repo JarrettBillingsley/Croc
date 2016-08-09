@@ -103,12 +103,10 @@ function metamethodDocs(type: string, method: string)
 	if(mt is null)
 		throw ValueError("Type has no metatable")
 
-	local func = mt[method]
-
-	if(func is null)
+	if(method not in mt)
 		throw FieldError("No method '{}' in given type's metatable".format(method))
 
-	return docsOf(func)
+	return docsOf(mt.(method))
 }
 
 /**
