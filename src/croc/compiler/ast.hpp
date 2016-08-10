@@ -1,9 +1,7 @@
 #ifndef CROC_COMPILER_AST_HPP
 #define CROC_COMPILER_AST_HPP
 
-#include "croc/apitypes.h"
 #include "croc/compiler/types.hpp"
-#include "croc/types/base.hpp"
 
 inline void* operator new(croc::uword size, croc::Compiler& c)
 {

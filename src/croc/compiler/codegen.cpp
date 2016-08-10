@@ -1,4 +1,5 @@
 
+#include "croc/api.h"
 #include "croc/compiler/builder.hpp"
 #include "croc/compiler/codegen.hpp"
 #include "croc/internal/eh.hpp"

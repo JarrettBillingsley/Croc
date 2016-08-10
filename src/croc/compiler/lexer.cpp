@@ -4,8 +4,6 @@
 
 #include "croc/compiler/lexer.hpp"
 #include "croc/compiler/types.hpp"
-#include "croc/util/str.hpp"
-#include "croc/util/utf.hpp"
 
 namespace croc
 {
@@ -165,7 +163,8 @@ namespace croc
 
 	crocstr Lexer::endCapture(const uchar* captureStart)
 	{
-		return mCompiler.newString(strTrimWS(crocstr::n(captureStart, mCaptureEnd - captureStart)));
+		//XXX return mCompiler.newString(strTrimWS(crocstr::n(captureStart, mCaptureEnd - captureStart)));
+		return mCompiler.newString(crocstr::n(captureStart, mCaptureEnd - captureStart));
 	}
 
 	// =================================================================================================================

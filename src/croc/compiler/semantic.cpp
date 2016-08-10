@@ -1,12 +1,11 @@
 
 #include <math.h>
 
+#include "croc/api.h"
 #include "croc/compiler/ast.hpp"
 #include "croc/compiler/astvisitor.hpp"
 #include "croc/compiler/semantic.hpp"
 #include "croc/compiler/types.hpp"
-#include "croc/types/base.hpp"
-#include "croc/util/str.hpp"
 
 #define VISIT(e)               do { e = visit(e);                     } while(false)
 #define COND_VISIT(e)          do { if(e) e = visit(e);               } while(false)
@@ -1057,10 +1056,10 @@ namespace croc
 
 		if(e->op1->isConstant() && e->op2->isConstant() && e->op2->isString())
 		{
-			auto s = e->op2->asString();
+			// auto s = e->op2->asString();
 
 			if(e->op1->isString())
-				return new(c) BoolExp(e->location, strLocate(s, e->op1->asString()) != s.length);
+				return new(c) BoolExp(e->location, false);
 			else
 				c.semException(e->location, "'in' must be performed on a string with a string");
 		}
@@ -1075,10 +1074,10 @@ namespace croc
 
 		if(e->op1->isConstant() && e->op2->isConstant() && e->op2->isString())
 		{
-			auto s = e->op2->asString();
+			// auto s = e->op2->asString();
 
 			if(e->op1->isString())
-				return new(c) BoolExp(e->location, strLocate(s, e->op1->asString()) == s.length);
+				return new(c) BoolExp(e->location, false);
 			else
 				c.semException(e->location, "'!in' must be performed on a string with a string");
 		}

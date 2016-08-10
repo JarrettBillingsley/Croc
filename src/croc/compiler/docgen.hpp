@@ -1,6 +1,7 @@
 #ifndef CROC_COMPILER_DOCGEN_HPP
 #define CROC_COMPILER_DOCGEN_HPP
 
+#include "croc/api.h"
 #include "croc/compiler/astvisitor.hpp"
 #include "croc/compiler/types.hpp"
 

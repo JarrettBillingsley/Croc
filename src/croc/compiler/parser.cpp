@@ -1,4 +1,5 @@
 
+#include "croc/api.h"
 #include "croc/compiler/parser.hpp"
 
 namespace croc

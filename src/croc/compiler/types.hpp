@@ -4,7 +4,6 @@
 #include <functional>
 #include <stdarg.h>
 
-#include "croc/api.h"
 #include "croc/types/base.hpp"
 
 #define CROC_INTERNAL_NAME(s) ("$" s)
