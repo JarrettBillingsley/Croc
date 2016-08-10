@@ -5,16 +5,30 @@
 #include "croc/compiler/types.hpp"
 #include "croc/util/misc.hpp"
 
-using namespace croc;
-
 int main()
 {
+	FILE* f = fopen("../test.croc", "r");
+
+	if(f == nullptr)
+	{
+		printf("NO EXIST!\n");
+		return 1;
+	}
+
+	fseek(f, 0, SEEK_END);
+	auto size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	auto src = cast(char*)malloc(size + 1);
+	src[size] = 0;
+	fread(cast(void*)src, size, 1, f);
+	fclose(f);
+
 	try
 	{
 		Compiler c;
 		c.leaveDocTable(false);
-		crocstr modNameStr;
-		c.compileModule(atoda("module"), ATODA("dorple"), modNameStr);
+		c.compileModule(atoda(src), ATODA("dorple"));
+		return 0;
 	}
 	catch(CompileEx& e)
 	{
@@ -25,5 +39,5 @@ int main()
 		printf("Something went wrong.\n");
 	}
 
-	return 0;
+	return 1;
 }

@@ -4,44 +4,29 @@
 #include "croc/compiler/types.hpp"
 #include "croc/util/utf.hpp"
 
-namespace croc
-{
 #define KEYWORD_LIST(X)\
 	X(AndKeyword,    "and")\
 	X(As,            "as")\
-	X(Assert,        "assert")\
 	X(Break,         "break")\
-	X(Case,          "case")\
-	X(Catch,         "catch")\
-	X(Class,         "class")\
 	X(Continue,      "continue")\
-	X(Default,       "default")\
 	X(Do,            "do")\
 	X(Else,          "else")\
 	X(False,         "false")\
-	X(Finally,       "finally")\
 	X(For,           "for")\
 	X(Foreach,       "foreach")\
 	X(Function,      "function")\
 	X(Global,        "global")\
 	X(If,            "if")\
 	X(Import,        "import")\
-	X(In,            "in")\
 	X(Is,            "is")\
 	X(Local,         "local")\
-	X(Module,        "module")\
-	X(Namespace,     "namespace")\
 	X(NotKeyword,    "not")\
 	X(Null,          "null")\
 	X(OrKeyword,     "or")\
-	X(Override,      "override")\
 	X(Return,        "return")\
-	X(Scope,         "scope")\
 	X(Switch,        "switch")\
 	X(This,          "this")\
-	X(Throw,         "throw")\
 	X(True,          "true")\
-	X(Try,           "try")\
 	X(Vararg,        "vararg")\
 	X(While,         "while")\
 	X(With,          "with")\
@@ -116,149 +101,148 @@ namespace croc
 	NONKEYWORD_LIST(X)\
 	MISC_TOKEN_LIST(X)
 
-	struct Token
+struct Token
+{
+	enum
 	{
-		enum
-		{
 #define POOP(Name, _) Name,
-			TOKEN_LIST(POOP)
+		TOKEN_LIST(POOP)
 #undef POOP
 
-			NUM_KEYWORDS = Yield + 1 // CAREFUL, this depends on the keywords being first in the list.
-		};
-
-		uint32_t type;
-
-		union
-		{
-			bool boolValue;
-			crocstr stringValue;
-			crocint intValue;
-			crocfloat floatValue;
-		};
-
-		CompileLoc loc;
-		crocstr preComment;
-		crocstr postComment;
-		CompileLoc preCommentLoc;
-		CompileLoc postCommentLoc;
-		const uchar* startChar;
-
-		static crocstr KeywordStrings[];
-		static const char* Strings[];
-
-		inline bool isOpAssign()
-		{
-			switch(type)
-			{
-				case Token::AddEq:
-				case Token::SubEq:
-				case Token::CatEq:
-				case Token::MulEq:
-				case Token::DivEq:
-				case Token::ModEq:
-				case Token::ShlEq:
-				case Token::ShrEq:
-				case Token::UShrEq:
-				case Token::OrEq:
-				case Token::XorEq:
-				case Token::AndEq:
-				case Token::DefaultEq:
-					return true;
-
-				default:
-					return false;
-			}
-		}
-
-		inline const char* typeString()
-		{
-			return Strings[type];
-		}
+		NUM_KEYWORDS = Yield + 1 // CAREFUL, this depends on the keywords being first in the list.
 	};
 
-	struct Lexer
+	uint32_t type;
+
+	union
 	{
-	private:
-		Compiler& mCompiler;
-		CompileLoc mLoc;
-		crocstr mSource;
-		const uchar* mSourcePtr;
-		const uchar* mSourceEnd;
-		const uchar* mCharPos;
-		const uchar* mLookaheadCharPos;
-
-		crocchar mCharacter;
-		crocchar mLookaheadCharacter;
-		bool mHaveLookahead;
-		bool mNewlineSinceLastTok;
-		bool mTokSinceLastNewline;
-		bool mHadLinePragma;
-		crocstr mLinePragmaFile;
-		uword mLinePragmaLine;
-
-		const uchar* mCaptureEnd;
-
-		Token mTok;
-		Token mPeekTok;
-		bool mHavePeekTok;
-
-	public:
-		Lexer(Compiler& compiler) :
-			mCompiler(compiler),
-			mLoc(),
-			mSource(),
-			mSourcePtr(nullptr),
-			mSourceEnd(nullptr),
-			mCharPos(nullptr),
-			mLookaheadCharPos(nullptr),
-			mCharacter(0),
-			mLookaheadCharacter(0),
-			mHaveLookahead(false),
-			mNewlineSinceLastTok(false),
-			mTokSinceLastNewline(false),
-			mHadLinePragma(false),
-			mLinePragmaFile(),
-			mLinePragmaLine(0),
-			mCaptureEnd(nullptr),
-			mTok(),
-			mPeekTok(),
-			mHavePeekTok(false)
-		{}
-
-		inline Token& tok() { return mTok; }
-		inline CompileLoc& loc() { return mTok.loc; }
-		inline uword type() { return mTok.type; }
-
-		void begin(crocstr name, crocstr source);
-		Token expect(uword t);
-		void expected(const char* message);
-		bool isStatementTerm();
-		void statementTerm();
-		Token& peek();
-		void next();
-		const uchar* beginCapture();
-		crocstr endCapture(const uchar* captureStart);
-
-	private:
-		static int lookupKeyword(crocstr str);
-		crocchar readChar(const uchar*& pos);
-		crocchar lookaheadChar();
-		void nextChar();
-		void nextLine(bool readMultiple = true);
-		bool convertInt(crocstr str, crocint& ret, uword radix);
-		bool convertUInt(crocstr str, crocint& ret, uword radix);
-		bool readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret);
-		uint32_t readHexDigits(uword num);
-		crocchar readEscapeSequence(CompileLoc beginning);
-		crocstr readStringLiteral(bool escape);
-		uword readVerbatimOpening(CompileLoc beginning);
-		crocstr readVerbatimString(CompileLoc beginning, uword equalLen);
-		void addComment(crocstr str, CompileLoc location);
-		void readLineComment();
-		void readBlockComment();
-		void nextToken();
+		bool boolValue;
+		crocstr stringValue;
+		crocint intValue;
+		crocfloat floatValue;
 	};
-}
+
+	CompileLoc loc;
+	crocstr preComment;
+	crocstr postComment;
+	CompileLoc preCommentLoc;
+	CompileLoc postCommentLoc;
+	const uchar* startChar;
+
+	static crocstr KeywordStrings[];
+	static const char* Strings[];
+
+	inline bool isOpAssign()
+	{
+		switch(type)
+		{
+			case Token::AddEq:
+			case Token::SubEq:
+			case Token::CatEq:
+			case Token::MulEq:
+			case Token::DivEq:
+			case Token::ModEq:
+			case Token::ShlEq:
+			case Token::ShrEq:
+			case Token::UShrEq:
+			case Token::OrEq:
+			case Token::XorEq:
+			case Token::AndEq:
+			case Token::DefaultEq:
+				return true;
+
+			default:
+				return false;
+		}
+	}
+
+	inline const char* typeString()
+	{
+		return Strings[type];
+	}
+};
+
+struct Lexer
+{
+private:
+	Compiler& mCompiler;
+	CompileLoc mLoc;
+	crocstr mSource;
+	const uchar* mSourcePtr;
+	const uchar* mSourceEnd;
+	const uchar* mCharPos;
+	const uchar* mLookaheadCharPos;
+
+	crocchar mCharacter;
+	crocchar mLookaheadCharacter;
+	bool mHaveLookahead;
+	bool mNewlineSinceLastTok;
+	bool mTokSinceLastNewline;
+	bool mHadLinePragma;
+	crocstr mLinePragmaFile;
+	uword mLinePragmaLine;
+
+	const uchar* mCaptureEnd;
+
+	Token mTok;
+	Token mPeekTok;
+	bool mHavePeekTok;
+
+public:
+	Lexer(Compiler& compiler) :
+		mCompiler(compiler),
+		mLoc(),
+		mSource(),
+		mSourcePtr(nullptr),
+		mSourceEnd(nullptr),
+		mCharPos(nullptr),
+		mLookaheadCharPos(nullptr),
+		mCharacter(0),
+		mLookaheadCharacter(0),
+		mHaveLookahead(false),
+		mNewlineSinceLastTok(false),
+		mTokSinceLastNewline(false),
+		mHadLinePragma(false),
+		mLinePragmaFile(),
+		mLinePragmaLine(0),
+		mCaptureEnd(nullptr),
+		mTok(),
+		mPeekTok(),
+		mHavePeekTok(false)
+	{}
+
+	inline Token& tok() { return mTok; }
+	inline CompileLoc& loc() { return mTok.loc; }
+	inline uword type() { return mTok.type; }
+
+	void begin(crocstr name, crocstr source);
+	Token expect(uword t);
+	void expected(const char* message);
+	bool isStatementTerm();
+	void statementTerm();
+	Token& peek();
+	void next();
+	const uchar* beginCapture();
+	crocstr endCapture(const uchar* captureStart);
+
+private:
+	static int lookupKeyword(crocstr str);
+	crocchar readChar(const uchar*& pos);
+	crocchar lookaheadChar();
+	void nextChar();
+	void nextLine(bool readMultiple = true);
+	bool convertInt(crocstr str, crocint& ret, uword radix);
+	bool convertUInt(crocstr str, crocint& ret, uword radix);
+	bool readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret);
+	uint32_t readHexDigits(uword num);
+	crocchar readEscapeSequence(CompileLoc beginning);
+	crocstr readStringLiteral(bool escape);
+	uword readVerbatimOpening(CompileLoc beginning);
+	crocstr readVerbatimString(CompileLoc beginning, uword equalLen);
+	void addComment(crocstr str, CompileLoc location);
+	void readLineComment();
+	void readBlockComment();
+	void nextToken();
+};
 
 #endif
