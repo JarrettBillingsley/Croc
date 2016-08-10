@@ -2,10 +2,9 @@
 #define CROC_BASE_DARRAY_HPP
 
 #include <string.h>
+#include <stdlib.h>
 
-#include "croc/base/memory.hpp"
 #include "croc/base/sanity.hpp"
-#include "croc/ext/jhash.hpp"
 
 #define ARRAY_BYTE_SIZE(len) (cast(size_t)((len) * sizeof(T)))
 
@@ -29,9 +28,9 @@ namespace croc
 			return ret;
 		}
 
-		static DArray<T> alloc(Memory& mem, size_t length)
+		static DArray<T> alloc(size_t length)
 		{
-			auto ptr = cast(T*)mem.allocRaw(ARRAY_BYTE_SIZE(length) MEMBERTYPEID);
+			auto ptr = cast(T*)malloc(ARRAY_BYTE_SIZE(length));
 			DArray<T> ret = {ptr, length};
 			ret.zeroFill();
 			return ret;
@@ -51,28 +50,23 @@ namespace croc
 			return DArray<const T>::n(cast(const T*)ptr, length);
 		}
 
-		void free(Memory& mem)
+		void free()
 		{
 			if(length == 0)
 				return;
 
-			auto byteLength = ARRAY_BYTE_SIZE(length);
 			void* tmp = ptr;
-			mem.freeRaw(tmp, byteLength MEMBERTYPEID);
+			::free(tmp);
 			ptr = nullptr;
 			length = 0;
 		}
 
-		void resize(Memory& mem, size_t newLength)
+		void resize(size_t newLength)
 		{
 			if(length == newLength)
 				return;
 
-			auto byteLength = ARRAY_BYTE_SIZE(length);
-			auto newByteLength = ARRAY_BYTE_SIZE(newLength);
-			void* tmp = ptr;
-			mem.resizeRaw(tmp, byteLength, newByteLength MEMBERTYPEID);
-			ptr = cast(T*)tmp;
+			ptr = cast(T*)realloc(ptr, ARRAY_BYTE_SIZE(newLength));
 
 			size_t oldLength = length;
 			length = newLength;
@@ -81,9 +75,9 @@ namespace croc
 				slice(oldLength, newLength).zeroFill();
 		}
 
-		DArray<T> dup(Memory& mem)
+		DArray<T> dup()
 		{
-			auto retPtr = cast(T*)mem.allocRaw(ARRAY_BYTE_SIZE(length) MEMBERTYPEID);
+			auto retPtr = cast(T*)malloc(ARRAY_BYTE_SIZE(length));
 			DArray<T> ret = {retPtr, this->length};
 			ret.slicea(*this);
 			return ret;
@@ -140,7 +134,8 @@ namespace croc
 
 		inline uint32_t toHash() const
 		{
-			return hashlittle(ptr, ARRAY_BYTE_SIZE(length), 0xFACEDAB5); // face dabs!
+			// return hashlittle(ptr, ARRAY_BYTE_SIZE(length), 0xFACEDAB5); // face dabs!
+			return 0;
 		}
 
 		inline T operator[](size_t idx) const

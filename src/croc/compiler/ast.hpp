@@ -151,24 +151,24 @@ namespace croc
 
 	enum class TypeMask : uint32_t
 	{
-		Null =      (1 << cast(uint32_t)CrocType_Null),
-		Bool =      (1 << cast(uint32_t)CrocType_Bool),
-		Int =       (1 << cast(uint32_t)CrocType_Int),
-		Float =     (1 << cast(uint32_t)CrocType_Float),
-		Nativeobj = (1 << cast(uint32_t)CrocType_Nativeobj),
+		Null =      1,
+		Bool =      2,
+		Int =       3,
+		Float =     4,
+		Nativeobj = 5,
 
-		String =    (1 << cast(uint32_t)CrocType_String),
-		Weakref =   (1 << cast(uint32_t)CrocType_Weakref),
+		String =    6,
+		Weakref =   7,
 
-		Table =     (1 << cast(uint32_t)CrocType_Table),
-		Namespace = (1 << cast(uint32_t)CrocType_Namespace),
-		Array =     (1 << cast(uint32_t)CrocType_Array),
-		Memblock =  (1 << cast(uint32_t)CrocType_Memblock),
-		Function =  (1 << cast(uint32_t)CrocType_Function),
-		Funcdef =   (1 << cast(uint32_t)CrocType_Funcdef),
-		Class =     (1 << cast(uint32_t)CrocType_Class),
-		Instance =  (1 << cast(uint32_t)CrocType_Instance),
-		Thread =    (1 << cast(uint32_t)CrocType_Thread),
+		Table =     8,
+		Namespace = 9,
+		Array =     10,
+		Memblock =  11,
+		Function =  12,
+		Funcdef =   13,
+		Class =     14,
+		Instance =  15,
+		Thread =    16,
 
 		NotNull = Bool | Int | Float | Nativeobj | String | Weakref | Table | Namespace | Array | Memblock | Function |
 			Funcdef | Class | Instance | Thread,
@@ -425,7 +425,7 @@ namespace croc
 		crocint asInt();
 		crocfloat asFloat();
 		crocstr asString();
-		CrocType crocType();
+		int crocType();
 	};
 
 	struct BinaryExp : public Expression

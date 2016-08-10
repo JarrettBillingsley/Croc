@@ -4,6 +4,7 @@
 
 #include "croc/compiler/lexer.hpp"
 #include "croc/compiler/types.hpp"
+#include "croc/util/misc.hpp"
 
 namespace croc
 {

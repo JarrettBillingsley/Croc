@@ -8,22 +8,16 @@ add_subdirectory(src)
 add_executable(croctest croctest.cpp)
 target_link_libraries(croctest croc)
 
-add_executable(croci croc.cpp)
-target_link_libraries(croci croc)
-set_property(TARGET croci PROPERTY OUTPUT_NAME "croc")
-
-if(MINGW)
-	# for some reason, linking both croc and croctest simultaneously on MinGW is INCREDIBLY slow, causing the ld
-	# processes to eat two cores for ~10 seconds. So let's force them to link serially :P
-	add_dependencies(croci croctest)
-endif()
-
 if(NOT DEFINED CROC_BUILD_BITS)
-	set(CROC_BUILD_BITS 32)
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(CROC_BUILD_BITS 64)
+	else()
+		set(CROC_BUILD_BITS 32)
+	endif()
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pedantic-errors -Wall -Wextra -Werror")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmax-errors=2 -m${CROC_BUILD_BITS}")
 
 	if(CROC_BUILD_SHARED AND WIN32)

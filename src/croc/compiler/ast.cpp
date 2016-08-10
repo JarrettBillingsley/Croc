@@ -162,18 +162,18 @@ namespace croc
 		return crocstr(); // dummy
 	}
 
-	CrocType Expression::crocType()
+	int Expression::crocType()
 	{
 		switch(type)
 		{
-			case AstTag_NullExp:   return CrocType_Null;
-			case AstTag_BoolExp:   return CrocType_Bool;
-			case AstTag_IntExp:    return CrocType_Int;
-			case AstTag_FloatExp:  return CrocType_Float;
-			case AstTag_StringExp: return CrocType_String;
+			case AstTag_NullExp:   return 1;
+			case AstTag_BoolExp:   return 1;
+			case AstTag_IntExp:    return 1;
+			case AstTag_FloatExp:  return 1;
+			case AstTag_StringExp: return 1;
 
 			default:
-				assert(false); return CrocType_Null; // dummy
+				assert(false); return 1; // dummy
 		}
 	}
 }

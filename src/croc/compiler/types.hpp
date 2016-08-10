@@ -4,13 +4,51 @@
 #include <functional>
 #include <stdarg.h>
 
-#include "croc/types/base.hpp"
+#include "croc/base/darray.hpp"
 
+#define CROCPRINT(a, b) __attribute__((format(printf, a, b)))
 #define CROC_INTERNAL_NAME(s) ("$" s)
 
 namespace croc
 {
-	extern const char* CompilerRegistryFlags;
+	typedef enum CrocCompilerFlags
+	{
+		CrocCompilerFlags_None = 0,            /**< No optional features. */
+		CrocCompilerFlags_TypeConstraints = 1, /**< Enables parameter type constraint check codegen. */
+		CrocCompilerFlags_Asserts = 2,         /**< Enables \c assert() codegen. */
+		CrocCompilerFlags_Debug = 4,           /**< Enables debug info. Currently can't be disabled. */
+		CrocCompilerFlags_Docs = 8,            /**< Enables doc comment parsing and doc decorators. */
+
+		/** All features except doc comments. */
+		CrocCompilerFlags_All = CrocCompilerFlags_TypeConstraints | CrocCompilerFlags_Asserts | CrocCompilerFlags_Debug,
+
+		/** All features including doc comments. */
+		CrocCompilerFlags_AllDocs = CrocCompilerFlags_All | CrocCompilerFlags_Docs
+	} CrocCompilerFlags;
+
+	/** An enumeration of error values which the various compiler API functions can return. These are useful for getting
+	more info about why compilation failed, for writing things like command-line interpreters. */
+	typedef enum CrocCompilerReturn
+	{
+		CrocCompilerReturn_UnexpectedEOF = -1, /**< Unexpected end-of-file (end of source). */
+		CrocCompilerReturn_LoneStatement = -2, /**< A statement consisting of an expression which can't stand alone. */
+		CrocCompilerReturn_DanglingDoc = -3,   /**< A dangling doc comment at the end of the source. */
+		CrocCompilerReturn_Error = -4,         /**< Some other kind of compilation error. */
+	} CrocCompilerReturn;
+
+	typedef int64_t crocint_t;
+	typedef double crocfloat_t;
+	typedef size_t uword_t;
+	typedef ptrdiff_t word_t;
+	typedef uint64_t crocref_t;
+	typedef uint32_t crocchar_t;
+	typedef ptrdiff_t word;
+	typedef size_t uword;
+	typedef crocint_t crocint;
+	typedef crocfloat_t crocfloat;
+	typedef crocchar_t crocchar;
+	typedef DArray<const unsigned char> crocstr;
+	typedef DArray<unsigned char> mcrocstr;
 
 	struct CompileLoc
 	{
@@ -19,29 +57,43 @@ namespace croc
 		uword col;
 	};
 
+	struct CompileEx : public std::exception
+	{
+		const char msg[512];
+		CompileLoc loc;
+
+		CompileEx(const char* m, CompileLoc loc) : msg(), loc(loc)
+		{
+			strncpy((char*)msg, m, 512);
+		}
+
+		const char* what() const noexcept
+		{
+			return msg;
+		}
+	};
+
 	// Little bump allocator.
 	template<uword PageSize>
 	struct BumpAllocator
 	{
 	private:
-		Memory* mMem;
 		DArray<DArray<uint8_t> > mData;
 		uword mPage;
 		uword mOffset;
 
 	public:
-		void init(Memory& mem)
+		void init()
 		{
-			mMem = &mem;
-			mData = DArray<DArray<uint8_t> >::alloc(*mMem, 4);
+			mData = DArray<DArray<uint8_t> >::alloc(4);
 		}
 
 		void free()
 		{
 			for(auto &arr: mData.slice(0, mPage + 1))
-				arr.free(*mMem);
+				arr.free();
 
-			mData.free(*mMem);
+			mData.free();
 		}
 
 		void* alloc(uword size)
@@ -50,10 +102,10 @@ namespace croc
 
 		_again:
 			if(mPage >= mData.length)
-				mData.resize(*mMem, mData.length * 2);
+				mData.resize(mData.length * 2);
 
 			if(mData[mPage].length == 0)
-				mData[mPage] = DArray<uint8_t>::alloc(*mMem, PageSize);
+				mData[mPage] = DArray<uint8_t>::alloc(PageSize);
 
 			auto roundedSize = (size + (sizeof(uword) - 1)) & ~(sizeof(uword) - 1);
 
@@ -80,7 +132,7 @@ namespace croc
 	class Compiler
 	{
 	private:
-		Thread* t;
+		// Thread* t;
 		uword mFlags;
 		bool mIsEof;
 		bool mIsLoneStmt;
@@ -96,8 +148,7 @@ namespace croc
 		uword mTempArrayIdx;
 
 	public:
-		Compiler(Thread* t);
-		Compiler(CrocThread* t);
+		Compiler();
 		~Compiler();
 
 		inline bool asserts()         { return (mFlags & CrocCompilerFlags_Asserts) != 0; }
@@ -113,8 +164,6 @@ namespace croc
 		void eofException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
 		void loneStmtException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
 		void danglingDocException(CompileLoc loc, const char* msg, ...) CROCPRINT(3, 4);
-		Thread* thread();
-		Memory& mem();
 		crocstr newString(crocstr s);
 		crocstr newString(const char* s);
 		void* allocNode(uword size);
@@ -214,7 +263,7 @@ namespace croc
 			else
 			{
 				auto old = mData;
-				mData.resize(c.mem(), mIndex);
+				mData.resize(mIndex);
 				c.addArray(mData.template as<uint8_t>(), old.template as<uint8_t>());
 				ret = mData;
 			}
@@ -244,7 +293,7 @@ namespace croc
 			if(mData.length && mData.ptr != mOwnData)
 			{
 				c.removeTempArray(mData.template as<uint8_t>());
-				mData.free(c.mem());
+				mData.free();
 			}
 
 			mData = DArray<T>::n(mOwnData, Len);
@@ -256,7 +305,7 @@ namespace croc
 		{
 			if(mData.ptr == mOwnData)
 			{
-				auto newData = DArray<T>::alloc(c.mem(), newSize);
+				auto newData = DArray<T>::alloc(newSize);
 				newData.slicea(0, mData.length, mData);
 				mData = newData;
 				c.addTempArray(mData.template as<uint8_t>());
@@ -264,7 +313,7 @@ namespace croc
 			else
 			{
 				auto old = mData;
-				mData.resize(c.mem(), newSize);
+				mData.resize(newSize);
 				c.updateTempArray(old.template as<uint8_t>(), mData.template as<uint8_t>());
 			}
 		}

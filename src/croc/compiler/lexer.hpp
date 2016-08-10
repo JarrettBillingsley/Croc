@@ -2,6 +2,7 @@
 #define CROC_COMPILER_LEXER_HPP
 
 #include "croc/compiler/types.hpp"
+#include "croc/util/utf.hpp"
 
 namespace croc
 {

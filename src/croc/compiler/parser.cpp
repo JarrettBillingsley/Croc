@@ -1,6 +1,8 @@
 
-#include "croc/api.h"
+#include <stdio.h>
+
 #include "croc/compiler/parser.hpp"
+#include "croc/util/misc.hpp"
 
 namespace croc
 {
@@ -568,14 +570,13 @@ namespace croc
 	uint32_t Parser::parseType(const char* kind, DArray<Expression*>& classTypes, crocstr& typeString,
 		Expression*& customConstraint)
 	{
+		(void)kind;
 		uint32_t ret = 0;
 		List<Expression*> objTypes(c);
 
-		auto addConstraint = [&](CompileLoc loc, CrocType t)
+		auto addConstraint = [&](CompileLoc loc, int t)
 		{
-			if((ret & (1 << cast(uint32_t)t)) && t != CrocType_Instance)
-				c.semException(loc, "Duplicate %s type constraint for type '%s'", kind, typeToString(t));
-
+			(void)loc;
 			ret |= 1 << cast(uint32_t)t;
 		};
 
@@ -600,10 +601,10 @@ namespace croc
 		{
 			switch(l.type())
 			{
-				case Token::Null:      addConstraint(l.loc(), CrocType_Null);      l.next(); break;
-				case Token::Function:  addConstraint(l.loc(), CrocType_Function);  l.next(); break;
-				case Token::Namespace: addConstraint(l.loc(), CrocType_Namespace); l.next(); break;
-				case Token::Class:     addConstraint(l.loc(), CrocType_Class);     l.next(); break;
+				case Token::Null:      addConstraint(l.loc(), 1);      l.next(); break;
+				case Token::Function:  addConstraint(l.loc(), 2);  l.next(); break;
+				case Token::Namespace: addConstraint(l.loc(), 3); l.next(); break;
+				case Token::Class:     addConstraint(l.loc(), 4);     l.next(); break;
 
 				default:
 					auto constraintLoc = l.loc();
@@ -611,24 +612,24 @@ namespace croc
 
 					if(l.type() == Token::Dot)
 					{
-						addConstraint(constraintLoc, CrocType_Instance);
+						addConstraint(constraintLoc, 0);
 						objTypes.add(parseIdentList(t));
 					}
 					else
-					if(t.stringValue == ATODA("bool"))      addConstraint(constraintLoc, CrocType_Bool); else
-					if(t.stringValue == ATODA("int"))       addConstraint(constraintLoc, CrocType_Int); else
-					if(t.stringValue == ATODA("float"))     addConstraint(constraintLoc, CrocType_Float); else
-					if(t.stringValue == ATODA("string"))    addConstraint(constraintLoc, CrocType_String); else
-					if(t.stringValue == ATODA("table"))     addConstraint(constraintLoc, CrocType_Table); else
-					if(t.stringValue == ATODA("array"))     addConstraint(constraintLoc, CrocType_Array); else
-					if(t.stringValue == ATODA("memblock"))  addConstraint(constraintLoc, CrocType_Memblock); else
-					if(t.stringValue == ATODA("thread"))    addConstraint(constraintLoc, CrocType_Thread); else
-					if(t.stringValue == ATODA("nativeobj")) addConstraint(constraintLoc, CrocType_Nativeobj); else
-					if(t.stringValue == ATODA("weakref"))   addConstraint(constraintLoc, CrocType_Weakref); else
-					if(t.stringValue == ATODA("funcdef"))   addConstraint(constraintLoc, CrocType_Funcdef); else
+					if(t.stringValue == ATODA("bool"))      addConstraint(constraintLoc, 1); else
+					if(t.stringValue == ATODA("int"))       addConstraint(constraintLoc, 2); else
+					if(t.stringValue == ATODA("float"))     addConstraint(constraintLoc, 3); else
+					if(t.stringValue == ATODA("string"))    addConstraint(constraintLoc, 4); else
+					if(t.stringValue == ATODA("table"))     addConstraint(constraintLoc, 5); else
+					if(t.stringValue == ATODA("array"))     addConstraint(constraintLoc, 6); else
+					if(t.stringValue == ATODA("memblock"))  addConstraint(constraintLoc, 7); else
+					if(t.stringValue == ATODA("thread"))    addConstraint(constraintLoc, 8); else
+					if(t.stringValue == ATODA("nativeobj")) addConstraint(constraintLoc, 9); else
+					if(t.stringValue == ATODA("weakref"))   addConstraint(constraintLoc, 10); else
+					if(t.stringValue == ATODA("funcdef"))   addConstraint(constraintLoc, 11); else
 					if(t.stringValue == ATODA("instance"))
 					{
-						addConstraint(constraintLoc, CrocType_Instance);
+						addConstraint(constraintLoc, 0);
 
 						if(l.type() == Token::Ident)
 						{
@@ -650,7 +651,7 @@ namespace croc
 					}
 					else
 					{
-						addConstraint(constraintLoc, CrocType_Instance);
+						addConstraint(constraintLoc, 0);
 						objTypes.add(new(c) IdentExp(new(c) Identifier(t.loc, t.stringValue)));
 						break;
 					}
@@ -915,25 +916,11 @@ namespace croc
 
 		l.expect(Token::LBrace);
 
-		auto t = c.thread();
-
-		auto fieldMap = croc_table_new(*t, 8);
 		List<NamespaceField> fields(c);
 
 		auto addField = [&](Decorator* deco, Identifier* name, Expression* v, FuncLiteralExp* func, crocstr preDocs,
 			CompileLoc preDocsLoc)
 		{
-			croc_pushStringn(*t, cast(const char*)name->name.ptr, name->name.length);
-
-			if(croc_in(*t, -1, fieldMap))
-			{
-				croc_popTop(*t);
-				c.semException(v->location, "Redeclaration of member '%s'", name->name.ptr);
-			}
-
-			croc_pushBool(*t, true);
-			croc_idxa(*t, fieldMap);
-
 			if(deco != nullptr)
 				v = decoToExp(deco, v);
 
@@ -990,7 +977,6 @@ namespace croc
 			}
 		}
 
-		croc_popTop(*t);
 		auto endLocation = l.expect(Token::RBrace).loc;
 		return new(c) NamespaceDecl(location, endLocation, protection, deco, name, parent, fields.toArray());
 	}
@@ -2693,20 +2679,19 @@ namespace croc
 
 	Identifier* Parser::dummyForeachIndex(CompileLoc loc)
 	{
-		auto t = c.thread();
-		croc_pushFormat(*t, CROC_INTERNAL_NAME("dummy%" CROC_SIZE_T_FORMAT), mDummyNameCounter++);
-		auto str = c.newString(croc_getString(*t, -1));
-		croc_popTop(*t);
+		char buf[256];
+		snprintf(buf, 256, "dummy%" CROC_SIZE_T_FORMAT, mDummyNameCounter++);
+		auto str = c.newString(buf);
 		return new(c) Identifier(loc, str);
 	}
 
 	Identifier* Parser::dummyFuncLiteralName(CompileLoc loc)
 	{
-		auto t = c.thread();
-		croc_pushFormat(*t,
+
+		char buf[256];
+		snprintf(buf, 256,
 			"<literal at %s(%" CROC_SIZE_T_FORMAT ":%" CROC_SIZE_T_FORMAT ")>", loc.file.ptr, loc.line, loc.col);
-		auto str = c.newString(croc_getString(*t, -1));
-		croc_popTop(*t);
+		auto str = c.newString(buf);
 		return new(c) Identifier(loc, str);
 	}
 
@@ -2719,12 +2704,9 @@ namespace croc
 	{
 		if(mCurrentClassName.length > 0 && isPrivateFieldName(fieldName))
 		{
-			auto t = c.thread();
-			croc_pushStringn(*t, cast(const char*)mCurrentClassName.ptr, mCurrentClassName.length);
-			croc_pushStringn(*t, cast(const char*)fieldName.ptr, fieldName.length);
-			croc_cat(*t, 2);
-			auto ret = c.newString(croc_getString(*t, -1));
-			croc_popTop(*t);
+			char buf[256];
+			snprintf(buf, 256, "%.*s%.*s", mCurrentClassName.length, mCurrentClassName.ptr, fieldName.length, fieldName.ptr);
+			auto ret = c.newString(buf);
 			return ret;
 		}
 		else
