@@ -4,6 +4,11 @@
 
 #include "croc/api.h"
 
+#include "croc/compiler/types.hpp"
+#include "croc/util/misc.hpp"
+
+using namespace croc;
+
 void _try(CrocThread* t, const char* name, CrocNativeFunc f, std::function<void()> _catch)
 {
 	croc_function_new(t, name, 0, f, 0);
@@ -15,21 +20,21 @@ void _try(CrocThread* t, const char* name, CrocNativeFunc f, std::function<void(
 int main()
 {
 	auto t = croc_vm_openDefault();
-	croc_vm_loadUnsafeLibs(t, CrocUnsafeLib_ReallyAll);
-	croc_vm_loadAllAvailableAddons(t);
 
 	_try(t, "<main>", [](CrocThread* t) -> word_t
 	{
-		croc_compiler_setFlags(t, CrocCompilerFlags_AllDocs);
+		int ret = 0;
+		{
 
-		croc_pushGlobal(t, "modules");
-		croc_field(t, -1, "path");
-		croc_pushString(t, ";..");
-		croc_cat(t, 2);
-		croc_fielda(t, -2, "path");
-		croc_popTop(t);
+			Compiler c(t);
+			c.leaveDocTable(false);
+			crocstr modNameStr;
+			ret = c.compileModule(atoda("module"), ATODA("dorple"), modNameStr);
+		}
 
-		croc_ex_runModule(t, "test", 0);
+		if(ret < 0)
+			croc_eh_throw(t);
+
 		return 0;
 	},
 	[&]{

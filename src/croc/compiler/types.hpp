@@ -97,6 +97,7 @@ namespace croc
 
 	public:
 		Compiler(Thread* t);
+		Compiler(CrocThread* t);
 		~Compiler();
 
 		inline bool asserts()         { return (mFlags & CrocCompilerFlags_Asserts) != 0; }

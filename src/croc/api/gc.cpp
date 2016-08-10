@@ -32,19 +32,7 @@ namespace
 
 	void runPostGCCallbacks(CrocThread* t)
 	{
-		croc_vm_pushRegistry(t);
-		croc_field(t, -1, "gc.postGCCallbacks");
-
-		word_t state;
-		for(state = croc_foreachBegin(t, 1); croc_foreachNext(t, state, 1); )
-		{
-			croc_dup(t, -1);
-			croc_pushNull(t);
-			croc_call(t, -2, 0);
-		}
-		croc_foreachEnd(t, state);
-
-		croc_popTop(t);
+		(void)t;
 	}
 }
 

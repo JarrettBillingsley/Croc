@@ -20,15 +20,6 @@ if(NOT DEFINED CROC_BUILD_BITS)
 endif()
 
 set(croc_SRC
-	croc/addons/all.hpp
-	croc/addons/al.cpp
-	croc/addons/al.hpp
-	croc/addons/glfw.cpp
-	croc/addons/glfw.hpp
-	croc/addons/il.cpp
-	croc/addons/il.hpp
-	croc/addons/imgui.cpp
-	croc/addons/pcre.cpp
 	croc/api/apichecks.hpp
 	croc/api/array.cpp
 	croc/api/basic.cpp
@@ -121,43 +112,9 @@ set(croc_SRC
 	croc/internal/variables.cpp
 	croc/internal/variables.hpp
 	croc/stdlib/all.hpp
-	croc/stdlib/array.cpp
-	croc/stdlib/ascii.cpp
-	croc/stdlib/compiler.cpp
-	croc/stdlib/console.cpp
-	croc/stdlib/debug.cpp
-	croc/stdlib/docs.cpp
-	croc/stdlib/doctools.cpp
-	croc/stdlib/env.cpp
 	croc/stdlib/exceptions.cpp
-	croc/stdlib/file.cpp
-	croc/stdlib/gc.cpp
-	croc/stdlib/hash.cpp
-	croc/stdlib/helpers/format.cpp
-	croc/stdlib/helpers/format.hpp
-	croc/stdlib/helpers/json.cpp
-	croc/stdlib/helpers/json.hpp
-	croc/stdlib/helpers/oscompat.cpp
-	croc/stdlib/helpers/oscompat.hpp
 	croc/stdlib/helpers/register.cpp
 	croc/stdlib/helpers/register.hpp
-	croc/stdlib/json.cpp
-	croc/stdlib/math.cpp
-	croc/stdlib/memblock.cpp
-	croc/stdlib/misc.cpp
-	croc/stdlib/misc_vector.cpp
-	croc/stdlib/modules.cpp
-	croc/stdlib/object.cpp
-	croc/stdlib/os.cpp
-	croc/stdlib/path.cpp
-	croc/stdlib/repl.cpp
-	croc/stdlib/serialization.cpp
-	croc/stdlib/stream.cpp
-	croc/stdlib/string.cpp
-	croc/stdlib/string_stringbuffer.cpp
-	croc/stdlib/text.cpp
-	croc/stdlib/time.cpp
-	croc/stdlib/thread.cpp
 	croc/types/array.cpp
 	croc/types/base.cpp
 	croc/types/base.hpp
@@ -182,28 +139,7 @@ set(croc_SRC
 	croc/util/utf.hpp
 )
 
-if(CROC_GLFW_ADDON)
-	set(croc_SRC ${croc_SRC}
-		croc/addons/gl.cpp
-		croc/addons/gl.hpp
-		croc/ext/glad.cpp
-		croc/ext/glad/glad.hpp
-		croc/ext/KHR/khrplatform.hpp
-	)
-endif()
-
 set(croc_CROCSRC
-	croc/stdlib/console.croc
-	croc/stdlib/docs.croc
-	croc/stdlib/doctools_output.croc
-	croc/stdlib/doctools_console.croc
-	croc/stdlib/doctools_trac.croc
-	croc/stdlib/hash_weaktables.croc
-	croc/stdlib/modules.croc
-	croc/stdlib/repl.croc
-	croc/stdlib/serialization.croc
-	croc/stdlib/stream.croc
-	croc/stdlib/text.croc
 )
 
 set(croc_API
@@ -256,7 +192,7 @@ set(croc_ALLSRC
 if(CMAKE_COMPILER_IS_GNUCXX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pedantic-errors -Wall -Wextra -Werror -fno-exceptions")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmax-errors=2 -m${CROC_BUILD_BITS}")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCROC_BUILTIN_DOCS=1 -DCROC_BUILD_BITS=${CROC_BUILD_BITS}")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCROC_BUILD_BITS=${CROC_BUILD_BITS}")
 
 	if(CROC_BUILD_SHARED AND WIN32)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCROCAPI=__declspec(dllexport)")
@@ -273,26 +209,6 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 	endif()
 
 	set(CROC_ADDON_FLAGS "")
-
-	# This should proooooobably be done using a CMake-generated config header
-	if(CROC_DEVIL_ADDON)
-		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_DEVIL_ADDON")
-	endif()
-	if(CROC_GLFW_ADDON)
-		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_GLFW_ADDON")
-	endif()
-	if(CROC_NET_ADDON)
-		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_NET_ADDON")
-	endif()
-	if(CROC_PCRE_ADDON)
-		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_PCRE_ADDON")
-	endif()
-	if(CROC_OPENAL_ADDON)
-		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_OPENAL_ADDON")
-	endif()
-	if(CROC_IMGUI_ADDON)
-		set(CROC_ADDON_FLAGS "${CROC_ADDON_FLAGS} -DCROC_IMGUI_ADDON")
-	endif()
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CROC_ADDON_FLAGS}")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DCROC_STOMP_MEMORY=1 -DCROC_LEAK_DETECTOR=1")
@@ -312,9 +228,3 @@ endif()
 # TODO: post-build step that copies the shared lib into the executable directory?
 
 add_dependencies(croc ConvertCrocFiles)
-
-if(CROC_IMGUI_ADDON)
-	add_subdirectory(croc/ext/imgui)
-	add_dependencies(croc imgui)
-	target_link_libraries(croc imgui)
-endif()

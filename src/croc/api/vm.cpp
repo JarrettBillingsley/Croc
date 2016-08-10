@@ -5,7 +5,6 @@
 #include "croc/api.h"
 #include "croc/types/base.hpp"
 #include "croc/base/gc.hpp"
-#include "croc/addons/all.hpp"
 #include "croc/api/apichecks.hpp"
 #include "croc/internal/eh.hpp"
 #include "croc/internal/gc.hpp"
@@ -53,29 +52,6 @@ namespace
 			// throw new Exception("Did you stick a finalizable object in a global metatable or something? I think
 			// you did. Stop doing that.");
 	}
-
-	const char* CompiledInAddons[] =
-	{
-#ifdef CROC_PCRE_ADDON
-		"pcre",
-#endif
-#ifdef CROC_DEVIL_ADDON
-		"devil",
-#endif
-#ifdef CROC_NET_ADDON
-		"net",
-#endif
-#ifdef CROC_GLFW_ADDON
-		"glfw",
-#endif
-#ifdef CROC_OPENAL_ADDON
-		"openal",
-#endif
-#ifdef CROC_IMGUI_ADDON
-		"imgui",
-#endif
-		nullptr
-	};
 }
 
 extern "C"
@@ -152,50 +128,8 @@ extern "C"
 		push(t, Value::from(vm->globals));
 		croc_newGlobal(*t, "_G");
 
-#ifdef CROC_BUILTIN_DOCS
-		croc_compiler_setFlags(*t, CrocCompilerFlags_AllDocs);
-#endif
-		// Core libs
 		initExceptionsLib(*t);
-		initGCLib(*t);
 
-		// Safe libs
-		initMiscLib(*t);
-		initStringLib(*t);
-		initDocsLib(*t); // depends on the stringlib because of how the doc parser is implemented
-
-#ifdef CROC_BUILTIN_DOCS
-		// Go back and document the libs that we loaded before the doc lib
-		docExceptionsLib(*t);
-		docGCLib(*t);
-		docMiscLib(*t);
-		docStringLib(*t);
-#endif
-		// Finish up the safe libs.
-		initHashLib(*t);
-		initMathLib(*t);
-		initObjectLib(*t);
-		initMemblockLib(*t);
-		initTextLib(*t); // depends on memblock
-		initStreamLib(*t); // depends on math, object, text
-		initArrayLib(*t);
-		initAsciiLib(*t);
-		initCompilerLib(*t);
-		initConsoleLib(*t); // depends on stream
-		initEnvLib(*t);
-		initJSONLib(*t); // depends on stream
-		initPathLib(*t);
-		initReplLib(*t);
-		initSerializationLib(*t); // depends on .. lots of libs :P
-		initThreadLib(*t);
-		initTimeLib(*t);
-		initDoctoolsLibs(*t);
-
-		initModulesLib(*t);
-
-#ifdef CROC_BUILTIN_DOCS
-		croc_compiler_setFlags(*t, CrocCompilerFlags_All);
-#endif
 		// Done, turn the GC back on and clear out any garbage we made.
 		vm->enableGC();
 		croc_gc_collect(*t);
@@ -209,7 +143,7 @@ extern "C"
 	NULL entry. This is a constant array, so no need to worry about ownership. */
 	const char** croc_vm_includedAddons()
 	{
-		return CompiledInAddons;
+		return nullptr;
 	}
 
 	/** Frees all objects and memory associated with the VM that owns the given thread. Calls finalizers on objects as
@@ -252,9 +186,8 @@ extern "C"
 		CrocUnsafeLib enum. */
 	void croc_vm_loadUnsafeLibs(CrocThread* t, CrocUnsafeLib libs)
 	{
-		if(libs & CrocUnsafeLib_File)  initFileLib(t);
-		if(libs & CrocUnsafeLib_OS)    initOSLib(t);
-		if(libs & CrocUnsafeLib_Debug) initDebugLib(t);
+		(void)t;
+		(void)libs;
 	}
 
 	/** Loads addon libraries into the VM. You must have compiled these addons into your Croc library to load them.
@@ -264,12 +197,8 @@ extern "C"
 		enum. */
 	void croc_vm_loadAddons(CrocThread* t, CrocAddons libs)
 	{
-		if(libs & CrocAddons_Pcre)   initPcreLib(t);
-		if(libs & CrocAddons_Devil)  initDevilLib(t);
-		if(libs & CrocAddons_Net)    {} //initNetLib(t);
-		if(libs & CrocAddons_Glfw)   initGlfwLib(t);
-		if(libs & CrocAddons_OpenAL) initOpenAlLib(t);
-		if(libs & CrocAddons_ImGui)  initImGuiLib(t);
+		(void)t;
+		(void)libs;
 	}
 
 	/** Loads addons which were compiled into the Croc library. This uses the \c CROC_XXX_ADDON macros to determine
@@ -281,24 +210,6 @@ extern "C"
 	{
 		(void)t;
 		(void)exclude;
-#ifdef CROC_PCRE_ADDON
-		if(!(exclude & CrocAddons_Pcre))   initPcreLib(t);
-#endif
-#ifdef CROC_DEVIL_ADDON
-		if(!(exclude & CrocAddons_Devil))  initDevilLib(t);
-#endif
-#ifdef CROC_NET_ADDON
-		if(!(exclude & CrocAddons_Net))    {} //initNetLib(t);
-#endif
-#ifdef CROC_GLFW_ADDON
-		if(!(exclude & CrocAddons_Glfw))   initGlfwLib(t);
-#endif
-#ifdef CROC_OPENAL_ADDON
-		if(!(exclude & CrocAddons_OpenAL)) initOpenAlLib(t);
-#endif
-#ifdef CROC_IMGUI_ADDON
-		if(!(exclude & CrocAddons_ImGui))  initImGuiLib(t);
-#endif
 	}
 
 	/** Gets the main thread object of the VM that owns the given thread. This thread will never be collected, so it's

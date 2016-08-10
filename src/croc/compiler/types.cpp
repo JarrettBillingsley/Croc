@@ -47,6 +47,40 @@ namespace croc
 		mTempArrays = DArray<DArray<uint8_t> >::alloc(t->vm->mem, 8);
 	}
 
+	Compiler::Compiler(CrocThread* t_):
+		t(Thread::from(t_)),
+		mIsEof(false),
+		mIsLoneStmt(false),
+		mDanglingDoc(false),
+		mStringTab(0),
+		mNodes(),
+		mArrays(),
+		mHeapArrays(),
+		mHeapArrayIdx(0),
+		mTempArrays(),
+		mTempArrayIdx(0)
+	{
+		this->t = t;
+
+		auto reg = croc_vm_pushRegistry(*t);
+		croc_pushString(*t, CompilerRegistryFlags);
+
+		if(croc_in(*t, -1, reg))
+		{
+			croc_fieldStk(*t, reg);
+			mFlags = cast(uword)croc_getInt(*t, -1);
+		}
+		else
+			mFlags = CrocCompilerFlags_All;
+
+		croc_pop(*t, 2);
+
+		mNodes.init(t->vm->mem);
+		mArrays.init(t->vm->mem);
+		mHeapArrays = DArray<DArray<uint8_t> >::alloc(t->vm->mem, 32);
+		mTempArrays = DArray<DArray<uint8_t> >::alloc(t->vm->mem, 8);
+	}
+
 	Compiler::~Compiler()
 	{
 		mNodes.free();
