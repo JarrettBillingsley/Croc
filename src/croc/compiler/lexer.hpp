@@ -29,7 +29,6 @@
 	X(True,          "true")\
 	X(Vararg,        "vararg")\
 	X(While,         "while")\
-	X(With,          "with")\
 	X(Yield,         "yield")
 
 #define NONKEYWORD_LIST(X)\

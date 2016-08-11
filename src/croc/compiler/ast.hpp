@@ -82,7 +82,6 @@ inline void* operator new(uword size, Compiler& c)
 	X(LenExp,               "length expression",               Expression)\
 	X(VargLenExp,           "vararg length expression",        Expression)\
 	X(DotExp,               "dot expression",                  Expression)\
-	X(DotSuperExp,          "dot-super expression",            Expression)\
 	X(IndexExp,             "index expression",                Expression)\
 	X(VargIndexExp,         "vararg index expression",         Expression)\
 	X(CallExp,              "call expression",                 Expression)\
@@ -99,13 +98,7 @@ inline void* operator new(uword size, Compiler& c)
 	X(ParenExp,             "parenthesized expression",        Expression)\
 	X(TableCtorExp,         "table constructor expression",    Expression)\
 	X(ArrayCtorExp,         "array constructor expression",    Expression)\
-	X(YieldExp,             "yield expression",                Expression)\
-\
-	X(ForeachComprehension, "'foreach' comprehension",         AstNode)\
-	X(ForNumComprehension,  "numeric 'for' comprehension",     AstNode)\
-	X(IfComprehension,      "'if' comprehension",              AstNode)\
-	X(ArrayComprehension,   "array comprehension",             Expression)\
-	X(TableComprehension,   "table comprehension",             Expression)
+	X(YieldExp,             "yield expression",                Expression)
 
 enum AstTag
 {
@@ -489,15 +482,13 @@ struct VarDecl : public Statement
 struct Decorator : public AstNode
 {
 	Expression* func;
-	Expression* context;
 	DArray<Expression*> args;
 	Decorator* nextDec;
 
-	Decorator(CompileLoc location, CompileLoc endLocation, Expression* func, Expression* context,
-		DArray<Expression*> args, Decorator* nextDec) :
+	Decorator(CompileLoc location, CompileLoc endLocation, Expression* func, DArray<Expression*> args,
+		Decorator* nextDec) :
 		AstNode(location, endLocation, AstTag_Decorator),
 		func(func),
-		context(context),
 		args(args),
 		nextDec(nextDec)
 	{}
@@ -860,14 +851,6 @@ struct DotExp : public PostfixExp
 	{}
 };
 
-// Note: although .super was removed from the language, this is still used internally by typed catch statements.
-struct DotSuperExp : public PostfixExp
-{
-	DotSuperExp(CompileLoc location, Expression* op) :
-		PostfixExp(location, op->endLocation, AstTag_DotSuperExp, op)
-	{}
-};
-
 struct IndexExp : public PostfixExp
 {
 	Expression* index;
@@ -880,12 +863,10 @@ struct IndexExp : public PostfixExp
 
 struct CallExp : public PostfixExp
 {
-	Expression* context;
 	DArray<Expression*> args;
 
-	CallExp(CompileLoc endLocation, Expression* op, Expression* context, DArray<Expression*> args) :
+	CallExp(CompileLoc endLocation, Expression* op, DArray<Expression*> args) :
 		PostfixExp(op->location, endLocation, AstTag_CallExp, op),
-		context(context),
 		args(args)
 	{}
 };
@@ -1038,85 +1019,6 @@ struct YieldExp : public PrimaryExp
 	YieldExp(CompileLoc location, CompileLoc endLocation, DArray<Expression*> args) :
 		PrimaryExp(location, endLocation, AstTag_YieldExp),
 		args(args)
-	{}
-};
-
-struct IfComprehension : public AstNode
-{
-	Expression* condition;
-
-	IfComprehension(CompileLoc location, Expression* condition) :
-		AstNode(location, condition->endLocation, AstTag_IfComprehension),
-		condition(condition)
-	{}
-};
-
-struct ForeachComprehension : public ForComprehension
-{
-	DArray<Identifier*> indices;
-	DArray<Expression*> container;
-
-	ForeachComprehension(CompileLoc location, DArray<Identifier*> indices, DArray<Expression*> container,
-		IfComprehension* ifComp, ForComprehension* forComp) :
-		ForComprehension(location,
-			forComp ?
-				forComp->endLocation :
-			ifComp ?
-				ifComp->endLocation :
-			container[container.length - 1]->endLocation,
-			AstTag_ForeachComprehension, ifComp, forComp),
-		indices(indices),
-		container(container)
-	{}
-};
-
-struct ForNumComprehension : public ForComprehension
-{
-	Identifier* index;
-	Expression* lo;
-	Expression* hi;
-	Expression* step;
-
-	ForNumComprehension(CompileLoc location, Identifier* index, Expression* lo, Expression* hi, Expression* step,
-		IfComprehension* ifComp, ForComprehension* forComp) :
-		ForComprehension(location,
-			forComp ?
-				forComp->endLocation :
-			ifComp ?
-				ifComp->endLocation :
-			step->endLocation,
-			AstTag_ForNumComprehension, ifComp, forComp),
-		index(index),
-		lo(lo),
-		hi(hi),
-		step(step)
-	{}
-};
-
-struct ArrayComprehension : public PrimaryExp
-{
-	Expression* exp;
-	ForComprehension* forComp;
-
-	ArrayComprehension(CompileLoc location, CompileLoc endLocation, Expression* exp, ForComprehension* forComp) :
-		PrimaryExp(location, endLocation, AstTag_ArrayComprehension),
-		exp(exp),
-		forComp(forComp)
-	{}
-};
-
-struct TableComprehension : public PrimaryExp
-{
-	Expression* key;
-	Expression* value;
-	ForComprehension* forComp;
-
-	TableComprehension(CompileLoc location, CompileLoc endLocation, Expression* key, Expression* value,
-		ForComprehension* forComp) :
-		PrimaryExp(location, endLocation, AstTag_TableComprehension),
-		key(key),
-		value(value),
-		forComp(forComp)
 	{}
 };
 

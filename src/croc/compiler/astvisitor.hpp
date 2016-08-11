@@ -25,7 +25,7 @@ public:
 	}
 
 #define POOP(Tag, _, BaseType)\
-	virtual BaseType* visit(Tag* node);
+	virtual BaseType* visit(Tag* node) = 0;
 	AST_LIST(POOP)
 #undef POOP
 

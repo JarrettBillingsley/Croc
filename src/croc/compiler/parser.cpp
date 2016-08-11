@@ -76,45 +76,6 @@ BlockStmt* Parser::parseModule()
 	return stmts;
 }
 
-FuncDef* Parser::parseStatements(crocstr name)
-{
-	auto location = l.loc();
-
-	List<Statement*> statements(c);
-
-	while(l.type() != Token::EOF_)
-		statements.add(parseStatement());
-
-	auto tok = l.expect(Token::EOF_);
-
-	if(tok.preComment.length != 0)
-		c.danglingDocException(tok.preCommentLoc, "Doc comment at end of code not attached to any declaration");
-
-	auto endLocation = statements.length() > 0 ? statements.last()->endLocation : location;
-	auto code = new(c) BlockStmt(location, endLocation, statements.toArray());
-	List<FuncParam> params(c);
-	params.add(FuncParam(new(c) Identifier(l.loc(), c.newString("this"))));
-	return new(c) FuncDef(location, new(c) Identifier(location, c.newString(name)), params.toArray(), true, code);
-}
-
-FuncDef* Parser::parseExpressionFunc(crocstr name)
-{
-	auto location = l.loc();
-
-	List<Statement*> statements(c);
-	List<Expression*> exprs(c);
-	exprs.add(parseExpression());
-
-	if(l.type() != Token::EOF_)
-		c.synException(l.loc(), "Extra unexpected code after expression");
-
-	statements.add(new(c) ReturnStmt(exprs[0]->location, exprs[0]->endLocation, exprs.toArray()));
-	auto code = new(c) BlockStmt(location, statements[0]->endLocation, statements.toArray());
-	List<FuncParam> params(c);
-	params.add(FuncParam(new(c) Identifier(l.loc(), c.newString("this"))));
-	return new(c) FuncDef(location, new(c) Identifier(location, c.newString(name)), params.toArray(), true, code);
-}
-
 Statement* Parser::parseStatement(bool needScope)
 {
 	switch(l.type())
@@ -188,34 +149,18 @@ Decorator* Parser::parseDecorator()
 
 	auto func = parseDottedName();
 	auto argsArr = DArray<Expression*>();
-	Expression* context = nullptr;
 	CompileLoc endLocation;
 
 	if(l.type() == Token::LParen)
 	{
 		l.next();
-
-		if(l.type() == Token::With)
-		{
-			l.next();
-
-			context = parseExpression();
-
-			if(l.type() == Token::Comma)
-			{
-				l.next();
-				argsArr = parseArguments();
-			}
-		}
-		else if(l.type() != Token::RParen)
-			argsArr = parseArguments();
-
+		argsArr = parseArguments();
 		endLocation = l.expect(Token::RParen).loc;
 	}
 	else
 		endLocation = func->endLocation;
 
-	return new(c) Decorator(func->location, endLocation, func, context, argsArr, nullptr);
+	return new(c) Decorator(func->location, endLocation, func, argsArr, nullptr);
 }
 
 Decorator* Parser::parseDecorators()
@@ -1558,20 +1503,7 @@ Expression* Parser::parseTableCtorExp()
 			fields.add(TableCtorField(k, v));
 		};
 
-		bool firstWasBracketed = l.type() == Token::LBracket;
 		parseField();
-
-		if(firstWasBracketed && (l.type() == Token::For || l.type() == Token::Foreach))
-		{
-			auto forComp = parseForComprehension();
-			auto endLocation = l.expect(Token::RBrace).loc;
-
-			auto dummy = fields.toArray();
-			auto key = dummy[0].key;
-			auto value = dummy[0].value;
-
-			return new(c) TableComprehension(location, endLocation, key, value, forComp);
-		}
 
 		if(l.type() == Token::Comma)
 			l.next();
@@ -1599,26 +1531,17 @@ PrimaryExp* Parser::parseArrayCtorExp()
 	{
 		auto exp = parseExpression();
 
-		if(l.type() == Token::For || l.type() == Token::Foreach)
+		values.add(exp);
+
+		if(l.type() == Token::Comma)
+			l.next();
+
+		while(l.type() != Token::RBracket)
 		{
-			auto forComp = parseForComprehension();
-			auto endLocation = l.expect(Token::RBracket).loc;
-			return new(c) ArrayComprehension(location, endLocation, exp, forComp);
-		}
-		else
-		{
-			values.add(exp);
+			values.add(parseExpression());
 
 			if(l.type() == Token::Comma)
 				l.next();
-
-			while(l.type() != Token::RBracket)
-			{
-				values.add(parseExpression());
-
-				if(l.type() == Token::Comma)
-					l.next();
-			}
 		}
 	}
 
@@ -1692,34 +1615,17 @@ Expression* Parser::parsePostfixExp(Expression* exp)
 
 				l.next();
 
-				Expression* context = nullptr;
 				auto args = DArray<Expression*>();
 
-				if(l.type() == Token::With)
-				{
-					if(exp->type == AstTag_DotExp)
-						c.semException(l.loc(), "'with' is disallowed for method calls; if you aren't making an "
-							"actual method call, put the function in parentheses");
-
-					l.next();
-
-					context = parseExpression();
-
-					if(l.type() == Token::Comma)
-					{
-						l.next();
-						args = parseArguments();
-					}
-				}
-				else if(l.type() != Token::RParen)
+				if(l.type() != Token::RParen)
 					args = parseArguments();
 
 				auto endLocation = l.expect(Token::RParen).loc;
 
-				if(auto dot = AST_AS(DotExp, exp))
-					exp = new(c) MethodCallExp(dot->location, endLocation, dot->op, dot->name, args);
-				else
-					exp = new(c) CallExp(endLocation, exp, context, args);
+				// if(auto dot = AST_AS(DotExp, exp))
+				// 	exp = new(c) MethodCallExp(dot->location, endLocation, dot->op, dot->name, args);
+				// else
+					exp = new(c) CallExp(endLocation, exp, args);
 				continue;
 			}
 			case Token::LBracket: {
@@ -1742,103 +1648,6 @@ Expression* Parser::parsePostfixExp(Expression* exp)
 				return exp;
 		}
 	}
-}
-
-ForComprehension* Parser::parseForComprehension()
-{
-	auto loc = l.loc();
-	IfComprehension* ifComp = nullptr;
-	ForComprehension* forComp = nullptr;
-
-	auto parseNextComp = [&]()
-	{
-		if(l.type() == Token::If)
-			ifComp = parseIfComprehension();
-
-		if(l.type() == Token::For || l.type() == Token::Foreach)
-			forComp = parseForComprehension();
-	};
-
-	if(l.type() == Token::For)
-	{
-		l.next();
-		auto name = parseIdentifier();
-		l.expect(Token::Semicolon);
-
-		auto exp = parseExpression();
-		l.expect(Token::DotDot);
-		auto exp2 = parseExpression();
-
-		Expression* step = nullptr;
-
-		if(l.type() == Token::Comma)
-		{
-			l.next();
-			step = parseExpression();
-		}
-		else
-			step = new(c) IntExp(l.loc(), 1);
-
-		parseNextComp();
-		return new(c) ForNumComprehension(loc, name, exp, exp2, step, ifComp, forComp);
-	}
-	else if(l.type() == Token::Foreach)
-	{
-		l.next();
-		List<Identifier*> names(c);
-		names.add(parseIdentifier());
-
-		while(l.type() == Token::Comma)
-		{
-			l.next();
-			names.add(parseIdentifier());
-		}
-
-		l.expect(Token::Semicolon);
-
-		List<Expression*> container(c);
-		container.add(parseExpression());
-
-		while(l.type() == Token::Comma)
-		{
-			l.next();
-			container.add(parseExpression());
-		}
-
-		if(container.length() > 3)
-			c.synException(container[0]->location, "Too many expressions in container");
-
-		auto namesArr = DArray<Identifier*>();
-
-		if(names.length() == 1)
-		{
-			names.add(cast(Identifier*)nullptr);
-			namesArr = names.toArray();
-
-			for(uword i = namesArr.length - 1; i > 0; i--)
-				namesArr[i] = namesArr[i - 1];
-
-			namesArr[0] = dummyForeachIndex(namesArr[1]->location);
-		}
-		else
-			namesArr = names.toArray();
-
-		parseNextComp();
-		return new(c) ForeachComprehension(loc, namesArr, container.toArray(), ifComp, forComp);
-
-	}
-	else
-		l.expected("for or foreach");
-
-	assert(false);
-	return nullptr; // dummy
-}
-
-IfComprehension* Parser::parseIfComprehension()
-{
-	auto loc = l.expect(Token::If).loc;
-	auto condition = parseExpression();
-	return new(c) IfComprehension(loc, condition);
 }
 
 // =================================================================================================================
@@ -1917,13 +1726,8 @@ Expression* Parser::decoToExp(Decorator* dec, Expression* exp)
 	args.add(dec->args);
 	auto argsArray = args.toArray();
 
-	if(auto f = AST_AS(DotExp, dec->func))
-	{
-		if(dec->context != nullptr)
-			c.semException(dec->location, "'with' is disallowed for method calls");
-
-		return new(c) MethodCallExp(dec->location, dec->endLocation, f->op, f->name, argsArray);
-	}
-	else
-		return new(c) CallExp(dec->endLocation, dec->func, dec->context, argsArray);
+	// if(auto f = AST_AS(DotExp, dec->func))
+	// 	return new(c) MethodCallExp(dec->location, dec->endLocation, f->op, f->name, argsArray);
+	// else
+		return new(c) CallExp(dec->endLocation, dec->func, argsArray);
 }

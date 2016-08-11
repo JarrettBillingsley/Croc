@@ -4,6 +4,7 @@
 #include "croc/compiler/ast.hpp"
 #include "croc/compiler/lexer.hpp"
 #include "croc/compiler/parser.hpp"
+#include "croc/compiler/luagenvisitor.hpp"
 #include "croc/compiler/types.hpp"
 #include "croc/util/misc.hpp"
 
@@ -175,26 +176,7 @@ int Compiler::compileModule(crocstr src, crocstr name)
 	lexer.begin(name, src);
 	Parser parser(*this, lexer);
 	auto mod = parser.parseModule();
-	(void)mod;
-	return 0;
-}
-
-int Compiler::compileStmts(crocstr src, crocstr name)
-{
-	(void)src;
-	(void)name;
-	return 0;
-}
-
-int Compiler::compileExpr(crocstr src, crocstr name)
-{
-	(void)src;
-	(void)name;
-	return 0;
-}
-
-word Compiler::commonCompile(std::function<void()> dg)
-{
-	(void)dg;
+	LuaGenVisitor lua(*this);
+	lua.visit(mod);
 	return 0;
 }

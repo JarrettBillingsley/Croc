@@ -26,8 +26,7 @@ int main()
 	try
 	{
 		Compiler c;
-		c.leaveDocTable(false);
-		c.compileModule(atoda(src), ATODA("dorple"));
+		c.compileModule(atoda(src), ATODA("test.croc"));
 		return 0;
 	}
 	catch(CompileEx& e)

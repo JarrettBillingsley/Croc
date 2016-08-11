@@ -142,12 +142,9 @@ public:
 	void removeTempArray(DArray<uint8_t> arr);
 	DArray<uint8_t> copyArray(DArray<uint8_t> arr);
 	int compileModule(crocstr src, crocstr name);
-	int compileStmts(crocstr src, crocstr name);
-	int compileExpr(crocstr src, crocstr name);
 
 private:
 	void vexception(CompileLoc loc, const char* exType, const char* msg, va_list args);
-	word commonCompile(std::function<void()> dg);
 };
 
 // Dynamically-sized list.

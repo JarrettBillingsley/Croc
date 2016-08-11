@@ -27,8 +27,6 @@ public:
 	Identifier* parseIdentifier();
 	DArray<Expression*> parseArguments();
 	BlockStmt* parseModule();
-	FuncDef* parseStatements(crocstr name);
-	FuncDef* parseExpressionFunc(crocstr name);
 	Statement* parseStatement(bool needScope = true);
 	Statement* parseExpressionStmt();
 	Decorator* parseDecorator();
@@ -89,8 +87,6 @@ public:
 	YieldExp* parseYieldExp();
 	Expression* parseMemberExp();
 	Expression* parsePostfixExp(Expression* exp);
-	ForComprehension* parseForComprehension();
-	IfComprehension* parseIfComprehension();
 	void propagateFuncLiteralNames(DArray<AstNode*> lhs, DArray<Expression*> rhs);
 	void propagateFuncLiteralName(AstNode* lhs, FuncLiteralExp* fl);
 	Identifier* dummyForeachIndex(CompileLoc loc);
