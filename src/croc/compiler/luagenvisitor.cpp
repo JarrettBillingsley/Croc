@@ -169,7 +169,10 @@ Statement* LuaGenVisitor::visit(IfStmt* s)
 			eb = ifs->elseBody;
 
 			if(eb == nullptr)
+			{
+				mOutput.outputWord(s->elseBody->endLocation, "end");
 				break;
+			}
 		}
 
 		if(eb)
