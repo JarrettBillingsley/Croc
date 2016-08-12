@@ -38,10 +38,10 @@ public:
 
 	// Block control
 	bool isLoneBlock();
-	bool isTopLevelBlock();
+	void beginBraceBlock(CompileLoc& loc);
+	void endBraceBlock(CompileLoc& loc);
 	void beginControlBlock();
-	void beginBraceBlock();
-	void endCodeBlock();
+	void endControlBlock();
 
 	// Public API
 	const char* getOutput();
@@ -55,10 +55,7 @@ public:
 	void outputSymbol(CompileLoc& loc, DArray<const uchar> s);
 	void outputSymbol(CompileLoc& loc, const char* s) { outputSymbol(loc, atoda(s)); }
 
-	void beginBlock(CompileLoc& loc);
-	void endBlock(CompileLoc& loc);
-
-	void funcName(CompileLoc& loc, Identifier* name);
+	void funcName(CompileLoc& loc, DArray<Identifier*> owner, Identifier* name);
 	void beginFunction(CompileLoc& loc, DArray<FuncParam> params, bool isVararg);
 	void endFunction(CompileLoc& loc);
 

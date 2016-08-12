@@ -39,7 +39,6 @@
 	X(SubEq,         "-=")\
 	X(Dec,           "--")\
 	X(Cat,           "~")\
-	X(CatEq,         "~=")\
 	X(Mul,           "*")\
 	X(MulEq,         "*=")\
 	X(DefaultEq,     "?=")\
@@ -120,7 +119,6 @@ struct Token
 		crocfloat floatValue;
 	};
 
-
 	NumFormat format;
 	CompileLoc loc;
 	crocstr preComment;
@@ -138,7 +136,6 @@ struct Token
 		{
 			case Token::AddEq:
 			case Token::SubEq:
-			case Token::CatEq:
 			case Token::MulEq:
 			case Token::DivEq:
 			case Token::ModEq:

@@ -181,9 +181,6 @@ Statement* Parser::parseDeclStmt()
 {
 	Decorator* deco = nullptr;
 
-	auto docs = l.tok().preComment;
-	auto docsLoc = l.tok().preCommentLoc;
-
 	if(l.type() == Token::At)
 		deco = parseDecorators();
 
@@ -199,11 +196,10 @@ Statement* Parser::parseDeclStmt()
 
 					auto ret = parseVarDecl();
 					l.statementTerm();
-					attachDocs(*ret, docs, docsLoc);
 					return ret;
 				}
 				case Token::Function:
-					{ auto ret = parseFuncDecl(deco);      attachDocs(*ret->def, docs, docsLoc); return ret; }
+					return parseFuncDecl(deco);
 
 				default:
 					c.synException(l.loc(), "Illegal token '%s' after '%s'",
@@ -211,7 +207,7 @@ Statement* Parser::parseDeclStmt()
 			}
 
 		case Token::Function:
-			{ auto ret = parseFuncDecl(deco);      attachDocs(*ret->def, docs, docsLoc); return ret; }
+			return parseFuncDecl(deco);
 
 		default:
 			l.expected("Declaration");
@@ -296,8 +292,19 @@ FuncDecl* Parser::parseFuncDecl(Decorator* deco)
 		l.next();
 	}
 
-	auto def = parseSimpleFuncDef();
-	return new(c) FuncDecl(location, protection, def, deco);
+	l.expect(Token::Function).loc;
+	List<Identifier*> owner(c);
+	auto name = parseIdentifier();
+
+	while(l.type() == Token::Dot)
+	{
+		owner.add(name);
+		l.next();
+		name = parseIdentifier();
+	}
+
+	auto def = parseFuncBody(location, name);
+	return new(c) FuncDecl(location, protection, owner.toArray(), def, deco);
 }
 
 FuncDef* Parser::parseFuncBody(CompileLoc location, Identifier* name)
@@ -306,9 +313,6 @@ FuncDef* Parser::parseFuncBody(CompileLoc location, Identifier* name)
 	bool isVararg;
 	auto params = parseFuncParams(isVararg);
 	l.expect(Token::RParen);
-
-	bool isVarret;
-	auto returns = parseFuncReturns(isVarret);
 
 	Statement* code = nullptr;
 
@@ -325,7 +329,7 @@ FuncDef* Parser::parseFuncBody(CompileLoc location, Identifier* name)
 	else
 		code = parseBlockStmt();
 
-	return new(c) FuncDef(location, name, params, isVararg, returns, isVarret, code);
+	return new(c) FuncDef(location, name, params, isVararg, code);
 }
 
 DArray<FuncParam> Parser::parseFuncParams(bool& isVararg)
@@ -336,16 +340,6 @@ DArray<FuncParam> Parser::parseFuncParams(bool& isVararg)
 	{
 		FuncParam p;
 		p.name = parseIdentifier();
-
-		if(l.type() == Token::Assign)
-		{
-			l.next();
-			p.valueString = capture([&]{p.defValue = parseExpression();});
-
-			// Having a default parameter implies allowing null as a parameter type
-			// p.typeMask |= cast(uint32_t)TypeMask::Null;
-		}
-
 		ret.add(p);
 	};
 
@@ -397,14 +391,6 @@ DArray<FuncParam> Parser::parseFuncParams(bool& isVararg)
 		}
 	}
 
-	return ret.toArray();
-}
-
-DArray<FuncReturn> Parser::parseFuncReturns(bool& isVarret)
-{
-	List<FuncReturn> ret(c);
-
-	isVarret = true;
 	return ret.toArray();
 }
 
@@ -685,16 +671,6 @@ IfStmt* Parser::parseIfStmt()
 {
 	auto location = l.expect(Token::If).loc;
 	l.expect(Token::LParen);
-
-	IdentExp* condVar = nullptr;
-
-	if(l.type() == Token::Local)
-	{
-		l.next();
-		condVar = parseIdentExp();
-		l.expect(Token::Assign);
-	}
-
 	auto condition = parseExpression();
 	l.expect(Token::RParen);
 	auto ifBody = parseStatement();
@@ -710,7 +686,7 @@ IfStmt* Parser::parseIfStmt()
 		endLocation = elseBody->endLocation;
 	}
 
-	return new(c) IfStmt(location, endLocation, condVar, condition, ifBody, elseBody);
+	return new(c) IfStmt(location, endLocation, condition, ifBody, elseBody);
 }
 
 ImportStmt* Parser::parseImportStmt()
@@ -820,20 +796,10 @@ WhileStmt* Parser::parseWhileStmt()
 	}
 
 	l.expect(Token::LParen);
-
-	IdentExp* condVar = nullptr;
-
-	if(l.type() == Token::Local)
-	{
-		l.next();
-		condVar = parseIdentExp();
-		l.expect(Token::Assign);
-	}
-
 	auto condition = parseExpression();
 	l.expect(Token::RParen);
 	auto code = parseStatement(false);
-	return new(c) WhileStmt(location, name, condVar, condition, code);
+	return new(c) WhileStmt(location, name, condition, code);
 }
 
 Statement* Parser::parseStatementExpr()
@@ -887,6 +853,8 @@ Statement* Parser::parseStatementExpr()
 
 AssignStmt* Parser::parseAssignStmt(Expression* firstLHS)
 {
+	firstLHS->checkLHS(c);
+
 	auto location = l.loc();
 
 	List<Expression*> lhs(c);
@@ -900,6 +868,8 @@ AssignStmt* Parser::parseAssignStmt(Expression* firstLHS)
 			lhs.add(parseUnExp());
 		else
 			lhs.add(parsePrimaryExp());
+
+		lhs.last()->checkLHS(c);
 	}
 
 	l.expect(Token::Assign);
@@ -937,7 +907,6 @@ case Token::tok: {\
 	{
 		MAKE_CASE(AddEq,     AddAssignStmt)
 		MAKE_CASE(SubEq,     SubAssignStmt)
-		MAKE_CASE(CatEq,     CatAssignStmt)
 		MAKE_CASE(MulEq,     MulAssignStmt)
 		MAKE_CASE(DivEq,     DivAssignStmt)
 		MAKE_CASE(ModEq,     ModAssignStmt)
@@ -1704,7 +1673,7 @@ void Parser::propagateFuncLiteralName(AstNode* lhs, FuncLiteralExp* fl)
 Identifier* Parser::dummyForeachIndex(CompileLoc loc)
 {
 	char buf[256];
-	snprintf(buf, 256, "dummy%" CROC_SIZE_T_FORMAT, mDummyNameCounter++);
+	snprintf(buf, 256, "__dummy%" CROC_SIZE_T_FORMAT "__", mDummyNameCounter++);
 	auto str = c.newString(buf);
 	return new(c) Identifier(loc, str);
 }

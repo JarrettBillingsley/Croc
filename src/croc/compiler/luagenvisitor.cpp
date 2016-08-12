@@ -3,10 +3,10 @@
 
 #include "croc/compiler/luagenvisitor.hpp"
 
-#define VISIT(e)               do { e = visit(e);                     } while(false)
-#define COND_VISIT(e)          do { if(e) e = visit(e);               } while(false)
-#define VISIT_ARR(a)           do { for(auto &x: a) x = visit(x);     } while(false)
-#define VISIT_ARR_FIELD(a, y)  do { for(auto &x: a) x.y = visit(x.y); } while(false)
+#define VISIT(e)               do { visit(e);                     } while(false)
+#define COND_VISIT(e)          do { if(e) visit(e);               } while(false)
+#define VISIT_ARR(a)           do { for(auto &x: a) visit(x);     } while(false)
+#define VISIT_ARR_FIELD(a, y)  do { for(auto &x: a) visit(x.y); } while(false)
 #define PROTECTION(d)\
 	do {\
 		if(d->protection == Protection::Default)\
@@ -64,6 +64,12 @@ void LuaGenVisitor::visitArgs(CompileLoc& loc, DArray<Expression*> args)
 	mOutput.endArgs(args.length == 0 ? loc : args.last()->location);
 }
 
+Identifier* LuaGenVisitor::visit(Identifier* id)
+{
+	mOutput.outputWord(id);
+	return id;
+}
+
 FuncDef* LuaGenVisitor::visit(FuncDef* d)
 {
 	mOutput.beginFunction(d->name->endLocation, d->params, d->isVararg);
@@ -74,9 +80,7 @@ FuncDef* LuaGenVisitor::visit(FuncDef* d)
 
 Statement* LuaGenVisitor::visit(ImportStmt* s)
 {
-	// VISIT(s->expr);
 	throw CompileEx("imports unimplemented", s->location);
-	return s;
 }
 
 ScopeStmt* LuaGenVisitor::visit(ScopeStmt* s)
@@ -114,10 +118,7 @@ VarDecl* LuaGenVisitor::visit(VarDecl* d)
 
 Decorator* LuaGenVisitor::visit(Decorator* d)
 {
-	VISIT(d->func);
-	VISIT_ARR(d->args);
-	COND_VISIT(d->nextDec);
-	return d;
+	throw CompileEx("decorators unimplemented", d->location);
 }
 
 FuncDecl* LuaGenVisitor::visit(FuncDecl* d)
@@ -130,215 +131,228 @@ FuncDecl* LuaGenVisitor::visit(FuncDecl* d)
 	if(d->protection == Protection::Local)
 		mOutput.outputWord(d->location, "local");
 
-	mOutput.funcName(d->def->location, d->def->name);
+	mOutput.funcName(d->def->location, d->owner, d->def->name);
 	VISIT(d->def);
 	return d;
 }
 
 Statement* LuaGenVisitor::visit(BlockStmt* s)
 {
-	mOutput.beginBlock(s->location);
+	mOutput.beginBraceBlock(s->location);
 	VISIT_ARR(s->statements);
-	mOutput.endBlock(s->endLocation);
+	mOutput.endBraceBlock(s->endLocation);
 	return s;
 }
 
 Statement* LuaGenVisitor::visit(IfStmt* s)
 {
+	mOutput.outputWord(s->location, "if");
 	VISIT(s->condition);
+	mOutput.outputWord(s->condition->endLocation, "then");
+	mOutput.beginControlBlock();
 	VISIT(s->ifBody);
-	COND_VISIT(s->elseBody);
+	mOutput.endControlBlock();
+
+	if(s->elseBody)
+	{
+		auto eb = s->elseBody;
+
+		while(auto ifs = AST_AS(IfStmt, eb))
+		{
+			mOutput.outputWord(ifs->location, "elseif");
+			VISIT(ifs->condition);
+			mOutput.outputWord(ifs->condition->endLocation, "then");
+			mOutput.beginControlBlock();
+			VISIT(ifs->ifBody);
+			mOutput.endControlBlock();
+
+			eb = ifs->elseBody;
+
+			if(eb == nullptr)
+				break;
+		}
+
+		if(eb)
+		{
+			mOutput.outputWord(eb->location, "else");
+			mOutput.beginControlBlock();
+			VISIT(eb);
+			mOutput.endControlBlock();
+			mOutput.outputWord(eb->endLocation, "end");
+		}
+	}
+	else
+	{
+		mOutput.outputWord(s->ifBody->endLocation, "end");
+	}
+
 	return s;
 }
 
 Statement* LuaGenVisitor::visit(WhileStmt* s)
 {
+	mOutput.outputWord(s->location, "while");
 	VISIT(s->condition);
+	mOutput.outputWord(s->condition->endLocation, "do");
+	mOutput.beginControlBlock();
 	VISIT(s->code);
+	mOutput.endControlBlock();
+	mOutput.outputWord(s->code->endLocation, "end");
 	return s;
 }
 
 Statement* LuaGenVisitor::visit(DoWhileStmt* s)
 {
+	mOutput.outputWord(s->location, "repeat");
+	mOutput.beginControlBlock();
 	VISIT(s->code);
+	mOutput.endControlBlock();
+	mOutput.outputWord(s->condition->location, "until not");
 	VISIT(s->condition);
 	return s;
 }
 
 Statement* LuaGenVisitor::visit(ForStmt* s)
 {
-	for(auto &i: s->init)
-	{
-		if(i.isDecl)
-			i.decl = visit(i.decl);
-		else
-			i.stmt = visit(i.stmt);
-	}
-
-	COND_VISIT(s->condition);
-	VISIT_ARR(s->increment);
-	VISIT(s->code);
-	return s;
+	throw CompileEx("generic for unimplemented", s->location);
 }
 
 Statement* LuaGenVisitor::visit(ForNumStmt* s)
 {
+	mOutput.outputWord(s->location, "for");
+	mOutput.outputWord(s->index);
+	mOutput.outputSymbol(s->index->endLocation, " = ");
 	VISIT(s->lo);
+	mOutput.outputSymbol(s->lo->endLocation, ", ");
 	VISIT(s->hi);
-	VISIT(s->step);
+	auto intStep = AST_AS(IntExp, s->step);
+
+	if(!intStep or intStep->value != 1)
+	{
+		mOutput.outputSymbol(s->hi->endLocation, ", ");
+		VISIT(s->step);
+	}
+
+	mOutput.outputWord(s->step->endLocation, "do");
+	mOutput.beginControlBlock();
 	VISIT(s->code);
+	mOutput.endControlBlock();
+	mOutput.outputWord(s->code->endLocation, "end");
 	return s;
 }
 
 ForeachStmt* LuaGenVisitor::visit(ForeachStmt* s)
 {
-	VISIT_ARR(s->container);
+	mOutput.outputWord(s->location, "for");
+	visitList(s->indices);
+	mOutput.outputWord(s->indices.last()->endLocation, "in");
+	visitList(s->container);
+	mOutput.outputWord(s->container.last()->endLocation, "do");
+	mOutput.beginControlBlock();
 	VISIT(s->code);
+	mOutput.endControlBlock();
+	mOutput.outputWord(s->code->endLocation, "end");
 	return s;
 }
 
 ContinueStmt* LuaGenVisitor::visit(ContinueStmt* s)
 {
-	return s;
+	throw CompileEx("continue unimplemented", s->location);
 }
 
 BreakStmt* LuaGenVisitor::visit(BreakStmt* s)
 {
+	if(s->name.length)
+		throw CompileEx("named break unimplemented", s->location);
+
+	mOutput.outputWord(s->location, "break");
 	return s;
 }
 
 ReturnStmt* LuaGenVisitor::visit(ReturnStmt* s)
 {
-	VISIT_ARR(s->exprs);
+	mOutput.outputWord(s->location, "return");
+	visitList(s->exprs);
 	return s;
 }
 
 AssignStmt* LuaGenVisitor::visit(AssignStmt* s)
 {
-	// mOutput.beginLHS();
-	VISIT_ARR(s->lhs);
-	// mOutput.beginRHS();
-	VISIT_ARR(s->rhs);
-	// mOutput.endAssignment();
+	visitList(s->lhs);
+	mOutput.outputSymbol(s->rhs[0]->location, " = ");
+	visitList(s->rhs);
 	return s;
 }
 
 AddAssignStmt* LuaGenVisitor::visit(AddAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 SubAssignStmt* LuaGenVisitor::visit(SubAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 MulAssignStmt* LuaGenVisitor::visit(MulAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 DivAssignStmt* LuaGenVisitor::visit(DivAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 ModAssignStmt* LuaGenVisitor::visit(ModAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 ShlAssignStmt* LuaGenVisitor::visit(ShlAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 ShrAssignStmt* LuaGenVisitor::visit(ShrAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 UShrAssignStmt* LuaGenVisitor::visit(UShrAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 XorAssignStmt* LuaGenVisitor::visit(XorAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 OrAssignStmt*  LuaGenVisitor::visit(OrAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 AndAssignStmt* LuaGenVisitor::visit(AndAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 
 Statement* LuaGenVisitor::visit(CondAssignStmt* s)
 {
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-	return s;
-}
-
-CatAssignStmt* LuaGenVisitor::visit(CatAssignStmt* s)
-{
-	VISIT(s->lhs);
-	VISIT(s->rhs);
-
-	if(auto catExp = AST_AS(CatExp, s->rhs))
-	{
-		s->operands = catExp->operands;
-		catExp->operands = DArray<Expression*>();
-	}
-	else
-	{
-		List<Expression*> dummy(c);
-		dummy.add(s->rhs);
-		s->operands = dummy.toArray();
-	}
-
-	s->collapsed = true;
-	return s;
+	throw CompileEx("augmentation assignment unimplemented", s->location);
 }
 
 IncStmt* LuaGenVisitor::visit(IncStmt* s)
 {
-	VISIT(s->exp);
-	return s;
+	throw CompileEx("crements unimplemented", s->location);
 }
 
 DecStmt* LuaGenVisitor::visit(DecStmt* s)
 {
-	VISIT(s->exp);
-	return s;
+	throw CompileEx("crements unimplemented", s->location);
 }
 
 Expression* LuaGenVisitor::visit(CondExp* e)
@@ -616,10 +630,17 @@ Expression* LuaGenVisitor::visit(IndexExp* e)
 
 Expression* LuaGenVisitor::visit(VargIndexExp* e)
 {
-	//TODO mOutput.checkNotLHS(e->location);
-	mOutput.outputWord(e->location, "select(");
+	mOutput.outputWord(e->location, "select");
+	mOutput.outputSymbol(e->location, "(");
 	VISIT(e->index);
 	mOutput.outputSymbol(e->location, ", ...)");
+	return e;
+}
+
+Expression* LuaGenVisitor::visit(VargLenExp* e)
+{
+	mOutput.outputWord(e->location, "select('#', ...");
+	mOutput.outputSymbol(e->endLocation, ")");
 	return e;
 }
 

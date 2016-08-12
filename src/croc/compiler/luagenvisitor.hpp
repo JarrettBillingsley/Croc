@@ -29,6 +29,7 @@ public:
 	template<typename T> void visitList(DArray<T> vals);
 	void visitArgs(CompileLoc& loc, DArray<Expression*> args);
 
+	virtual Identifier* visit(Identifier* id) override;
 	virtual FuncDef* visit(FuncDef* d) override;
 	virtual Statement* visit(ImportStmt* s) override;
 	virtual ScopeStmt* visit(ScopeStmt* s) override;
@@ -59,7 +60,6 @@ public:
 	virtual OrAssignStmt* visit(OrAssignStmt* s) override;
 	virtual AndAssignStmt* visit(AndAssignStmt* s) override;
 	virtual Statement* visit(CondAssignStmt* s) override;
-	virtual CatAssignStmt* visit(CatAssignStmt* s) override;
 	virtual IncStmt* visit(IncStmt* s) override;
 	virtual DecStmt* visit(DecStmt* s) override;
 	virtual Expression* visit(CondExp* e) override;
@@ -94,6 +94,7 @@ public:
 	virtual Expression* visit(CallExp* e) override;
 	virtual Expression* visit(IndexExp* e) override;
 	virtual Expression* visit(VargIndexExp* e) override;
+	virtual Expression* visit(VargLenExp* e) override;
 	virtual FuncLiteralExp* visit(FuncLiteralExp* e) override;
 	virtual Expression* visit(ParenExp* e) override;
 	virtual TableCtorExp* visit(TableCtorExp* e) override;

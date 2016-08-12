@@ -36,7 +36,6 @@ public:
 	FuncDecl* parseFuncDecl(Decorator* deco);
 	FuncDef* parseFuncBody(CompileLoc location, Identifier* name);
 	DArray<FuncParam> parseFuncParams(bool& isVararg);
-	DArray<FuncReturn> parseFuncReturns(bool& isVarret);
 	uint32_t parseType(const char* kind, DArray<Expression*>& classTypes, crocstr& typeString, Expression*& customConstraint);
 	uint32_t parseParamType(DArray<Expression*>& classTypes, crocstr& typeString, Expression*& customConstraint);
 	uint32_t parseReturnType(DArray<Expression*>& classTypes, crocstr& typeString, Expression*& customConstraint);
@@ -92,29 +91,6 @@ public:
 	Identifier* dummyForeachIndex(CompileLoc loc);
 	Identifier* dummyFuncLiteralName(CompileLoc loc);
 	Expression* decoToExp(Decorator* dec, Expression* exp);
-
-	template<typename T>
-	void attachDocs(T& t, crocstr preDocs, CompileLoc preDocsLoc)
-	{
-		if(!c.docComments())
-			return;
-
-		if(preDocs.length != 0)
-		{
-			if(l.tok().postComment.length != 0)
-				c.synException(preDocsLoc, "Cannot have two doc comments on one declaration");
-			else
-			{
-				t.docs = preDocs;
-				t.docsLoc = preDocsLoc;
-			}
-		}
-		else if(l.tok().postComment.length != 0)
-		{
-			t.docs = l.tok().postComment;
-			t.docsLoc = l.tok().postCommentLoc;
-		}
-	}
 };
 
 #endif

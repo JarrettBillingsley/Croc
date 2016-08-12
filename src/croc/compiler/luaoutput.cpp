@@ -68,24 +68,38 @@ bool LuaOutput::isLoneBlock()
 	return mLoneBlock.length() > 0 && mLoneBlock.last() == true;
 }
 
-bool LuaOutput::isTopLevelBlock()
+void LuaOutput::beginBraceBlock(CompileLoc& loc)
 {
-	return mLoneBlock.length() == 0;
+	if(isLoneBlock())
+	{
+		outputWord(loc, "do");
+		indent();
+	}
+
+	mLoneBlock.add(true);
 }
 
-void LuaOutput::beginBraceBlock()
+void LuaOutput::endBraceBlock(CompileLoc& loc)
 {
-	mLoneBlock.add(true);
+	mLoneBlock.pop();
+
+	if(isLoneBlock())
+	{
+		dedent();
+		outputWord(loc, "end");
+	}
 }
 
 void LuaOutput::beginControlBlock()
 {
 	mLoneBlock.add(false);
+	indent();
 }
 
-void LuaOutput::endCodeBlock()
+void LuaOutput::endControlBlock()
 {
 	mLoneBlock.pop();
+	dedent();
 }
 
 //======================================================================================================================
@@ -118,31 +132,16 @@ void LuaOutput::outputSymbol(CompileLoc& loc, DArray<const uchar> s)
 	nonWordBoundary();
 }
 
-void LuaOutput::beginBlock(CompileLoc& loc)
-{
-	if(isLoneBlock())
-		outputWord(loc, "do");
-
-	if(!isTopLevelBlock())
-		indent();
-
-	beginBraceBlock();
-}
-
-void LuaOutput::endBlock(CompileLoc& loc)
-{
-	endCodeBlock();
-
-	if(!isTopLevelBlock())
-		dedent();
-
-	if(isLoneBlock())
-		outputWord(loc, "end");
-}
-
-void LuaOutput::funcName(CompileLoc& loc, Identifier* name)
+void LuaOutput::funcName(CompileLoc& loc, DArray<Identifier*> owner, Identifier* name)
 {
 	outputWord(loc, "function");
+
+	for(uword i = 0; i < owner.length; i++)
+	{
+		outputWord(owner[i]);
+		outputSymbol(owner[i]->endLocation, ".");
+	}
+
 	outputWord(name);
 }
 
@@ -176,7 +175,7 @@ void LuaOutput::beginFunction(CompileLoc& loc, DArray<FuncParam> params, bool is
 
 void LuaOutput::endFunction(CompileLoc& loc)
 {
-	endCodeBlock();
+	endControlBlock();
 	outputWord(loc, "end");
 }
 

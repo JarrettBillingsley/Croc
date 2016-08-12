@@ -37,7 +37,6 @@ inline void* operator new(uword size, Compiler& c)
 	X(AssignStmt,           "assignment",                      Statement)\
 	X(AddAssignStmt,        "addition assignment",             Statement)\
 	X(SubAssignStmt,        "subtraction assignment",          Statement)\
-	X(CatAssignStmt,        "concatenation assignment",        Statement)\
 	X(MulAssignStmt,        "multiplication assignment",       Statement)\
 	X(DivAssignStmt,        "division assignment",             Statement)\
 	X(ModAssignStmt,        "modulo assignment",               Statement)\
@@ -50,7 +49,6 @@ inline void* operator new(uword size, Compiler& c)
 	X(CondAssignStmt,       "conditional assignment",          Statement)\
 	X(IncStmt,              "increment",                       Statement)\
 	X(DecStmt,              "decrement",                       Statement)\
-	X(TypecheckStmt,        "typecheck statement",             Statement)\
 \
 	X(CondExp,              "conditional expression",          Expression)\
 	X(OrOrExp,              "logical 'or' expression",         Expression)\
@@ -117,109 +115,24 @@ enum class Protection
 	Global
 };
 
-struct CaseStmt;
 struct Decorator;
-struct DefaultStmt;
 struct Expression;
-struct ForComprehension;
 struct FuncLiteralExp;
 struct IdentExp;
 struct Identifier;
-struct IfComprehension;
 struct Statement;
 struct VarDecl;
 
 struct FuncParam
 {
 	Identifier* name;
-	DArray<Expression*> classTypes;
-	Expression* customConstraint;
-	Expression* defValue;
-	crocstr typeString;
-	crocstr valueString;
 
 	FuncParam() :
-		name(),
-		classTypes(),
-		customConstraint(),
-		defValue(),
-		typeString(),
-		valueString()
+		name()
 	{}
 
 	FuncParam(Identifier* name) :
-		name(name),
-		classTypes(),
-		customConstraint(),
-		defValue(),
-		typeString(),
-		valueString()
-	{}
-};
-
-struct FuncReturn
-{
-	DArray<Expression*> classTypes;
-	Expression* customConstraint;
-	crocstr typeString;
-
-	FuncReturn() :
-		classTypes(),
-		customConstraint(),
-		typeString()
-	{}
-};
-
-struct ClassField
-{
-	crocstr name;
-	Expression* initializer;
-	FuncLiteralExp* func;
-	bool isOverride;
-	crocstr docs;
-	CompileLoc docsLoc;
-
-	ClassField() :
-		name(),
-		initializer(),
-		func(),
-		isOverride(),
-		docs(),
-		docsLoc()
-	{}
-
-	ClassField(crocstr name, Expression* initializer, FuncLiteralExp* func, bool isOverride) :
-		name(name),
-		initializer(initializer),
-		func(func),
-		isOverride(isOverride),
-		docs(),
-		docsLoc()
-	{}
-};
-
-struct NamespaceField
-{
-	crocstr name;
-	Expression* initializer;
-	FuncLiteralExp* func;
-	crocstr docs;
-	CompileLoc docsLoc;
-
-	NamespaceField() :
-		name(),
-		initializer(),
-		func(),
-		docs(),
-		docsLoc()
-	{}
-
-	NamespaceField(crocstr name, Expression* initializer, FuncLiteralExp* func) :
-		name(name),
-		initializer(initializer),
-		func(func),
-		docs(),
-		docsLoc()
+		name(name)
 	{}
 };
 
@@ -232,41 +145,6 @@ struct ForStmtInit
 		Statement* stmt;
 		VarDecl* decl;
 	};
-};
-
-struct CaseCond
-{
-	Expression* exp;
-	uint32_t dynJump;
-
-	CaseCond() :
-		exp(),
-		dynJump()
-	{}
-
-	CaseCond(Expression* exp) :
-		exp(exp),
-		dynJump()
-	{}
-};
-
-struct CatchClause
-{
-	Identifier* catchVar;
-	DArray<Expression*> exTypes;
-	Statement* catchBody;
-
-	CatchClause() :
-		catchVar(),
-		exTypes(),
-		catchBody()
-	{}
-
-	CatchClause(Identifier* catchVar, DArray<Expression*> exTypes, Statement* catchBody) :
-		catchVar(catchVar),
-		exTypes(exTypes),
-		catchBody(catchBody)
-	{}
 };
 
 struct TableCtorField
@@ -404,19 +282,6 @@ struct PrimaryExp : public Expression
 	{}
 };
 
-struct ForComprehension : public AstNode
-{
-	IfComprehension* ifComp;
-	ForComprehension* forComp;
-
-	ForComprehension(CompileLoc location, CompileLoc endLocation, AstTag type, IfComprehension* ifComp,
-		ForComprehension* forComp) :
-		AstNode(location, endLocation, type),
-		ifComp(ifComp),
-		forComp(forComp)
-	{}
-};
-
 struct Identifier : public AstNode
 {
 	crocstr name;
@@ -432,31 +297,13 @@ struct FuncDef : public AstNode
 	Identifier* name;
 	DArray<FuncParam> params;
 	bool isVararg;
-	DArray<FuncReturn> returns;
-	bool isVarret;
 	Statement* code;
-	crocstr docs;
-	CompileLoc docsLoc;
 
 	FuncDef(CompileLoc location, Identifier* name, DArray<FuncParam> params, bool isVararg, Statement* code) :
 		AstNode(location, code->endLocation, AstTag_FuncDef),
 		name(name),
 		params(params),
 		isVararg(isVararg),
-		returns(),
-		isVarret(true),
-		code(code)
-	{}
-
-	FuncDef(CompileLoc location, Identifier* name, DArray<FuncParam> params, bool isVararg,
-		DArray<FuncReturn> returns, bool isVarret, Statement* code) :
-
-		AstNode(location, code->endLocation, AstTag_FuncDef),
-		name(name),
-		params(params),
-		isVararg(isVararg),
-		returns(returns),
-		isVarret(isVarret),
 		code(code)
 	{}
 };
@@ -466,8 +313,6 @@ struct VarDecl : public Statement
 	Protection protection;
 	DArray<Identifier*> names;
 	DArray<Expression*> initializer;
-	crocstr docs;
-	CompileLoc docsLoc;
 
 	VarDecl(CompileLoc location, CompileLoc endLocation, Protection protection, DArray<Identifier*> names,
 		DArray<Expression*> initializer) :
@@ -496,12 +341,14 @@ struct Decorator : public AstNode
 struct FuncDecl : public Statement
 {
 	Protection protection;
+	DArray<Identifier*> owner;
 	FuncDef* def;
 	Decorator* decorator;
 
-	FuncDecl(CompileLoc location, Protection protection, FuncDef* def, Decorator* decorator) :
+	FuncDecl(CompileLoc location, Protection protection, DArray<Identifier*> owner, FuncDef* def, Decorator* decorator) :
 		Statement(location, def->endLocation, AstTag_FuncDecl),
 		protection(protection),
+		owner(owner),
 		def(def),
 		decorator(decorator)
 	{}
@@ -561,15 +408,12 @@ struct ExpressionStmt : public Statement
 
 struct IfStmt : public Statement
 {
-	IdentExp* condVar;
 	Expression* condition;
 	Statement* ifBody;
 	Statement* elseBody;
 
-	IfStmt(CompileLoc location, CompileLoc endLocation, IdentExp* condVar, Expression* condition, Statement* ifBody,
-		Statement* elseBody) :
+	IfStmt(CompileLoc location, CompileLoc endLocation, Expression* condition, Statement* ifBody, Statement* elseBody) :
 		Statement(location, endLocation, AstTag_IfStmt),
-		condVar(condVar),
 		condition(condition),
 		ifBody(ifBody),
 		elseBody(elseBody)
@@ -579,14 +423,12 @@ struct IfStmt : public Statement
 struct WhileStmt : public Statement
 {
 	crocstr name;
-	IdentExp* condVar;
 	Expression* condition;
 	Statement* code;
 
-	WhileStmt(CompileLoc location, crocstr name, IdentExp* condVar, Expression* condition, Statement* code) :
+	WhileStmt(CompileLoc location, crocstr name, Expression* condition, Statement* code) :
 		Statement(location, code->endLocation, AstTag_WhileStmt),
 		name(name),
-		condVar(condVar),
 		condition(condition),
 		code(code)
 	{}
@@ -598,8 +440,7 @@ struct DoWhileStmt : public Statement
 	Statement* code;
 	Expression* condition;
 
-	DoWhileStmt(CompileLoc location, CompileLoc endLocation, crocstr name, Statement* code,
-		Expression* condition):
+	DoWhileStmt(CompileLoc location, CompileLoc endLocation, crocstr name, Statement* code, Expression* condition):
 		Statement(location, endLocation, AstTag_DoWhileStmt),
 		name(name),
 		code(code),
@@ -724,20 +565,6 @@ struct ShrAssignStmt  : public OpAssignStmt { OPASSIGNSTMTCTOR(ShrAssignStmt)  }
 struct UShrAssignStmt : public OpAssignStmt { OPASSIGNSTMTCTOR(UShrAssignStmt) };
 struct CondAssignStmt : public OpAssignStmt { OPASSIGNSTMTCTOR(CondAssignStmt) };
 
-struct CatAssignStmt : public Statement
-{
-	Expression* lhs;
-	Expression* rhs;
-	DArray<Expression*> operands;
-	bool collapsed = false;
-
-	CatAssignStmt(CompileLoc location, CompileLoc endLocation, Expression* lhs, Expression* rhs) :
-		Statement(location, endLocation, AstTag_CatAssignStmt),
-		lhs(lhs),
-		rhs(rhs)
-	{}
-};
-
 struct IncStmt : public Statement
 {
 	Expression* exp;
@@ -755,16 +582,6 @@ struct DecStmt : public Statement
 	DecStmt(CompileLoc location, CompileLoc endLocation, Expression* exp) :
 		Statement(location, endLocation, AstTag_DecStmt),
 		exp(exp)
-	{}
-};
-
-struct TypecheckStmt : public Statement
-{
-	FuncDef* def;
-
-	TypecheckStmt(CompileLoc location, FuncDef* def) :
-		Statement(location, location, AstTag_TypecheckStmt),
-		def(def)
 	{}
 };
 
@@ -813,17 +630,7 @@ struct LEExp       : public BinaryExp { BINEXPCTOR(LEExp)       };
 struct GTExp       : public BinaryExp { BINEXPCTOR(GTExp)       };
 struct GEExp       : public BinaryExp { BINEXPCTOR(GEExp)       };
 
-struct CatExp : public BinaryExp
-{
-	DArray<Expression*> operands;
-	bool collapsed = false;
-
-	CatExp(CompileLoc location, CompileLoc endLocation, Expression* left, Expression* right) :
-		BinaryExp(location, endLocation, AstTag_CatExp, left, right),
-		operands(),
-		collapsed(false)
-	{}
-};
+struct CatExp      : public BinaryExp { BINEXPCTOR(CatExp)      };
 
 #define UNEXPCTOR(Tag)\
 	Tag(CompileLoc location, Expression* op) :\
@@ -833,11 +640,7 @@ struct CatExp : public BinaryExp
 struct NegExp : public UnExp { UNEXPCTOR(NegExp) };
 struct NotExp : public UnExp { UNEXPCTOR(NotExp) };
 struct ComExp : public UnExp { UNEXPCTOR(ComExp) };
-
-struct LenExp : public UnExp
-{
-	UNEXPCTOR(LenExp)
-};
+struct LenExp : public UnExp { UNEXPCTOR(LenExp) };
 
 struct DotExp : public PostfixExp
 {

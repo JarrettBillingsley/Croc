@@ -1095,8 +1095,7 @@ void Lexer::nextToken()
 
 			case '~':
 				nextChar();
-				if(mCharacter == '=') NEXT_AND_TOK(Token::CatEq);
-				else                  TOK(Token::Cat);
+				TOK(Token::Cat);
 				RETURN;
 
 			case '*':

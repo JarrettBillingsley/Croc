@@ -59,9 +59,8 @@ bool Expression::isLHS()
 		case AstTag_LenExp:
 		case AstTag_DotExp:
 		case AstTag_IndexExp:
-		case AstTag_IdentExp:
-		case AstTag_VargIndexExp: return true;
-		default:                  return false;
+		case AstTag_IdentExp: return true;
+		default:              return false;
 	}
 }
 
