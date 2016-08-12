@@ -80,7 +80,36 @@ FuncDef* LuaGenVisitor::visit(FuncDef* d)
 
 Statement* LuaGenVisitor::visit(ImportStmt* s)
 {
-	throw CompileEx("imports unimplemented", s->location);
+	// We rewrite import statements as function calls/local variable declarations. The rewrites work as follows:
+	// import blah
+	// 		modules.load("blah")
+	// import blah as x
+	// 		local x = modules.load("blah")
+	// import blah: y, z
+	// 		local y, z; { local __temp = modules.load("blah"); y = __temp.y; z = __temp.z }
+	// import blah as x: y, z
+	// 		local y, z; local x = modules.load("blah"); y = x.y; z = x.z
+
+	// Identifier* importName;
+	// Expression* expr;
+	// DArray<Identifier*> symbols;
+	// DArray<Identifier*> symbolNames;
+
+	if(s->symbols.length > 0 || s->symbolNames.length > 0)
+		throw CompileEx("selective imports unimplemented", s->location);
+
+	if(s->importName)
+	{
+		mOutput.outputWord(s->location, "local");
+		mOutput.outputWord(s->importName);
+		mOutput.outputSymbol(s->location, " = ");
+	}
+
+	mOutput.outputWord(s->location, "require");
+	mOutput.outputSymbol(s->location, "(");
+	VISIT(s->expr);
+	mOutput.outputSymbol(s->location, ")");
+	return s;
 }
 
 ScopeStmt* LuaGenVisitor::visit(ScopeStmt* s)
@@ -230,7 +259,7 @@ Statement* LuaGenVisitor::visit(ForNumStmt* s)
 	VISIT(s->hi);
 	auto intStep = AST_AS(IntExp, s->step);
 
-	if(!intStep or intStep->value != 1)
+	if(!intStep || intStep->value != 1)
 	{
 		mOutput.outputSymbol(s->hi->endLocation, ", ");
 		VISIT(s->step);
