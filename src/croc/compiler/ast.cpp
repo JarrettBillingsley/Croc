@@ -56,7 +56,6 @@ bool Expression::isLHS()
 {
 	switch(type)
 	{
-		case AstTag_LenExp:
 		case AstTag_DotExp:
 		case AstTag_IndexExp:
 		case AstTag_IdentExp: return true;

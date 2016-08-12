@@ -64,6 +64,23 @@ void LuaGenVisitor::visitArgs(CompileLoc& loc, DArray<Expression*> args)
 	mOutput.endArgs(args.length == 0 ? loc : args.last()->location);
 }
 
+void LuaGenVisitor::visitField(Expression* name)
+{
+	auto str = AST_AS(StringExp, name);
+
+	if(str && isIdent(str->value))
+	{
+		mOutput.outputSymbol(name->location, ".");
+		mOutput.outputWord(str->location, str->value);
+	}
+	else
+	{
+		mOutput.outputSymbol(name->location, "[");
+		VISIT(name);
+		mOutput.outputSymbol(name->endLocation, "]");
+	}
+}
+
 Identifier* LuaGenVisitor::visit(Identifier* id)
 {
 	mOutput.outputWord(id);
@@ -316,75 +333,153 @@ AssignStmt* LuaGenVisitor::visit(AssignStmt* s)
 	return s;
 }
 
-AddAssignStmt* LuaGenVisitor::visit(AddAssignStmt* s)
+const char* LuaGenVisitor::opAssignOp(AstTag type)
 {
-	throw CompileEx("augmentation assignment unimplemented", s->location);
+	switch(type)
+	{
+		case AstTag_AddAssignStmt:  return "+";
+		case AstTag_SubAssignStmt:  return "-";
+		case AstTag_MulAssignStmt:  return "*";
+		case AstTag_DivAssignStmt:  return "/";
+		case AstTag_ModAssignStmt:  return "%";
+		case AstTag_OrAssignStmt:   return "bit.bor";
+		case AstTag_XorAssignStmt:  return "bit.bxor";
+		case AstTag_AndAssignStmt:  return "bit.band";
+		case AstTag_ShlAssignStmt:  return "bit.lshift";
+		case AstTag_ShrAssignStmt:  return "bit.arshift";
+		case AstTag_UShrAssignStmt: return "bit.rshift";
+		default: break;
+	}
+
+	assert(false);
+	return nullptr;
 }
 
-SubAssignStmt* LuaGenVisitor::visit(SubAssignStmt* s)
+OpAssignStmt* LuaGenVisitor::visitOpAssign(OpAssignStmt* s)
 {
-	throw CompileEx("augmentation assignment unimplemented", s->location);
+	auto dot = AST_AS(DotExp, s->lhs);
+	auto idx = AST_AS(IndexExp, s->lhs);
+
+	if(dot || idx)
+	{
+		mOutput.outputWord(s->lhs->location, "do local __augtmp__, __augidx__ =");
+		VISIT(dot ? dot->op : idx->op);
+		mOutput.outputSymbol(s->lhs->location, ", ");
+		VISIT(dot ? dot->name : idx->index);
+		mOutput.outputSymbol(s->lhs->location, "; ");
+		mOutput.outputWord(s->lhs->location, "__augtmp__[__augidx__] = __augtmp__[__augidx__]");
+		mOutput.outputSymbol(s->rhs->location, opAssignOp(s->type));
+		VISIT(s->rhs);
+		mOutput.outputWord(s->endLocation, "end");
+	}
+	else
+	{
+		VISIT(s->lhs);
+		mOutput.outputSymbol(s->lhs->location, " = ");
+		VISIT(s->lhs);
+		mOutput.outputSymbol(s->rhs->location, opAssignOp(s->type));
+		VISIT(s->rhs);
+	}
+
+	return s;
 }
 
-MulAssignStmt* LuaGenVisitor::visit(MulAssignStmt* s)
+OpAssignStmt* LuaGenVisitor::visitBitOpAssign(OpAssignStmt* s)
 {
-	throw CompileEx("augmentation assignment unimplemented", s->location);
+	auto dot = AST_AS(DotExp, s->lhs);
+	auto idx = AST_AS(IndexExp, s->lhs);
+
+	if(dot || idx)
+	{
+		mOutput.outputWord(s->lhs->location, "do local __augtmp__, __augidx__ =");
+		VISIT(dot ? dot->op : idx->op);
+		mOutput.outputSymbol(s->lhs->location, ", ");
+		VISIT(dot ? dot->name : idx->index);
+		mOutput.outputSymbol(s->lhs->location, "; ");
+		mOutput.outputWord(s->lhs->location, "__augtmp__[__augidx__] = ");
+		mOutput.outputWord(s->rhs->location, opAssignOp(s->type));
+		mOutput.outputWord(s->lhs->location, "(__augtmp__[__augidx__], ");
+		VISIT(s->rhs);
+		mOutput.outputWord(s->endLocation, ") end");
+	}
+	else
+	{
+		VISIT(s->lhs);
+		mOutput.outputSymbol(s->lhs->location, " = ");
+		VISIT(s->lhs);
+		mOutput.outputSymbol(s->rhs->location, opAssignOp(s->type));
+		VISIT(s->rhs);
+	}
+
+	return s;
 }
 
-DivAssignStmt* LuaGenVisitor::visit(DivAssignStmt* s)
-{
-	throw CompileEx("augmentation assignment unimplemented", s->location);
-}
+Statement* LuaGenVisitor::visit(AddAssignStmt* s)  { return visitOpAssign(s); }
+Statement* LuaGenVisitor::visit(SubAssignStmt* s)  { return visitOpAssign(s); }
+Statement* LuaGenVisitor::visit(MulAssignStmt* s)  { return visitOpAssign(s); }
+Statement* LuaGenVisitor::visit(DivAssignStmt* s)  { return visitOpAssign(s); }
+Statement* LuaGenVisitor::visit(ModAssignStmt* s)  { return visitOpAssign(s); }
 
-ModAssignStmt* LuaGenVisitor::visit(ModAssignStmt* s)
-{
-	throw CompileEx("augmentation assignment unimplemented", s->location);
-}
-
-ShlAssignStmt* LuaGenVisitor::visit(ShlAssignStmt* s)
-{
-	throw CompileEx("augmentation assignment unimplemented", s->location);
-}
-
-ShrAssignStmt* LuaGenVisitor::visit(ShrAssignStmt* s)
-{
-	throw CompileEx("augmentation assignment unimplemented", s->location);
-}
-
-UShrAssignStmt* LuaGenVisitor::visit(UShrAssignStmt* s)
-{
-	throw CompileEx("augmentation assignment unimplemented", s->location);
-}
-
-XorAssignStmt* LuaGenVisitor::visit(XorAssignStmt* s)
-{
-	throw CompileEx("augmentation assignment unimplemented", s->location);
-}
-
-OrAssignStmt*  LuaGenVisitor::visit(OrAssignStmt* s)
-{
-	throw CompileEx("augmentation assignment unimplemented", s->location);
-}
-
-AndAssignStmt* LuaGenVisitor::visit(AndAssignStmt* s)
-{
-	throw CompileEx("augmentation assignment unimplemented", s->location);
-}
-
+Statement* LuaGenVisitor::visit(ShlAssignStmt* s)  { return visitBitOpAssign(s); }
+Statement* LuaGenVisitor::visit(ShrAssignStmt* s)  { return visitBitOpAssign(s); }
+Statement* LuaGenVisitor::visit(UShrAssignStmt* s) { return visitBitOpAssign(s); }
+Statement* LuaGenVisitor::visit(XorAssignStmt* s)  { return visitBitOpAssign(s); }
+Statement* LuaGenVisitor::visit(OrAssignStmt* s)   { return visitBitOpAssign(s); }
+Statement* LuaGenVisitor::visit(AndAssignStmt* s)  { return visitBitOpAssign(s); }
 
 Statement* LuaGenVisitor::visit(CondAssignStmt* s)
 {
-	throw CompileEx("augmentation assignment unimplemented", s->location);
+	throw CompileEx("conditional assignment unimplemented", s->location);
 }
 
 IncStmt* LuaGenVisitor::visit(IncStmt* s)
 {
-	throw CompileEx("crements unimplemented", s->location);
+	auto dot = AST_AS(DotExp, s->exp);
+	auto idx = AST_AS(IndexExp, s->exp);
+
+	if(dot || idx)
+	{
+		mOutput.outputWord(s->exp->location, "do local __augtmp__, __augidx__ =");
+		VISIT(dot ? dot->op : idx->op);
+		mOutput.outputSymbol(s->exp->location, ", ");
+		VISIT(dot ? dot->name : idx->index);
+		mOutput.outputSymbol(s->exp->location, "; ");
+		mOutput.outputWord(s->exp->location, "__augtmp__[__augidx__] = __augtmp__[__augidx__] + 1 end");
+	}
+	else
+	{
+		VISIT(s->exp);
+		mOutput.outputSymbol(s->exp->location, " = ");
+		VISIT(s->exp);
+		mOutput.outputWord(s->exp->location, "+ 1");
+	}
+
+	return s;
 }
 
 DecStmt* LuaGenVisitor::visit(DecStmt* s)
 {
-	throw CompileEx("crements unimplemented", s->location);
+	auto dot = AST_AS(DotExp, s->exp);
+	auto idx = AST_AS(IndexExp, s->exp);
+
+	if(dot || idx)
+	{
+		mOutput.outputWord(s->exp->location, "do local __augtmp__, __augidx__ =");
+		VISIT(dot ? dot->op : idx->op);
+		mOutput.outputSymbol(s->exp->location, ", ");
+		VISIT(dot ? dot->name : idx->index);
+		mOutput.outputSymbol(s->exp->location, "; ");
+		mOutput.outputWord(s->exp->location, "__augtmp__[__augidx__] = __augtmp__[__augidx__] - 1 end");
+	}
+	else
+	{
+		VISIT(s->exp);
+		mOutput.outputSymbol(s->exp->location, " = ");
+		VISIT(s->exp);
+		mOutput.outputWord(s->exp->location, "- 1");
+	}
+
+	return s;
 }
 
 Expression* LuaGenVisitor::visit(CondExp* e)
@@ -518,7 +613,7 @@ Expression* LuaGenVisitor::visit(ShlExp* e)
 
 Expression* LuaGenVisitor::visit(ShrExp* e)
 {
-	mOutput.outputWord(e->location, "bit.rshift");
+	mOutput.outputWord(e->location, "bit.arshift");
 	mOutput.outputSymbol(e->location, "(");
 	VISIT(e->op1);
 	mOutput.outputSymbol(e->op1->location, ", ");
@@ -529,7 +624,7 @@ Expression* LuaGenVisitor::visit(ShrExp* e)
 
 Expression* LuaGenVisitor::visit(UShrExp* e)
 {
-	mOutput.outputWord(e->location, "bit.arshift");
+	mOutput.outputWord(e->location, "bit.rshift");
 	mOutput.outputSymbol(e->location, "(");
 	VISIT(e->op1);
 	mOutput.outputSymbol(e->op1->location, ", ");
@@ -619,19 +714,7 @@ Expression* LuaGenVisitor::visit(LenExp* e)
 Expression* LuaGenVisitor::visit(DotExp* e)
 {
 	VISIT(e->op);
-	auto str = AST_AS(StringExp, e->name);
-
-	if(str && isIdent(str->value))
-	{
-		mOutput.outputSymbol(e->name->location, ".");
-		mOutput.outputWord(str->location, str->value);
-	}
-	else
-	{
-		mOutput.outputSymbol(e->name->location, "[");
-		VISIT(e->name);
-		mOutput.outputSymbol(e->name->endLocation, "]");
-	}
+	visitField(e->name);
 	return e;
 }
 
@@ -791,9 +874,6 @@ Expression* LuaGenVisitor::visit(StringExp* e)
 
 	for(dchar c: dcharsOf(e->value))
 	{
-		if(c > 0x7f)
-			throw CompileEx("Unicode chars unimplemented", e->location);
-
 		char buf[8];
 
 		switch(c)
@@ -806,6 +886,9 @@ Expression* LuaGenVisitor::visit(StringExp* e)
 			case '\'': snprintf(buf, 8, "\\\'"); break;
 
 			default:
+				if(c > 0x7f)
+					throw CompileEx("Unicode chars unimplemented", e->location);
+
 				if(iscntrl(c))
 					snprintf(buf, 8, "\\%d", c);
 				else
