@@ -170,7 +170,7 @@ DArray<uint8_t> Compiler::copyArray(DArray<uint8_t> arr)
 	return ret;
 }
 
-int Compiler::compileModule(crocstr src, crocstr name)
+const char* Compiler::compileModule(crocstr src, crocstr name)
 {
 	Lexer lexer(*this);
 	lexer.begin(name, src);
@@ -178,5 +178,5 @@ int Compiler::compileModule(crocstr src, crocstr name)
 	auto mod = parser.parseModule();
 	LuaGenVisitor lua(*this);
 	lua.visit(mod);
-	return 0;
+	return lua.getOutput();
 }

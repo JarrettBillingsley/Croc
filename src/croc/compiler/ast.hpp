@@ -66,7 +66,6 @@ inline void* operator new(uword size, Compiler& c)
 	X(LEExp,                "less-or-equals expression",       Expression)\
 	X(GTExp,                "greater-than expression",         Expression)\
 	X(GEExp,                "greater-or-equals expression",    Expression)\
-	X(Cmp3Exp,              "three-way comparison expression", Expression)\
 	X(ShlExp,               "left-shift expression",           Expression)\
 	X(ShrExp,               "right-shift expression",          Expression)\
 	X(UShrExp,              "unsigned right-shift expression", Expression)\
@@ -795,7 +794,6 @@ struct AndAndExp   : public BinaryExp { BINEXPCTOR(AndAndExp)   };
 struct OrExp       : public BinaryExp { BINEXPCTOR(OrExp)       };
 struct XorExp      : public BinaryExp { BINEXPCTOR(XorExp)      };
 struct AndExp      : public BinaryExp { BINEXPCTOR(AndExp)      };
-struct Cmp3Exp     : public BinaryExp { BINEXPCTOR(Cmp3Exp)     };
 struct ShlExp      : public BinaryExp { BINEXPCTOR(ShlExp)      };
 struct ShrExp      : public BinaryExp { BINEXPCTOR(ShrExp)      };
 struct UShrExp     : public BinaryExp { BINEXPCTOR(UShrExp)     };
@@ -873,10 +871,10 @@ struct CallExp : public PostfixExp
 
 struct MethodCallExp : public PostfixExp
 {
-	Expression* method;
+	Identifier* method;
 	DArray<Expression*> args;
 
-	MethodCallExp(CompileLoc location, CompileLoc endLocation, Expression* op, Expression* method,
+	MethodCallExp(CompileLoc location, CompileLoc endLocation, Expression* op, Identifier* method,
 		DArray<Expression*> args) :
 		PostfixExp(location, endLocation, AstTag_MethodCallExp, op),
 		method(method),
@@ -945,10 +943,12 @@ struct VargIndexExp : public PrimaryExp
 struct IntExp : public PrimaryExp
 {
 	crocint value;
+	NumFormat format;
 
-	IntExp(CompileLoc location, crocint value) :
+	IntExp(CompileLoc location, crocint value, NumFormat format) :
 		PrimaryExp(location, AstTag_IntExp),
-		value(value)
+		value(value),
+		format(format)
 	{}
 };
 

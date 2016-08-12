@@ -30,6 +30,13 @@ struct CompileLoc
 	uword col;
 };
 
+enum class NumFormat
+{
+	Dec,
+	Hex,
+	Bin,
+};
+
 struct CompileEx : public std::exception
 {
 	const char msg[512];
@@ -141,7 +148,7 @@ public:
 	void updateTempArray(DArray<uint8_t> old, DArray<uint8_t> new_);
 	void removeTempArray(DArray<uint8_t> arr);
 	DArray<uint8_t> copyArray(DArray<uint8_t> arr);
-	int compileModule(crocstr src, crocstr name);
+	const char* compileModule(crocstr src, crocstr name);
 
 private:
 	void vexception(CompileLoc loc, const char* exType, const char* msg, va_list args);
@@ -175,6 +182,12 @@ public:
 
 		mData[mIndex] = item;
 		mIndex++;
+	}
+
+	void pop()
+	{
+		assert(mIndex > 0);
+		mIndex--;
 	}
 
 	void add(DArray<T> items)

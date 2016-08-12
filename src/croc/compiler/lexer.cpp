@@ -27,7 +27,7 @@ const char* Token::Strings[] =
 #define IS_DECIMALDIGIT() ((mCharacter >= '0') && (mCharacter <= '9'))
 #define IS_ALPHA() (((mCharacter >= 'a') && (mCharacter <= 'z')) || ((mCharacter >= 'A') && (mCharacter <= 'Z')))
 #define IS_IDENTSTART() (IS_ALPHA() || mCharacter == '_')
-#define IS_IDENTCONT() (IS_IDENTSTART() || IS_DECIMALDIGIT() || mCharacter == '!')
+#define IS_IDENTCONT() (IS_IDENTSTART() || IS_DECIMALDIGIT())
 
 #define IS_WHITESPACE()\
 ((mCharacter == ' ') ||\
@@ -327,7 +327,7 @@ bool Lexer::convertUInt(crocstr str, crocint& ret, uword radix)
 	return true;
 }
 
-bool Lexer::readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret)
+bool Lexer::readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret, NumFormat& format)
 {
 	auto beginning = mLoc;
 	uchar buf[128];
@@ -345,6 +345,8 @@ bool Lexer::readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret)
 
 	bool hasPoint = false;
 
+	format = NumFormat::Dec;
+
 	if(prependPoint)
 	{
 		hasPoint = true;
@@ -360,6 +362,7 @@ bool Lexer::readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret)
 			{
 				case 'b':
 				case 'B': {
+					format = NumFormat::Bin;
 					nextChar();
 
 					if(!IS_BINARYDIGIT() && mCharacter != '_')
@@ -380,6 +383,7 @@ bool Lexer::readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret)
 				}
 				case 'x':
 				case 'X': {
+					format = NumFormat::Hex;
 					nextChar();
 
 					if(!IS_HEXDIGIT() && mCharacter != '_')
@@ -1130,8 +1134,7 @@ void Lexer::nextToken()
 				if(mCharacter == '=')
 				{
 					nextChar();
-					if(mCharacter == '>') NEXT_AND_TOK(Token::Cmp3);
-					else                  TOK(Token::LE);
+					TOK(Token::LE);
 				}
 				else if(mCharacter == '<')
 				{
@@ -1192,7 +1195,7 @@ void Lexer::nextToken()
 				if(IS_DECIMALDIGIT())
 				{
 					crocint dummy;
-					bool b = readNumLiteral(true, mTok.floatValue, dummy);
+					bool b = readNumLiteral(true, mTok.floatValue, dummy, mTok.format);
 					assert(!b);
 #ifdef NDEBUG
 					(void)b;
@@ -1276,7 +1279,7 @@ void Lexer::nextToken()
 				{
 					crocfloat fval;
 					crocint ival;
-					bool isInt = readNumLiteral(false, fval, ival);
+					bool isInt = readNumLiteral(false, fval, ival, mTok.format);
 
 					if(!isInt)
 					{

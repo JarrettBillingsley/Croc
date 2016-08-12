@@ -19,6 +19,8 @@ set(croc_SRC
 	croc/compiler/lexer.hpp
 	croc/compiler/luagenvisitor.cpp
 	croc/compiler/luagenvisitor.hpp
+	croc/compiler/luaoutput.cpp
+	croc/compiler/luaoutput.hpp
 	croc/compiler/parser.cpp
 	croc/compiler/parser.hpp
 	croc/compiler/types.hpp

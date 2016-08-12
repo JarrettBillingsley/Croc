@@ -26,7 +26,10 @@ int main()
 	try
 	{
 		Compiler c;
-		c.compileModule(atoda(src), ATODA("test.croc"));
+		auto out = c.compileModule(atoda(src), ATODA("test.croc"));
+		FILE* o = fopen("../test.lua", "w");
+		fwrite(cast(void*)out, strlen(out), 1, o);
+		fclose(o);
 		return 0;
 	}
 	catch(CompileEx& e)

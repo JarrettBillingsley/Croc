@@ -148,6 +148,11 @@ struct DArray
 		return ptr[idx];
 	}
 
+	inline T& last()
+	{
+		return (*this)[length - 1];
+	}
+
 	inline void slicea(DArray<const T> src)
 	{
 		slicea(0, length, src);

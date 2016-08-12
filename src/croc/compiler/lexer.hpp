@@ -40,7 +40,6 @@
 	X(Dec,           "--")\
 	X(Cat,           "~")\
 	X(CatEq,         "~=")\
-	X(Cmp3,          "<=>")\
 	X(Mul,           "*")\
 	X(MulEq,         "*=")\
 	X(DefaultEq,     "?=")\
@@ -121,6 +120,8 @@ struct Token
 		crocfloat floatValue;
 	};
 
+
+	NumFormat format;
 	CompileLoc loc;
 	crocstr preComment;
 	crocstr postComment;
@@ -232,7 +233,7 @@ private:
 	void nextLine(bool readMultiple = true);
 	bool convertInt(crocstr str, crocint& ret, uword radix);
 	bool convertUInt(crocstr str, crocint& ret, uword radix);
-	bool readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret);
+	bool readNumLiteral(bool prependPoint, crocfloat& fret, crocint& iret, NumFormat& format);
 	uint32_t readHexDigits(uword num);
 	crocchar readEscapeSequence(CompileLoc beginning);
 	crocstr readStringLiteral(bool escape);

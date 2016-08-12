@@ -1,24 +1,33 @@
 #ifndef CROC_COMPILER_LUAGENVISITOR_HPP
 #define CROC_COMPILER_LUAGENVISITOR_HPP
 
+#include <functional>
+
 #include "croc/compiler/astvisitor.hpp"
+#include "croc/compiler/luaoutput.hpp"
 #include "croc/compiler/types.hpp"
 
 class LuaGenVisitor : public IdentityVisitor
 {
 private:
 	uword mDummyNameCounter = 0;
+	LuaOutput mOutput;
 
 public:
 	LuaGenVisitor(Compiler& c) :
 		IdentityVisitor(c),
-		mDummyNameCounter(0)
+		mDummyNameCounter(0),
+		mOutput(c)
 	{}
 
 	using AstVisitor::visit;
 
 	bool isTopLevel() { return true; }
 	Identifier* genDummyVar(CompileLoc loc, const char* fmt);
+	const char* getOutput();
+	bool isIdent(crocstr id);
+	template<typename T> void visitList(DArray<T> vals);
+	void visitArgs(CompileLoc& loc, DArray<Expression*> args);
 
 	virtual FuncDef* visit(FuncDef* d) override;
 	virtual Statement* visit(ImportStmt* s) override;
@@ -67,7 +76,6 @@ public:
 	virtual Expression* visit(LEExp* e) override;
 	virtual Expression* visit(GTExp* e) override;
 	virtual Expression* visit(GEExp* e) override;
-	virtual Expression* visit(Cmp3Exp* e) override;
 	virtual Expression* visit(ShlExp* e) override;
 	virtual Expression* visit(ShrExp* e) override;
 	virtual Expression* visit(UShrExp* e) override;
@@ -91,6 +99,15 @@ public:
 	virtual TableCtorExp* visit(TableCtorExp* e) override;
 	virtual ArrayCtorExp* visit(ArrayCtorExp* e) override;
 	virtual YieldExp* visit(YieldExp* e) override;
+
+	virtual Expression* visit(IdentExp* e) override;
+	virtual Expression* visit(ThisExp* e) override;
+	virtual Expression* visit(NullExp* e) override;
+	virtual Expression* visit(BoolExp* e) override;
+	virtual Expression* visit(VarargExp* e) override;
+	virtual Expression* visit(IntExp* e) override;
+	virtual Expression* visit(FloatExp* e) override;
+	virtual Expression* visit(StringExp* e) override;
 };
 
 #endif

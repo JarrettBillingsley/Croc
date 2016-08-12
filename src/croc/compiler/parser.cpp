@@ -573,7 +573,7 @@ Statement* Parser::parseForStmt()
 			step = parseExpression();
 		}
 		else
-			step = new(c) IntExp(l.loc(), 1);
+			step = new(c) IntExp(l.loc(), 1, NumFormat::Dec);
 
 		l.expect(Token::RParen);
 
@@ -1173,12 +1173,6 @@ Expression* Parser::parseCmpExp()
 			exp1 = new(c) GEExp(location, exp2->endLocation, exp1, exp2);
 			break;
 
-		case Token::Cmp3:
-			l.next();
-			exp2 = parseShiftExp();
-			exp1 = new(c) Cmp3Exp(location, exp2->endLocation, exp1, exp2);
-			break;
-
 		default:
 			break;
 	}
@@ -1421,7 +1415,7 @@ VarargExp* Parser::parseVarargExp()
 IntExp* Parser::parseIntExp()
 {
 	auto tok = l.expect(Token::IntLiteral);
-	return new(c) IntExp(tok.loc, tok.intValue);
+	return new(c) IntExp(tok.loc, tok.intValue, tok.format);
 }
 
 FloatExp* Parser::parseFloatExp()
@@ -1609,6 +1603,21 @@ Expression* Parser::parsePostfixExp(Expression* exp)
 				}
 				continue;
 
+			case Token::Colon: {
+				l.next();
+				auto name = parseIdentifier();
+				l.expect(Token::LParen);
+
+				auto args = DArray<Expression*>();
+
+				if(l.type() != Token::RParen)
+					args = parseArguments();
+
+				auto endLocation = l.expect(Token::RParen).loc;
+				exp = new(c) MethodCallExp(exp->location, endLocation, exp, name, args);
+				continue;
+			}
+
 			case Token::LParen: {
 				if(exp->endLocation.line != l.loc().line)
 					return exp;
@@ -1621,11 +1630,7 @@ Expression* Parser::parsePostfixExp(Expression* exp)
 					args = parseArguments();
 
 				auto endLocation = l.expect(Token::RParen).loc;
-
-				// if(auto dot = AST_AS(DotExp, exp))
-				// 	exp = new(c) MethodCallExp(dot->location, endLocation, dot->op, dot->name, args);
-				// else
-					exp = new(c) CallExp(endLocation, exp, args);
+				exp = new(c) CallExp(endLocation, exp, args);
 				continue;
 			}
 			case Token::LBracket: {
@@ -1725,9 +1730,5 @@ Expression* Parser::decoToExp(Decorator* dec, Expression* exp)
 
 	args.add(dec->args);
 	auto argsArray = args.toArray();
-
-	// if(auto f = AST_AS(DotExp, dec->func))
-	// 	return new(c) MethodCallExp(dec->location, dec->endLocation, f->op, f->name, argsArray);
-	// else
-		return new(c) CallExp(dec->endLocation, dec->func, argsArray);
+	return new(c) CallExp(dec->endLocation, dec->func, argsArray);
 }
