@@ -25,104 +25,104 @@ Expressions
 ===========
 
 Trivial
-	and, or, not
-	==, !=, <, <=, >, >=
-	#, - (neg)
-	+, -, *, /, %, ~ (cat)
-	{x=5}
-	[5]
-	a[e]
-	a.x, a.('x')
-	null
-	true, false
-	f()
-	\x -> x, \->{}
-	x
-	vararg
+	`and, or, not`
+	`==, !=, <, <=, >, >=`
+	`#, - (neg)`
+	`+, -, *, /, %, ~ (cat)`
+	`{x=5}`
+	`[5]`
+	`a[e]`
+	`a.x, a.('x')`
+	`null`
+	`true, false`
+	`f()`
+	`\x -> x, \->{}`
+	`x`
+	`vararg`
 
 Pretty easy
-	is, is not
+	`is, is not`
 		=> just sugar for == and !=
-	this
-		=> self
-	:x, :('x')
-		=> self.x, self['x']
-	#vararg
-		=> select('#', vararg)
-	vararg[i] (rhs)
-		=> select(i, vararg)
-	yield()
-		=> coroutine.yield()
+	`this`
+		=> `self`
+	`:x, :('x')`
+		=> `self.x, self['x']`
+	`#vararg`
+		=> `select('#', vararg)`
+	`vararg[i]` (rhs)
+		=> `select(i, vararg)`
+	`yield()`
+		=> `coroutine.yield()`
 
 Require some considerable translation
-	x ? y : z
-		=> don't even know.. "x and y or z" not an exact translation (gives z if x and y are false)
-	function name() {}
-		=> define function as a local before that line... but could conflict with other locals.
-	{ x foreach x, y; z }, [ x foreach x, y; z ]
+	`x ? y : z`
+		=> don't even know.. `x and y or z` not an exact translation (gives z if x and y are false)
+	`function name() {}` (as a literal)
+		=> define function as a local before that line... but could conflict with other locals?
+	`{ x foreach x, y; z }, [ x foreach x, y; z ]`
 		=> YEESH.
 
 Require a library
-	&, |, ^, ~ (com), <<, >>, >>>
-		=> bit.band, bit.bor, bit.bxor, bit.bnot, bit.lshift, bit.rshift, bit.arshift
+	`&, |, ^, ~ (com), <<, >>, >>>`
+		=> `bit.band, bit.bor, bit.bxor, bit.bnot, bit.lshift, bit.rshift, bit.arshift`
 
 What????
-	vararg[i] (lhs)
+	`vararg[i]` (lhs)
 		=> illegal
-	a[], a[x .. y]
+	`a[], a[x .. y]`
 		=> nonsensical, no concept of slicing
-	in, not in
+	`in, not in`
 		=> could be translated to some function like "contains" but there's no standard
-	as
+	`as`
 		=> nonsensical
 
 Statements
 ==========
 
 Trivial
-	if(e) {} else {}
-	for(i; x .. y[, z]) {}
-	foreach(x, y; a, b, c)
-	local x
-	x = y
-	x, y = z, w
-	break
-	while(e) {}
-	{}
-	return
-	function f() {}
+	`if(e) {} else {}`
+	`for(i; x .. y[, z]) {}`
+	`foreach(x, y; a, b, c)`
+	`local x`
+	`x = y`
+	`x, y = z, w`
+	`break`
+	`while(e) {}`
+	`{}`
+	`return`
+	`function f() {}`
 		=> would be good to add function o.x() and function o:x() syntax as well
 
 Pretty easy
-	do {} while(e)
-		=> repeat ... until not e
-	throw e
-		=> error(e)
+	`do {} while(e)`
+		=> `repeat ... until not e`
+	`throw e`
+		=> `error(e)`
 
 Require some considerable translation
-	import n [as m][: a as b]
-		=> local temp_ = require(n); then extract locals from temp_
-	@deco function f() {}
+	`import n [as m][: a as b]`
+		=> `local temp_ = require(n);` then extract locals from `temp_`
+	`@deco function f() {}`
 		=> basically translate to what's really happening
-	for(init; cond; upd) {}
+	`for(init; cond; upd) {}`
 		=> translate to what's really happening
 	augmentation assigment and crements
 		=> complex LHS (e.g. a[4].y++) requires generating a temp; basically what codegen does
+	`if(local x = e) {} else {}`
+		=> could do it as a more complex thing, like... `local _temp = e; if _temp then local x = _temp; ... else ... end`
 
 MAYBE if using 5.2 or LuaJit 2.0.1+
-	continue, while name(e) {}, break name, continue name
+	`continue, while name(e) {}, break name, continue name`
 		=> gotos
 
 What????
-	try{}catch(e){}finally{}, scope(action) {}
+	`try{}catch(e){}finally{}, scope(action) {}`
 		=> Lua's error mechanism works differently
-	global x
+	`global x`
 		=> no global mechanism, though I suppose it could call a function or something
-	switch(e) { case .. default .. }
+	`switch(e) { case .. default .. }`
 		=> no way to translate this, especially with fallthrough
-	if(local x = e) {} else {}
-		=> "do local x = e; if x then ... end end" is not exact; if(){}else if(local x = y){} impossible
-	assert(e)
+	`assert(e)`
 		=> take it out, since assert() is a function in Lua and is commonly used as the RHS
-	module m, class C {}, namespace N {}
+	`module m, class C {}, namespace N {}`
 		=> no equivalent
